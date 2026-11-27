@@ -3,6 +3,7 @@
 #include "fileoperations.h"
 
 #include "executables.h"
+#include "foldergates.h"
 #include "librarymovetracker.h"
 #include "settings.h"
 #include "symlinks.h"
@@ -21,11 +22,13 @@
 #include <KIO/SimpleJob>
 #include <KJobWidgets>
 #include <KLocalizedString>
+#include <KMessageBox>
 #include <KPropertiesDialog>
 #include <KTerminalLauncherJob>
 
 #include <QApplication>
 #include <QClipboard>
+#include <QDir>
 #include <QDropEvent>
 #include <QFileInfo>
 #include <QMimeData>
@@ -33,12 +36,93 @@
 #include <QProcess>
 #include <QStandardPaths>
 
+#include <sys/stat.h>
+
 namespace
 {
 void attachWindow(KJob *job, QWidget *window)
 {
     job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, window));
     KJobWidgets::setWindow(job, window);
+}
+
+/**
+ * Whether a transfer is refused because a source is, is inside or contains a
+ * locked password-gated folder, or the destination is inside one; reports
+ * the refusal. Copies, the trash and folders outside Plasma Opus would
+ * otherwise show the contents without the password.
+ */
+bool refusedByGates(const QList<QUrl> &sources, const QUrl &destination, QWidget *window)
+{
+    const FolderGates *gates = FolderGates::instance();
+    if (!gates->hasLocked()) {
+        return false;
+    }
+    const bool refused = (destination.isValid() && gates->isLocked(destination)) || std::any_of(sources.cbegin(), sources.cend(), [gates](const QUrl &url) {
+                             return gates->touchesLocked(url);
+                         });
+    if (refused) {
+        KMessageBox::error(window,
+                           i18nc("@info",
+                                 "Items in or containing a folder that is protected with a password cannot be copied, moved or deleted until the folder "
+                                 "is unlocked."),
+                           i18nc("@title:window", "Folder Is Locked"));
+    }
+    return refused;
+}
+
+/// Moves password gates along with folders that a move job moves.
+void trackGateMoves(KIO::CopyJob *job)
+{
+    if (!job || job->operationMode() != KIO::CopyJob::Move || FolderGates::instance()->folders().isEmpty()) {
+        return;
+    }
+    QObject::connect(job,
+                     &KIO::CopyJob::copyingDone,
+                     FolderGates::instance(),
+                     [](KIO::Job *, const QUrl &from, const QUrl &to, const QDateTime &, bool directory) {
+                         if (directory && from.isLocalFile() && to.isLocalFile()) {
+                             FolderGates::instance()->relocate(from.toLocalFile(), to.toLocalFile());
+                         }
+                     });
+}
+
+QString fileIdentity(const QString &path)
+{
+    struct stat info{};
+    if (::lstat(QFile::encodeName(path).constData(), &info) != 0) {
+        return {};
+    }
+    return QString::number(info.st_dev) + u':' + QString::number(info.st_ino);
+}
+
+/// Moves password gates along with folders that a rename dialog renames, matched by device and inode.
+void trackGateRenames(KIO::RenameFileDialog *dialog, const KFileItemList &items)
+{
+    const QStringList gates = FolderGates::instance()->folders();
+    QHash<QString, QString> sources;
+    for (const KFileItem &item : items) {
+        const QString path = FolderGates::canonicalPath(FolderGates::localPath(item.url()));
+        const bool hasGate = !path.isEmpty() && std::any_of(gates.cbegin(), gates.cend(), [&path](const QString &gate) {
+            return gate == path || gate.startsWith(path + u'/');
+        });
+        if (hasGate) {
+            sources.insert(fileIdentity(path), path);
+        }
+    }
+    sources.remove(QString());
+    if (sources.isEmpty()) {
+        return;
+    }
+    QObject::connect(dialog, &KIO::RenameFileDialog::renamingFinished, FolderGates::instance(), [sources](const QList<QUrl> &urls) {
+        for (const QUrl &url : urls) {
+            const QString path = FolderGates::localPath(url);
+            const QString from = path.isEmpty() ? QString() : sources.value(fileIdentity(path));
+            if (!from.isEmpty()) {
+                FolderGates::instance()->relocate(from, path);
+            }
+        }
+    });
 }
 }
 
@@ -73,7 +157,7 @@ TransferQueue *FileOperations::transferQueue()
 
 KJob *FileOperations::copy(const QList<QUrl> &sources, const QUrl &destination, QWidget *window)
 {
-    if (sources.isEmpty() || !destination.isValid()) {
+    if (sources.isEmpty() || !destination.isValid() || refusedByGates(sources, destination, window)) {
         return nullptr;
     }
     const QPointer<QWidget> safeWindow(window);
@@ -93,7 +177,7 @@ KJob *FileOperations::copy(const QList<QUrl> &sources, const QUrl &destination, 
 
 KJob *FileOperations::move(const QList<QUrl> &sources, const QUrl &destination, QWidget *window)
 {
-    if (sources.isEmpty() || !destination.isValid()) {
+    if (sources.isEmpty() || !destination.isValid() || refusedByGates(sources, destination, window)) {
         return nullptr;
     }
     const QPointer<QWidget> safeWindow(window);
@@ -108,13 +192,14 @@ KJob *FileOperations::move(const QList<QUrl> &sources, const QUrl &destination, 
             attachWindow(job, safeWindow);
             KIO::FileUndoManager::self()->recordCopyJob(job);
             LibraryMoveTracker::instance()->trackCopyJob(job);
+            trackGateMoves(job);
             return job;
         });
 }
 
 KJob *FileOperations::trash(const QList<QUrl> &urls, QWidget *window)
 {
-    if (urls.isEmpty()) {
+    if (urls.isEmpty() || refusedByGates(urls, QUrl(), window)) {
         return nullptr;
     }
     auto *job = new KIO::DeleteOrTrashJob(urls, KIO::AskUserActionInterface::Trash, KIO::AskUserActionInterface::DefaultConfirmation, window);
@@ -124,7 +209,7 @@ KJob *FileOperations::trash(const QList<QUrl> &urls, QWidget *window)
 
 KJob *FileOperations::deletePermanently(const QList<QUrl> &urls, QWidget *window)
 {
-    if (urls.isEmpty()) {
+    if (urls.isEmpty() || refusedByGates(urls, QUrl(), window)) {
         return nullptr;
     }
     auto *job = new KIO::DeleteOrTrashJob(urls, KIO::AskUserActionInterface::Delete, KIO::AskUserActionInterface::DefaultConfirmation, window);
@@ -140,6 +225,7 @@ void FileOperations::rename(const KFileItemList &items, QWidget *window)
     auto *dialog = new KIO::RenameFileDialog(items, window);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     LibraryMoveTracker::instance()->trackRenameDialog(dialog, items);
+    trackGateRenames(dialog, items);
     dialog->show();
 }
 
@@ -174,9 +260,14 @@ bool FileOperations::paste(const QUrl &destination, QWidget *window)
     if (!enabled) {
         return false;
     }
+    if (refusedByGates(mimeData->urls(), destination, window)) {
+        // The refusal is reported, so callers do not report it again.
+        return true;
+    }
     KIO::PasteJob *job = KIO::paste(mimeData, destination);
     attachWindow(job, window);
     QObject::connect(job, &KIO::PasteJob::copyJobStarted, LibraryMoveTracker::instance(), &LibraryMoveTracker::trackCopyJob);
+    QObject::connect(job, &KIO::PasteJob::copyJobStarted, FolderGates::instance(), &trackGateMoves);
     return true;
 }
 
@@ -216,6 +307,9 @@ void FileOperations::open(const KFileItem &item, QWidget *window)
 
 KIO::DropJob *FileOperations::drop(const QDropEvent *event, const QUrl &destination, QWidget *window)
 {
+    if (refusedByGates(event->mimeData() ? event->mimeData()->urls() : QList<QUrl>(), destination, window)) {
+        return nullptr;
+    }
     const auto setting = Settings::dropAction();
     const bool modifierHeld = event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier | Qt::AltModifier);
     KIO::DropJob *job = nullptr;
@@ -229,11 +323,16 @@ KIO::DropJob *FileOperations::drop(const QDropEvent *event, const QUrl &destinat
     }
     KJobWidgets::setWindow(job, window);
     QObject::connect(job, &KIO::DropJob::copyJobStarted, LibraryMoveTracker::instance(), &LibraryMoveTracker::trackCopyJob);
+    QObject::connect(job, &KIO::DropJob::copyJobStarted, FolderGates::instance(), &trackGateMoves);
     return job;
 }
 
 void FileOperations::openTerminal(const QUrl &folder, QWidget *window)
 {
+    if (FolderGates::instance()->isLocked(folder)) {
+        KMessageBox::error(window, i18nc("@info", "A terminal cannot be opened in a folder that is protected with a password until it is unlocked."));
+        return;
+    }
     auto *job = new KTerminalLauncherJob(QString());
     job->setWorkingDirectory(folder.isLocalFile() ? folder.toLocalFile() : QString());
     job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, window));

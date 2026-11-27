@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "terminalpanel.h"
+#include "foldergates.h"
 
 #include "atuin.h"
 #include "settings.h"
@@ -365,6 +366,10 @@ void TerminalPanel::follow(const QUrl &folder)
     const QFileInfo info(folder.toLocalFile());
     if (!folder.isLocalFile() || !info.isAbsolute() || !info.isDir()) {
         setStatus(i18nc("@info", "The active folder is not an existing local folder. The terminal has not changed."));
+        return;
+    }
+    if (FolderGates::instance()->isLocked(folder)) {
+        setStatus(i18nc("@info", "The active folder is protected with a password. The terminal has not changed."));
         return;
     }
     const QString path = QDir::cleanPath(info.absoluteFilePath());

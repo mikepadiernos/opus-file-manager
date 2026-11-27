@@ -13,6 +13,7 @@
 #include "fileoperations.h"
 #include "flatview.h"
 #include "foldercolors.h"
+#include "foldergates.h"
 #include "foldermetadata.h"
 #include "ignorelist.h"
 #include "labelcolor.h"
@@ -174,6 +175,25 @@ public:
         beginFilterChange();
         m_filter = filter;
         endFilterChange(QSortFilterProxyModel::Direction::Rows);
+    }
+
+    /// Hides every row while the shown folder is a locked password-gated folder or inside one.
+    void setGateBlocked(bool blocked)
+    {
+        beginFilterChange();
+        m_gateBlocked = blocked;
+        endFilterChange(QSortFilterProxyModel::Direction::Rows);
+    }
+
+    /// Filters rows again after password-gated folders are locked or unlocked.
+    void refreshGates()
+    {
+        beginFilterChange();
+        endFilterChange(QSortFilterProxyModel::Direction::Rows);
+        const int rows = rowCount();
+        if (rows > 0) {
+            Q_EMIT dataChanged(index(0, 0), index(rows - 1, 0), {Qt::DecorationRole});
+        }
     }
 
     /// Hides folders and shows relative paths in the Type column; an empty URL ends flat mode.
@@ -466,6 +486,10 @@ public:
         const QVariant value = KDirSortFilterProxyModel::data(index, role);
         if (role == Qt::DecorationRole && value.typeId() == QMetaType::QIcon) {
             const KFileItem item = itemAt(index);
+            // A locked password-gated folder shows a lock rather than a preview of its contents.
+            if (FolderGates::instance()->isLockedGateItem(item)) {
+                return SymbolicIcon::wrap(QIcon::fromTheme(QStringLiteral("folder-locked"), value.value<QIcon>()), QStringLiteral("folder-locked"), {});
+            }
             const QIcon icon = FolderColors::decorate(SymbolicIcon::wrap(value.value<QIcon>(), item.iconName(), item.overlays()), item);
             if (Settings::showFilePins() && metadataForItem(item).value(QStringLiteral("pins")).toArray().contains(item.name())) {
                 return KIconUtils::addOverlays(icon, {QStringLiteral("emblem-favorite")});
@@ -503,9 +527,15 @@ protected:
         if (!KDirSortFilterProxyModel::filterAcceptsRow(sourceRow, sourceParent)) {
             return false;
         }
+        if (m_gateBlocked) {
+            return false;
+        }
         const auto *model = static_cast<const KDirModel *>(sourceModel());
         const KFileItem item = model->itemForIndex(model->index(sourceRow, 0, sourceParent));
         if (m_flatBase.isValid() && item.isDir()) {
+            return false;
+        }
+        if (FolderGates::instance()->hidesItem(item)) {
             return false;
         }
         const QString name = item.name();
@@ -634,6 +664,7 @@ private:
     }
 
     QUrl m_flatBase;
+    bool m_gateBlocked = false;
     NameFilter m_filter;
     IgnoreList m_ignoreList;
     FileColorRules m_fileColors;
@@ -937,6 +968,7 @@ FolderView::FolderView(QWidget *parent)
     m_selectionBar->hide();
     layout->addWidget(m_selectionBar);
 
+    connect(FolderGates::instance(), &FolderGates::changed, this, &FolderView::updateGates);
     connect(m_lister, &KDirLister::started, this, [this](const QUrl &url) {
         if (m_historyExpanding) {
             m_historyListingJobs.insert(url.adjusted(QUrl::StripTrailingSlash));
@@ -1122,11 +1154,40 @@ void FolderView::setUrl(const QUrl &url)
 
 void FolderView::openListing()
 {
+    // A locked password-gated folder is not listed at all, so nothing inside
+    // it is read, counted or previewed until it is unlocked.
+    m_gateBlocked = FolderGates::instance()->isLocked(m_folder);
+    m_proxy->setGateBlocked(m_gateBlocked);
+    applyPreviewPlugins();
+    if (m_gateBlocked) {
+        m_lister->stop();
+        Q_EMIT itemCountChanged();
+        return;
+    }
     m_lister->openUrl(m_flat ? FlatView::listingUrl(m_folder) : m_folder);
+}
+
+bool FolderView::isGateLocked() const
+{
+    return m_gateBlocked;
+}
+
+void FolderView::updateGates()
+{
+    m_proxy->refreshGates();
+    if (FolderGates::instance()->isLocked(m_folder) != m_gateBlocked) {
+        openListing();
+    } else {
+        applyPreviewPlugins();
+    }
+    Q_EMIT itemCountChanged();
 }
 
 void FolderView::reload()
 {
+    if (m_gateBlocked) {
+        return;
+    }
     cancelFolderSizeJobs();
     if (m_lister->url().isValid()) {
         m_lister->openUrl(m_lister->url(), KDirLister::Reload);
@@ -1274,12 +1335,40 @@ bool FolderView::previewsShown() const
 
 void FolderView::setPreviewPlugins(const QStringList &plugins)
 {
-    m_previews->setEnabledPlugins(plugins);
+    m_previewPlugins = plugins;
+    applyPreviewPlugins();
 }
 
 QStringList FolderView::previewPlugins() const
 {
-    return m_previews->enabledPlugins();
+    return m_previewPlugins.value_or(m_previews->enabledPlugins());
+}
+
+void FolderView::applyPreviewPlugins()
+{
+    if (!m_previews) {
+        return;
+    }
+    // Folder thumbnails show the files inside a folder, so they are turned
+    // off while a locked password-gated folder lies below the shown folder.
+    const QStringList gates = FolderGates::instance()->lockedWithin(m_folder);
+    const QString shown = FolderGates::canonicalPath(FolderGates::localPath(m_folder));
+    const bool hideFolderThumbnails = std::any_of(gates.cbegin(), gates.cend(), [&shown](const QString &gate) {
+        return gate != shown;
+    });
+    if (!m_previewPlugins && !hideFolderThumbnails) {
+        return;
+    }
+    if (!m_previewPlugins) {
+        m_previewPlugins = m_previews->enabledPlugins();
+    }
+    QStringList plugins = *m_previewPlugins;
+    if (hideFolderThumbnails) {
+        plugins.removeAll(QStringLiteral("directorythumbnail"));
+    }
+    if (plugins != m_previews->enabledPlugins()) {
+        m_previews->setEnabledPlugins(plugins);
+    }
 }
 
 void FolderView::setIconSizes(int details, int icons)
@@ -1374,16 +1463,12 @@ void FolderView::updatePreviews()
         m_previews->setPreviewShown(shown);
         return;
     }
-    std::optional<QStringList> plugins;
     if (m_previews) {
-        plugins = m_previews->enabledPlugins();
         m_previews->setPreviewShown(false);
         delete m_previews;
     }
     m_previews = new KFilePreviewGenerator(view);
-    if (plugins) {
-        m_previews->setEnabledPlugins(*plugins);
-    }
+    applyPreviewPlugins();
     if (shown) {
         m_previews->updateIcons();
     } else {
@@ -1393,12 +1478,12 @@ void FolderView::updatePreviews()
 
 KFileItem FolderView::rootItem() const
 {
-    return m_flat ? KFileItem(m_folder) : m_lister->rootItem();
+    return m_flat || m_gateBlocked ? KFileItem(m_folder) : m_lister->rootItem();
 }
 
 KFileItemList FolderView::items() const
 {
-    return m_lister->items();
+    return m_gateBlocked ? KFileItemList() : m_lister->items();
 }
 
 KFileItemList FolderView::itemsInViewOrder() const

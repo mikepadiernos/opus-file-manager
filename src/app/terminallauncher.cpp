@@ -3,6 +3,7 @@
 #include "terminallauncher.h"
 
 #include "fileoperations.h"
+#include "foldergates.h"
 
 #include <KIO/CommandLauncherJob>
 #include <KLocalizedString>
@@ -125,6 +126,10 @@ void TerminalLauncher::open(Provider provider, const QUrl &folder, QWidget *wind
     const QString directory = TerminalProviders::localDirectory(folder);
     if (directory.isEmpty()) {
         report(i18nc("@info:status", "Terminals can only start in an existing local folder."));
+        return;
+    }
+    if (FolderGates::instance()->isLocked(folder) || FolderGates::instance()->isLocked(QUrl::fromLocalFile(directory))) {
+        report(i18nc("@info:status", "Terminals cannot start in a folder that is protected with a password until it is unlocked."));
         return;
     }
     if (provider == Provider::SystemDefault) {

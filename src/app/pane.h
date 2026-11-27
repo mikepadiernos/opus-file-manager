@@ -318,6 +318,7 @@ private:
     void showFolderItem(const QUrl &folder, const QUrl &item);
     void syncTabBar();
     void updateBreadcrumbs(const QUrl &url);
+    void updateGateBar(const QUrl &url);
     void updateTabStripVisibility();
     void updateNavigationLayout();
     void configureToolbar();
@@ -342,6 +343,7 @@ private:
     QWidget *m_navigationBar = nullptr;
     /// Warns while the current tab lists an admin: folder.
     KMessageWidget *m_adminBar = nullptr;
+    KMessageWidget *m_gateBar = nullptr;
     QBoxLayout *m_navigationLayout = nullptr;
     QWidget *m_statusBarWidget = nullptr;
     KUrlNavigator *m_navigator = nullptr;

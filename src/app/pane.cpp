@@ -9,6 +9,8 @@
 #include "filetypeplaces.h"
 #include "filterbar.h"
 #include "foldercolors.h"
+#include "foldergatedialog.h"
+#include "foldergates.h"
 #include "folderview.h"
 #include "settings.h"
 #include "symbolicicon.h"
@@ -332,6 +334,26 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     m_adminBar->addAction(stopAdmin);
     m_adminBar->hide();
     m_layout->addWidget(m_adminBar);
+    m_gateBar = new KMessageWidget(this);
+    m_gateBar->setObjectName(QStringLiteral("gateBar"));
+    m_gateBar->setMessageType(KMessageWidget::Information);
+    m_gateBar->setIcon(SymbolicIcon::fromTheme(QStringLiteral("folder-locked")));
+    m_gateBar->setWordWrap(true);
+    m_gateBar->setCloseButtonVisible(false);
+    auto *unlockGate = new QAction(SymbolicIcon::fromTheme(QStringLiteral("object-unlocked")), i18nc("@action:button", "Unlock…"), m_gateBar);
+    unlockGate->setObjectName(QStringLiteral("unlockGate"));
+    connect(unlockGate, &QAction::triggered, this, [this] {
+        const QString gate = FolderGates::instance()->lockedGateFor(url());
+        if (!gate.isEmpty()) {
+            FolderGateDialog::unlock(this, gate);
+        }
+    });
+    m_gateBar->addAction(unlockGate);
+    m_gateBar->hide();
+    m_layout->addWidget(m_gateBar);
+    connect(FolderGates::instance(), &FolderGates::changed, this, [this] {
+        updateGateBar(url());
+    });
     m_layout->addWidget(m_view, 1);
     m_yaziColumns = new YaziColumns(this);
     m_yaziColumns->hide();
@@ -416,6 +438,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
         m_navigator->setLocationUrl(url);
         updateBreadcrumbs(url);
         m_adminBar->setVisible(AdminMode::isAdminUrl(url));
+        updateGateBar(url);
         if (m_view->url() == url && !m_pendingViewState.valid) {
             m_view->clearSelection();
             m_view->currentView()->verticalScrollBar()->setValue(0);
@@ -870,6 +893,20 @@ void Pane::setDefaultLocationPresentation(LocationPresentation presentation)
 Pane::LocationPresentation Pane::defaultLocationPresentation() const
 {
     return m_defaultLocationPresentation;
+}
+
+void Pane::updateGateBar(const QUrl &url)
+{
+    const QString gate = FolderGates::instance()->lockedGateFor(url);
+    if (gate.isEmpty()) {
+        m_gateBar->hide();
+        return;
+    }
+    const QString name = QFileInfo(gate).fileName();
+    m_gateBar->setText(FolderGates::localPath(url) == gate || FolderGates::canonicalPath(FolderGates::localPath(url)) == gate
+                           ? xi18nc("@info", "<filename>%1</filename> is protected with a password.", name)
+                           : xi18nc("@info", "This folder is inside <filename>%1</filename>, which is protected with a password.", name));
+    m_gateBar->show();
 }
 
 void Pane::updateBreadcrumbs(const QUrl &url)

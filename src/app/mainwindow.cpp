@@ -44,6 +44,8 @@
 #include "filetypeplaces.h"
 #include "foldercolors.h"
 #include "foldercomparisondialog.h"
+#include "foldergatedialog.h"
+#include "foldergates.h"
 #include "foldermetadata.h"
 #include "foldersyncdialog.h"
 #include "foldertree.h"
@@ -459,6 +461,27 @@ QString labelText(LabelColor color)
         return i18nc("@item:inmenu label colour", "None");
     }
     return {};
+}
+
+/**
+ * The canonical local folder that password protection actions apply to: the
+ * single selected folder, the locked password-gated folder that hides the
+ * shown folder, or the shown folder when nothing is selected.
+ */
+QString passwordFolder(Pane *pane)
+{
+    const KFileItemList selected = pane->view()->selectedItems();
+    QUrl url;
+    if (selected.size() == 1 && selected.first().isDir()) {
+        url = selected.first().url();
+    } else if (selected.isEmpty()) {
+        if (const QString gate = FolderGates::instance()->lockedGateFor(pane->url()); !gate.isEmpty()) {
+            return gate;
+        }
+        url = pane->url();
+    }
+    const QString path = FolderGates::localPath(url);
+    return path.isEmpty() ? QString() : FolderGates::canonicalPath(path);
 }
 
 QList<QUrl> urlsOf(const KFileItemList &items)
@@ -3045,6 +3068,35 @@ void MainWindow::setupActions()
     actAsAdmin->setToolTip(i18nc("@info:tooltip", "Open the current local folder with administrator rights through KIO's admin worker"));
     actions->addAction(QStringLiteral("act_as_admin"), actAsAdmin);
     connect(actAsAdmin, &KToggleAction::triggered, this, &MainWindow::setActingAsAdministrator);
+    QAction *protectFolder = actions->addAction(QStringLiteral("protect_folder"), this, [this] {
+        FolderGateDialog::protect(this, passwordFolder(activePane()));
+    });
+    protectFolder->setText(i18nc("@action", "Protect with Password…"));
+    protectFolder->setToolTip(i18nc("@info:tooltip", "Require a password before Plasma Opus shows the selected folder's contents; this is not encryption"));
+    protectFolder->setIcon(SymbolicIcon::fromTheme(QStringLiteral("folder-locked")));
+    QAction *unlockFolder = actions->addAction(QStringLiteral("unlock_folder"), this, [this] {
+        FolderGateDialog::unlock(this, passwordFolder(activePane()));
+    });
+    unlockFolder->setText(i18nc("@action", "Unlock…"));
+    unlockFolder->setToolTip(i18nc("@info:tooltip", "Enter the password of the selected protected folder to show its contents"));
+    unlockFolder->setIcon(SymbolicIcon::fromTheme(QStringLiteral("object-unlocked")));
+    QAction *changeFolderPassword = actions->addAction(QStringLiteral("change_folder_password"), this, [this] {
+        FolderGateDialog::changePassword(this, passwordFolder(activePane()));
+    });
+    changeFolderPassword->setText(i18nc("@action", "Change Password…"));
+    changeFolderPassword->setToolTip(i18nc("@info:tooltip", "Change the password of the selected protected folder"));
+    changeFolderPassword->setIcon(SymbolicIcon::fromTheme(QStringLiteral("lock-edit")));
+    QAction *removeFolderPassword = actions->addAction(QStringLiteral("remove_folder_password"), this, [this] {
+        FolderGateDialog::removeProtection(this, passwordFolder(activePane()));
+    });
+    removeFolderPassword->setText(i18nc("@action", "Remove Password Protection…"));
+    removeFolderPassword->setToolTip(i18nc("@info:tooltip", "Stop requiring a password for the selected protected folder"));
+    removeFolderPassword->setIcon(SymbolicIcon::fromTheme(QStringLiteral("edit-delete-remove")));
+    QAction *lockFolders = actions->addAction(QStringLiteral("lock_protected_folders"), FolderGates::instance(), &FolderGates::lockAll);
+    lockFolders->setText(i18nc("@action", "Lock Protected Folders"));
+    lockFolders->setToolTip(i18nc("@info:tooltip", "Lock every unlocked password-protected folder again"));
+    lockFolders->setIcon(SymbolicIcon::fromTheme(QStringLiteral("object-locked")));
+    connect(FolderGates::instance(), &FolderGates::changed, this, &MainWindow::updateActions);
     QAction *mountManager = actions->addAction(QStringLiteral("mount_manager"), this, &MainWindow::showMountManager);
     mountManager->setText(i18nc("@action", "Mount Manager…"));
     mountManager->setToolTip(i18nc("@info:tooltip", "List file systems and mount, unmount or eject them"));
@@ -4372,6 +4424,87 @@ void MainWindow::updateActions()
     const bool moveToTab = Settings::paneMoveDestination() == Settings::EnumPaneMoveDestination::Tab;
     actions->action(QStringLiteral("move_second_pane"))->setEnabled(moveToTab ? !m_secondPaneInTab : !m_rightWindow);
     actions->action(QStringLiteral("restore_second_pane"))->setEnabled(m_secondPaneInTab || m_rightWindow);
+    updateFolderGateActions();
+}
+
+void MainWindow::updateFolderGateActions()
+{
+    KActionCollection *actions = actionCollection();
+    const FolderGates *gates = FolderGates::instance();
+    const QString folder = passwordFolder(activePane());
+    const bool gate = gates->isGate(folder);
+    const bool locked = gate && gates->isGateLocked(folder);
+    actions->action(QStringLiteral("protect_folder"))
+        ->setEnabled(!folder.isEmpty() && !gate && QFileInfo(folder).isDir() && !gates->isLocked(QUrl::fromLocalFile(folder)));
+    actions->action(QStringLiteral("unlock_folder"))->setEnabled(locked);
+    actions->action(QStringLiteral("change_folder_password"))->setEnabled(gate);
+    actions->action(QStringLiteral("remove_folder_password"))->setEnabled(gate);
+    actions->action(QStringLiteral("lock_protected_folders"))->setEnabled(gates->hasUnlocked());
+
+    // Nothing that reads, copies, moves or deletes the contents of a locked
+    // password-gated folder is offered for it, or inside it.
+    FolderView *view = activePane()->view();
+    const KFileItemList selected = view->selectedItems();
+    const bool folderLocked = view->isGateLocked();
+    const bool selectionLocked = std::any_of(selected.cbegin(), selected.cend(), [gates](const KFileItem &item) {
+        return gates->touchesLocked(item.url());
+    });
+    if (!folderLocked && !selectionLocked) {
+        return;
+    }
+    static const QStringList contentActions{
+        QStringLiteral("copy_to_other_pane"),
+        QStringLiteral("move_to_other_pane"),
+        QStringLiteral("compress"),
+        QStringLiteral("add_to_archive"),
+        QStringLiteral("batch_rename"),
+        QStringLiteral("edit_metadata"),
+        QStringLiteral("create_symlink"),
+        QStringLiteral("move_to_trash"),
+        QStringLiteral("delete"),
+        QStringLiteral("edit_with"),
+        QStringLiteral("open_in_office"),
+        QStringLiteral("edit_file"),
+        QStringLiteral("custom_command"),
+        QStringLiteral("content_chart"),
+        QStringLiteral("find_duplicates"),
+        QStringLiteral("compare_pane_folders"),
+        QStringLiteral("compare_folders_filtered"),
+        QStringLiteral("create_checksum"),
+        QStringLiteral("verify_checksum"),
+        QStringLiteral("kdeconnect_send"),
+        QStringLiteral("share_on_network"),
+        QStringLiteral("split_file"),
+        QStringLiteral("combine_files"),
+        QStringLiteral("compare_files"),
+        QStringLiteral("open_gallery"),
+        QStringLiteral("calculate_folder_sizes"),
+        QStringLiteral("calculate_occupied_space"),
+        QStringLiteral("assign_tags"),
+        QStringLiteral("export_listing"),
+        QStringLiteral("export_listing_csv"),
+        QStringLiteral("export_listing_pdf"),
+    };
+    for (const QString &name : contentActions) {
+        if (QAction *action = actions->action(name)) {
+            action->setEnabled(false);
+        }
+    }
+    for (QAction *action : std::as_const(m_customCommandActions)) {
+        action->setEnabled(false);
+    }
+    actions->action(stdName(KStandardAction::Cut))->setEnabled(false);
+    actions->action(stdName(KStandardAction::Copy))->setEnabled(false);
+    m_pasteAction->setEnabled(false);
+    if (folderLocked) {
+        for (const QString &name : {QStringLiteral("new_menu"),
+                                    QStringLiteral("new_folder"),
+                                    QStringLiteral("open_terminal"),
+                                    QStringLiteral("open_terminal_with"),
+                                    QStringLiteral("act_as_admin")}) {
+            actions->action(name)->setEnabled(false);
+        }
+    }
 }
 
 void MainWindow::updateStatusBar()
@@ -5232,6 +5365,28 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     const bool singleFolder = items.size() == 1 && items.first().isDir();
     const KFileItemListProperties props(items);
 
+    // Locked password-gated folders offer only actions that keep their contents hidden.
+    const FolderGates *gates = FolderGates::instance();
+    if (std::any_of(items.cbegin(), items.cend(), [gates](const KFileItem &item) {
+            return gates->touchesLocked(item.url());
+        })) {
+        menu.setObjectName(QStringLiteral("lockedFolderContextMenu"));
+        if (singleFolder && gates->isLockedGateItem(items.first())) {
+            menu.addAction(actions->action(QStringLiteral("unlock_folder")));
+            menu.addAction(actions->action(QStringLiteral("change_folder_password")));
+            menu.addAction(actions->action(QStringLiteral("remove_folder_password")));
+            menu.addSeparator();
+        }
+        if (visible("rename")) {
+            menu.addAction(actions->action(QStringLiteral("rename")));
+        }
+        if (visible("properties")) {
+            menu.addAction(actions->action(QStringLiteral("properties")));
+        }
+        menu.exec(globalPos);
+        return;
+    }
+
     QAction *openAction = nullptr;
     if (visible("open")) {
         openAction = menu.addAction(QIcon::fromTheme(QStringLiteral("document-open")), i18nc("@action:inmenu", "Open"));
@@ -5330,6 +5485,15 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     if (singleFolder && items.first().isLocalFile() && visible("terminal") && Settings::showOpenTerminal()) {
         menu.addAction(actions->action(QStringLiteral("open_terminal")));
         menu.addAction(actions->action(QStringLiteral("open_terminal_with")));
+    }
+    if (singleFolder && !FolderGates::localPath(items.first().url()).isEmpty()) {
+        if (gates->isGate(FolderGates::canonicalPath(FolderGates::localPath(items.first().url())))) {
+            menu.addAction(actions->action(QStringLiteral("change_folder_password")));
+            menu.addAction(actions->action(QStringLiteral("remove_folder_password")));
+            menu.addAction(actions->action(QStringLiteral("lock_protected_folders")));
+        } else {
+            menu.addAction(actions->action(QStringLiteral("protect_folder")));
+        }
     }
     if (singleFolder) {
         menu.addAction(actions->action(QStringLiteral("content_chart")));

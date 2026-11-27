@@ -2,6 +2,7 @@
 
 #include "searchwidget.h"
 
+#include "foldergates.h"
 #include "indexbackend.h"
 #include "indexedsearch.h"
 #include "indexstatusdialog.h"
@@ -792,6 +793,13 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
                               : i18np("Searching: %1 indexed match retrieved.", "Searching: %1 indexed matches retrieved.", count));
         Q_EMIT progressChanged(m_status->text());
     });
+    connect(FolderGates::instance(), &FolderGates::changed, this, [this] {
+        for (int i = m_results->topLevelItemCount() - 1; i >= 0; --i) {
+            if (FolderGates::instance()->hidesContents(QUrl::fromLocalFile(itemPath(m_results->topLevelItem(i))))) {
+                delete m_results->takeTopLevelItem(i);
+            }
+        }
+    });
     connect(&m_watcher, &QFutureWatcher<LiveSearch::Result>::finished, this, [this] {
         const LiveSearch::Result result = m_watcher.result();
         m_search->setEnabled(true);
@@ -806,7 +814,11 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
             applyDefaults();
         }
         const bool ranked = m_rank->isChecked() && result.paths.size() > 1;
-        const QStringList paths = ranked ? SearchRanking::rank(result.paths, SearchRanking::terms(m_lastText, m_lastField)) : result.paths;
+        QStringList paths = ranked ? SearchRanking::rank(result.paths, SearchRanking::terms(m_lastText, m_lastField)) : result.paths;
+        // Items inside locked password-gated folders are dropped, including through symbolic links the exclusions miss.
+        paths.removeIf([](const QString &path) {
+            return FolderGates::instance()->hidesContents(QUrl::fromLocalFile(path));
+        });
         for (const QString &path : paths) {
             setItemPath(new QTreeWidgetItem(m_results), path);
         }
@@ -817,7 +829,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         QString status = result.canceled ? i18nc("@info", "Search canceled; results may be incomplete.")
             : result.limited             ? i18nc("@info", "Search limit reached; results may be incomplete.")
             : !result.errors.isEmpty()   ? i18nc("@info", "Search incomplete; see errors below.")
-                                         : i18np("Search finished: %1 match.", "Search finished: %1 matches.", result.paths.size());
+                                         : i18np("Search finished: %1 match.", "Search finished: %1 matches.", paths.size());
         if (result.skippedFiles) {
             status += QLatin1Char(' ')
                 + i18np("%1 binary, invalid UTF-8 or oversized file was skipped.",
@@ -1288,6 +1300,9 @@ QString SearchWidget::locationLimitation() const
     if (searchesCurrentFolder() && !m_folder.isLocalFile()) {
         return i18nc("@info", "Live search currently supports local folders only.");
     }
+    if (searchesCurrentFolder() && FolderGates::instance()->isLocked(m_folder)) {
+        return i18nc("@info", "This folder is protected with a password. Unlock it to search it.");
+    }
     return {};
 }
 
@@ -1319,7 +1334,9 @@ bool SearchWidget::startSearch()
     }
     const auto searchSettings = m_config->group(QStringLiteral("Search"));
     const QStringList exclusions = searchSettings.readEntry("SearchExclusions", QStringList());
-    const PathFilter filter = SearchLocations::withExclusions(chosenFilter, exclusions);
+    PathFilter filter = SearchLocations::withExclusions(chosenFilter, exclusions);
+    // Searches do not enter locked password-gated folders.
+    filter.excludedFolders.append(FolderGates::instance()->lockedWithin(QUrl::fromLocalFile(QStringLiteral("/"))));
     if (!workspaceOnly && m_scope->currentIndex() == Indexed && filter.maxDepth >= 0 && !m_folder.isLocalFile()) {
         m_status->setText(i18nc("@info", "A local current folder is required to limit indexed-search depth."));
         return false;

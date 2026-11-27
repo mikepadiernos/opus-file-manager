@@ -375,6 +375,7 @@ private:
     void setActivePane(Pane *pane);
     void connectPane(Pane *pane);
     void updateActions();
+    void updateFolderGateActions();
     void updateStatusBarIndicatorOrder();
     void updateStatusBar();
     void updateFreeSpace(Pane *pane = nullptr);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "folderpreview.h"
+#include "foldergates.h"
 
 #include <KDirLister>
 #include <KDirModel>
@@ -33,6 +34,11 @@ FolderPreview::FolderPreview(QWidget *parent)
 {
     setObjectName(QStringLiteral("previewFolder"));
     resetLister();
+    connect(FolderGates::instance(), &FolderGates::changed, this, [this] {
+        if (m_url.isValid() && FolderGates::instance()->isLocked(m_url)) {
+            showLocked();
+        }
+    });
     m_proxy->setSortFoldersFirst(true);
     m_proxy->setSortCaseSensitivity(Qt::CaseInsensitive);
     m_proxy->sort(KDirModel::Name, Qt::AscendingOrder);
@@ -116,6 +122,10 @@ void FolderPreview::setFolder(const KFileItem &item)
         return;
     }
     m_url = item.targetUrl();
+    if (FolderGates::instance()->isLocked(item.url()) || FolderGates::instance()->isLocked(m_url)) {
+        showLocked();
+        return;
+    }
     setListing(true);
     m_timeout->start();
     if (!m_lister->openUrl(m_url)) {
@@ -125,6 +135,15 @@ void FolderPreview::setFolder(const KFileItem &item)
         }
         setListing(false);
     }
+    refresh();
+}
+
+void FolderPreview::showLocked()
+{
+    const QUrl url = m_url;
+    clear();
+    m_url = url;
+    m_error = i18nc("@info:status", "This folder is protected with a password.");
     refresh();
 }
 
