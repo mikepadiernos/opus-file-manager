@@ -25,6 +25,7 @@ RUN dnf -y install --setopt=install_weak_deps=False \
         libarchive-devel \
         qt6-qtbase-private-devel \
         qt6-qtmultimedia-devel \
+        mpv-devel \
         kf6-karchive-devel \
         kf6-kbookmarks-devel \
         kf6-kconfig-devel \

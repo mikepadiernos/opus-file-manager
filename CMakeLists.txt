@@ -29,6 +29,17 @@ set_package_properties(KF6Prison PROPERTIES TYPE OPTIONAL PURPOSE "QR codes for 
 find_package(AccountsQt6 QUIET)
 set_package_properties(AccountsQt6 PROPERTIES TYPE OPTIONAL PURPOSE "Browsing the files of accounts configured in KDE Online Accounts")
 find_package(PlasmaActivities 6.0 REQUIRED)
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(MPV QUIET IMPORTED_TARGET mpv)
+endif()
+find_package(Qt6 ${QT_MIN_VERSION} QUIET COMPONENTS OpenGL OpenGLWidgets)
+if(MPV_FOUND AND Qt6OpenGLWidgets_FOUND)
+    set(OPUSFM_HAVE_MPV ON)
+else()
+    set(OPUSFM_HAVE_MPV OFF)
+endif()
+add_feature_info(MpvPlayback OPUSFM_HAVE_MPV "Embedded audio and video playback through libmpv in the preview panel and gallery; needs libmpv and Qt OpenGL Widgets")
 
 include(KDEGitCommitHooks)
 find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS
