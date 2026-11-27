@@ -3,8 +3,12 @@
 #pragma once
 
 #include "draftstore.h"
+#include "notevault.h"
 
 #include <QWidget>
+
+#include <atomic>
+#include <memory>
 
 namespace KTextEditor
 {
@@ -13,7 +17,9 @@ class View;
 }
 class QLabel;
 class QComboBox;
+class QAction;
 class QHBoxLayout;
+class QListWidget;
 class QPushButton;
 class QStackedWidget;
 class QTextBrowser;
@@ -34,6 +40,7 @@ public:
         Window
     };
     explicit EditorPanel(QWidget *parent = nullptr, const QString &draftDirectory = {});
+    ~EditorPanel() override;
     bool openUrl(const QUrl &url);
     bool queryClose();
     /**
@@ -56,10 +63,21 @@ public:
      */
     void setEmbedded(bool embedded);
     KTextEditor::Document *document() const;
+    /**
+     * Sets the folder of Markdown notes that wiki links resolve against,
+     * remembers it for later sessions and scans it in the background. An
+     * empty @p root closes the vault.
+     */
+    void setVault(const QString &root);
+    QString vaultRoot() const;
+    /// The last completed scan of the vault.
+    const NoteVault::Index &vaultIndex() const;
 
 Q_SIGNALS:
     void placementRequested(EditorPanel::Placement placement);
     void hideRequested();
+    /// Emitted when a vault scan completes and its results are shown.
+    void vaultScanned();
 
 private:
     void updateTitle();
@@ -69,6 +87,12 @@ private:
     void setVisualMode(bool visual);
     void refreshVisual();
     void updateVisualControls();
+    void refreshPreview();
+    void rescanVault();
+    void updateVaultPanel();
+    /// The open document's canonical path when it's a local file in the vault, or empty.
+    QString currentNotePath() const;
+    void openWikiLink(const QUrl &url);
     KTextEditor::Document *m_document = nullptr;
     KTextEditor::View *m_view = nullptr;
     QLabel *m_title = nullptr;
@@ -77,6 +101,8 @@ private:
     QHBoxLayout *m_documentStatusLayout = nullptr;
     bool m_panelTitleVisible = true;
     QTextBrowser *m_preview = nullptr;
+    QPushButton *m_previewToggle = nullptr;
+    QComboBox *m_dialect = nullptr;
     QTextEdit *m_visual = nullptr;
     QStackedWidget *m_editorStack = nullptr;
     QPushButton *m_openButton = nullptr;
@@ -103,4 +129,14 @@ private:
     bool m_syncingVisual = false;
     bool m_visualPending = false;
     bool m_visualEditing = false;
+    QString m_vaultRoot;
+    NoteVault::Index m_vaultIndex;
+    bool m_vaultScanning = false;
+    quint64 m_vaultGeneration = 0;
+    std::shared_ptr<std::atomic_bool> m_vaultCanceled;
+    QWidget *m_vaultPanel = nullptr;
+    QListWidget *m_backlinks = nullptr;
+    QLabel *m_vaultStatus = nullptr;
+    QAction *m_vaultRescan = nullptr;
+    QAction *m_vaultClose = nullptr;
 };

@@ -5,9 +5,13 @@
 #include "markdownexport.h"
 #include "safetextdocument.h"
 #include "settings.h"
+#include "wikilinks.h"
 
+#include <KConfigGroup>
+#include <KIO/OpenUrlJob>
 #include <KLocalizedString>
 #include <KMessageBox>
+#include <KSharedConfig>
 #include <KTextEditor/Document>
 #include <KTextEditor/Editor>
 #include <KTextEditor/View>
@@ -19,8 +23,10 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFontDatabase>
+#include <QFutureWatcher>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QListWidget>
 #include <QLocale>
 #include <QMenu>
 #include <QMimeDatabase>
@@ -37,6 +43,7 @@
 #include <QToolButton>
 #include <QUuid>
 #include <QVBoxLayout>
+#include <QtConcurrentRun>
 
 #include <utility>
 
@@ -46,6 +53,13 @@ QString defaultDraftDirectory()
 {
     const QString data = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     return data.isEmpty() ? QString() : QDir(data).filePath(QStringLiteral("drafts"));
+}
+
+constexpr QLatin1StringView WikiLinkScheme("opus-note");
+
+KConfigGroup vaultState()
+{
+    return KSharedConfig::openStateConfig()->group(QStringLiteral("EditorVault"));
 }
 }
 
@@ -74,6 +88,7 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     m_visualMode->setObjectName(QStringLiteral("editorVisualMode"));
     m_visualMode->setCheckable(true);
     auto *preview = new QPushButton(i18nc("@action", "Markdown Preview"), this);
+    m_previewToggle = preview;
     preview->setObjectName(QStringLiteral("editorMarkdownPreview"));
     preview->setCheckable(true);
     auto *dialect = new QComboBox(this);
@@ -83,8 +98,22 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     dialect->addItem(i18nc("@item:inlistbox", "GitHub Markdown"));
     dialect->addItem(i18nc("@item:inlistbox", "CommonMark"));
     dialect->hide();
+    m_dialect = dialect;
     auto *pdf = new QPushButton(i18nc("@action", "Export PDF…"), this);
     pdf->setObjectName(QStringLiteral("editorExportPdf"));
+    auto *vault = new QToolButton(this);
+    vault->setObjectName(QStringLiteral("editorVault"));
+    vault->setText(i18nc("@action", "Vault"));
+    vault->setToolTip(i18nc("@info:tooltip", "Choose a folder of Markdown notes for wiki links and backlinks"));
+    vault->setPopupMode(QToolButton::InstantPopup);
+    auto *vaultMenu = new QMenu(vault);
+    vault->setMenu(vaultMenu);
+    QAction *chooseVault = vaultMenu->addAction(i18nc("@action", "Choose Vault Folder…"));
+    chooseVault->setObjectName(QStringLiteral("editorVaultChoose"));
+    m_vaultRescan = vaultMenu->addAction(i18nc("@action", "Rescan Vault"));
+    m_vaultRescan->setObjectName(QStringLiteral("editorVaultRescan"));
+    m_vaultClose = vaultMenu->addAction(i18nc("@action", "Close Vault"));
+    m_vaultClose->setObjectName(QStringLiteral("editorVaultClose"));
     auto *placement = new QToolButton(this);
     placement->setObjectName(QStringLiteral("editorPlacement"));
     placement->setText(i18nc("@action", "Placement"));
@@ -116,6 +145,7 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     m_header->addWidget(m_visualMode);
     m_header->addWidget(preview);
     m_header->addWidget(pdf);
+    m_header->addWidget(vault);
     m_header->addWidget(placement);
     m_header->addWidget(hide);
     auto *layout = new QVBoxLayout(this);
@@ -183,6 +213,24 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     m_preview->setDocument(new SafeTextDocument(m_preview));
     splitter->addWidget(m_preview);
     m_preview->hide();
+    m_vaultPanel = new QWidget(splitter);
+    m_vaultPanel->setObjectName(QStringLiteral("editorVaultPanel"));
+    auto *vaultLayout = new QVBoxLayout(m_vaultPanel);
+    vaultLayout->setContentsMargins(0, 0, 0, 0);
+    auto *backlinksLabel = new QLabel(i18nc("@title:group", "Backlinks"), m_vaultPanel);
+    vaultLayout->addWidget(backlinksLabel);
+    m_backlinks = new QListWidget(m_vaultPanel);
+    m_backlinks->setObjectName(QStringLiteral("editorBacklinks"));
+    m_backlinks->setAccessibleName(i18nc("@label", "Notes that link to this note"));
+    backlinksLabel->setBuddy(m_backlinks);
+    vaultLayout->addWidget(m_backlinks, 1);
+    m_vaultStatus = new QLabel(m_vaultPanel);
+    m_vaultStatus->setObjectName(QStringLiteral("editorVaultStatus"));
+    m_vaultStatus->setTextFormat(Qt::PlainText);
+    m_vaultStatus->setWordWrap(true);
+    vaultLayout->addWidget(m_vaultStatus);
+    splitter->addWidget(m_vaultPanel);
+    m_vaultPanel->hide();
     layout->addWidget(splitter, 1);
     m_documentStatus = new QWidget(this);
     m_documentStatus->setObjectName(QStringLiteral("editorDocumentStatus"));
@@ -272,27 +320,35 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
             syncVisual();
         }
     });
-    const auto updateMarkdownPreview = [this, dialect] {
-        const auto features = dialect->currentIndex() == 1 ? QTextDocument::MarkdownDialectCommonMark : QTextDocument::MarkdownDialectGitHub;
-        m_preview->document()->setMarkdown(m_document->text(), features);
-    };
-    connect(dialect, &QComboBox::currentIndexChanged, this, [preview, updateMarkdownPreview] {
-        if (preview->isChecked()) {
-            updateMarkdownPreview();
-        }
-    });
-    connect(preview, &QPushButton::toggled, this, [this, dialect, updateMarkdownPreview](bool shown) {
-        if (shown) {
-            updateMarkdownPreview();
-        }
+    connect(dialect, &QComboBox::currentIndexChanged, this, &EditorPanel::refreshPreview);
+    connect(preview, &QPushButton::toggled, this, [this, dialect](bool shown) {
+        refreshPreview();
         dialect->setVisible(shown);
         m_preview->setVisible(shown);
     });
-    connect(m_document, &KTextEditor::Document::textChanged, this, [this, preview, updateMarkdownPreview] {
-        ++m_editRevision;
-        if (preview->isChecked()) {
-            updateMarkdownPreview();
+    connect(m_preview, &QTextBrowser::anchorClicked, this, &EditorPanel::openWikiLink);
+    connect(chooseVault, &QAction::triggered, this, [this] {
+        const QString root = QFileDialog::getExistingDirectory(this, i18nc("@title:window", "Choose Vault Folder"), m_vaultRoot);
+        if (!root.isEmpty()) {
+            setVault(root);
         }
+    });
+    connect(m_vaultRescan, &QAction::triggered, this, &EditorPanel::rescanVault);
+    connect(m_vaultClose, &QAction::triggered, this, [this] {
+        setVault({});
+    });
+    connect(m_backlinks, &QListWidget::itemActivated, this, [this](QListWidgetItem *item) {
+        openUrl(QUrl::fromLocalFile(item->data(Qt::UserRole).toString()));
+    });
+    connect(m_document, &KTextEditor::Document::documentUrlChanged, this, [this] {
+        updateVaultPanel();
+        refreshPreview();
+    });
+    // The URL changes before the text loads, so links are counted again once it has.
+    connect(m_document, &KParts::ReadOnlyPart::completed, this, &EditorPanel::updateVaultPanel);
+    connect(m_document, &KTextEditor::Document::textChanged, this, [this] {
+        ++m_editRevision;
+        refreshPreview();
         if (!m_syncingVisual && !m_visualPending && m_editorStack->currentWidget() == m_visual) {
             refreshVisual();
         }
@@ -351,6 +407,9 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
                 setDraftError(m_drafts.remove(savedId));
             }
         });
+        if (!m_vaultRoot.isEmpty()) {
+            rescanVault();
+        }
     });
     connect(m_document, &KParts::ReadOnlyPart::completed, this, [this] {
         const quint64 openRevision = m_openRevision;
@@ -431,6 +490,15 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     updateTitle();
     applySettings();
     setVisualMode(false);
+    m_vaultRoot = vaultState().readEntry(QStringLiteral("Root"), QString());
+    rescanVault();
+}
+
+EditorPanel::~EditorPanel()
+{
+    if (m_vaultCanceled) {
+        m_vaultCanceled->store(true);
+    }
 }
 
 bool EditorPanel::openUrl(const QUrl &url)
@@ -521,6 +589,205 @@ void EditorPanel::setEmbedded(bool embedded)
 KTextEditor::Document *EditorPanel::document() const
 {
     return m_document;
+}
+
+void EditorPanel::setVault(const QString &root)
+{
+    m_vaultRoot = root.isEmpty() ? QString() : QDir::cleanPath(QFileInfo(root).absoluteFilePath());
+    KConfigGroup state = vaultState();
+    if (m_vaultRoot.isEmpty()) {
+        state.deleteEntry(QStringLiteral("Root"));
+    } else {
+        state.writeEntry(QStringLiteral("Root"), m_vaultRoot);
+    }
+    state.sync();
+    m_vaultIndex = {};
+    rescanVault();
+}
+
+QString EditorPanel::vaultRoot() const
+{
+    return m_vaultRoot;
+}
+
+const NoteVault::Index &EditorPanel::vaultIndex() const
+{
+    return m_vaultIndex;
+}
+
+void EditorPanel::rescanVault()
+{
+    if (m_vaultCanceled) {
+        m_vaultCanceled->store(true);
+        m_vaultCanceled.reset();
+    }
+    const quint64 generation = ++m_vaultGeneration;
+    m_vaultScanning = !m_vaultRoot.isEmpty();
+    if (!m_vaultScanning) {
+        m_vaultIndex = {};
+        updateVaultPanel();
+        refreshPreview();
+        return;
+    }
+    const auto canceled = std::make_shared<std::atomic_bool>(false);
+    m_vaultCanceled = canceled;
+    auto *watcher = new QFutureWatcher<NoteVault::Index>(this);
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, generation] {
+        watcher->deleteLater();
+        if (generation != m_vaultGeneration) {
+            return;
+        }
+        m_vaultIndex = watcher->result();
+        m_vaultScanning = false;
+        m_vaultCanceled.reset();
+        updateVaultPanel();
+        refreshPreview();
+        Q_EMIT vaultScanned();
+    });
+    const QString root = m_vaultRoot;
+    watcher->setFuture(QtConcurrent::run([root, canceled] {
+        return NoteVault::scan(root, NoteVault::DefaultFileLimit, [canceled] {
+            return canceled->load();
+        });
+    }));
+    updateVaultPanel();
+}
+
+QString EditorPanel::currentNotePath() const
+{
+    const QUrl url = m_document->url();
+    if (m_vaultIndex.root.isEmpty() || !url.isLocalFile()) {
+        return {};
+    }
+    const QString path = QFileInfo(url.toLocalFile()).canonicalFilePath();
+    return NoteVault::isInside(m_vaultIndex.root, path) ? path : QString();
+}
+
+void EditorPanel::refreshPreview()
+{
+    if (!m_previewToggle->isChecked()) {
+        return;
+    }
+    const auto features = m_dialect->currentIndex() == 1 ? QTextDocument::MarkdownDialectCommonMark : QTextDocument::MarkdownDialectGitHub;
+    QString text = m_document->text();
+    if (!currentNotePath().isEmpty()) {
+        // The source is unchanged; only the preview's copy gets clickable links.
+        text = WikiLinks::toMarkdownLinks(text, [](const WikiLinks::Link &link) {
+            QUrl url;
+            if (!link.target.isEmpty()) {
+                url.setScheme(QString(WikiLinkScheme));
+                url.setPath(link.target);
+            }
+            return url;
+        });
+    }
+    m_preview->document()->setMarkdown(text, features);
+}
+
+void EditorPanel::openWikiLink(const QUrl &url)
+{
+    if (url.scheme() != WikiLinkScheme) {
+        return;
+    }
+    const QString from = currentNotePath();
+    const QString target = url.path();
+    if (from.isEmpty()) {
+        return;
+    }
+    const NoteVault::Resolution resolution = NoteVault::resolve(m_vaultIndex, from, target);
+    switch (resolution.status) {
+    case NoteVault::Status::Found:
+        if (resolution.path == from) {
+            return;
+        }
+        if (NoteVault::isNoteFileName(resolution.path)) {
+            openUrl(QUrl::fromLocalFile(resolution.path));
+        } else {
+            auto *job = new KIO::OpenUrlJob(QUrl::fromLocalFile(resolution.path));
+            job->setRunExecutables(false);
+            job->start();
+        }
+        return;
+    case NoteVault::Status::Missing:
+        m_vaultStatus->setText(m_vaultScanning || !m_vaultIndex.isComplete() ? i18nc("@info", "“%1” was not found, but the vault index is incomplete.", target)
+                                                                             : i18nc("@info", "No note named “%1” exists in the vault.", target));
+        return;
+    case NoteVault::Status::Ambiguous: {
+        QStringList names;
+        for (const QString &candidate : resolution.candidates) {
+            names.append(QDir(m_vaultIndex.root).relativeFilePath(candidate));
+        }
+        m_vaultStatus->setText(i18nc("@info %1 is a note name, %2 a list of paths",
+                                     "Several notes are named “%1”: %2. Link to one by its path.",
+                                     target,
+                                     names.join(QStringLiteral(", "))));
+        return;
+    }
+    case NoteVault::Status::Outside:
+        m_vaultStatus->setText(i18nc("@info", "“%1” is outside the vault and was not opened.", target));
+        return;
+    }
+}
+
+void EditorPanel::updateVaultPanel()
+{
+    const bool hasVault = !m_vaultRoot.isEmpty();
+    m_vaultPanel->setVisible(hasVault);
+    m_vaultRescan->setEnabled(hasVault);
+    m_vaultClose->setEnabled(hasVault);
+    m_backlinks->clear();
+    if (!hasVault) {
+        m_vaultStatus->clear();
+        return;
+    }
+    if (m_vaultIndex.root.isEmpty()) {
+        m_vaultStatus->setText(m_vaultScanning ? i18nc("@info", "Scanning the vault…") : i18nc("@info", "The vault folder %1 can't be read.", m_vaultRoot));
+        return;
+    }
+    const QString note = currentNotePath();
+    if (note.isEmpty()) {
+        m_vaultStatus->setText(i18nc("@info", "Open a note in the vault to see its backlinks."));
+        return;
+    }
+    const QDir root(m_vaultIndex.root);
+    const QList<NoteVault::Backlink> backlinks = NoteVault::backlinks(m_vaultIndex, note);
+    for (const NoteVault::Backlink &backlink : backlinks) {
+        auto *item = new QListWidgetItem(i18nc("@item:inlistbox %1 is a note name, %2 the line that links here",
+                                               "%1: %2",
+                                               QFileInfo(backlink.path).completeBaseName(),
+                                               backlink.link.context),
+                                         m_backlinks);
+        item->setToolTip(i18nc("@info:tooltip %1 is a path, %2 a line number", "%1, line %2", root.relativeFilePath(backlink.path), backlink.link.line + 1));
+        item->setData(Qt::UserRole, backlink.path);
+    }
+
+    QStringList status;
+    if (backlinks.isEmpty()) {
+        status.append(i18nc("@info", "No other notes link here."));
+    }
+    int missing = 0;
+    int ambiguous = 0;
+    for (const WikiLinks::Link &link : WikiLinks::parse(m_document->text())) {
+        const NoteVault::Status linkStatus = NoteVault::resolve(m_vaultIndex, note, link.target).status;
+        missing += linkStatus == NoteVault::Status::Missing || linkStatus == NoteVault::Status::Outside;
+        ambiguous += linkStatus == NoteVault::Status::Ambiguous;
+    }
+    if (missing > 0) {
+        status.append(i18ncp("@info", "%1 link doesn't lead to a note.", "%1 links don't lead to a note.", missing));
+    }
+    if (ambiguous > 0) {
+        status.append(i18ncp("@info", "%1 link matches several notes.", "%1 links match several notes.", ambiguous));
+    }
+    if (m_vaultIndex.truncated) {
+        status.append(i18nc("@info", "Only the first %1 notes were indexed, so backlinks may be missing.", m_vaultIndex.notes.size()));
+    }
+    if (!m_vaultIndex.skipped.isEmpty()) {
+        status.append(i18ncp("@info", "%1 note couldn't be read.", "%1 notes couldn't be read.", m_vaultIndex.skipped.size()));
+    }
+    if (m_vaultScanning) {
+        status.append(i18nc("@info", "Rescanning…"));
+    }
+    m_vaultStatus->setText(status.join(QLatin1Char(' ')));
 }
 
 void EditorPanel::updateTitle()

@@ -3,17 +3,25 @@
 #include "editorpanel.h"
 #include "settings.h"
 
+#include <KConfigGroup>
+#include <KSharedConfig>
 #include <KTextEditor/Document>
 #include <KTextEditor/View>
 
+#include <QAction>
 #include <QApplication>
 #include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QFontInfo>
 #include <QImage>
+#include <QLabel>
+#include <QListWidget>
 #include <QPushButton>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -414,6 +422,92 @@ private Q_SLOTS:
         QVERIFY(editor.document()->documentSave());
         QTRY_VERIFY(store.drafts(url, &error).isEmpty());
         QVERIFY(error.isEmpty());
+    }
+
+    void vaultLinksOpenNotesAndListBacklinks()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString root = QFileInfo(directory.path()).canonicalFilePath() + QStringLiteral("/Vault");
+        const auto write = [](const QString &path, const QByteArray &contents) {
+            QDir().mkpath(QFileInfo(path).absolutePath());
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write(contents);
+        };
+        const QString home = root + QStringLiteral("/Home.md");
+        const QString other = root + QStringLiteral("/Other.md");
+        const QString homeSource = QStringLiteral("# Home\nSee [[Other|the other note]] and [[Missing]].\n");
+        write(home, homeSource.toUtf8());
+        write(other, "Other. Back to [[Home]].\n");
+        write(root + QStringLiteral("/Sub/Third.md"), "[[Home#Top]]\n");
+        const QString outside = directory.filePath(QStringLiteral("Outside.md"));
+        write(outside, "[[Home]]\n");
+
+        EditorPanel editor(nullptr, directory.filePath(QStringLiteral("drafts")));
+        editor.show();
+        auto *panel = editor.findChild<QWidget *>(QStringLiteral("editorVaultPanel"));
+        auto *backlinks = editor.findChild<QListWidget *>(QStringLiteral("editorBacklinks"));
+        auto *status = editor.findChild<QLabel *>(QStringLiteral("editorVaultStatus"));
+        auto *previewToggle = editor.findChild<QPushButton *>(QStringLiteral("editorMarkdownPreview"));
+        auto *preview = editor.findChild<QTextBrowser *>(QStringLiteral("editorRenderedMarkdown"));
+        auto *rescan = editor.findChild<QAction *>(QStringLiteral("editorVaultRescan"));
+        QVERIFY(panel && backlinks && status && previewToggle && preview && rescan);
+        QVERIFY(panel->isHidden());
+        QVERIFY(!rescan->isEnabled());
+
+        QSignalSpy scanned(&editor, &EditorPanel::vaultScanned);
+        editor.setVault(root);
+        QCOMPARE(editor.vaultRoot(), root);
+        QCOMPARE(KSharedConfig::openStateConfig()->group(QStringLiteral("EditorVault")).readEntry(QStringLiteral("Root")), root);
+        QVERIFY(!panel->isHidden());
+        QTRY_COMPARE_WITH_TIMEOUT(scanned.size(), 1, 10000);
+        QCOMPARE(editor.vaultIndex().notes.size(), 3);
+
+        QVERIFY(editor.openUrl(QUrl::fromLocalFile(home)));
+        QTRY_COMPARE(editor.document()->text(), homeSource);
+        QTRY_COMPARE(backlinks->count(), 2);
+        QStringList sources{backlinks->item(0)->data(Qt::UserRole).toString(), backlinks->item(1)->data(Qt::UserRole).toString()};
+        sources.sort();
+        QCOMPARE(sources, (QStringList{other, root + QStringLiteral("/Sub/Third.md")}));
+        QVERIFY2(status->text().contains(QStringLiteral("1 link doesn't lead to a note")), qPrintable(status->text()));
+
+        previewToggle->setChecked(true);
+        const QTextCursor link = preview->document()->find(QStringLiteral("the other note"));
+        QVERIFY(!link.isNull());
+        QCOMPARE(link.charFormat().anchorHref(), QStringLiteral("opus-note:Other"));
+        QVERIFY(!preview->toPlainText().contains(QStringLiteral("[[")));
+        QCOMPARE(editor.document()->text(), homeSource);
+
+        Q_EMIT preview->anchorClicked(QUrl(QStringLiteral("opus-note:Missing")));
+        QVERIFY2(status->text().contains(QStringLiteral("Missing")), qPrintable(status->text()));
+        QCOMPARE(editor.document()->url(), QUrl::fromLocalFile(home));
+        Q_EMIT preview->anchorClicked(QUrl(QStringLiteral("opus-note:../Outside")));
+        QVERIFY2(status->text().contains(QStringLiteral("outside the vault")), qPrintable(status->text()));
+        Q_EMIT preview->anchorClicked(QUrl(QStringLiteral("https://example.org/")));
+        QCOMPARE(editor.document()->url(), QUrl::fromLocalFile(home));
+
+        Q_EMIT preview->anchorClicked(QUrl(QStringLiteral("opus-note:Other")));
+        QTRY_COMPARE(editor.document()->url(), QUrl::fromLocalFile(other));
+        QTRY_COMPARE(backlinks->count(), 1);
+        QCOMPARE(backlinks->item(0)->data(Qt::UserRole).toString(), home);
+        Q_EMIT backlinks->itemActivated(backlinks->item(0));
+        QTRY_COMPARE(editor.document()->url(), QUrl::fromLocalFile(home));
+
+        write(root + QStringLiteral("/New.md"), "Also see [[home]].\n");
+        rescan->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(scanned.size(), 2, 10000);
+        QTRY_COMPARE(backlinks->count(), 3);
+
+        QVERIFY(editor.openUrl(QUrl::fromLocalFile(outside)));
+        QTRY_COMPARE(editor.document()->url(), QUrl::fromLocalFile(outside));
+        QVERIFY(preview->toPlainText().contains(QStringLiteral("[[Home]]")));
+        QCOMPARE(backlinks->count(), 0);
+        QVERIFY(status->text().contains(QStringLiteral("Open a note in the vault")));
+
+        editor.setVault({});
+        QVERIFY(panel->isHidden());
+        QVERIFY(!KSharedConfig::openStateConfig()->group(QStringLiteral("EditorVault")).hasKey(QStringLiteral("Root")));
     }
 };
 
