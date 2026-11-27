@@ -91,6 +91,8 @@ add_library(opusfm_core STATIC
     lanshare.h
     mailhandoff.cpp
     mailhandoff.h
+    mailmessage.cpp
+    mailmessage.h
     kwinscript.cpp
     kwinscript.h
     mounttable.cpp

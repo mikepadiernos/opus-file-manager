@@ -113,6 +113,7 @@ ecm_add_tests(
     kdeconnectsharetest.cpp
     lansharetest.cpp
     mailhandofftest.cpp
+    mailmessagetest.cpp
     onlineaccountstest.cpp
     kwinscripttest.cpp
     mounttabletest.cpp
