@@ -2266,6 +2266,29 @@ The M27 desktop integrations have these limits
   Activities service, so both await
   [verification on Plasma](TODO.md#shared-activity-context-on-plasma-659).
   ([#659](https://github.com/mikepadiernos/plasma-opus/issues/659))
+- **📓 Markdown vault links:** The editor's **Vault** menu chooses one local
+  folder whose notes `[[wiki links]]` resolve against; editors opened later
+  use the same folder. Links name a note anywhere in the
+  vault, a vault-relative path such as `Projects/Plan`, or a path relative
+  to the note that starts with `./` or `../`; names are matched without
+  regard to case. When several notes share a name, the one in the linking
+  note's folder wins, and otherwise the link is reported as ambiguous with
+  the candidates listed. Only `.md`, `.markdown` and `.mkd` files are
+  indexed, up to 10,000 notes of at most 4 MiB of UTF-8 each; hidden
+  folders such as `.obsidian` are skipped, symbolic links are followed only
+  when they stay inside the vault, and links never open anything outside
+  it. The backlinks list and the missing-link count are refreshed when a
+  note is opened, saved or the vault is rescanned, not while typing, and
+  the panel reports unreadable notes and stopped scans. The source is never
+  rewritten: the preview renders a copy with the links made clickable, but
+  only for a saved note inside the vault. A link's `#heading` and the
+  embedded content of `![[embeds]]` are not shown; following either opens
+  the whole note or file, and attachments open in their registered
+  application without running programs. The preview is Qt's Markdown
+  renderer, built on the md4c parser: its **CommonMark** and **GitHub
+  Markdown** dialects parse as those specifications do, but raw HTML,
+  footnotes and math are shown as text, so it is not a complete CommonMark
+  renderer. ([#564](https://github.com/mikepadiernos/plasma-opus/issues/564))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2493,6 +2516,11 @@ The M27 desktop integrations have these limits
     what Plasma remembers, and clear it, under **System Settings › Recent
     Files**. Keep private files in a Plasma Vault, whose open folders are
     never reported.
+  - **Markdown vault links:** Give notes unique names or link to them by
+    path, such as `[[Projects/Plan]]`, and choose **Vault › Rescan Vault**
+    after changing notes in another application. Split vaults with more
+    than 10,000 notes, and convert notes that aren't UTF-8. Use Obsidian or
+    another Markdown application to view embeds, headings and HTML.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2522,6 +2550,10 @@ The M27 desktop integrations have these limits
   - Extract mail attachments into a chosen folder, preview remote `.eml`
     files through a size-limited download, show inline images only on
     request, and the M28 **Mail file preview** setting.
+  - Jump to a link's heading, show embedded notes and images in the
+    preview, create a missing note from its link, refresh backlinks while
+    typing and watch the vault for changes, and an M28 setting for the
+    vault's note limit.
   - Report files opened through **Open With** and from previews, exclude
     chosen folders from reporting, and an M28 **Plasma Activities** page
     option to report only while associations are on.
