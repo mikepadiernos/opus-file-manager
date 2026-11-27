@@ -309,6 +309,17 @@ behaves like the rest of the desktop and follows the user's choices.
   [Indexed search](../CAVEATS.md#search).
   ([#733](https://github.com/mikepadiernos/plasma-opus/issues/733))
 
+- **Shared searches:** **Share with KDE Places…** in Preferences' **Manage
+  Saved Searches and Collections…** adds a saved search to Places as a Baloo
+  search, so Dolphin, file dialogs and other KDE applications can open it.
+  The confirmation names the folder searched and lists the criteria Baloo
+  can't express, such as sizes, tags, NOT terms, depth limits, path filters
+  and exclusions, which the shared place ignores. Searches Baloo can't
+  express at all are refused. The place is a copy: Plasma Opus never changes
+  or removes it, but offers to replace a place of the same name when the
+  search is shared again. See [Shared searches](../CAVEATS.md#search).
+  ([#734](https://github.com/mikepadiernos/plasma-opus/issues/734))
+
 - **File-type categories in Places:** Places lists **Documents**, **Images**,
   **Audio**, **Videos**, **Archives**, **Ebooks**, **Application Packages**
   and **Large Files** under **Search For**, beside any entries KDE already
@@ -541,12 +552,6 @@ behaves like the rest of the desktop and follows the user's choices.
 
 Grouped by the [M27](../ROADMAP.md#m27-integrations) subsection that tracks
 them.
-
-### M27.03 Search and indexing
-
-- **Shared searches:** Offer to share saved searches with Dolphin and file
-  dialogs as KDE search places.
-  ([#734](https://github.com/mikepadiernos/plasma-opus/issues/734))
 
 ### M27.07 Access control and automation
 
