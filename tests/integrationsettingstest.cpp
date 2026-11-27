@@ -2,6 +2,7 @@
 
 #include "appidentity.h"
 #include "defaultfilemanager.h"
+#include "filechooser.h"
 #include "mainwindow.h"
 #include "portalsetup.h"
 #include "settingsdialog.h"
@@ -15,6 +16,7 @@
 #include <KSharedConfig>
 #include <KSycoca>
 
+#include <QComboBox>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
@@ -138,6 +140,7 @@ private Q_SLOTS:
         QFile::remove(paths.serviceFile());
         QFile::remove(paths.configFile());
         KSharedConfig::openStateConfig()->deleteGroup(PortalSetup::backupGroupName());
+        KSharedConfig::openStateConfig()->deleteGroup(FileChooser::stateGroupName());
         KSharedConfig::openStateConfig()->sync();
         qputenv("XDG_CURRENT_DESKTOP", "KDE");
     }
@@ -325,6 +328,33 @@ private Q_SLOTS:
         QVERIFY(message->text().contains(QStringLiteral("Could not restart xdg-desktop-portal.")));
         QVERIFY(message->text().contains(QStringLiteral("Log out")));
         QCOMPARE(PortalSetup::state(portalPaths()), PortalSetup::State::Installed);
+    }
+
+    void forgetsTheRememberedFolders()
+    {
+        {
+            MainWindow window;
+            SettingsDialog dialog(placesOf(window), &window);
+            auto *startFolder = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_FileChooserStartFolder"));
+            QVERIFY(startFolder);
+            QCOMPARE(startFolder->count(), 2);
+            QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("forgetFileChooserFolders"))->isEnabled());
+        }
+
+        const KSharedConfigPtr state = KSharedConfig::openStateConfig();
+        KConfigGroup group = state->group(FileChooser::stateGroupName());
+        FileChooser::rememberFolder(group, QStringLiteral("org.example.App"), QUrl::fromLocalFile(QDir::homePath()));
+        QVERIFY(state->sync());
+
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *forget = dialog.findChild<QPushButton *>(QStringLiteral("forgetFileChooserFolders"));
+        QVERIFY(forget->isEnabled());
+        forget->click();
+        QCOMPARE(dialog.findChild<KMessageWidget *>(QStringLiteral("fileChooserPortalMessage"))->messageType(), KMessageWidget::Positive);
+        QVERIFY(!forget->isEnabled());
+        state->reparseConfiguration();
+        QVERIFY(!state->hasGroup(FileChooser::stateGroupName()));
     }
 
     void notesASessionOutsidePlasma()

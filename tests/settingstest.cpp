@@ -1341,6 +1341,7 @@ private Q_SLOTS:
             QCOMPARE(tabOf(entry), QStringLiteral("System Tray"));
         }
         QCOMPARE(tabOf(QStringLiteral("ActivityAssociations")), QStringLiteral("Activities"));
+        QCOMPARE(tabOf(QStringLiteral("FileChooserStartFolder")), QStringLiteral("File Manager"));
         QCOMPARE(tabOf(QStringLiteral("RunnerWorkspaces")), QStringLiteral("Plasma Search"));
         QCOMPARE(tabOf(QStringLiteral("RunnerFavorites")), QStringLiteral("Plasma Search"));
         QCOMPARE(tabOf(QStringLiteral("OfferActivityAssociation")), QStringLiteral("Activities"));

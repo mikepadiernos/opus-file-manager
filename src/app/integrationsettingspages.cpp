@@ -4,8 +4,10 @@
 
 #include "appidentity.h"
 #include "defaultfilemanager.h"
+#include "filechooser.h"
 #include "filemanagerservice.h"
 #include "portalsetup.h"
+#include "settingswidgets.h"
 
 #include <KConfigGroup>
 #include <KIO/CommandLauncherJob>
@@ -18,6 +20,7 @@
 
 #include <QApplication>
 #include <QFileInfo>
+#include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -147,14 +150,22 @@ PortalSetup::Paths portalPaths()
     return PortalSetup::Paths::fromEnvironment(QCoreApplication::applicationDirPath() + QStringLiteral("/opus-file-manager-portal"));
 }
 
-/// The backup of the previous portal configuration, which opus-file-manager --install-portal may also have written.
-KConfigGroup portalBackup()
+/// The state configuration, read again because the portal setup commands and the file chooser service also write it.
+KSharedConfigPtr sharedState()
 {
     const KSharedConfigPtr state = KSharedConfig::openStateConfig();
     state->reparseConfiguration();
-    return state->group(PortalSetup::backupGroupName());
+    return state;
+}
+
+/// The backup of the previous portal configuration.
+KConfigGroup portalBackup()
+{
+    return sharedState()->group(PortalSetup::backupGroupName());
 }
 }
+
+using SettingsWidgets::comboBox;
 
 QWidget *SettingsDialog::createFileManagerIntegrationPage()
 {
@@ -309,9 +320,24 @@ QGroupBox *SettingsDialog::createFileChooserGroup()
     install->setToolTip(i18nc("@info:tooltip", "Show the Plasma Opus file chooser when applications that use the XDG portal open or save files"));
     auto *restore = actionButton(QStringLiteral("restoreFileChooserPortal"), i18nc("@action:button", "Restore Previous Chooser"));
     restore->setToolTip(i18nc("@info:tooltip", "Show the file chooser that applications used before the Plasma Opus file chooser was set up"));
+    auto *startForm = new QFormLayout;
+    startForm->addRow(i18nc("@label:listbox", "Start folder:"),
+                      comboBox(QStringLiteral("FileChooserStartFolder"),
+                               {i18nc("@item:inlistbox file chooser start folder", "Home folder"),
+                                i18nc("@item:inlistbox file chooser start folder", "Folder of the last choice")}));
+    auto *startNote = new QLabel(i18nc("@info",
+                                       "The Plasma Opus file chooser starts here when the application suggests no folder. The folder of the last "
+                                       "choice is remembered for each application while this option is selected; applications that the portal "
+                                       "does not identify share one folder."));
+    startNote->setWordWrap(true);
+    auto *forget = actionButton(QStringLiteral("forgetFileChooserFolders"), i18nc("@action:button", "Forget Remembered Folders"));
+    forget->setToolTip(i18nc("@info:tooltip", "Forget the folder of each application's last choice"));
     auto *message = messageWidget(QStringLiteral("fileChooserPortalMessage"));
     layout->addWidget(status);
     layout->addLayout(buttonRow({install, restore}));
+    layout->addLayout(startForm);
+    layout->addWidget(startNote);
+    layout->addLayout(buttonRow({forget}));
     layout->addWidget(message);
 
     group->refresh = [=, this] {
@@ -351,6 +377,7 @@ QGroupBox *SettingsDialog::createFileChooserGroup()
         install->setText(state == PortalSetup::State::Partial ? i18nc("@action:button", "Complete Setup") : i18nc("@action:button", "Set Up"));
         install->setEnabled(state != PortalSetup::State::Installed && helperInstalled && available);
         restore->setEnabled(state != PortalSetup::State::NotInstalled || portalBackup().exists());
+        forget->setEnabled(sharedState()->hasGroup(FileChooser::stateGroupName()));
     };
 
     const auto apply = [=, this](PortalSetup::Change change) {
@@ -388,6 +415,16 @@ QGroupBox *SettingsDialog::createFileChooserGroup()
     });
     connect(restore, &QPushButton::clicked, group, [apply] {
         apply(PortalSetup::Change::Uninstall);
+    });
+    connect(forget, &QPushButton::clicked, group, [=] {
+        const KSharedConfigPtr state = sharedState();
+        state->deleteGroup(FileChooser::stateGroupName());
+        if (state->sync()) {
+            report(message, KMessageWidget::Positive, i18nc("@info", "The file chooser no longer remembers the folders of earlier choices."));
+        } else {
+            report(message, KMessageWidget::Error, i18nc("@info", "Could not forget the folders of earlier choices."));
+        }
+        group->refresh();
     });
     group->refresh();
     return group;
