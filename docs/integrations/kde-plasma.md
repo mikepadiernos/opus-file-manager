@@ -758,9 +758,19 @@ behaves like the rest of the desktop and follows the user's choices.
   Nextcloud, ownCloud, Syncthing or Dropbox clients are refused. Nested pairs
   can exclude each other. **Synchronize in the background after login**
   starts Plasma Opus in the system tray, which asks for attention when a run
-  needs review. Pairs store no passwords. See
-  [Cloud sync](../CAVEATS.md#desktop-integration).
-  ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718))
+  needs review. Pairs store no passwords. Each pair also chooses how conflicts
+  are resolved: **Ask When Reviewing**, **Keep Both**, **Keep Local Version** or
+  **Keep Remote Version**; background and **Sync Now** runs apply that choice,
+  and reviews start from it. Under **Preferences › Remote and Cloud › Sync**,
+  manage the same pairs with the same editor, with changes taking effect
+  immediately, and choose whether Plasma Opus starts in the system tray at login
+  to synchronize them, whether background runs pause on metered connections, and
+  how often pairs that use the default interval are checked, 15 minutes unless
+  changed, since remotes don't report changes. See [Cloud
+  sync](../CAVEATS.md#desktop-integration) and [Cloud sync
+  settings](../CAVEATS.md#integration-settings).
+  ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718),
+  [#720](https://github.com/mikepadiernos/plasma-opus/issues/720))
 - **Cloud activity:** **File › Cloud Activity…** and the tray menu's
   **Cloud Activity…** open one window for cloud sync pairs and rclone mounts.
   It lists each connection with its state, free space and pending uploads,
