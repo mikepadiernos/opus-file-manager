@@ -1954,4 +1954,38 @@
       <default>true</default>
     </entry>
   </group>
+  <!-- The starting choices of File › Share on Local Network…, read by LanShare::defaultsFromSettings(). -->
+  <group name="LanShare">
+    <entry name="LanShareProtocol" key="Protocol" type="Enum">
+      <label>Whether shares serve folder pages to browsers, WebDAV to file managers or both</label>
+      <choices><choice name="BrowsersAndWebDav"/><choice name="Browsers"/><choice name="WebDav"/></choices>
+      <default>BrowsersAndWebDav</default>
+    </entry>
+    <entry name="LanShareHttps" key="Https" type="Bool">
+      <label>Whether shares are encrypted with HTTPS when openssl is available</label>
+      <default>true</default>
+    </entry>
+    <entry name="LanShareExcludedInterfaces" key="ExcludedInterfaces" type="StringList">
+      <label>The network interfaces whose addresses aren't chosen when a share starts</label>
+    </entry>
+    <entry name="LanSharePort" key="Port" type="Int">
+      <label>The port that shares listen on, or 0 to choose one</label>
+      <default>0</default>
+      <min>0</min>
+      <max>65535</max>
+    </entry>
+    <entry name="LanShareTimeoutMinutes" key="TimeoutMinutes" type="Int">
+      <label>How many minutes a share lasts before it stops by itself</label>
+      <default>30</default>
+      <min>1</min>
+      <max>1440</max>
+    </entry>
+    <entry name="LanShareAllowUploads" key="AllowUploads" type="Bool">
+      <label>Whether shares start with uploads allowed</label>
+      <default>false</default>
+    </entry>
+    <entry name="LanShareUploadFolder" key="UploadFolder" type="Url">
+      <label>The folder that receives uploads; empty for Downloads</label>
+    </entry>
+  </group>
 </kcfg>

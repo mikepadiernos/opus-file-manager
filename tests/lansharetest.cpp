@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "lanshare.h"
+#include "settings.h"
 
 #include <QDir>
 #include <QEventLoop>
 #include <QFile>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QSslSocket>
 #include <QStandardPaths>
@@ -326,6 +328,107 @@ private Q_SLOTS:
         QVERIFY(!m_server.isRunning());
         QVERIFY(!stopped.first().first().toString().isEmpty());
         QVERIFY(m_server.urls().isEmpty());
+    }
+
+    void servesOnlyTheChosenClients()
+    {
+        const QByteArray propfind = "PROPFIND /testtoken/shared/ HTTP/1.1\r\nDepth: 1\r\n\r\n";
+        LanShareServer::Options options = baseOptions();
+        options.protocol = LanShare::Protocol::Browsers;
+        QVERIFY(m_server.start(options).isEmpty());
+        Response response = request("OPTIONS /testtoken/ HTTP/1.1\r\n\r\n");
+        QCOMPARE(response.status, 200);
+        QVERIFY(!response.headers.contains("dav"));
+        QVERIFY(!response.headers.value("allow").contains("PROPFIND"));
+        QCOMPARE(request(propfind).status, 405);
+        QCOMPARE(get("/testtoken/shared/").status, 200);
+        QCOMPARE(get("/testtoken/shared/hello.txt").body, QByteArray("Hello, world!"));
+
+        options.protocol = LanShare::Protocol::WebDav;
+        QVERIFY(m_server.start(options).isEmpty());
+        response = request("OPTIONS /testtoken/ HTTP/1.1\r\n\r\n");
+        QCOMPARE(response.headers.value("dav"), QByteArray("1"));
+        QVERIFY(response.headers.value("allow").contains("PROPFIND"));
+        QCOMPARE(request(propfind).status, 207);
+        response = get("/testtoken/shared/");
+        QCOMPARE(response.status, 405);
+        QVERIFY(!response.body.contains("<html"));
+        QCOMPARE(get("/testtoken/").status, 405);
+        QCOMPARE(get("/testtoken/shared/hello.txt").body, QByteArray("Hello, world!"));
+
+        options.protocol = LanShare::Protocol::BrowsersAndWebDav;
+        QVERIFY(m_server.start(options).isEmpty());
+        QCOMPARE(request(propfind).status, 207);
+        QCOMPARE(get("/testtoken/shared/").status, 200);
+    }
+
+    void choosesAddressesByInterface()
+    {
+        const LanShare::InterfaceAddress wifi{QHostAddress(QStringLiteral("192.168.1.2")), QStringLiteral("wlan0")};
+        const LanShare::InterfaceAddress vpn{QHostAddress(QStringLiteral("10.8.0.2")), QStringLiteral("tun0")};
+        const LanShare::InterfaceAddress publicAddress{QHostAddress(QStringLiteral("8.8.8.8")), QStringLiteral("eth0")};
+        const LanShare::InterfaceAddress unknown{QHostAddress(QHostAddress::LocalHost), QString()};
+        QVERIFY(LanShare::chosenByDefault(wifi, {}));
+        QVERIFY(LanShare::chosenByDefault(vpn, {}));
+        QVERIFY(!LanShare::chosenByDefault(publicAddress, {}));
+        QVERIFY(LanShare::chosenByDefault(unknown, {}));
+        const QStringList excluded{QStringLiteral("tun0")};
+        QVERIFY(LanShare::chosenByDefault(wifi, excluded));
+        QVERIFY(!LanShare::chosenByDefault(vpn, excluded));
+        QVERIFY(LanShare::chosenByDefault(unknown, excluded));
+
+        QList<QHostAddress> expected;
+        const auto addresses = LanShare::interfaceAddresses();
+        for (const LanShare::InterfaceAddress &address : addresses) {
+            QVERIFY(!address.interface.isEmpty());
+            expected.append(address.address);
+        }
+        QCOMPARE(LanShare::localAddresses(), expected);
+        const auto interfaces = LanShare::networkInterfaces();
+        for (const LanShare::NetworkInterface &interface : interfaces) {
+            QVERIFY(!interface.name.isEmpty());
+            QVERIFY(interface.label.startsWith(interface.name));
+        }
+    }
+
+    void readsTheDefaultsFromTheSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+        LanShare::Defaults defaults = LanShare::defaultsFromSettings();
+        QCOMPARE(defaults.protocol, LanShare::Protocol::BrowsersAndWebDav);
+        QVERIFY(defaults.tls);
+        QVERIFY(defaults.excludedInterfaces.isEmpty());
+        QCOMPARE(defaults.port, quint16(0));
+        QCOMPARE(defaults.timeoutMinutes, 30);
+        QVERIFY(!defaults.allowUploads);
+        QCOMPARE(defaults.uploadFolder, LanShare::defaultUploadFolder());
+        QVERIFY(!defaults.uploadFolder.isEmpty());
+
+        Settings::setLanShareProtocol(Settings::EnumLanShareProtocol::WebDav);
+        Settings::setLanShareHttps(false);
+        Settings::setLanShareExcludedInterfaces({QStringLiteral("tun0")});
+        Settings::setLanSharePort(8443);
+        Settings::setLanShareTimeoutMinutes(90);
+        Settings::setLanShareAllowUploads(true);
+        Settings::setLanShareUploadFolder(QUrl::fromLocalFile(path(QStringLiteral("uploads"))));
+        Settings::self()->save();
+        defaults = LanShare::defaultsFromSettings();
+        QCOMPARE(defaults.protocol, LanShare::Protocol::WebDav);
+        QVERIFY(!defaults.tls);
+        QCOMPARE(defaults.excludedInterfaces, QStringList{QStringLiteral("tun0")});
+        QCOMPARE(defaults.port, quint16(8443));
+        QCOMPARE(defaults.timeoutMinutes, 90);
+        QVERIFY(defaults.allowUploads);
+        QCOMPARE(defaults.uploadFolder, path(QStringLiteral("uploads")));
+
+        Settings::setLanShareProtocol(Settings::EnumLanShareProtocol::Browsers);
+        defaults = LanShare::defaultsFromSettings();
+        QCOMPARE(defaults.protocol, LanShare::Protocol::Browsers);
     }
 
     void validatesOptions()
