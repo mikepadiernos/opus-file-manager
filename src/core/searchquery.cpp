@@ -732,3 +732,8 @@ QString Query::toString() const
 {
     return isValid() ? describe(m_root) : QString();
 }
+
+const Node &Query::root() const
+{
+    return m_root;
+}

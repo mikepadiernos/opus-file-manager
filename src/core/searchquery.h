@@ -113,6 +113,8 @@ public:
     bool matches(const QFileInfo &entry, const ContentMatcher &content = {}, const TagMatcher &tags = {}, const MetadataReader &metadata = {}) const;
     /// Normalized form with explicit operators and grouping.
     QString toString() const;
+    /// The parsed expression; meaningful only when isValid().
+    const Node &root() const;
 
 private:
     Node m_root;
