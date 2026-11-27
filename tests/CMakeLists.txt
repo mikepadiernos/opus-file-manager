@@ -112,6 +112,7 @@ ecm_add_tests(
     indexstatustest.cpp
     kdeconnectsharetest.cpp
     lansharetest.cpp
+    mailhandofftest.cpp
     onlineaccountstest.cpp
     kwinscripttest.cpp
     mounttabletest.cpp

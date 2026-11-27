@@ -89,6 +89,8 @@ add_library(opusfm_core STATIC
     kdeconnectshare.h
     lanshare.cpp
     lanshare.h
+    mailhandoff.cpp
+    mailhandoff.h
     kwinscript.cpp
     kwinscript.h
     mounttable.cpp
