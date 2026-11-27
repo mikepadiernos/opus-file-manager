@@ -46,6 +46,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [KWin script settings on Plasma](#kwin-script-settings-on-plasma-709)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#709]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [Drop-down settings on Plasma](#drop-down-settings-on-plasma-710)           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#710]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [Baloo search settings on Plasma](#baloo-search-settings-on-plasma-443)     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#443]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
+| [Office settings on Plasma](#office-settings-on-plasma-676)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#676]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -885,6 +886,40 @@ Board statuses were last confirmed on 2026-11-27.
    Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
    then remove this entry and its roadmap link.
 
+## Office settings on Plasma (#676)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#676]
+  (Development).
+- **Blocker:** The development container has no office applications,
+  document viewer components or System Settings, so the **Office** tab's list
+  of viewers, previews through a real component and **File Associations…**
+  can't be checked there.
+- **Confirmed state:** `SettingsDialog::createOfficeEditorGroup()` and
+  `createOfficePreviewGroup()` in `src/app/integrationsettingspages.cpp`
+  store `OfficeEditor` and `OfficePreviews` in the `Office` group.
+  `EditTools::choose()` uses only the chosen application through
+  `OfficeApps::preferredApp()`, and `PreviewPanel` shows a message instead of
+  a viewer when `DocumentFormats::previewEnabled()` is false. The tab lists
+  each kind's first viewer from `KParts::PartLoader::partsForMimeType()` and
+  opens the `kcm_filetypes` module. `edittoolstest`, `documentformatstest` and
+  `integrationsettingstest` pass in the container with fake applications. See
+  [Office settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma with Calligra and Okular installed, open **Preferences ›
+   Applications › Office** and check that the **Previews** group names
+   Calligra's viewer for text documents, spreadsheets and presentations.
+2. Choose **File Associations…**, check that KDE's File Associations
+   settings open, raise another viewer for ODT files, and check that the tab
+   and the preview of an ODT file follow it.
+3. Choose LibreOffice, apply, and check that **Edit** opens a local ODT file
+   in LibreOffice and reports a document on an SFTP folder. Clear **Preview
+   office documents in the preview panel**, apply, and check that local and
+   remote office documents show the message without downloading. Record any
+   differences in [CAVEATS](CAVEATS.md#integration-settings), then remove
+   this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -910,6 +945,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#657]: https://github.com/mikepadiernos/plasma-opus/issues/657
 [#658]: https://github.com/mikepadiernos/plasma-opus/issues/658
 [#659]: https://github.com/mikepadiernos/plasma-opus/issues/659
+[#676]: https://github.com/mikepadiernos/plasma-opus/issues/676
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
 [#707]: https://github.com/mikepadiernos/plasma-opus/issues/707
 [#708]: https://github.com/mikepadiernos/plasma-opus/issues/708

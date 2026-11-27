@@ -3101,7 +3101,7 @@ The M28 integration settings have these limits
   Associations** ranks first, which **File Associations…** opens. The
   container has no viewer components or System Settings, so the listed
   viewers and opening File Associations are verified there only by their
-  absence.
+  absence ([Plasma check](TODO.md#office-settings-on-plasma-676)).
   ([#676](https://github.com/mikepadiernos/plasma-opus/issues/676))
 
 - **Recommendation:**
