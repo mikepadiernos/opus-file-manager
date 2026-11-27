@@ -10,6 +10,8 @@
 #include "favoritesmodel.h"
 #include "filechooser.h"
 #include "filemanagerservice.h"
+#include "kwinintegration.h"
+#include "kwinscript.h"
 #include "onlineaccounts.h"
 #include "portalsetup.h"
 #include "runnermatches.h"
@@ -1004,5 +1006,199 @@ QWidget *SettingsDialog::createMountManagerIntegrationPage()
     displayLayout->addWidget(note);
     layout->addWidget(display);
     layout->addStretch();
+    return page;
+}
+
+KWinIntegration *SettingsDialog::kwinIntegration() const
+{
+    return parentWidget() ? parentWidget()->findChild<KWinIntegration *>() : nullptr;
+}
+
+void SettingsDialog::setKWinRemovalConfirmation(std::function<bool()> confirm)
+{
+    m_confirmKWinRemoval = std::move(confirm);
+}
+
+QWidget *SettingsDialog::createKWinIntegrationPage()
+{
+    if (!m_confirmKWinRemoval) {
+        m_confirmKWinRemoval = [this] {
+            return KMessageBox::questionTwoActions(this,
+                                                   i18nc("@info", "Remove the Plasma Opus KWin script? Other KWin scripts and settings are not changed."),
+                                                   i18nc("@title:window", "Remove KWin Script"),
+                                                   KStandardGuiItem::remove(),
+                                                   KStandardGuiItem::cancel())
+                == KMessageBox::PrimaryAction;
+        };
+    }
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("kwinIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *script = new StatusGroup(i18nc("@title:group", "KWin Script"));
+    script->setObjectName(QStringLiteral("kwinScriptGroup"));
+    auto *scriptLayout = new QVBoxLayout(script);
+    auto *intro = new QLabel(i18nc("@info",
+                                   "An optional KWin script lets Plasma Opus restore, tile and place its windows, which Wayland applications cannot do "
+                                   "themselves. Nothing is installed until you choose to, and the script acts only on Plasma Opus windows."));
+    intro->setWordWrap(true);
+    scriptLayout->addWidget(intro);
+    auto *status = statusLabel(QStringLiteral("kwinStatus"));
+    scriptLayout->addWidget(status);
+    auto *install = actionButton(QStringLiteral("kwinInstall"), i18nc("@action:button", "Install and Enable"));
+    auto *enable = actionButton(QStringLiteral("kwinEnable"), i18nc("@action:button", "Enable"));
+    enable->setIcon(QIcon::fromTheme(QStringLiteral("checkmark")));
+    enable->setToolTip(i18nc("@info:tooltip", "Turn the installed script on in KWin and load it"));
+    auto *disable = actionButton(QStringLiteral("kwinDisable"), i18nc("@action:button", "Disable"));
+    disable->setIcon(QIcon::fromTheme(QStringLiteral("dialog-cancel")));
+    disable->setToolTip(i18nc("@info:tooltip", "Turn the script off in KWin and unload it, keeping it installed"));
+    auto *remove = actionButton(QStringLiteral("kwinRemove"), i18nc("@action:button", "Remove…"));
+    remove->setIcon(QIcon::fromTheme(QStringLiteral("edit-delete")));
+    remove->setToolTip(i18nc("@info:tooltip", "Unload and uninstall the script; other KWin scripts and settings are not changed"));
+    auto *refresh = actionButton(QStringLiteral("kwinRefresh"), i18nc("@action:button", "Refresh"));
+    refresh->setIcon(QIcon::fromTheme(QStringLiteral("view-refresh")));
+    refresh->setToolTip(i18nc("@info:tooltip", "Read the script's state from KWin again"));
+    scriptLayout->addLayout(buttonRow({install, enable, disable, remove, refresh}));
+    auto *scripts = actionButton(QStringLiteral("openKWinScriptsSettings"), i18nc("@action:button", "Configure KWin Scripts…"));
+    scripts->setIcon(QIcon::fromTheme(QStringLiteral("preferences-system-windows-behavior")));
+    scripts->setToolTip(i18nc("@info:tooltip", "Open KWin's script settings in System Settings, which list every installed KWin script"));
+    scriptLayout->addLayout(buttonRow({scripts}));
+    auto *message = messageWidget(QStringLiteral("kwinMessage"));
+    scriptLayout->addWidget(message);
+    layout->addWidget(script);
+
+    auto *windows = new QGroupBox(i18nc("@title:group", "Window Management"));
+    windows->setObjectName(QStringLiteral("kwinWindowManagementGroup"));
+    auto *windowsLayout = new QVBoxLayout(windows);
+    windowsLayout->addWidget(
+        checkBox(QStringLiteral("KWinRestoreWindows"),
+                 i18nc("@option:check", "Restore the window's screen, virtual desktop, size, tile and keep-above state with each workspace")));
+    windowsLayout->addWidget(
+        checkBox(QStringLiteral("KWinTileCompanions"), i18nc("@option:check", "Place detached previews, editors and panes beside the main window")));
+    auto *follow =
+        checkBox(QStringLiteral("KWinFollowDesktops"), i18nc("@option:check", "Apply the workspace assigned to the virtual desktop that becomes current:"));
+    windowsLayout->addWidget(follow);
+    m_desktopWorkspaces = new DesktopWorkspacesEditor;
+    m_desktopWorkspaces->setObjectName(QStringLiteral("kwinDesktopWorkspaces"));
+    windowsLayout->addWidget(m_desktopWorkspaces);
+    auto *windowsNote = new QLabel(i18nc("@info",
+                                         "These take effect while the script is running. A workspace restores the window as it was last "
+                                         "placed while that workspace was in use. Plasma Opus never changes KWin's settings; window rules for "
+                                         "Plasma Opus and other applications are set in KWin's settings."));
+    windowsNote->setWordWrap(true);
+    windowsLayout->addWidget(windowsNote);
+    auto *rules = actionButton(QStringLiteral("openKWinRulesSettings"), i18nc("@action:button", "Configure Window Rules…"));
+    rules->setIcon(QIcon::fromTheme(QStringLiteral("preferences-system-windows-actions")));
+    rules->setToolTip(i18nc("@info:tooltip", "Open KWin's window rules in System Settings, which apply to every application"));
+    auto *rulesMessage = messageWidget(QStringLiteral("kwinRulesMessage"));
+    windowsLayout->addLayout(buttonRow({rules}));
+    windowsLayout->addWidget(rulesMessage);
+    layout->addWidget(windows);
+    layout->addStretch();
+
+    const QPointer<KWinIntegration> kwin(kwinIntegration());
+    const auto update = [kwin, status, install, enable, disable, remove, refresh] {
+        if (!kwin) {
+            status->setText(i18nc("@info", "Open Preferences from a Plasma Opus window to manage the KWin script."));
+            for (QPushButton *button : {install, enable, disable, remove, refresh}) {
+                button->setEnabled(false);
+            }
+            enable->hide();
+            disable->hide();
+            return;
+        }
+        const KWinScript::State state = kwin->state();
+        const KWinScript::Status current = KWinScript::status(state);
+        status->setText(kwin->statusText());
+        const bool available = current != KWinScript::Status::KWinUnavailable && current != KWinScript::Status::ScriptingUnavailable;
+        const bool installed = state.installedVersion >= 0;
+        install->setVisible(!installed || state.installedVersion < state.bundledVersion);
+        install->setText(installed ? i18nc("@action:button", "Update") : i18nc("@action:button", "Install and Enable"));
+        install->setIcon(QIcon::fromTheme(installed ? QStringLiteral("update-none") : QStringLiteral("download")));
+        install->setToolTip(installed ? i18nc("@info:tooltip", "Install the version included with this Plasma Opus, enable it and reload it")
+                                      : i18nc("@info:tooltip", "Install the script for your user account, enable it and load it"));
+        install->setEnabled(available);
+        enable->setVisible(installed && !state.enabled);
+        enable->setEnabled(available);
+        disable->setVisible(installed && state.enabled);
+        disable->setEnabled(true);
+        remove->setEnabled(installed);
+        refresh->setEnabled(true);
+    };
+    script->refresh = update;
+    update();
+
+    const auto reloadDesktops = [this, kwin] {
+        QList<std::pair<QString, QString>> desktops;
+        if (kwin) {
+            for (const KWinScript::Desktop &desktop : kwin->desktops()) {
+                desktops.append({desktop.id, desktop.name});
+            }
+        }
+        m_desktopWorkspaces->setDesktops(desktops);
+    };
+    reloadDesktops();
+    connect(follow, &QCheckBox::toggled, m_desktopWorkspaces, &QWidget::setEnabled);
+    m_desktopWorkspaces->setEnabled(follow->isChecked());
+    connect(m_desktopWorkspaces, &DesktopWorkspacesEditor::changed, this, &SettingsDialog::updateButtons);
+
+    // The message to show once an install, update or removal succeeds.
+    auto succeeded = std::make_shared<QString>();
+    if (kwin) {
+        connect(kwin, &KWinIntegration::stateChanged, page, update);
+        connect(kwin, &KWinIntegration::desktopsChanged, page, reloadDesktops);
+        connect(kwin, &KWinIntegration::operationFinished, page, [message, succeeded](const QString &error) {
+            if (!error.isEmpty()) {
+                report(message, KMessageWidget::Error, error);
+            } else if (!succeeded->isEmpty()) {
+                report(message, KMessageWidget::Positive, *succeeded);
+            }
+            succeeded->clear();
+        });
+    }
+    connect(install, &QPushButton::clicked, page, [kwin, install, remove, message, succeeded] {
+        if (!kwin) {
+            return;
+        }
+        message->animatedHide();
+        *succeeded = kwin->state().installedVersion >= 0 ? i18nc("@info", "The KWin script is updated, enabled and reloaded.")
+                                                         : i18nc("@info", "The KWin script is installed and enabled.");
+        install->setEnabled(false);
+        remove->setEnabled(false);
+        kwin->install();
+    });
+    connect(enable, &QPushButton::clicked, page, [kwin, message] {
+        if (kwin) {
+            message->animatedHide();
+            kwin->setEnabled(true);
+        }
+    });
+    connect(disable, &QPushButton::clicked, page, [kwin, message] {
+        if (kwin) {
+            message->animatedHide();
+            kwin->setEnabled(false);
+        }
+    });
+    connect(remove, &QPushButton::clicked, page, [this, kwin, install, remove, message, succeeded] {
+        if (!kwin || !m_confirmKWinRemoval()) {
+            return;
+        }
+        message->animatedHide();
+        *succeeded = i18nc("@info", "The KWin script is removed. Other KWin scripts and settings are not changed.");
+        install->setEnabled(false);
+        remove->setEnabled(false);
+        kwin->remove();
+    });
+    connect(refresh, &QPushButton::clicked, page, [kwin] {
+        if (kwin) {
+            kwin->refresh();
+        }
+    });
+    connect(scripts, &QPushButton::clicked, page, [message] {
+        openSettingsModule(QStringLiteral("kcm_kwin_scripts"), i18nc("@info", "KWin's script settings are not installed."), message);
+    });
+    connect(rules, &QPushButton::clicked, page, [rulesMessage] {
+        openSettingsModule(QStringLiteral("kcm_kwinrules"), i18nc("@info", "KWin's window rules settings are not installed."), rulesMessage);
+    });
     return page;
 }

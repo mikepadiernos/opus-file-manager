@@ -6,6 +6,7 @@
 
 #include <KConfigDialog>
 #include <KFilePlacesModel>
+#include <QMap>
 
 #include <functional>
 
@@ -14,12 +15,14 @@ class ActivityAssociationsEditor;
 class ActivityController;
 class ColorSchemeCombo;
 class DesktopTray;
+class DesktopWorkspacesEditor;
 class EmbeddedMetadataKeyList;
 class EmbeddedMetadataMappingTable;
 class FieldTemplateEditor;
 class HiddenItemsList;
 class KKeySequenceWidget;
 class KPageWidgetItem;
+class KWinIntegration;
 class PreviewSizeSpinBox;
 class QCheckBox;
 class QComboBox;
@@ -102,6 +105,8 @@ public:
      * @p restart returns an error message, or an empty string on success.
      */
     void setPortalSetupHooks(std::function<bool()> available, std::function<QString()> restart, std::function<bool(const QString &)> confirm);
+    /// Replaces the yes or no question asked before removing the KWin script, for tests.
+    void setKWinRemovalConfirmation(std::function<bool()> confirm);
     /// The theme profile options shown in the dialog, which may not be applied yet.
     QVariantMap appearanceValues() const;
     /// Shows Themes options in the dialog without applying them.
@@ -315,6 +320,15 @@ private:
      * and Go › Mount Points list, and whether Mount Points is on the toolbar.
      */
     QWidget *createMountManagerIntegrationPage();
+    /**
+     * The KDE Plasma › KWin tab: installs, updates, enables, disables or
+     * removes the Plasma Opus KWin script on request, and chooses what it
+     * does with Plasma Opus windows and which workspace each virtual desktop
+     * applies.
+     */
+    QWidget *createKWinIntegrationPage();
+    /// The main window's KWin integration, which manages the KWin script, if the dialog has one.
+    KWinIntegration *kwinIntegration() const;
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
     ActivityController *activityController() const;
     void createSettingsBackup();
@@ -338,6 +352,10 @@ private:
     ActivityAssociationsEditor *m_activityAssociations = nullptr;
     HiddenItemsList *m_runnerWorkspaces = nullptr;
     HiddenItemsList *m_runnerFavorites = nullptr;
+    DesktopWorkspacesEditor *m_desktopWorkspaces = nullptr;
+    /// The virtual desktop workspaces when they were last loaded or saved, to tell whether the dialog changed them.
+    QMap<QString, QString> m_savedDesktopWorkspaces;
+    std::function<bool()> m_confirmKWinRemoval;
     /// The Activity associations when they were last loaded or saved, to tell whether the dialog changed them.
     QList<ActivityAssociations::Association> m_savedActivityAssociations;
     QLabel *m_yaziWorkspaceDefault = nullptr;

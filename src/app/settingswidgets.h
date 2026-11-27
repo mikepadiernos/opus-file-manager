@@ -9,6 +9,7 @@
 #include <QDialog>
 #include <QHash>
 #include <QListWidget>
+#include <QMap>
 #include <QPalette>
 #include <QSpinBox>
 #include <QWidget>
@@ -17,6 +18,7 @@
 #include <optional>
 
 class QCheckBox;
+class QFormLayout;
 class QLabel;
 class QLineEdit;
 
@@ -90,6 +92,70 @@ Q_SIGNALS:
 
 private:
     QList<std::pair<QString, QString>> m_workspaces;
+};
+
+/**
+ * Chooses a saved workspace, or none. A chosen workspace that no longer
+ * exists stays selected as missing, so its reference is kept until the user
+ * changes it.
+ */
+class WorkspaceCombo : public QComboBox
+{
+    Q_OBJECT
+    Q_PROPERTY(QString workspace READ workspace WRITE setWorkspace NOTIFY workspaceChanged USER true)
+
+public:
+    /// @param noneText the text of the choice that names no workspace
+    explicit WorkspaceCombo(const QString &noneText, QWidget *parent = nullptr);
+    /// The chosen workspace's UUID, or an empty string for none.
+    QString workspace() const;
+    void setWorkspace(const QString &workspace);
+    /**
+     * Lists the catalog's workspaces, keeping the current choice.
+     * @param workspaces each workspace's UUID and display name
+     */
+    void setWorkspaces(const QList<std::pair<QString, QString>> &workspaces);
+
+Q_SIGNALS:
+    void workspaceChanged();
+
+private:
+    QString m_noneText;
+    QList<std::pair<QString, QString>> m_workspaces;
+};
+
+/**
+ * Assigns a saved workspace, or none, to each listed virtual desktop. The
+ * assignments of desktops that are not listed are kept.
+ */
+class DesktopWorkspacesEditor : public QWidget
+{
+    Q_OBJECT
+
+public:
+    explicit DesktopWorkspacesEditor(QWidget *parent = nullptr);
+    /**
+     * Lists @p desktops, keeping every assignment, including unsaved ones.
+     * @param desktops each virtual desktop's id and name
+     */
+    void setDesktops(const QList<std::pair<QString, QString>> &desktops);
+    /// @param workspaces each workspace's UUID and display name
+    void setWorkspaces(const QList<std::pair<QString, QString>> &workspaces);
+    /// Workspace UUIDs by virtual desktop id, without desktops that have none.
+    QMap<QString, QString> assignments() const;
+    void setAssignments(const QMap<QString, QString> &assignments);
+
+Q_SIGNALS:
+    void changed();
+
+private:
+    void rebuild();
+
+    QFormLayout *m_form;
+    QLabel *m_empty;
+    QList<std::pair<QString, QString>> m_desktops;
+    QList<std::pair<QString, QString>> m_workspaces;
+    QMap<QString, QString> m_assignments;
 };
 
 /**

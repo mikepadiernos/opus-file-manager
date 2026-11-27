@@ -14,6 +14,7 @@
 #include "folderpreview.h"
 #include "indexbackend.h"
 #include "interfacelanguage.h"
+#include "kwinscript.h"
 #include "libraryarchive.h"
 #include "libraryconfirmations.h"
 #include "libraryregistry.h"
@@ -390,11 +391,12 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                   {createKdeConnectIntegrationPage(), i18nc("@title:tab", "KDE Connect")},
                                   {createKRunnerIntegrationPage(), i18nc("@title:tab", "KRunner")},
                                   {createOnlineAccountsIntegrationPage(), i18nc("@title:tab", "Online Accounts")},
-                                  {createMountManagerIntegrationPage(), i18nc("@title:tab", "Mount Manager")}},
+                                  {createMountManagerIntegrationPage(), i18nc("@title:tab", "Mount Manager")},
+                                  {createKWinIntegrationPage(), i18nc("@title:tab", "KWin")}},
                                  i18nc("@title:group", "KDE Plasma"),
                                  QStringLiteral("plasma"),
                                  &m_plasmaTabs);
-    // The Activities and KRunner tabs offer the workspaces too.
+    // The Activities, KRunner and KWin tabs offer the workspaces too.
     reloadWorkspaces();
     applySidebarStyle();
     connect(this, &KConfigDialog::settingsChanged, this, [this] {
@@ -1037,6 +1039,9 @@ void SettingsDialog::reloadWorkspaces()
     }
     if (m_runnerWorkspaces) {
         m_runnerWorkspaces->setItems(names);
+    }
+    if (m_desktopWorkspaces) {
+        m_desktopWorkspaces->setWorkspaces(names);
     }
 }
 
@@ -4282,6 +4287,13 @@ void SettingsDialog::updateSettings()
         config->sync();
         m_savedActivityAssociations = associations;
     }
+    if (const auto assignments = m_desktopWorkspaces->assignments(); assignments != m_savedDesktopWorkspaces) {
+        const KSharedConfigPtr config = KSharedConfig::openConfig();
+        KConfigGroup group = config->group(QStringLiteral("KWinVirtualDesktops"));
+        KWinScript::writeDesktopWorkspaces(group, assignments);
+        config->sync();
+        m_savedDesktopWorkspaces = assignments;
+    }
     if (DesktopTray *tray = desktopTray(); tray && m_globalShortcutKey->keySequence() != tray->globalShortcut()) {
         // Before the main window applies the settings, so a shortcut turned on
         // at the same time gets the chosen key.
@@ -4316,6 +4328,9 @@ void SettingsDialog::updateWidgets()
         const KSharedConfigPtr config = KSharedConfig::openConfig();
         m_activityAssociations->setAssociations(ActivityAssociations::load(config->group(QLatin1String(ActivityAssociations::Group))));
         m_savedActivityAssociations = m_activityAssociations->associations();
+        // Likewise the workspaces assigned to virtual desktops.
+        m_desktopWorkspaces->setAssignments(KWinScript::readDesktopWorkspaces(config->group(QStringLiteral("KWinVirtualDesktops"))));
+        m_savedDesktopWorkspaces = m_desktopWorkspaces->assignments();
     }
     // Libraries may have been added or removed from the Tags menu since the dialog was shown.
     reloadLibraries();
@@ -4347,6 +4362,7 @@ bool SettingsDialog::hasChanged()
     const DesktopTray *tray = desktopTray();
     return m_yaziResetPending || m_selectionFilters->rules() != m_savedSelectionFilters
         || (tray && m_globalShortcutKey->keySequence() != tray->globalShortcut()) || m_activityAssociations->associations() != m_savedActivityAssociations
+        || m_desktopWorkspaces->assignments() != m_savedDesktopWorkspaces
         || std::any_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
                return toggle.check->isChecked() != toggle.read();
            });

@@ -240,6 +240,119 @@ void StartupWorkspaceCombo::setWorkspaces(const QList<std::pair<QString, QString
     setWorkspace(workspace());
 }
 
+WorkspaceCombo::WorkspaceCombo(const QString &noneText, QWidget *parent)
+    : QComboBox(parent)
+    , m_noneText(noneText)
+{
+    // KConfigDialogManager would otherwise watch QComboBox::activated, which
+    // misses programmatic changes.
+    setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(workspaceChanged())));
+    setWorkspace(QString());
+    connect(this, &QComboBox::currentIndexChanged, this, &WorkspaceCombo::workspaceChanged);
+}
+
+QString WorkspaceCombo::workspace() const
+{
+    return currentData().toString();
+}
+
+void WorkspaceCombo::setWorkspace(const QString &workspace)
+{
+    const QString previous = this->workspace();
+    {
+        const QSignalBlocker blocker(this);
+        clear();
+        addItem(m_noneText, QString());
+        for (const auto &[id, name] : std::as_const(m_workspaces)) {
+            addItem(name, id);
+        }
+        int index = findData(workspace);
+        if (index < 0) {
+            addItem(i18nc("@item:inlistbox workspace that was deleted", "Missing workspace (%1)", workspace), workspace);
+            index = count() - 1;
+        }
+        setCurrentIndex(index);
+    }
+    if (previous != this->workspace()) {
+        Q_EMIT workspaceChanged();
+    }
+}
+
+void WorkspaceCombo::setWorkspaces(const QList<std::pair<QString, QString>> &workspaces)
+{
+    m_workspaces = workspaces;
+    setWorkspace(workspace());
+}
+
+DesktopWorkspacesEditor::DesktopWorkspacesEditor(QWidget *parent)
+    : QWidget(parent)
+{
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    m_form = new QFormLayout;
+    layout->addLayout(m_form);
+    m_empty = new QLabel(i18nc("@info", "Virtual desktops are listed here once the KWin script is running."), this);
+    m_empty->setObjectName(QStringLiteral("desktopWorkspacesEmpty"));
+    m_empty->setWordWrap(true);
+    layout->addWidget(m_empty);
+    rebuild();
+}
+
+void DesktopWorkspacesEditor::setDesktops(const QList<std::pair<QString, QString>> &desktops)
+{
+    if (desktops != m_desktops) {
+        m_desktops = desktops;
+        rebuild();
+    }
+}
+
+void DesktopWorkspacesEditor::setWorkspaces(const QList<std::pair<QString, QString>> &workspaces)
+{
+    m_workspaces = workspaces;
+    for (auto *combo : findChildren<WorkspaceCombo *>()) {
+        combo->setWorkspaces(workspaces);
+    }
+}
+
+QMap<QString, QString> DesktopWorkspacesEditor::assignments() const
+{
+    return m_assignments;
+}
+
+void DesktopWorkspacesEditor::setAssignments(const QMap<QString, QString> &assignments)
+{
+    m_assignments.clear();
+    for (auto it = assignments.cbegin(); it != assignments.cend(); ++it) {
+        if (!it.key().isEmpty() && !it.value().isEmpty()) {
+            m_assignments.insert(it.key(), it.value());
+        }
+    }
+    rebuild();
+}
+
+void DesktopWorkspacesEditor::rebuild()
+{
+    while (m_form->rowCount() > 0) {
+        m_form->removeRow(0);
+    }
+    for (const auto &[id, name] : std::as_const(m_desktops)) {
+        auto *combo = new WorkspaceCombo(i18nc("@item:inlistbox no workspace", "None"), this);
+        combo->setObjectName(QStringLiteral("desktopWorkspace_") + id);
+        combo->setWorkspaces(m_workspaces);
+        combo->setWorkspace(m_assignments.value(id));
+        connect(combo, &WorkspaceCombo::workspaceChanged, this, [this, combo, desktop = id] {
+            if (combo->workspace().isEmpty()) {
+                m_assignments.remove(desktop);
+            } else {
+                m_assignments.insert(desktop, combo->workspace());
+            }
+            Q_EMIT changed();
+        });
+        m_form->addRow(i18nc("@label:listbox %1 is a virtual desktop name", "%1:", name), combo);
+    }
+    m_empty->setVisible(m_desktops.isEmpty());
+}
+
 SavedPathFilterCombo::SavedPathFilterCombo(QWidget *parent)
     : QComboBox(parent)
 {

@@ -8,6 +8,7 @@
 #include "desktoptray.h"
 #include "favoritesmodel.h"
 #include "filechooser.h"
+#include "kwinintegration.h"
 #include "mainwindow.h"
 #include "mountbackend.h"
 #include "onlineaccounts.h"
@@ -16,6 +17,7 @@
 #include "runnermatches.h"
 #include "settings.h"
 #include "settingsdialog.h"
+#include "settingswidgets.h"
 
 #include <KActionCollection>
 #include <KActionMenu>
@@ -40,6 +42,8 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QListWidget>
 #include <QMenu>
@@ -78,6 +82,80 @@ public:
     {
         return names;
     }
+};
+
+struct FakeKWin {
+    bool running = true;
+    std::optional<bool> loaded = false;
+    int installed = -1;
+    bool enabled = false;
+    int processRequests = 0;
+    bool installedAsUpdate = false;
+    KWinBackend::Callback pendingInstall;
+    KWinBackend::Callback pendingRemove;
+};
+
+class FakeKWinBackend : public KWinBackend
+{
+public:
+    explicit FakeKWinBackend(std::shared_ptr<FakeKWin> state)
+        : m(std::move(state))
+    {
+    }
+
+    bool kwinRunning() const override
+    {
+        return m->running;
+    }
+    std::optional<bool> scriptLoaded() const override
+    {
+        return m->loaded;
+    }
+    int installedVersion() const override
+    {
+        return m->installed;
+    }
+    bool pluginEnabled() const override
+    {
+        return m->enabled;
+    }
+    void setPluginEnabled(bool enabled) override
+    {
+        m->enabled = enabled;
+    }
+    void forgetPluginEnabled() override
+    {
+        m->enabled = false;
+    }
+    void startScripts() override
+    {
+        if (m->enabled && m->installed >= 0) {
+            m->loaded = true;
+        }
+    }
+    void unloadScript() override
+    {
+        m->loaded = false;
+    }
+    void invokeProcessShortcut() override
+    {
+        ++m->processRequests;
+    }
+    void installPackage(const QString &, bool update, const Callback &done) override
+    {
+        m->installedAsUpdate = update;
+        m->pendingInstall = done;
+    }
+    void removePackage(const Callback &done) override
+    {
+        m->pendingRemove = done;
+    }
+    void openSettings(const QString &) override
+    {
+    }
+
+private:
+    std::shared_ptr<FakeKWin> m;
 };
 }
 
@@ -1024,6 +1102,221 @@ private Q_SLOTS:
         KFilePlacesModel model;
         SettingsDialog detached(&model, nullptr);
         QVERIFY(!detached.findChild<QCheckBox *>(QStringLiteral("mountPointsToolbarButton"))->isEnabled());
+    }
+
+    void kwinTabManagesTheScriptAndWindowManagement()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Workspaces"));
+            KSharedConfig::openConfig()->deleteGroup(QStringLiteral("KWinVirtualDesktops"));
+            KSharedConfig::openConfig()->sync();
+        });
+        const KSharedConfig::Ptr config = KSharedConfig::openConfig();
+        config->deleteGroup(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY2(WorkspaceCatalog::create(catalog, QStringLiteral("Photos"), QStringLiteral("PH"), error), qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::create(catalog, QStringLiteral("Clients"), QStringLiteral("CL"), error), qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::save(config->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        const QString photos = catalog.workspaces.at(0).id;
+        const QString clients = catalog.workspaces.at(1).id;
+        // A desktop that KWin no longer lists keeps its workspace.
+        KConfigGroup assigned = config->group(QStringLiteral("KWinVirtualDesktops"));
+        KWinScript::writeDesktopWorkspaces(assigned, {{QStringLiteral("gone"), photos}});
+        config->sync();
+
+        auto fake = std::make_shared<FakeKWin>();
+        MainWindow window;
+        window.setKWinBackend(std::make_unique<FakeKWinBackend>(fake));
+        KWinIntegration *kwin = window.kwinIntegration();
+        kwin->DesktopsChanged(QStringLiteral(R"([{"id":"d1","name":"Work"},{"id":"d2","name":"Play"}])"));
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        int questions = 0;
+        bool confirm = false;
+        dialog.setKWinRemovalConfirmation([&] {
+            ++questions;
+            return confirm;
+        });
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("kwinIntegrationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QCOMPARE(tabs->indexOf(page), 9);
+        QCOMPARE(tabs->tabText(9), QStringLiteral("KWin"));
+
+        auto *status = page->findChild<QLabel *>(QStringLiteral("kwinStatus"));
+        auto *install = page->findChild<QPushButton *>(QStringLiteral("kwinInstall"));
+        auto *enable = page->findChild<QPushButton *>(QStringLiteral("kwinEnable"));
+        auto *disable = page->findChild<QPushButton *>(QStringLiteral("kwinDisable"));
+        auto *remove = page->findChild<QPushButton *>(QStringLiteral("kwinRemove"));
+        auto *refresh = page->findChild<QPushButton *>(QStringLiteral("kwinRefresh"));
+        auto *message = page->findChild<KMessageWidget *>(QStringLiteral("kwinMessage"));
+        auto *apply = dialog.button(QDialogButtonBox::Apply);
+        QVERIFY(status && install && enable && disable && remove && refresh && message);
+
+        // Nothing is installed until asked.
+        QCOMPARE(status->text(), kwin->statusText());
+        QVERIFY(!install->isHidden());
+        QVERIFY(install->isEnabled());
+        QCOMPARE(install->text(), QStringLiteral("Install and Enable"));
+        QVERIFY(enable->isHidden());
+        QVERIFY(disable->isHidden());
+        QVERIFY(!remove->isEnabled());
+        QVERIFY(!fake->pendingInstall);
+
+        install->click();
+        QVERIFY(fake->pendingInstall);
+        QVERIFY(!fake->installedAsUpdate);
+        QVERIFY(!install->isEnabled());
+        fake->installed = KWinIntegration::bundledVersion();
+        std::exchange(fake->pendingInstall, {})(QString());
+        QCOMPARE(message->messageType(), KMessageWidget::Positive);
+        QVERIFY(message->text().contains(QStringLiteral("installed and enabled")));
+        QVERIFY(fake->enabled);
+        QVERIFY(install->isHidden());
+        QVERIFY(!disable->isHidden());
+        QVERIFY(enable->isHidden());
+        QVERIFY(remove->isEnabled());
+        QCOMPARE(status->text(), kwin->statusText());
+
+        disable->click();
+        QVERIFY(!fake->enabled);
+        QVERIFY(!enable->isHidden());
+        QVERIFY(disable->isHidden());
+        enable->click();
+        QVERIFY(fake->enabled);
+        QVERIFY(enable->isHidden());
+
+        // An older installed script is offered an update, and a failure is reported.
+        fake->installed = KWinIntegration::bundledVersion() - 1;
+        refresh->click();
+        QVERIFY(!install->isHidden());
+        QCOMPARE(install->text(), QStringLiteral("Update"));
+        install->click();
+        QVERIFY(fake->installedAsUpdate);
+        std::exchange(fake->pendingInstall, {})(QStringLiteral("kpackagetool6 failed"));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QCOMPARE(message->text(), QStringLiteral("kpackagetool6 failed"));
+        QVERIFY(install->isEnabled());
+
+        // Removal asks first.
+        remove->click();
+        QCOMPARE(questions, 1);
+        QVERIFY(!fake->pendingRemove);
+        confirm = true;
+        remove->click();
+        QCOMPARE(questions, 2);
+        QVERIFY(fake->pendingRemove);
+        QVERIFY(!fake->enabled);
+        fake->installed = -1;
+        std::exchange(fake->pendingRemove, {})(QString());
+        QCOMPARE(message->messageType(), KMessageWidget::Positive);
+        QVERIFY(message->text().contains(QStringLiteral("removed")));
+        QCOMPARE(install->text(), QStringLiteral("Install and Enable"));
+        QVERIFY(!remove->isEnabled());
+
+        fake->running = false;
+        refresh->click();
+        QVERIFY(!install->isEnabled());
+        QCOMPARE(status->text(), kwin->statusText());
+        fake->running = true;
+        refresh->click();
+        QVERIFY(install->isEnabled());
+
+        // The window management options reach the script at its next sync.
+        auto *restoreWindows = page->findChild<QCheckBox *>(QStringLiteral("kcfg_KWinRestoreWindows"));
+        auto *tile = page->findChild<QCheckBox *>(QStringLiteral("kcfg_KWinTileCompanions"));
+        auto *follow = page->findChild<QCheckBox *>(QStringLiteral("kcfg_KWinFollowDesktops"));
+        auto *editor = page->findChild<DesktopWorkspacesEditor *>(QStringLiteral("kwinDesktopWorkspaces"));
+        QVERIFY(restoreWindows && tile && follow && editor);
+        QVERIFY(restoreWindows->isChecked());
+        QVERIFY(!tile->isChecked());
+        QVERIFY(!follow->isChecked());
+        QVERIFY(!editor->isEnabled());
+        QVERIFY(editor->findChild<QLabel *>(QStringLiteral("desktopWorkspacesEmpty"))->isHidden());
+        auto *play = editor->findChild<WorkspaceCombo *>(QStringLiteral("desktopWorkspace_d2"));
+        QVERIFY(play);
+        QCOMPARE(play->count(), 3);
+        QCOMPARE(play->workspace(), QString());
+
+        restoreWindows->setChecked(false);
+        tile->setChecked(true);
+        follow->setChecked(true);
+        QVERIFY(editor->isEnabled());
+        play->setCurrentIndex(play->findData(clients));
+        QVERIFY(apply->isEnabled());
+        fake->enabled = true;
+        QTest::qWait(10);
+        const int syncs = fake->processRequests;
+        apply->click();
+        QVERIFY(!apply->isEnabled());
+        QVERIFY(!kwin->options().restoreWindows);
+        QVERIFY(kwin->options().tileCompanions);
+        QVERIFY(kwin->options().followDesktops);
+        QTRY_COMPARE(fake->processRequests, syncs + 1);
+        const QJsonObject options = QJsonDocument::fromJson(kwin->Sync(QStringLiteral("1")).toUtf8()).object().value(QStringLiteral("options")).toObject();
+        QVERIFY(!options.value(QStringLiteral("restoreWindows")).toBool());
+        QVERIFY(options.value(QStringLiteral("tileCompanions")).toBool());
+        QVERIFY(options.value(QStringLiteral("followDesktops")).toBool());
+        const QMap<QString, QString> saved{{QStringLiteral("d2"), clients}, {QStringLiteral("gone"), photos}};
+        QCOMPARE(kwin->desktopWorkspaces(), saved);
+
+        // Desktops added in KWin are listed while the dialog is open.
+        kwin->DesktopsChanged(QStringLiteral(R"([{"id":"d1","name":"Work"},{"id":"d2","name":"Play"},{"id":"d3","name":"Archive"}])"));
+        QVERIFY(editor->findChild<WorkspaceCombo *>(QStringLiteral("desktopWorkspace_d3")));
+        play = editor->findChild<WorkspaceCombo *>(QStringLiteral("desktopWorkspace_d2"));
+        QCOMPARE(play->workspace(), clients);
+        QVERIFY(!apply->isEnabled());
+
+        // Restore Defaults resets the options and keeps the assignments.
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(restoreWindows->isChecked());
+        QVERIFY(!tile->isChecked());
+        QVERIFY(!follow->isChecked());
+        QVERIFY(!editor->isEnabled());
+        QCOMPARE(editor->assignments(), saved);
+        apply->click();
+        QVERIFY(kwin->options().restoreWindows);
+        QVERIFY(!kwin->options().followDesktops);
+        QCOMPARE(kwin->desktopWorkspaces(), saved);
+
+        play->setCurrentIndex(0);
+        QVERIFY(apply->isEnabled());
+        apply->click();
+        const QMap<QString, QString> remaining{{QStringLiteral("gone"), photos}};
+        QCOMPARE(kwin->desktopWorkspaces(), remaining);
+
+        // Without a main window there is no script to manage.
+        KFilePlacesModel model;
+        SettingsDialog detached(&model, nullptr);
+        QVERIFY(detached.findChild<QLabel *>(QStringLiteral("kwinStatus"))->text().contains(QStringLiteral("Open Preferences from a Plasma Opus window")));
+        for (const QString &name : {QStringLiteral("kwinInstall"), QStringLiteral("kwinRemove"), QStringLiteral("kwinRefresh")}) {
+            QVERIFY2(!detached.findChild<QPushButton *>(name)->isEnabled(), qPrintable(name));
+        }
+        QVERIFY(!detached.findChild<QLabel *>(QStringLiteral("desktopWorkspacesEmpty"))->isHidden());
+    }
+
+    void reportsMissingKWinSettings()
+    {
+        for (const QString &kind : {QStringLiteral("systemsettings"), QStringLiteral("systemsettings_qwidgets")}) {
+            for (const QString &module : {QStringLiteral("kcm_kwin_scripts"), QStringLiteral("kcm_kwinrules")}) {
+                if (KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/") + kind, module).isValid()) {
+                    QSKIP("KWin's settings are installed on this system.");
+                }
+            }
+        }
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        dialog.findChild<QPushButton *>(QStringLiteral("openKWinScriptsSettings"))->click();
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("kwinMessage"));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QVERIFY(message->text().contains(QStringLiteral("script settings are not installed")));
+        dialog.findChild<QPushButton *>(QStringLiteral("openKWinRulesSettings"))->click();
+        message = dialog.findChild<KMessageWidget *>(QStringLiteral("kwinRulesMessage"));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QVERIFY(message->text().contains(QStringLiteral("window rules settings are not installed")));
     }
 };
 

@@ -8047,6 +8047,8 @@ void MainWindow::applySettings()
     if (!Settings::kdeConnectRememberDevice()) {
         KdeConnectShare::forgetDevice();
     }
+    // The KWin script reads the window management options at its next sync.
+    m_kwin->requestSync();
     const bool toolbarsLocked = Settings::lockToolbars();
     QAction *customizeToolbar = actionCollection()->action(QStringLiteral("customize_main_toolbar"));
     customizeToolbar->setEnabled(!toolbarsLocked);
