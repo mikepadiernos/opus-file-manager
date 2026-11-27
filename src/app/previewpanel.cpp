@@ -12,6 +12,8 @@
 #include "imagedetails.h"
 #include "localizeddates.h"
 #include "localizednumbers.h"
+#include "mailmessage.h"
+#include "mailpreview.h"
 #include "mediaview.h"
 #include "settings.h"
 #include "symbolicicon.h"
@@ -57,6 +59,8 @@
 #include <QtConcurrentRun>
 
 #include <algorithm>
+#include <limits>
+#include <optional>
 #include <utility>
 
 namespace
@@ -89,6 +93,11 @@ protected:
 bool isDocumentMime(const QString &mimeType)
 {
     return DocumentFormats::usesDocumentViewer(mimeType);
+}
+
+bool isMailMime(const QString &mimeType)
+{
+    return QMimeDatabase().mimeTypeForName(mimeType).inherits(QStringLiteral("message/rfc822"));
 }
 
 bool isTextMime(const QString &mimeType)
@@ -793,6 +802,10 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
         showFont(m_url, m_url, mimeType);
         return;
     }
+    if (isMailMime(mimeType)) {
+        showMail(m_url);
+        return;
+    }
     if (m_url.isLocalFile() && (mimeType.startsWith(QLatin1String("audio/")) || mimeType.startsWith(QLatin1String("video/")))) {
         showMedia(m_url, mimeType.startsWith(QLatin1String("video/")));
         return;
@@ -1075,6 +1088,9 @@ void PreviewPanel::clearDocument()
     if (m_font) {
         m_font->clear();
     }
+    if (m_mail) {
+        m_mail->clear();
+    }
 }
 
 void PreviewPanel::showFont(const QUrl &url, const QUrl &source, const QString &mimeType)
@@ -1091,6 +1107,50 @@ void PreviewPanel::showFont(const QUrl &url, const QUrl &source, const QString &
     }
     m_content->setCurrentWidget(m_font);
     setBusy(false);
+}
+
+void PreviewPanel::showMail(const QUrl &url)
+{
+    const QFileInfo file(url.toLocalFile());
+    if (!file.isFile()) {
+        showMessage(i18nc("@info", "Could not open this message."));
+        return;
+    }
+    if (file.size() > MailMessage::FileLimit) {
+        showMessage(i18nc("@info", "This message is too large to preview."));
+        return;
+    }
+    if (!m_mail) {
+        m_mail = new MailPreview(m_content);
+        m_mail->setObjectName(QStringLiteral("previewMail"));
+        m_content->addWidget(m_mail);
+    }
+    struct Loaded {
+        std::optional<MailMessage::Message> message;
+        QString error;
+    };
+    const quint64 generation = m_generation;
+    const qsizetype bodyLimit = qsizetype(std::min<qint64>(m_textLimit, std::numeric_limits<int>::max()));
+    auto *watcher = new QFutureWatcher<Loaded>(this);
+    connect(watcher, &QFutureWatcher<Loaded>::finished, this, [this, watcher, generation, url] {
+        const Loaded loaded = watcher->result();
+        watcher->deleteLater();
+        if (generation != m_generation) {
+            return;
+        }
+        if (!loaded.message) {
+            showMessage(i18nc("@info", "Could not load preview: %1", loaded.error));
+            return;
+        }
+        m_mail->open(*loaded.message, url);
+        m_content->setCurrentWidget(m_mail);
+        setBusy(false);
+    });
+    watcher->setFuture(QtConcurrent::run([path = file.filePath(), bodyLimit] {
+        Loaded loaded;
+        loaded.message = MailMessage::load(path, bodyLimit, &loaded.error);
+        return loaded;
+    }));
 }
 
 void PreviewPanel::showMessage(const QString &message)

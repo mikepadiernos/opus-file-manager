@@ -15,6 +15,7 @@ class TransferJob;
 class EditorPanel;
 class FolderPreview;
 class FontPreview;
+class MailPreview;
 class QLabel;
 class QActionGroup;
 class QHBoxLayout;
@@ -119,6 +120,7 @@ private:
     void showDocument(const QUrl &url, const QString &mimeType);
     void clearDocument();
     void showFont(const QUrl &url, const QUrl &source, const QString &mimeType);
+    void showMail(const QUrl &url);
     void showMedia(const QUrl &url, bool video);
     void clearMedia();
     void updateImage();
@@ -161,6 +163,7 @@ private:
     QStackedWidget *m_content = nullptr;
     KParts::ReadOnlyPart *m_document = nullptr;
     FontPreview *m_font = nullptr;
+    MailPreview *m_mail = nullptr;
     MediaView *m_media = nullptr;
     QImage m_image;
     QUrl m_url;
