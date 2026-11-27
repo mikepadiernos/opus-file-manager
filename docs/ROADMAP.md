@@ -1907,7 +1907,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Ebooks and fonts**
 
-  - [ ] **Previews:** enable ebook, comic, help-file and font previews and set
+  - [x] **Previews:** enable ebook, comic, help-file and font previews and set
         the font sample text [#661]
 
 - **Media**
