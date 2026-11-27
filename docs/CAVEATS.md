@@ -1811,7 +1811,9 @@ The M27 desktop integrations have these limits
   workspace, history and other places are not. Remote Favorites are offered
   without checking that they can be reached, and fail when their tab opens.
   Choosing a workspace always asks before switching. The plugin is enabled
-  by default once installed. The helper keeps running after KRunner first
+  by default once installed, and turning its results off under
+  **Preferences › KDE Plasma › KRunner** leaves it loaded; only Plasma's
+  search settings turn it off. The helper keeps running after KRunner first
   starts it, reads the settings again whenever a search session ends, and
   is not stopped when Plasma Opus quits. KRunner may need restarting before
   a newly installed plugin appears.
@@ -2370,9 +2372,9 @@ The M27 desktop integrations have these limits
     Connect…** under **Preferences › KDE Plasma › KDE Connect** opens.
   - **KRunner:** Install with `./install.sh`, then run `kquitapp6 krunner`
     or log out and back in if **Plasma Opus** is missing from **System
-    Settings › Search › Plasma Search**. Turn off what should not be offered
-    under **Settings › General › Plasma Search**, or the plugin itself in
-    System Settings. Add a folder to Favorites to make it searchable.
+    Settings › Search › Plasma Search**. Clear what should not be offered
+    under **Preferences › KDE Plasma › KRunner**, or turn the plugin itself
+    off in System Settings. Add a folder to Favorites to make it searchable.
   - **Service-menu downloads:** Install Dolphin to enable **Download New
     Services…**; Plasma Opus does not need to be the default file manager.
     Read a service menu's description and comments before installing it, and
@@ -2821,6 +2823,23 @@ The M28 integration settings have these limits
   opening its settings is unverified there
   ([Plasma check](TODO.md#kde-connect-settings-on-plasma-393)).
   ([#393](https://github.com/mikepadiernos/plasma-opus/issues/393))
+- **🚀 KRunner discovery:** clearing **Offer saved workspaces and Favorites in
+  KRunner and Plasma Search** under **Preferences › KDE Plasma › KRunner** stops
+  the plugin's results, but KRunner still loads the plugin and starts its
+  helper; only Plasma's search settings turn the plugin off. **Configure Plasma
+  Search…** opens them through `kcmshell6` or System Settings, and the tab says
+  so when they are not installed. A change applies from KRunner's next search
+  session, because the helper reads the settings again only when a session
+  ends. Workspaces and Favorites added later are offered until they are cleared
+  in the tab. A cleared workspace is remembered by its id, and a cleared
+  Favorite by an id derived from its address that does not contain it, so a
+  removed Favorite added again stays cleared, and the ids of removed workspaces
+  and Favorites are kept. Locations assigned to a workspace cannot be chosen,
+  because the plugin does not offer them. The container has no KRunner or
+  System Settings, so KRunner following the choice and opening Plasma's search
+  settings are unverified there
+  ([Plasma check](TODO.md#krunner-settings-on-plasma-394)).
+  ([#394](https://github.com/mikepadiernos/plasma-opus/issues/394))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -2868,6 +2887,12 @@ The M28 integration settings have these limits
     files with KDE Connect** if you send files with KDE Connect's own **Send
     to** entry instead, and use **Configure KDE Connect…** to pair devices or
     turn on file sharing for them.
+  - **KRunner discovery:** Clear the workspaces and Favorites that should not
+    appear in search results under **Preferences › KDE Plasma › KRunner**, for
+    example private folders when the screen is shared, then start a new
+    search. Clear **Offer saved workspaces and Favorites in KRunner and Plasma
+    Search** to pause all results, and use **Configure Plasma Search…** to turn
+    the Plasma Opus plugin off entirely.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -2894,6 +2919,9 @@ The M28 integration settings have these limits
   - Show KDE Connect's paired devices and the remembered one in the
     **KDE Connect** tab, with an action to forget it, and offer **Send to
     Device…** in the file context menu as an option.
+  - Offer locations assigned to a workspace in the **KRunner** tab, show
+    whether a workspace or Favorite is offered where it is managed, and
+    forget the cleared ids of removed workspaces and Favorites.
 
 ## Embedded terminal
 
