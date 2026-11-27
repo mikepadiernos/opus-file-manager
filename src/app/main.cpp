@@ -2,6 +2,7 @@
 
 #include "appearancedefaults.h"
 #include "appidentity.h"
+#include "desktoptray.h"
 #include "filemanagerrequest.h"
 #include "filemanagerservice.h"
 #include "interfacelanguage.h"
@@ -167,8 +168,15 @@ int main(int argc, char **argv)
     const QCommandLineOption installPortalOption(QStringLiteral("install-portal"),
                                                  i18n("Use the Plasma Opus file chooser for applications that use the XDG portal, then exit"));
     const QCommandLineOption uninstallPortalOption(QStringLiteral("uninstall-portal"), i18n("Restore the previous XDG portal file chooser, then exit"));
-    parser.addOptions(
-        {resetAppearanceOption, noWorkspaceAppearanceOption, fileManagerServiceOption, workspaceOption, installPortalOption, uninstallPortalOption});
+    const QCommandLineOption backgroundSyncOption(QStringLiteral("background-sync"),
+                                                  i18n("Start in the system tray without a window and synchronize cloud sync pairs"));
+    parser.addOptions({resetAppearanceOption,
+                       noWorkspaceAppearanceOption,
+                       fileManagerServiceOption,
+                       workspaceOption,
+                       installPortalOption,
+                       uninstallPortalOption,
+                       backgroundSyncOption});
     parser.process(app);
     aboutData.processCommandLine(&parser);
 
@@ -259,6 +267,10 @@ int main(int argc, char **argv)
                 QApplication::quit();
             }
         });
+    } else if (parser.isSet(backgroundSyncOption)) {
+        // Started at login for cloud sync: the window stays hidden until the
+        // tray icon or another launch shows it.
+        window->desktopTray()->startInBackground();
     } else {
         window->openUrls(urlsFromArguments(parser.positionalArguments(), QDir::currentPath()));
         window->show();
@@ -277,11 +289,14 @@ int main(int argc, char **argv)
         const QCommandLineOption resetAppearance(QStringLiteral("reset-appearance"));
         const QCommandLineOption fileManagerService(QStringLiteral("file-manager-service"));
         const QCommandLineOption workspace(QStringLiteral("workspace"), QString(), QStringLiteral("id"));
-        instanceParser.addOptions({resetAppearance, QCommandLineOption(QStringLiteral("no-workspace-appearance")), fileManagerService, workspace});
+        const QCommandLineOption backgroundSync(QStringLiteral("background-sync"));
+        instanceParser.addOptions(
+            {resetAppearance, QCommandLineOption(QStringLiteral("no-workspace-appearance")), fileManagerService, workspace, backgroundSync});
         instanceParser.parse(arguments);
-        if (instanceParser.isSet(fileManagerService)) {
+        if (instanceParser.isSet(fileManagerService) || instanceParser.isSet(backgroundSync)) {
             // Another process was activated for a request this instance
-            // does not serve; the request itself arrives separately.
+            // does not serve, or to start background synchronization, which
+            // this instance already runs.
             return;
         }
         if (instanceParser.isSet(resetAppearance)) {

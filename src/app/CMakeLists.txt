@@ -15,6 +15,8 @@ add_library(opusfm_app STATIC
     carddelegate.h
     checksumdialog.cpp
     checksumdialog.h
+    cloudsyncdialog.cpp
+    cloudsyncdialog.h
     combinedpanel.cpp
     combinedpanel.h
     compressdialog.cpp

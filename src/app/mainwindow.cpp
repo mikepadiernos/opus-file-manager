@@ -15,6 +15,8 @@
 #include "archivewriter.h"
 #include "batchrenamedialog.h"
 #include "checksumdialog.h"
+#include "cloudsyncdialog.h"
+#include "cloudsyncrunner.h"
 #include "colorschemes.h"
 #include "combinedpanel.h"
 #include "compressdialog.h"
@@ -525,6 +527,20 @@ MainWindow::MainWindow(QWidget *parent)
         openUrls({url});
     });
     connect(m_desktopTray, &DesktopTray::transfersRequested, this, &MainWindow::showTransferQueue);
+    connect(m_desktopTray, &DesktopTray::cloudSyncRequested, this, &MainWindow::showCloudSync);
+    m_cloudSync = new CloudSync::Scheduler(KSharedConfig::openConfig(), this);
+    connect(m_cloudSync, &CloudSync::Scheduler::attentionNeeded, this, [this](const QString &id, const QString &message) {
+        const auto pair = m_cloudSync->pair(id);
+        const QString text = pair ? i18nc("@info:status %1 is a folder, %2 a status", "Cloud Sync of %1: %2", pair->localPath, message) : message;
+        showStatusMessage(text);
+        m_desktopTray->setAttention(text);
+    });
+    if (QCoreApplication *application = QCoreApplication::instance()) {
+        // The main window is never deleted, so the running pair stops here,
+        // keeping the changes it has made.
+        connect(application, &QCoreApplication::aboutToQuit, m_cloudSync, &CloudSync::Scheduler::stop);
+    }
+    m_cloudSync->start();
     m_kwin = new KWinIntegration(std::make_unique<SystemKWinBackend>(), KSharedConfig::openConfig(), KSharedConfig::openStateConfig(), this);
     m_diskImages = std::make_unique<SystemDiskImageBackend>();
     m_packageTools = new SystemPackageTools(this);
@@ -2867,6 +2883,10 @@ void MainWindow::setupActions()
     compareFolders->setText(i18nc("@action", "Compare Pane Folders"));
     QAction *filteredComparison = actions->addAction(QStringLiteral("compare_folders_filtered"), this, &MainWindow::compareFoldersFiltered);
     filteredComparison->setText(i18nc("@action", "Compare and Synchronize Folders…"));
+    QAction *cloudSync = actions->addAction(QStringLiteral("cloud_sync"), this, &MainWindow::showCloudSync);
+    cloudSync->setText(i18nc("@action", "Cloud Sync…"));
+    cloudSync->setIcon(QIcon::fromTheme(QStringLiteral("folder-cloud")));
+    cloudSync->setToolTip(i18nc("@info:tooltip", "Keep local folders synchronized with cloud and network folders"));
     QAction *createChecksum = actions->addAction(QStringLiteral("create_checksum"), this, &MainWindow::createChecksumFile);
     createChecksum->setText(i18nc("@action", "Create SHA-256 Checksum File…"));
     QAction *verifyChecksum = actions->addAction(QStringLiteral("verify_checksum"), this, &MainWindow::verifyChecksumFile);
@@ -7258,6 +7278,21 @@ bool MainWindow::isDualLayout() const
 DesktopTray *MainWindow::desktopTray() const
 {
     return m_desktopTray;
+}
+
+CloudSync::Scheduler *MainWindow::cloudSync() const
+{
+    return m_cloudSync;
+}
+
+void MainWindow::showCloudSync()
+{
+    m_desktopTray->setAttention({});
+    if (!m_cloudSyncDialog) {
+        m_cloudSyncDialog = new CloudSyncDialog(m_cloudSync, KSharedConfig::openConfig(), rcloneMounts(), this);
+        m_cloudSyncDialog->setAttribute(Qt::WA_DeleteOnClose);
+    }
+    DesktopTray::bringToFront(m_cloudSyncDialog);
 }
 
 KWinIntegration *MainWindow::kwinIntegration() const

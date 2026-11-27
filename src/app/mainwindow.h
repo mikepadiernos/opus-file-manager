@@ -27,6 +27,11 @@
 #include <memory>
 
 class ActivityController;
+class CloudSyncDialog;
+namespace CloudSync
+{
+class Scheduler;
+}
 class KdeConnectClient;
 class MountBackend;
 class RcloneMounts;
@@ -142,6 +147,11 @@ public:
     /// The system tray icon and the global shortcut that shows or hides the
     /// window.
     DesktopTray *desktopTray() const;
+
+    /// Runs the two-way cloud synchronization pairs.
+    CloudSync::Scheduler *cloudSync() const;
+    /// Opens the Cloud Sync dialog, or raises it when it is open.
+    void showCloudSync();
 
     /// The KDE Connect daemon the Send to Device action uses, created when first needed.
     KdeConnectClient *kdeConnectClient();
@@ -531,6 +541,8 @@ private:
 
     KFilePlacesModel *m_placesModel = nullptr;
     DesktopTray *m_desktopTray = nullptr;
+    CloudSync::Scheduler *m_cloudSync = nullptr;
+    QPointer<CloudSyncDialog> m_cloudSyncDialog;
     ActivityController *m_activityController = nullptr;
     KdeConnectClient *m_kdeConnect = nullptr;
     MountBackend *m_mountBackend = nullptr;

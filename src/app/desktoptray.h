@@ -52,11 +52,19 @@ public:
     /// Hides the window to the tray when a tray host can restore it.
     bool hideToTray();
 
+    /// Starts with the window hidden and the tray icon shown, whatever the
+    /// settings, so background synchronization keeps running after login.
+    void startInBackground();
+    /// Asks for attention in the tray with @p message, or stops asking when
+    /// it is empty.
+    void setAttention(const QString &message);
+
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 Q_SIGNALS:
     void openRequested(const QUrl &url);
     void transfersRequested();
+    void cloudSyncRequested();
 
 private:
     void createItem();
@@ -70,4 +78,7 @@ private:
     QPointer<QAction> m_showHideAction;
     std::function<bool()> m_hostProbe;
     bool m_hiddenToTray = false;
+    /// Whether the tray icon is shown for background synchronization.
+    bool m_forced = false;
+    QString m_attention;
 };

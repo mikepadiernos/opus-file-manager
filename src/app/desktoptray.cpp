@@ -68,7 +68,7 @@ DesktopTray::~DesktopTray()
 
 void DesktopTray::applySettings()
 {
-    if (Settings::showTrayIcon()) {
+    if (Settings::showTrayIcon() || m_forced) {
         createItem();
     } else if (m_item) {
         delete m_item;
@@ -151,6 +151,21 @@ bool DesktopTray::hideToTray()
     return true;
 }
 
+void DesktopTray::startInBackground()
+{
+    m_forced = true;
+    createItem();
+    m_hiddenToTray = true;
+    QApplication::setQuitOnLastWindowClosed(false);
+    updateStatus();
+}
+
+void DesktopTray::setAttention(const QString &message)
+{
+    m_attention = message;
+    updateStatus();
+}
+
 bool DesktopTray::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched != m_window) {
@@ -158,7 +173,7 @@ bool DesktopTray::eventFilter(QObject *watched, QEvent *event)
     }
     switch (event->type()) {
     case QEvent::Close:
-        if (TrayPolicy::hideOnClose(state(), Settings::closeToTray(), event->spontaneous())) {
+        if (TrayPolicy::hideOnClose(state(), Settings::closeToTray() || m_forced, event->spontaneous())) {
             event->ignore();
             hideToTray();
             return true;
@@ -230,6 +245,14 @@ void DesktopTray::createItem()
         }
         Q_EMIT transfersRequested();
     });
+    QAction *cloudSync = menu->addAction(SymbolicIcon::fromTheme(QStringLiteral("folder-cloud")), i18nc("@action:inmenu", "Cloud Sync…"));
+    cloudSync->setObjectName(QStringLiteral("trayCloudSync"));
+    connect(cloudSync, &QAction::triggered, this, [this] {
+        if (m_window) {
+            bringToFront(m_window);
+        }
+        Q_EMIT cloudSyncRequested();
+    });
     connect(menu, &QMenu::aboutToShow, this, &DesktopTray::updateMenu);
     m_item->setContextMenu(menu);
     updateMenu();
@@ -251,7 +274,12 @@ void DesktopTray::updateStatus()
     }
     // Plasma keeps passive items in the tray's hidden section; a window
     // hidden to the tray makes the icon visible so it can be found again.
-    m_item->setStatus(m_hiddenToTray ? KStatusNotifierItem::Active : KStatusNotifierItem::Passive);
+    if (!m_attention.isEmpty()) {
+        m_item->setStatus(KStatusNotifierItem::NeedsAttention);
+    } else {
+        m_item->setStatus(m_hiddenToTray ? KStatusNotifierItem::Active : KStatusNotifierItem::Passive);
+    }
+    m_item->setToolTipSubTitle(m_attention);
 }
 
 void DesktopTray::updateMenu()
