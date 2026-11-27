@@ -508,6 +508,10 @@ ecm_add_test(filechoosertest.cpp
     LINK_LIBRARIES opusfm_core Qt6::DBus Qt6::Test
     NAME_PREFIX "opusfm-"
 )
+ecm_add_test(defaultfilemanagertest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test
+    NAME_PREFIX "opusfm-"
+)
 ecm_add_test(portalsetuptest.cpp
     LINK_LIBRARIES opusfm_core Qt6::Test
     NAME_PREFIX "opusfm-"
