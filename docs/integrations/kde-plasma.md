@@ -700,9 +700,16 @@ behaves like the rest of the desktop and follows the user's choices.
   in the upload folder; WebDAV clients can browse, download and upload. Hidden
   files and symbolic links leading outside the shared items aren't served.
   Plasma Opus never opens firewall ports, warns when the connection isn't
-  encrypted and points to KDE Connect and Samba sharing. See
-  [Temporary LAN sharing](../CAVEATS.md#desktop-integration).
-  ([#653](https://github.com/mikepadiernos/plasma-opus/issues/653))
+  encrypted and points to KDE Connect and Samba sharing.
+  **Preferences › Remote and Cloud › LAN Sharing** sets the dialog's starting
+  choices: whether to serve browsers, WebDAV file managers or both, HTTPS, the
+  network interfaces whose private addresses start checked, the port, the time
+  limit, and whether uploads are allowed and to which folder. The dialog also
+  offers **Serve to:**, and choices made in it apply to that share only. See
+  [Temporary LAN sharing](../CAVEATS.md#desktop-integration) and [LAN sharing
+  settings](../CAVEATS.md#integration-settings).
+  ([#653](https://github.com/mikepadiernos/plasma-opus/issues/653),
+  [#664](https://github.com/mikepadiernos/plasma-opus/issues/664))
 - **KDE Online Accounts:** **Go › Online Accounts** lists the accounts set up
   in System Settings' Online Accounts page, each with the folders it gives
   access to: Google Drive through
