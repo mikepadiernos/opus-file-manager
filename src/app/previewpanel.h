@@ -186,6 +186,10 @@ private:
     bool m_preferFormatted = true;
     bool m_showLineNumbers = true;
     bool m_syntaxHighlighting = true;
+    /// Whether text previews offer editing, start it on a double-click, and return to the preview after saving.
+    bool m_editingOffered = true;
+    bool m_editOnDoubleClick = false;
+    bool m_returnAfterSave = true;
     QString m_textMimeType;
     QString m_textContent;
     QList<QUrl> m_images;

@@ -1627,6 +1627,7 @@ QWidget *SettingsDialog::createEditorIntegrationPage()
     layout->addWidget(createEditorProviderGroup());
     layout->addWidget(createEditorMarkdownGroup());
     layout->addWidget(createEditorWorkspaceVaultGroup());
+    layout->addWidget(createEditorPreviewGroup());
     layout->addStretch();
     return page;
 }
@@ -1797,6 +1798,34 @@ QGroupBox *SettingsDialog::createEditorWorkspaceVaultGroup()
     connect(m_workspaceVaultSettings, &WorkspaceVaultSettings::changed, this, &SettingsDialog::updateButtons);
     connect(m_workspaceVaultSettings, &WorkspaceVaultSettings::manageWorkspacesRequested, this, &SettingsDialog::manageWorkspacesRequested);
     return m_workspaceVaultSettings;
+}
+
+QGroupBox *SettingsDialog::createEditorPreviewGroup()
+{
+    auto *group = new QGroupBox(i18nc("@title:group", "Preview Editing"));
+    group->setObjectName(QStringLiteral("editorPreviewGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *offer = checkBox(QStringLiteral("PreviewEditing"), i18nc("@option:check", "Offer Edit in text previews"));
+    offer->setToolTip(i18nc("@info:tooltip", "Show Edit in the preview panel, which edits the whole file in place with the built-in editor"));
+    layout->addWidget(offer);
+    auto *doubleClick = checkBox(QStringLiteral("PreviewEditOnDoubleClick"), i18nc("@option:check", "Start editing when the preview is double-clicked"));
+    doubleClick->setToolTip(i18nc("@info:tooltip", "When this is off, double-clicking the preview selects a word"));
+    layout->addWidget(doubleClick);
+    auto *returnAfterSave = checkBox(QStringLiteral("PreviewReturnAfterSave"), i18nc("@option:check", "Return to the preview after saving"));
+    returnAfterSave->setToolTip(i18nc("@info:tooltip", "When this is off, the file stays open for editing until Close Editor"));
+    layout->addWidget(returnAfterSave);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Editing in the preview always uses the built-in editor, with its drafts and Markdown settings, whichever editor "
+                                  "is chosen above. Turning it off leaves a file already being edited open until it is closed."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    const auto update = [offer, doubleClick, returnAfterSave] {
+        doubleClick->setEnabled(offer->isChecked());
+        returnAfterSave->setEnabled(offer->isChecked());
+    };
+    connect(offer, &QCheckBox::toggled, group, update);
+    update();
+    return group;
 }
 
 void SettingsDialog::showBuiltInEditorSettings()

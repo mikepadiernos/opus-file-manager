@@ -42,6 +42,7 @@
 #include <QMediaPlayer>
 #include <QMenu>
 #include <QMimeDatabase>
+#include <QMouseEvent>
 #include <QPaintEvent>
 #include <QPainter>
 #include <QPlainTextEdit>
@@ -285,6 +286,9 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     m_preferFormatted = Settings::previewFormatted();
     m_showLineNumbers = Settings::previewLineNumbers();
     m_syntaxHighlighting = Settings::previewSyntaxHighlighting();
+    m_editingOffered = Settings::previewEditing();
+    m_editOnDoubleClick = Settings::previewEditOnDoubleClick();
+    m_returnAfterSave = Settings::previewReturnAfterSave();
     m_text->setLineNumbersVisible(m_showLineNumbers);
     setMinimumWidth(240);
     m_title->setTextFormat(Qt::PlainText);
@@ -310,6 +314,9 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     m_renderedText->setOpenLinks(false);
     m_renderedText->setOpenExternalLinks(false);
     m_renderedText->setLineWrapMode(QTextEdit::NoWrap);
+    // Double-clicking either text view can start editing.
+    m_text->viewport()->installEventFilter(this);
+    m_renderedText->viewport()->installEventFilter(this);
 
     m_close = new QToolButton(this);
     m_close->setObjectName(QStringLiteral("previewClose"));
@@ -390,7 +397,6 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     m_edit = new QToolButton(this);
     m_edit->setObjectName(QStringLiteral("previewEdit"));
     m_edit->setText(i18nc("@action", "Edit"));
-    m_edit->setToolTip(i18nc("@info:tooltip", "Edit the whole file here"));
     m_edit->hide();
     connect(m_edit, &QToolButton::clicked, this, &PreviewPanel::startEditing);
     m_editMove = new QToolButton(this);
@@ -568,7 +574,7 @@ void PreviewPanel::endEditing()
 
 void PreviewPanel::startEditing()
 {
-    if (m_editing || m_compact || m_url.isEmpty() || m_textMimeType.isEmpty()) {
+    if (!m_editingOffered || m_editing || m_compact || m_url.isEmpty() || m_textMimeType.isEmpty()) {
         return;
     }
     if (!m_url.isLocalFile()) {
@@ -608,7 +614,7 @@ void PreviewPanel::startEditing()
         m_content->addWidget(m_editor);
         connect(m_editor->document(), &KTextEditor::Document::documentSavedOrUploaded, this, [this] {
             QTimer::singleShot(0, this, [this] {
-                if (m_editing && !m_editor->document()->isModified()) {
+                if (m_editing && !m_editor->document()->isModified() && m_returnAfterSave) {
                     stopEditing();
                 }
             });
@@ -665,7 +671,9 @@ void PreviewPanel::stopEditing()
 
 void PreviewPanel::updateEditControls()
 {
-    m_edit->setVisible(!m_compact && !m_editing && !m_url.isEmpty() && !m_textMimeType.isEmpty());
+    m_edit->setVisible(m_editingOffered && !m_compact && !m_editing && !m_url.isEmpty() && !m_textMimeType.isEmpty());
+    m_edit->setToolTip(m_editOnDoubleClick ? i18nc("@info:tooltip", "Edit the whole file here; double-clicking the preview does too")
+                                           : i18nc("@info:tooltip", "Edit the whole file here"));
     m_editMove->setVisible(m_editing);
     m_editClose->setVisible(m_editing);
     if (m_editing) {
@@ -706,6 +714,11 @@ void PreviewPanel::applyPresentationSettings()
     m_showLineNumbers = Settings::previewLineNumbers();
     m_syntaxHighlighting = Settings::previewSyntaxHighlighting();
     m_text->setLineNumbersVisible(m_showLineNumbers);
+    // Turning editing off leaves a file being edited open until it is closed.
+    m_editingOffered = Settings::previewEditing();
+    m_editOnDoubleClick = Settings::previewEditOnDoubleClick();
+    m_returnAfterSave = Settings::previewReturnAfterSave();
+    updateEditControls();
     if (!changed || m_textMimeType.isEmpty()) {
         return;
     }
@@ -1308,6 +1321,11 @@ bool PreviewPanel::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == m_imageLabel && event->type() == QEvent::Resize) {
         updateImage();
+    }
+    if (event->type() == QEvent::MouseButtonDblClick && m_editOnDoubleClick && !m_edit->isHidden()
+        && (watched == m_text->viewport() || watched == m_renderedText->viewport()) && static_cast<QMouseEvent *>(event)->button() == Qt::LeftButton) {
+        startEditing();
+        return true;
     }
     return QWidget::eventFilter(watched, event);
 }

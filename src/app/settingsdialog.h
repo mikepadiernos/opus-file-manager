@@ -365,6 +365,8 @@ private:
     QGroupBox *createEditorMarkdownGroup();
     /// The Workspace vault group of the Editor tab: each workspace's vault location and its own Markdown options.
     QGroupBox *createEditorWorkspaceVaultGroup();
+    /// The Preview Editing group of the Editor tab: whether and how text previews offer editing.
+    QGroupBox *createEditorPreviewGroup();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

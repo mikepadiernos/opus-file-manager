@@ -400,6 +400,18 @@
     <entry name="PreviewFormatted" type="Bool"><default>true</default></entry>
     <entry name="PreviewLineNumbers" type="Bool"><default>true</default></entry>
     <entry name="PreviewSyntaxHighlighting" type="Bool"><default>true</default></entry>
+    <entry name="PreviewEditing" type="Bool">
+      <label>Offer editing in text previews</label>
+      <default>true</default>
+    </entry>
+    <entry name="PreviewEditOnDoubleClick" type="Bool">
+      <label>Start editing when a text preview is double-clicked</label>
+      <default>false</default>
+    </entry>
+    <entry name="PreviewReturnAfterSave" type="Bool">
+      <label>Return to the preview after saving a file edited in the preview</label>
+      <default>true</default>
+    </entry>
     <entry name="ShowPreviews" type="Bool">
       <label>Show previews in a new window</label>
       <default>false</default>

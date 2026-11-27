@@ -64,6 +64,7 @@
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QToolButton>
 
 #ifdef OPUSFM_HAVE_ACCOUNTS
 #include <Accounts/Account>
@@ -2088,6 +2089,39 @@ private Q_SLOTS:
         QTRY_VERIFY2(status->text().contains(QStringLiteral("no longer in Favorites")), qPrintable(status->text()));
         QCOMPARE(location->currentData().toString(), locationId);
         QVERIFY(!dialog.button(QDialogButtonBox::Apply)->isEnabled());
+    }
+
+    void editorTabChoosesPreviewEditing()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *group = dialog.findChild<QGroupBox *>(QStringLiteral("editorPreviewGroup"));
+        QVERIFY(group);
+        QCOMPARE(tabTitleOf(group), QStringLiteral("Editor"));
+        auto *offer = group->findChild<QCheckBox *>(QStringLiteral("kcfg_PreviewEditing"));
+        auto *doubleClick = group->findChild<QCheckBox *>(QStringLiteral("kcfg_PreviewEditOnDoubleClick"));
+        auto *returnAfterSave = group->findChild<QCheckBox *>(QStringLiteral("kcfg_PreviewReturnAfterSave"));
+        QVERIFY(offer && doubleClick && returnAfterSave);
+        QVERIFY(offer->isChecked() && !doubleClick->isChecked() && returnAfterSave->isChecked());
+        QVERIFY(doubleClick->isEnabled() && returnAfterSave->isEnabled());
+
+        doubleClick->setChecked(true);
+        offer->setChecked(false);
+        QVERIFY(!doubleClick->isEnabled() && !returnAfterSave->isEnabled());
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::previewEditing());
+        QVERIFY(Settings::previewEditOnDoubleClick());
+        auto *edit = window.findChild<QToolButton *>(QStringLiteral("previewEdit"));
+        QVERIFY(edit && edit->isHidden());
+
+        offer->setChecked(true);
+        QVERIFY(doubleClick->isEnabled() && returnAfterSave->isEnabled());
     }
 };
 
