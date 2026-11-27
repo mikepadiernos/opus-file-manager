@@ -645,6 +645,22 @@
     </entry>
     <entry name="FolderSyncSpeedLimitKiB" type="Int"><default>0</default><min>0</min><max>1048576</max></entry>
   </group>
+  <group name="Rsync">
+    <entry name="RsyncEnabled" type="Bool">
+      <label>Offer rsync for folder synchronization and SSH folders</label>
+      <default>true</default>
+    </entry>
+    <entry name="RsyncForLocalFolders" type="Bool"><default>false</default></entry>
+    <entry name="RsyncProfile" type="String">
+      <label>Identifier of the comparison profile loaded when synchronizing with rsync</label>
+      <default></default>
+    </entry>
+    <entry name="RsyncCopyPolicy" type="Enum">
+      <choices><choice name="All"/><choice name="SkipExisting"/><choice name="NewerOnly"/></choices>
+      <default>NewerOnly</default>
+    </entry>
+    <entry name="RsyncAllowDeletions" type="Bool"><default>false</default></entry>
+  </group>
   <group name="ListingExport">
     <entry name="ListingExportFormat" type="Enum">
       <choices><choice name="Csv"/><choice name="Pdf"/></choices>

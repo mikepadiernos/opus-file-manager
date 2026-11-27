@@ -458,6 +458,19 @@ QString planError(const FolderSync::Comparison &comparison, const QList<Action> 
     return {};
 }
 
+QString deletionsError(const Transfer &transfer, bool allowDeletions)
+{
+    if (allowDeletions || transfer.deletions.isEmpty()) {
+        return {};
+    }
+    return i18ncp("@info",
+                  "The plan deletes one file, but deleting files with rsync is turned off in Preferences › Remote and Cloud › Sync. "
+                  "Choose Skip for it, or allow deletions there.",
+                  "The plan deletes %1 files, but deleting files with rsync is turned off in Preferences › Remote and Cloud › Sync. "
+                  "Choose Skip for them, or allow deletions there.",
+                  transfer.deletions.size());
+}
+
 QList<Step> transferSteps(const Endpoint &left,
                           const Endpoint &right,
                           const Transfer &transfer,

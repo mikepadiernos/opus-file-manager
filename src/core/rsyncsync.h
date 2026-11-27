@@ -134,6 +134,9 @@ comparison(const Endpoint &left, const Endpoint &right, const QStringList &leftT
 /// Checks that rsync can carry out @p actions exactly as planned and, when it
 /// can, sets @p transfer. Returns a localized reason when it cannot.
 QString planError(const FolderSync::Comparison &comparison, const QList<FolderSync::Action> &actions, Transfer *transfer);
+/// A localized reason when @p transfer deletes files but deleting with rsync
+/// is not allowed, or an empty string.
+QString deletionsError(const Transfer &transfer, bool allowDeletions);
 
 /// The runs that carry out @p transfer: copies, then deletions. A dry run
 /// itemizes what rsync would change without changing anything.
