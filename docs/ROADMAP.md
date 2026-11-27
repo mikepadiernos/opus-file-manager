@@ -1887,7 +1887,7 @@ Settings for M27 integrations, stored in KConfig.
         terminal editors [#320]
   - [x] **Markdown:** choose a local vault and the Markdown editing and preview
         behaviour, retaining source and draft safeguards. [#577]
-  - [ ] **Workspace vault:** enable vault editing for a workspace and choose an
+  - [x] **Workspace vault:** enable vault editing for a workspace and choose an
         assigned local location. Configure available editing, preview,
         navigation, wiki-link, backlink, tag and relationship-view options.
         Preserve drafts and notes and report unavailable roots or features and
