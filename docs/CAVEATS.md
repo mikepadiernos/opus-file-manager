@@ -2082,9 +2082,11 @@ The M27 desktop integrations have these limits
   time unless Plasma's Online Accounts integration has already given it to
   KDE's password server. Expired sign-ins and denied access appear as KIO
   errors in the pane, not in the menu. Accounts aren't shown in Places or
-  offered as remote drives, and the menu reads accounts only when it opens.
-  The menu needs Plasma Opus built with libaccounts-qt6, and **Manage Online
-  Accounts…** needs System Settings with its Online Accounts page.
+  offered as remote drives, and the menu reads accounts only when it opens,
+  and only after opting in under **Preferences › KDE Plasma › Online
+  Accounts**. The menu needs Plasma Opus built with libaccounts-qt6, and
+  **Manage Online Accounts…** needs System Settings with its Online Accounts
+  page.
   ([#370](https://github.com/mikepadiernos/plasma-opus/issues/370))
 - **🔁 rsync backend:** Each run copies or deletes in one direction, so plans
   that work both ways are refused, and it deletes only regular files missing
@@ -2490,8 +2492,10 @@ The M27 desktop integrations have these limits
     phones, KDE Connect is simpler; for lasting shares, use Samba sharing in
     the folder's **Properties** dialog.
   - **KDE Online Accounts:** Install `kio-gdrive` for Google Drive and
-    `kaccounts-providers` for Nextcloud and ownCloud, then add accounts in
-    **System Settings › Online Accounts**. When KIO reports an expired
+    `kaccounts-providers` for Nextcloud and ownCloud, add accounts in
+    **System Settings › Online Accounts**, then check **Show the folders of
+    KDE Online Accounts in Plasma Opus** under **Preferences › KDE Plasma ›
+    Online Accounts**. When KIO reports an expired
     sign-in, sign in again on that page. For WebDAV storage, let KWallet
     remember the password when KIO asks. For providers without a KDE file
     service, use **Go › Cloud Storage** with rclone.
@@ -2680,8 +2684,8 @@ The M27 desktop integrations have these limits
     keep connections alive, create folders over WebDAV, refresh addresses
     when the network changes, and the M28 **LAN sharing** defaults.
   - Show online account folders in Places, mount them as remote drives,
-    refresh the menu when accounts change, hand Nextcloud app passwords to
-    KIO with consent, and the M28 **Online Accounts** settings tab.
+    refresh the menu when accounts change, and hand Nextcloud app passwords
+    to KIO with consent.
   - Share one SSH connection between rsync runs, offer to keep permissions
     and links, delete folders missing from the source, and the M28
     **rsync** settings page.
@@ -2840,6 +2844,28 @@ The M28 integration settings have these limits
   settings are unverified there
   ([Plasma check](TODO.md#krunner-settings-on-plasma-394)).
   ([#394](https://github.com/mikepadiernos/plasma-opus/issues/394))
+- **🪪 Online Accounts access:** **Show the folders of KDE Online Accounts in
+  Plasma Opus** under **Preferences › KDE Plasma › Online Accounts** is off by
+  default, so **Go › Online Accounts** and the accounts menu of cloud sync
+  pairs are hidden, and no account is read, until it is checked; existing
+  cloud sync pairs keep their folders. The tab lists only accounts with file
+  storage, by name and provider, with their folders in the tooltip, and names
+  the other accounts below the list. Clearing an account only hides it in
+  Plasma Opus: the account, its sign-in and its services stay in KDE Online
+  Accounts for other applications, and Plasma Opus never removes accounts.
+  Accounts are remembered by their KDE Online Accounts id, so an account that
+  is removed and added again is shown again, and the ids of removed accounts
+  are kept. Accounts added later are shown until they are cleared. The list is
+  read when the tab is shown, when the option is checked and with **Refresh
+  List**, not when accounts change while the tab is open. **Manage Online
+  Accounts…** opens KDE's Online Accounts settings through `kcmshell6` or
+  System Settings, and the tab says so when they are not installed. Without
+  libaccounts-qt6, the tab says that Plasma Opus was built without Online
+  Accounts support. The container has no Plasma session or KDE account
+  providers, so accounts set up in System Settings and opening its Online
+  Accounts page are unverified there
+  ([Plasma check](TODO.md#online-account-settings-on-plasma-371)).
+  ([#371](https://github.com/mikepadiernos/plasma-opus/issues/371))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -2893,6 +2919,13 @@ The M28 integration settings have these limits
     search. Clear **Offer saved workspaces and Favorites in KRunner and Plasma
     Search** to pause all results, and use **Configure Plasma Search…** to turn
     the Plasma Opus plugin off entirely.
+  - **Online Accounts access:** Check **Show the folders of KDE Online
+    Accounts in Plasma Opus** under **Preferences › KDE Plasma › Online
+    Accounts** to browse account storage, and clear the accounts that should
+    not appear in **Go › Online Accounts**, for example work accounts on a
+    shared screen. Use **Manage Online Accounts…** to add accounts or sign in
+    again, and remove an account there, not in Plasma Opus, to remove it from
+    every application.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -2922,6 +2955,9 @@ The M28 integration settings have these limits
   - Offer locations assigned to a workspace in the **KRunner** tab, show
     whether a workspace or Favorite is offered where it is managed, and
     forget the cleared ids of removed workspaces and Favorites.
+  - Follow account changes while the **Online Accounts** tab is open, forget
+    the cleared ids of removed accounts, and choose individual services of
+    an account, such as only its Drive.
 
 ## Embedded terminal
 
