@@ -1065,6 +1065,18 @@
       <default>0</default><min>0</min><max>5</max>
     </entry>
     <entry name="ArchiveOtherPaneByDefault" type="Bool"><default>false</default></entry>
+    <entry name="ArchiveSplitByDefault" type="Bool">
+      <label>Whether Compress splits new archives into volumes by default</label>
+      <default>false</default>
+    </entry>
+    <entry name="ArchiveVolumeSizeMiB" type="Int">
+      <label>The volume size Compress offers for split archives, in mebibytes</label>
+      <default>100</default><min>1</min><max>1048576</max>
+    </entry>
+    <entry name="ArchivePromptForPassword" type="Bool">
+      <label>Whether Compress offers a password for ZIP archives</label>
+      <default>true</default>
+    </entry>
   </group>
   <group name="Files">
     <entry name="IgnoreList" type="StringList"><default code="true">IgnoreList::defaultEntries()</default></entry>
