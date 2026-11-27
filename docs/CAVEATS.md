@@ -2111,6 +2111,20 @@ The M27 desktop integrations have these limits
   only for mounted remotes whose provider reports it. Exported definitions
   contain no passwords, and imported sync pairs start paused.
   ([#719](https://github.com/mikepadiernos/plasma-opus/issues/719))
+- **🛡️ Administrator mode:** **Act as Administrator** needs the separate
+  `kio-admin` package and is reported as missing without it. Items in the
+  `admin:` view are not local files, so **Move to Trash**, terminals, custom
+  commands, checksums, batch rename, symbolic links, metadata editing, split
+  and combine and editing in the preview are unavailable there, and deleted
+  items skip the trash. Copied or dragged items carry `admin:` URLs that only
+  KIO-based applications open. How often the password is asked and how long
+  an authorization lasts are decided by `kio-admin` and Polkit; stopping
+  administrator mode does not revoke an authorization already granted.
+  Entering it in a pane with linked navigation unlinks the panes. The
+  container used for development has no `kio-admin` or Polkit agent, so the
+  prompt and elevated operations await
+  [verification on Plasma](TODO.md#administrator-mode-on-plasma-288).
+  ([#288](https://github.com/mikepadiernos/plasma-opus/issues/288))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2296,6 +2310,12 @@ The M27 desktop integrations have these limits
     to finish uploading. Before importing definitions on another computer,
     configure the same rclone remotes there, then sign in to each connection
     and resume the imported pairs under **File › Cloud Sync…**.
+  - **Administrator mode:** Install `kio-admin` from Discover or your
+    distribution. Act as an administrator only for the change you need,
+    copy a file to a backup name in the same folder before editing it, then
+    press **Stop Acting as Administrator**. For commands, use `sudo` in a
+    normal terminal instead. Lock the screen when leaving the computer,
+    because Polkit may keep the authorization for a short time.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2393,6 +2413,9 @@ The M27 desktop integrations have these limits
     control, limit the bandwidth of KIO pairs, delay logout while uploads are
     pending, mark folders to keep available offline, and the M28 **Cloud
     activity** settings.
+  - Mark administrator tabs in the tab bar, offer **Open as Administrator**
+    for a selected folder in a new tab, and allow trash, checksums and other
+    local-file actions through the `admin:` worker where KIO supports them.
 
 ## Embedded terminal
 
