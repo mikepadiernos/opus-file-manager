@@ -1857,7 +1857,7 @@ Settings for M27 integrations, stored in KConfig.
         Plasma-session verification is a
         [pending handoff](TODO.md#kwin-script-settings-on-plasma-709).
         [#709]
-  - [ ] **Drop-down window:** enable it and choose its screen edge, width,
+  - [x] **Drop-down window:** enable it and choose its screen edge, width,
         height, screen, animation and trigger, and whether it hides when it
         loses focus. Plasma-session verification is a
         [pending handoff](TODO.md#drop-down-settings-on-plasma-710).
