@@ -4,6 +4,7 @@
 
 #include "traypolicy.h"
 
+#include <QKeySequence>
 #include <QObject>
 #include <QPointer>
 #include <QUrl>
@@ -30,7 +31,8 @@ public:
     DesktopTray(QWidget *window, KActionCollection *actions);
     ~DesktopTray() override;
 
-    /// Shows or removes the tray icon to match the settings.
+    /// Shows or removes the tray icon, and registers or removes the global
+    /// shortcut, to match the settings.
     void applySettings();
 
     /// Replaces the check for a running tray host, for tests.
@@ -40,6 +42,19 @@ public:
     TrayPolicy::State state() const;
 
     QAction *toggleAction() const;
+
+    /// The key combination KDE assigns to the global shortcut by default.
+    static QKeySequence defaultGlobalShortcut();
+    /// Whether KDE's global shortcut service is running or can be started.
+    static bool globalShortcutServiceAvailable();
+    /// Whether the global shortcut is registered with KDE.
+    bool globalShortcutRegistered() const;
+    /// The global shortcut's key combination: the one KDE assigns while it is
+    /// registered, otherwise the one it gets when it is turned on again.
+    QKeySequence globalShortcut() const;
+    /// Assigns @p sequence, or no key when it is empty, to the global
+    /// shortcut, or keeps it for when the shortcut is turned on again.
+    void setGlobalShortcut(const QKeySequence &sequence);
     QMenu *contextMenu() const;
 
     /// Shows, unminimizes, raises and activates @p window.
@@ -51,6 +66,11 @@ public:
 
     /// Hides the window to the tray when a tray host can restore it.
     bool hideToTray();
+
+    /// At start, hides the window to the tray when the settings ask for it,
+    /// a tray host can restore it and @p explicitRequest is false, such as
+    /// when no folder or workspace was asked for. Returns whether it did.
+    bool startHidden(bool explicitRequest);
 
     /// Starts with the window hidden and the tray icon shown, whatever the
     /// settings, so background synchronization keeps running after login.
@@ -72,6 +92,7 @@ Q_SIGNALS:
 
 private:
     void createItem();
+    void applyGlobalShortcut();
     void applyToggle(TrayPolicy::Toggle toggle);
     void updateStatus();
     void updateMenu();
@@ -80,6 +101,7 @@ private:
     QAction *m_toggleAction;
     QPointer<KStatusNotifierItem> m_item;
     QPointer<QAction> m_showHideAction;
+    QPointer<QAction> m_cloudActivityAction;
     std::function<bool()> m_hostProbe;
     std::function<bool()> m_quitCheck;
     bool m_hiddenToTray = false;

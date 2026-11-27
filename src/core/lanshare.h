@@ -54,9 +54,60 @@ struct Certificate {
     QString error;
 };
 
+/// The clients a share serves.
+enum class Protocol {
+    /// Folder pages for browsers and WebDAV for file managers.
+    BrowsersAndWebDav,
+    /// Folder pages and downloads only; WebDAV requests are refused.
+    Browsers,
+    /// WebDAV and downloads only; folders have no browser page.
+    WebDav,
+};
+
+/// A network address and the interface it belongs to.
+struct InterfaceAddress {
+    QHostAddress address;
+    /// The interface name, such as wlp2s0, or empty when unknown.
+    QString interface;
+};
+
+/// A network interface that can serve shares.
+struct NetworkInterface {
+    QString name;
+    /// The name with the kind of interface, such as "wlp2s0 (Wi-Fi)".
+    QString label;
+    bool up = false;
+};
+
+/// The defaults that Preferences › Remote and Cloud › LAN Sharing stores.
+struct Defaults {
+    Protocol protocol = Protocol::BrowsersAndWebDav;
+    bool tls = true;
+    /// Interfaces whose addresses aren't chosen at first.
+    QStringList excludedInterfaces;
+    /// The port, or 0 to choose one.
+    quint16 port = 0;
+    int timeoutMinutes = 30;
+    bool allowUploads = false;
+    /// The folder that receives uploads, never empty.
+    QString uploadFolder;
+};
+
 /// The addresses of network interfaces that are up, excluding loopback and
 /// IPv6 link-local addresses.
 QList<QHostAddress> localAddresses();
+/// localAddresses() with the interface of each address.
+QList<InterfaceAddress> interfaceAddresses();
+/// The network interfaces other than loopback, whether up or not.
+QList<NetworkInterface> networkInterfaces();
+/// Whether @p address is chosen when a share starts: it must be private or
+/// loopback, and not on one of the @p excludedInterfaces.
+bool chosenByDefault(const InterfaceAddress &address, const QStringList &excludedInterfaces);
+/// The defaults saved in the settings.
+Defaults defaultsFromSettings();
+/// The folder that receives uploads when none is chosen: Downloads, or the
+/// home folder.
+QString defaultUploadFolder();
 /// Whether @p address is private, shared or link-local, so it is normally
 /// only reachable from the local network.
 bool isPrivateAddress(const QHostAddress &address);
@@ -127,6 +178,7 @@ public:
         LanShare::Certificate certificate;
         /// The folder that receives uploads, or empty to refuse them.
         QString uploadFolder;
+        LanShare::Protocol protocol = LanShare::Protocol::BrowsersAndWebDav;
         /// Stop after this many seconds, or 0 to keep sharing until stopped.
         int timeoutSeconds = 30 * 60;
         /// The link token, or empty to generate one.

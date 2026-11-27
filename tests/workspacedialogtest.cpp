@@ -1360,6 +1360,20 @@ private Q_SLOTS:
 
         vault->click();
         QCOMPARE(stored(), localId);
+
+        // A vault turned off in Preferences stays listed, and using it turns it on again.
+        {
+            WorkspaceCatalog::Catalog edited;
+            QString problem;
+            QVERIFY(WorkspaceCatalog::load(group, edited, problem));
+            QVERIFY(WorkspaceCatalog::setVaultOptions(edited, workId, false, std::nullopt, problem));
+            QVERIFY(WorkspaceCatalog::save(group, edited, problem));
+        }
+        dialog.refreshCatalog();
+        QVERIFY2(select(localId)->text().contains(QStringLiteral("editor vault turned off")), qPrintable(select(localId)->text()));
+        vault->click();
+        QCOMPARE(stored(), localId);
+        QVERIFY(!select(localId)->text().contains(QStringLiteral("turned off")));
         unassign->click();
         QVERIFY(stored().isEmpty());
         QCOMPARE(favorites.urls(), QList<QUrl>({local, remote}));

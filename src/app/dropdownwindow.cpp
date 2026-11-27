@@ -58,7 +58,7 @@ void DropDownWindow::toggle()
         return;
     }
     if (!m_kwin->dropDown().enabled) {
-        Q_EMIT notice(i18nc("@info:status", "The drop-down window is turned off. Turn it on under Settings › Configure KWin Integration."));
+        Q_EMIT notice(i18nc("@info:status", "The drop-down window is turned off. Turn it on under Preferences › KDE Plasma › KWin."));
         return;
     }
     if (m_window->isVisible() && !m_window->isMinimized() && m_window->isActiveWindow()) {

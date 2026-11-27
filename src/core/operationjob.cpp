@@ -2,6 +2,8 @@
 
 #include "operationjob.h"
 
+#include "settings.h"
+
 #include <KJobTrackerInterface>
 #include <KLocalizedString>
 
@@ -27,12 +29,33 @@ KJobTrackerInterface *OperationJob::defaultTracker()
     return defaultTrackerStorage();
 }
 
+bool OperationJob::reports(Kind kind)
+{
+    switch (kind) {
+    case Kind::Checksums:
+        return Settings::notifyChecksums();
+    case Kind::FolderSync:
+        return Settings::notifyFolderSync();
+    case Kind::DuplicateFinder:
+        return Settings::notifyDuplicateFinder();
+    case Kind::FileSplit:
+        return Settings::notifyFileSplit();
+    case Kind::BatchRename:
+        return Settings::notifyBatchRename();
+    case Kind::ImageConversion:
+        return Settings::notifyImageConversion();
+    case Kind::LibraryRefresh:
+        return Settings::notifyLibraryRefresh();
+    }
+    return true;
+}
+
 OperationJob *OperationJob::track(OperationJob *job, QFutureWatcherBase *watcher, KJobTrackerInterface *tracker)
 {
     if (!tracker) {
         tracker = defaultTracker();
     }
-    if (tracker) {
+    if (tracker && reports(job->kind())) {
         tracker->registerJob(job);
     }
     job->start();
@@ -71,8 +94,9 @@ void OperationJob::follow(QFutureWatcherBase *watcher)
     connect(watcher, &QObject::destroyed, this, &OperationJob::cancel);
 }
 
-OperationJob::OperationJob(const QString &title, QObject *parent)
+OperationJob::OperationJob(Kind kind, const QString &title, QObject *parent)
     : KJob(parent)
+    , m_kind(kind)
     , m_title(title)
 {
     setProgressUnit(KJob::Items);
@@ -82,6 +106,11 @@ OperationJob::OperationJob(const QString &title, QObject *parent)
 void OperationJob::start()
 {
     updateDescription();
+}
+
+OperationJob::Kind OperationJob::kind() const
+{
+    return m_kind;
 }
 
 QString OperationJob::title() const

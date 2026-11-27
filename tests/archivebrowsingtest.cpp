@@ -149,6 +149,82 @@ private Q_SLOTS:
         QCOMPARE(withArk.exec(), CompressDialog::UseArk);
     }
 
+    void compressDialogTakesTheCreationDefaults()
+    {
+        CompressDialog dialog(QStringLiteral("note"), false, nullptr);
+        auto *split = dialog.findChild<QCheckBox *>(QStringLiteral("archiveSplit"));
+        auto *size = dialog.findChild<QSpinBox *>(QStringLiteral("archiveVolumeSize"));
+        auto *password = dialog.findChild<QLineEdit *>(QStringLiteral("archivePassword"));
+        auto *confirmation = dialog.findChild<QLineEdit *>(QStringLiteral("archivePasswordConfirmation"));
+        QPushButton *ok = dialog.findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok);
+        QVERIFY(!password->isHidden() && !confirmation->isHidden());
+
+        dialog.setVolumeDefaults(true, 650);
+        QVERIFY(split->isChecked() && size->isEnabled());
+        QCOMPARE(dialog.volumeSize(), qint64(650) * 1024 * 1024);
+        dialog.setVolumeDefaults(false, 4);
+        QVERIFY(!split->isChecked() && !size->isEnabled());
+        QCOMPARE(size->value(), 4);
+        QCOMPARE(dialog.volumeSize(), 0);
+
+        password->setText(QStringLiteral("secret"));
+        QVERIFY(!ok->isEnabled());
+        dialog.setPasswordOffered(false);
+        QVERIFY(password->isHidden() && confirmation->isHidden());
+        QVERIFY(dialog.password().isEmpty());
+        QVERIFY(ok->isEnabled());
+        dialog.setPasswordOffered(true);
+        QVERIFY(!password->isHidden() && !confirmation->isHidden());
+    }
+
+    void compressFollowsTheCreationSettings()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("source")));
+        QFile input(root.filePath(QStringLiteral("source/data.bin")));
+        QVERIFY(input.open(QIODevice::WriteOnly));
+        const QByteArray data(2 * 1024 * 1024 + 512 * 1024, 'x');
+        QVERIFY(input.write(data) == data.size());
+        input.close();
+        Settings::setArchiveSplitByDefault(true);
+        Settings::setArchiveVolumeSizeMiB(1);
+        Settings::setArchivePromptForPassword(false);
+        const auto restore = qScopeGuard([] {
+            Settings::setArchiveSplitByDefault(false);
+            Settings::setArchiveVolumeSizeMiB(100);
+            Settings::setArchivePromptForPassword(true);
+        });
+
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(root.filePath(QStringLiteral("source")))});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        view->selectUrls({QUrl::fromLocalFile(input.fileName())});
+        QCOMPARE(view->selectedItems().size(), 1);
+        bool passwordHidden = false;
+        qint64 volumeSize = 0;
+        auto *poll = new QTimer(&window);
+        connect(poll, &QTimer::timeout, &window, [poll, &passwordHidden, &volumeSize] {
+            auto *dialog = qobject_cast<CompressDialog *>(QApplication::activeModalWidget());
+            if (!dialog) {
+                return;
+            }
+            poll->deleteLater();
+            passwordHidden = dialog->findChild<QLineEdit *>(QStringLiteral("archivePassword"))->isHidden();
+            volumeSize = dialog->volumeSize();
+            dialog->findChild<QComboBox *>(QStringLiteral("archiveFormat"))
+                ->setCurrentIndex(ArchiveWriter::formats().indexOf(ArchiveWriter::Format::ZipStored));
+            dialog->accept();
+        });
+        poll->start(20);
+        window.actionCollection()->action(QStringLiteral("compress"))->trigger();
+        QVERIFY(passwordHidden);
+        QCOMPARE(volumeSize, qint64(1024) * 1024);
+        const QDir folder(root.filePath(QStringLiteral("source")));
+        QTRY_COMPARE(folder.entryList({QStringLiteral("*.zip.0*")}).size(), 3);
+    }
+
     void compressSplitsIntoVolumes()
     {
         QTemporaryDir root;

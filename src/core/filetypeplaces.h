@@ -53,8 +53,20 @@ QStringList mimeTypes(Category category);
 /// A baloosearch: URL titled with the category, or an empty URL without Baloo or for large files.
 QUrl balooUrl(Category category);
 
-/// The size above which a file is large, in bytes.
+/// The size above which a file is large, in bytes, from the LargeFileSizeMiB setting.
 qint64 largeFileSize();
 /// An advanced search query that finds the category's files during a live search.
 QString liveQuery(Category category);
+
+/// The categories listed in Places, from the FileTypeCategoriesHidden setting.
+QList<Category> shownCategories();
+/// The ids of the categories missing from @p present, in Places order.
+QStringList absentIds(const QList<Category> &present);
+
+/// The Places entries to add and remove so that Places lists exactly the categories not in @p hiddenIds.
+struct PlaceChanges {
+    QList<Category> add;
+    QList<Category> remove;
+};
+PlaceChanges placeChanges(const QStringList &hiddenIds, const QList<Category> &present);
 }

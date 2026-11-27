@@ -100,6 +100,22 @@ QString iconName(const Vault &vault)
     }
 }
 
+bool isLockState(Status status)
+{
+    return status == Status::Opened || status == Status::Closed || status == Status::Opening || status == Status::Closing;
+}
+
+QList<Vault> shownVaults(const QList<Vault> &vaults, const QStringList &hidden)
+{
+    QList<Vault> shown;
+    for (const Vault &vault : vaults) {
+        if (!hidden.contains(vault.device)) {
+            shown.append(vault);
+        }
+    }
+    return shown;
+}
+
 bool contains(const QString &mountPoint, const QString &path)
 {
     if (mountPoint.isEmpty() || path.isEmpty()) {

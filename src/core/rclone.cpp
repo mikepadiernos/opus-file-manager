@@ -7,9 +7,14 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QHostAddress>
+#include <QPointer>
 #include <QProcess>
+#include <QRandomGenerator>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QTcpServer>
+#include <QTcpSocket>
 #include <QTimer>
 
 namespace
@@ -96,6 +101,106 @@ QStringList Rclone::mountArguments(const QString &remote, const QString &mountPo
     return arguments;
 }
 
+QString Rclone::serveUser()
+{
+    return QStringLiteral("rclone");
+}
+
+QString Rclone::serveRealm()
+{
+    return QStringLiteral("Plasma Opus");
+}
+
+QStringList Rclone::serveArguments(const QString &remote, quint16 port, const QStringList &options)
+{
+    QStringList arguments{QStringLiteral("serve"),
+                          QStringLiteral("webdav"),
+                          QStringLiteral("--addr"),
+                          QStringLiteral("127.0.0.1:%1").arg(port),
+                          QStringLiteral("--user"),
+                          serveUser(),
+                          QStringLiteral("--realm"),
+                          serveRealm()};
+    if (options.isEmpty()) {
+        // As for mounts, caching writes lets files be saved in place.
+        arguments << QStringLiteral("--vfs-cache-mode") << QStringLiteral("writes");
+    } else {
+        arguments << options;
+    }
+    arguments << QStringLiteral("--") << remote + QLatin1Char(':');
+    return arguments;
+}
+
+QProcessEnvironment Rclone::serveEnvironment(const QString &password)
+{
+    QProcessEnvironment environment = Rclone::environment();
+    // rclone reads any option from RCLONE_ and its name; unlike --pass, the
+    // environment can't be read by other users.
+    environment.insert(QStringLiteral("RCLONE_PASS"), password);
+    return environment;
+}
+
+QUrl Rclone::serveUrl(quint16 port)
+{
+    QUrl url;
+    url.setScheme(QStringLiteral("webdav"));
+    url.setUserName(serveUser());
+    url.setHost(QStringLiteral("127.0.0.1"));
+    url.setPort(port);
+    url.setPath(QStringLiteral("/"));
+    return url;
+}
+
+QString Rclone::randomPassword()
+{
+    static constexpr char characters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    QString password;
+    for (int i = 0; i < 32; ++i) {
+        password.append(QLatin1Char(characters[QRandomGenerator::system()->bounded(int(sizeof(characters) - 1))]));
+    }
+    return password;
+}
+
+quint16 Rclone::preferredServePort(const QString &remote)
+{
+    // FNV-1a, which unlike qHash() doesn't change between runs.
+    quint32 hash = 2166136261u;
+    const QByteArray key = remote.toUtf8() + '\0' + QDir::homePath().toUtf8();
+    for (const char byte : key) {
+        hash = (hash ^ quint8(byte)) * 16777619u;
+    }
+    // Linux hands out ephemeral ports from 32768.
+    return quint16(24000 + hash % 8000);
+}
+
+quint16 Rclone::freeLoopbackPort(quint16 preferred)
+{
+    QTcpServer server;
+    if (preferred != 0) {
+        for (int offset = 0; offset < 16 && preferred + offset <= 65535; ++offset) {
+            if (server.listen(QHostAddress::LocalHost, quint16(preferred + offset))) {
+                server.close();
+                return quint16(preferred + offset);
+            }
+        }
+    }
+    if (!server.listen(QHostAddress::LocalHost, 0)) {
+        return 0;
+    }
+    const quint16 port = server.serverPort();
+    server.close();
+    return port;
+}
+
+bool Rclone::isListening(quint16 port)
+{
+    QTcpSocket socket;
+    socket.connectToHost(QHostAddress::LocalHost, port);
+    const bool connected = socket.waitForConnected(100);
+    socket.abort();
+    return connected;
+}
+
 QProcessEnvironment Rclone::environment()
 {
     QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
@@ -140,6 +245,10 @@ bool Rclone::isMountPoint(const QString &path)
 RcloneMounts::RcloneMounts(QObject *parent)
     : QObject(parent)
     , m_check(Rclone::isMountPoint)
+    , m_serveCheck(Rclone::isListening)
+    , m_passwords([](const QString &, const QUrl &, const std::function<void(const QString &)> &done) {
+        done(Rclone::randomPassword());
+    })
 {
     // The main window lives until the process exits, so its children aren't destroyed at quit.
     if (QCoreApplication *application = QCoreApplication::instance()) {
@@ -163,6 +272,10 @@ void RcloneMounts::stopAllNow()
     const QStringList remotes = m_mounts.keys();
     for (const QString &remote : remotes) {
         Mount &mount = m_mounts[remote];
+        if (!mount.process) {
+            // Still waiting for its password.
+            continue;
+        }
         mount.process->disconnect(this);
         mount.process->terminate();
         if (!mount.process->waitForFinished(stopTimeout)) {
@@ -171,7 +284,9 @@ void RcloneMounts::stopAllNow()
         }
         delete mount.poll;
         delete mount.process;
-        QDir().rmdir(mount.path);
+        if (mount.url.isEmpty()) {
+            QDir().rmdir(mount.path);
+        }
     }
     m_mounts.clear();
 }
@@ -179,6 +294,16 @@ void RcloneMounts::stopAllNow()
 void RcloneMounts::setMountCheck(MountCheck check)
 {
     m_check = std::move(check);
+}
+
+void RcloneMounts::setServeCheck(ServeCheck check)
+{
+    m_serveCheck = std::move(check);
+}
+
+void RcloneMounts::setPasswordProvider(PasswordProvider provider)
+{
+    m_passwords = std::move(provider);
 }
 
 void RcloneMounts::setTimeout(int milliseconds)
@@ -189,6 +314,11 @@ void RcloneMounts::setTimeout(int milliseconds)
 void RcloneMounts::setMountOptions(const QStringList &options)
 {
     m_options = options;
+}
+
+QStringList RcloneMounts::mountOptions() const
+{
+    return m_options;
 }
 
 void RcloneMounts::listRemotes()
@@ -233,11 +363,7 @@ void RcloneMounts::mount(const QString &remote)
         Q_EMIT failed(remote, i18nc("@info", "The rclone remote name is not valid."));
         return;
     }
-    if (m_mounts.contains(remote)) {
-        const Mount &mount = m_mounts.value(remote);
-        if (mount.ready && !mount.stopping) {
-            Q_EMIT mounted(remote, mount.path);
-        }
+    if (reopen(remote)) {
         return;
     }
     const QString path = Rclone::mountPoint(remote);
@@ -260,8 +386,78 @@ void RcloneMounts::mount(const QString &remote)
 
     Mount mount;
     mount.path = path;
+    start(remote, mount, Rclone::mountArguments(remote, path, m_options), Rclone::environment());
+}
+
+void RcloneMounts::serve(const QString &remote)
+{
+    if (!Rclone::isValidName(remote)) {
+        Q_EMIT failed(remote, i18nc("@info", "The rclone remote name is not valid."));
+        return;
+    }
+    if (reopen(remote)) {
+        return;
+    }
+    if (Rclone::findExecutable().isEmpty()) {
+        Q_EMIT failed(remote, i18nc("@info", "rclone is not installed. Install it from your distribution to open its cloud remotes."));
+        return;
+    }
+    const quint16 port = Rclone::freeLoopbackPort(Rclone::preferredServePort(remote));
+    if (port == 0) {
+        Q_EMIT failed(remote, i18nc("@info", "No free port was found on this computer to serve the remote on."));
+        return;
+    }
+    Mount mount;
+    mount.url = Rclone::serveUrl(port);
+    // Starting while the password is looked up, which can ask to open KDE Wallet.
+    m_mounts.insert(remote, mount);
+    const QPointer<RcloneMounts> self(this);
+    const QUrl url = mount.url;
+    m_passwords(remote, url, [self, remote, url](const QString &password) {
+        if (self) {
+            self->startServing(remote, url, password);
+        }
+    });
+}
+
+void RcloneMounts::startServing(const QString &remote, const QUrl &url, const QString &password)
+{
+    const auto it = m_mounts.constFind(remote);
+    if (it == m_mounts.cend() || it->process || it->url != url) {
+        return;
+    }
+    if (it->stopping) {
+        m_mounts.remove(remote);
+        return;
+    }
+    if (password.isEmpty()) {
+        m_mounts.remove(remote);
+        Q_EMIT failed(remote, i18nc("@info", "No password was available to protect the served remote."));
+        return;
+    }
+    start(remote, *it, Rclone::serveArguments(remote, quint16(url.port()), m_options), Rclone::serveEnvironment(password));
+}
+
+bool RcloneMounts::reopen(const QString &remote)
+{
+    const auto it = m_mounts.constFind(remote);
+    if (it == m_mounts.cend()) {
+        return false;
+    }
+    if (it->ready && !it->stopping) {
+        if (it->url.isEmpty()) {
+            Q_EMIT mounted(remote, it->path);
+        } else {
+            Q_EMIT served(remote, it->url);
+        }
+    }
+    return true;
+}
+
+void RcloneMounts::start(const QString &remote, Mount mount, const QStringList &arguments, const QProcessEnvironment &environment)
+{
     mount.process = new QProcess(this);
-    mount.process->setProcessEnvironment(Rclone::environment());
+    mount.process->setProcessEnvironment(environment);
     mount.process->setStandardInputFile(QProcess::nullDevice());
     mount.process->setStandardOutputFile(QProcess::nullDevice());
     mount.poll = new QTimer(this);
@@ -288,8 +484,9 @@ void RcloneMounts::mount(const QString &remote)
         const QString detail = Rclone::lastError(it->errors);
         finish(remote,
                it->ready || it->stopping ? QString()
-                   : detail.isEmpty()    ? i18nc("@info %1 is an exit code", "rclone stopped before the remote was mounted (exit code %1).", exitCode)
-                                         : detail);
+                   : !detail.isEmpty()   ? detail
+                   : it->url.isEmpty()   ? i18nc("@info %1 is an exit code", "rclone stopped before the remote was mounted (exit code %1).", exitCode)
+                                         : i18nc("@info %1 is an exit code", "rclone stopped before the remote was served (exit code %1).", exitCode));
     });
     connect(mount.process, &QProcess::errorOccurred, this, [this, remote](QProcess::ProcessError error) {
         auto it = m_mounts.find(remote);
@@ -298,7 +495,7 @@ void RcloneMounts::mount(const QString &remote)
         }
     });
     m_mounts.insert(remote, mount);
-    mount.process->start(executable, Rclone::mountArguments(remote, path, m_options));
+    mount.process->start(Rclone::findExecutable(), arguments);
     if (m_mounts.contains(remote)) {
         mount.poll->start();
     }
@@ -310,10 +507,15 @@ void RcloneMounts::poll(const QString &remote)
     if (it == m_mounts.end() || it->ready) {
         return;
     }
-    if (m_check(it->path)) {
+    const bool serving = !it->url.isEmpty();
+    if (serving ? m_serveCheck(quint16(it->url.port())) : m_check(it->path)) {
         it->ready = true;
         it->poll->stop();
-        Q_EMIT mounted(remote, it->path);
+        if (serving) {
+            Q_EMIT served(remote, it->url);
+        } else {
+            Q_EMIT mounted(remote, it->path);
+        }
         return;
     }
     it->elapsed += pollInterval;
@@ -321,8 +523,10 @@ void RcloneMounts::poll(const QString &remote)
         it->poll->stop();
         it->stopping = true;
         const QString detail = Rclone::lastError(it->errors);
-        const QString message = detail.isEmpty() ? i18nc("@info", "The remote was not mounted in time.")
-                                                 : i18nc("@info %1 is rclone's last message", "The remote was not mounted in time: %1", detail);
+        const QString message = serving ? (detail.isEmpty() ? i18nc("@info", "The remote was not served in time.")
+                                                            : i18nc("@info %1 is rclone's last message", "The remote was not served in time: %1", detail))
+            : detail.isEmpty()          ? i18nc("@info", "The remote was not mounted in time.")
+                                        : i18nc("@info %1 is rclone's last message", "The remote was not mounted in time: %1", detail);
         QProcess *process = it->process;
         process->disconnect(this);
         process->terminate();
@@ -344,6 +548,14 @@ void RcloneMounts::finish(const QString &remote, const QString &error)
     mount.poll->deleteLater();
     mount.process->disconnect(this);
     mount.process->deleteLater();
+    if (!mount.url.isEmpty()) {
+        if (!error.isEmpty()) {
+            Q_EMIT failed(remote, error);
+        } else if (mount.ready) {
+            Q_EMIT serveStopped(remote, mount.url);
+        }
+        return;
+    }
     QDir().rmdir(mount.path);
     if (!error.isEmpty()) {
         Q_EMIT failed(remote, error);
@@ -372,8 +584,12 @@ void RcloneMounts::stop(const QString &remote)
         return;
     }
     it->stopping = true;
-    it->poll->stop();
     QProcess *process = it->process;
+    if (!process) {
+        // Still waiting for its password; startServing() drops it.
+        return;
+    }
+    it->poll->stop();
     // rclone unmounts cleanly on SIGTERM; kill it if it doesn't exit.
     process->terminate();
     QTimer::singleShot(stopTimeout, process, [process] {
@@ -386,7 +602,13 @@ void RcloneMounts::stop(const QString &remote)
 bool RcloneMounts::isMounted(const QString &remote) const
 {
     const auto it = m_mounts.constFind(remote);
-    return it != m_mounts.cend() && it->ready && !it->stopping;
+    return it != m_mounts.cend() && it->ready && !it->stopping && it->url.isEmpty();
+}
+
+bool RcloneMounts::isServed(const QString &remote) const
+{
+    const auto it = m_mounts.constFind(remote);
+    return it != m_mounts.cend() && it->ready && !it->stopping && !it->url.isEmpty();
 }
 
 bool RcloneMounts::isStarting(const QString &remote) const
@@ -399,10 +621,27 @@ QStringList RcloneMounts::mountedRemotes() const
 {
     QStringList remotes;
     for (auto it = m_mounts.cbegin(); it != m_mounts.cend(); ++it) {
-        if (it->ready && !it->stopping) {
+        if (isMounted(it.key())) {
             remotes.append(it.key());
         }
     }
     remotes.sort();
     return remotes;
+}
+
+QStringList RcloneMounts::servedRemotes() const
+{
+    QStringList remotes;
+    for (auto it = m_mounts.cbegin(); it != m_mounts.cend(); ++it) {
+        if (isServed(it.key())) {
+            remotes.append(it.key());
+        }
+    }
+    remotes.sort();
+    return remotes;
+}
+
+QUrl RcloneMounts::servedUrl(const QString &remote) const
+{
+    return isServed(remote) ? m_mounts.value(remote).url : QUrl();
 }

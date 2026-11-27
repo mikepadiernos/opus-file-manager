@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "kdeconnectshare.h"
+#include "settings.h"
 
+#include <KConfigGroup>
 #include <KLocalizedString>
+#include <KSharedConfig>
 
 #include <QFileInfo>
 #include <QSet>
@@ -11,6 +14,14 @@
 
 namespace KdeConnectShare
 {
+namespace
+{
+KConfigGroup stateGroup()
+{
+    return KSharedConfig::openStateConfig()->group(QStringLiteral("KdeConnectShare"));
+}
+}
+
 Selection classify(const QList<QUrl> &urls)
 {
     Selection selection;
@@ -77,5 +88,53 @@ QString reasonText(Reason reason)
         return i18nc("@info why an item cannot be sent", "Not a regular file");
     }
     return {};
+}
+
+QString preferredDevice(const QList<Device> &devices, const QString &previous)
+{
+    const auto listed = [&devices](const QString &id) {
+        return std::any_of(devices.cbegin(), devices.cend(), [&id](const Device &device) {
+            return device.id == id;
+        });
+    };
+    const QList<Device> candidates = eligible(devices);
+    const bool previousEligible = std::any_of(candidates.cbegin(), candidates.cend(), [&previous](const Device &device) {
+        return device.id == previous;
+    });
+    if (!previous.isEmpty() && previousEligible) {
+        return previous;
+    }
+    if (!candidates.isEmpty()) {
+        return candidates.first().id;
+    }
+    if (!previous.isEmpty() && listed(previous)) {
+        return previous;
+    }
+    return devices.isEmpty() ? QString() : devices.first().id;
+}
+
+QString rememberedDevice()
+{
+    return Settings::kdeConnectRememberDevice() ? stateGroup().readEntry("LastDevice", QString()) : QString();
+}
+
+void rememberDevice(const QString &deviceId)
+{
+    if (!Settings::kdeConnectRememberDevice()) {
+        forgetDevice();
+        return;
+    }
+    KConfigGroup state = stateGroup();
+    state.writeEntry("LastDevice", deviceId);
+    state.sync();
+}
+
+void forgetDevice()
+{
+    KConfigGroup state = stateGroup();
+    if (state.hasKey("LastDevice")) {
+        state.deleteEntry("LastDevice");
+        state.sync();
+    }
 }
 }

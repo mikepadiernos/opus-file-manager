@@ -3,6 +3,7 @@
 #include "kdeconnectsharedialog.h"
 #include "kdeconnectclient.h"
 #include "mainwindow.h"
+#include "settings.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
@@ -16,6 +17,7 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -168,6 +170,25 @@ private Q_SLOTS:
         QCOMPARE(dialog.selectedDeviceId(), Phone.id);
     }
 
+    void forgetsTheDeviceWhenItIsNotRemembered()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+        });
+        Settings::setKdeConnectRememberDevice(false);
+        const Device laptop{QStringLiteral("laptop"), QStringLiteral("Laptop"), true, true, true};
+        KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("KdeConnectShare"));
+        state.writeEntry("LastDevice", Phone.id);
+        FakeKdeConnect client;
+        client.list = {Phone, laptop};
+        KdeConnectShareDialog dialog(&client, {QUrl::fromLocalFile(m_file)});
+        // The first device that can receive files, by name.
+        QCOMPARE(dialog.selectedDeviceId(), laptop.id);
+        dialog.send();
+        QCOMPARE(client.sent.size(), 1);
+        QVERIFY(!state.hasKey("LastDevice"));
+    }
+
     void windowActionOpensTheDialog()
     {
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Session"));
@@ -181,6 +202,23 @@ private Q_SLOTS:
         QVERIFY(!action->text().isEmpty());
         window.sendToDevice();
         QVERIFY(!window.findChild<KdeConnectShareDialog *>());
+    }
+
+    void windowHidesTheActionWhenSharingIsOff()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+        });
+        MainWindow window;
+        QAction *action = window.actionCollection()->action(QStringLiteral("kdeconnect_send"));
+        QVERIFY(action->isVisible());
+        Settings::setKdeConnectSharing(false);
+        window.applySettings();
+        QVERIFY(!action->isVisible());
+        QVERIFY(!action->isEnabled());
+        Settings::setKdeConnectSharing(true);
+        window.applySettings();
+        QVERIFY(action->isVisible());
     }
 
 private:

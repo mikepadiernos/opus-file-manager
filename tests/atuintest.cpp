@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "atuin.h"
+#include "settings.h"
 
 #include <QDir>
 #include <QFile>
@@ -110,6 +111,53 @@ private Q_SLOTS:
     {
         QCOMPARE(Atuin::searchInput(QStringLiteral("/usr/bin/atuin")), QStringLiteral(" /usr/bin/atuin search --interactive\n"));
         QCOMPARE(Atuin::searchInput(QStringLiteral("/home/a b/.atuin/bin/atuin")), QStringLiteral(" '/home/a b/.atuin/bin/atuin' search --interactive\n"));
+    }
+
+    void readsTheSessionMode()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+        });
+        Settings::self()->setDefaults();
+        QVERIFY(Settings::atuinHistory());
+        QCOMPARE(Atuin::sessionMode(), Atuin::SessionMode::Current);
+        Settings::setAtuinSession(Settings::EnumAtuinSession::NewWhenBusy);
+        QCOMPARE(Atuin::sessionMode(), Atuin::SessionMode::NewWhenBusy);
+        Settings::setAtuinSession(Settings::EnumAtuinSession::New);
+        QCOMPARE(Atuin::sessionMode(), Atuin::SessionMode::New);
+    }
+
+    void choosesTheSession_data()
+    {
+        QTest::addColumn<Atuin::SessionMode>("mode");
+        QTest::addColumn<bool>("hasSession");
+        QTest::addColumn<bool>("sessionIsNew");
+        QTest::addColumn<bool>("busy");
+        QTest::addColumn<Atuin::Session>("expected");
+        using Mode = Atuin::SessionMode;
+        using Session = Atuin::Session;
+        QTest::newRow("current, none") << Mode::Current << false << false << false << Session::Refuse;
+        QTest::newRow("current, idle") << Mode::Current << true << false << false << Session::Current;
+        QTest::newRow("current, busy") << Mode::Current << true << false << true << Session::Refuse;
+        QTest::newRow("when busy, none") << Mode::NewWhenBusy << false << false << false << Session::New;
+        QTest::newRow("when busy, idle") << Mode::NewWhenBusy << true << false << false << Session::Current;
+        QTest::newRow("when busy, busy") << Mode::NewWhenBusy << true << false << true << Session::New;
+        QTest::newRow("when busy, new and busy") << Mode::NewWhenBusy << true << true << true << Session::Refuse;
+        QTest::newRow("new, none") << Mode::New << false << false << false << Session::New;
+        QTest::newRow("new, idle") << Mode::New << true << false << false << Session::New;
+        QTest::newRow("new, busy") << Mode::New << true << false << true << Session::New;
+        QTest::newRow("new, just opened") << Mode::New << true << true << false << Session::Current;
+        QTest::newRow("new, just opened and busy") << Mode::New << true << true << true << Session::Refuse;
+    }
+
+    void choosesTheSession()
+    {
+        QFETCH(Atuin::SessionMode, mode);
+        QFETCH(bool, hasSession);
+        QFETCH(bool, sessionIsNew);
+        QFETCH(bool, busy);
+        QFETCH(Atuin::Session, expected);
+        QCOMPARE(Atuin::session(mode, hasSession, sessionIsNew, busy), expected);
     }
 
 private:

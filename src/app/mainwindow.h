@@ -108,7 +108,7 @@ public:
     Pane *inactivePane() const;
 
     ActivityController *activityController() const;
-    /// Shows the dialog that associates Plasma Activities with workspaces and default folders.
+    /// Opens Preferences › KDE Plasma › Activities, where Plasma Activities are associated with workspaces and default folders.
     void showActivityAssociations();
     /**
      * Applies an Activity association the user chose to apply: switches to its
@@ -217,9 +217,9 @@ public:
     RcloneMounts *rcloneMounts();
     /// Fills the Cloud Storage menu from the last list of rclone remotes.
     void populateCloudStorage();
-    /// Mounts an rclone remote if needed and opens it in the active pane.
+    /// Mounts or serves an rclone remote, as Preferences choose, if needed and opens it in the active pane.
     void openRcloneRemote(const QString &remote);
-    /// Leaves the remote's folder in either pane and stops its mount.
+    /// Leaves the remote's folder or location in either pane and stops its mount or server.
     void unmountRcloneRemote(const QString &remote);
     /// The remote connections this window mounted as folders, created on first use.
     RemoteMountManager *remoteMounts();
@@ -229,14 +229,20 @@ public:
     void unmountRemoteProfile(const QString &id);
     /// Shows how @p profile is mounted as a folder.
     void showRemoteMountOptions(const RemoteProfiles::Profile &profile);
-    /// Removes Places entries left by earlier mounts and mounts the connections set to mount at startup.
+    /// Removes Places entries left by earlier mounts, mounts the connections set to mount at startup and takes over those still mounted.
     void mountRemoteProfilesAtStartup();
+    /**
+     * Mounts the saved connections holding the locations assigned to the
+     * workspace @p workspaceId, when Preferences › Remote and Cloud › Remote
+     * Drives chooses to.
+     */
+    void mountRemoteProfilesForWorkspace(const QString &workspaceId);
 
     /// The optional Plasma Opus KWin script and its D-Bus interface.
     KWinIntegration *kwinIntegration() const;
     /// Replaces the KWin backend, for tests.
     void setKWinBackend(std::unique_ptr<KWinBackend> backend);
-    /// Shows Settings › Configure KWin Integration.
+    /// Shows Preferences › KDE Plasma › KWin.
     void showKWinIntegration();
     /// Shows the drop-down window, or hides it when it is shown and active.
     void toggleDropDown();
@@ -358,8 +364,8 @@ private:
     void reloadWorkspaceCatalog();
     /// Applies current workspace visibility to the navigation panels.
     void refreshWorkspaceLocations();
-    /// The local folder of the active workspace's editor vault, or empty.
-    QString workspaceVaultRoot() const;
+    /// The active workspace's editor vault: its local folder, or why it can't be found, and its options.
+    EditorPanel::WorkspaceVault workspaceVault() const;
     /// Watches the workspace configuration for changes from other windows.
     void watchWorkspaceCatalog();
     bool captureWorkspaceLayout(WorkspaceCatalog::Layout &layout, QString &error) const;
@@ -374,8 +380,16 @@ private:
     /// Keeps the search panel beside the terminal when their orientations match, otherwise in the outer search splitter.
     void updateSearchPlacement();
     void setupPlaces();
-    /// Adds the file-type places to Places once, so that removed entries stay removed.
+    /**
+     * Adds the shown file-type places to Places on first use, then keeps the
+     * FileTypeCategoriesHidden setting in step with the entries removed from
+     * or added to Places, so that removed entries stay removed.
+     */
     void addFileTypePlaces();
+    /// Adds the shown file-type places missing from Places and removes the hidden ones.
+    void syncFileTypePlaces();
+    /// Records the file-type places missing from Places as hidden.
+    void rememberFileTypePlaces();
     void setupPanels();
     void setupStatusBar();
     void applyPanelSettings();
@@ -487,6 +501,8 @@ private:
     void openSelectionInKleopatra(bool decrypt);
     /// Enables the Encryption menu's entries for the selection and the installed tools.
     void updateEncryptionActions();
+    /// Shows the GnuPG and AES Crypt actions chosen in Preferences, and File › Encryption when either is shown.
+    void applyEncryptionSettings();
     void setupEditor();
     void setEditorPlacement(EditorPanel::Placement placement);
     void setPreviewPlacement(PreviewPanel::Placement placement);
@@ -588,6 +604,8 @@ private:
     IndexBackend *m_indexBackend = nullptr;
 
     KFilePlacesModel *m_placesModel = nullptr;
+    /// Set while syncFileTypePlaces() edits Places, so that its own changes aren't recorded one at a time.
+    bool m_syncingFileTypePlaces = false;
     DesktopTray *m_desktopTray = nullptr;
     CloudSync::Scheduler *m_cloudSync = nullptr;
     QPointer<CloudSyncDialog> m_cloudSyncDialog;

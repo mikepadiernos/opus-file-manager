@@ -381,6 +381,14 @@ private Q_SLOTS:
         QVERIFY(write(root.filePath(QStringLiteral("right/a")), "old"));
         QVERIFY(write(root.filePath(QStringLiteral("left/sub/item")), "nested"));
         QVERIFY(write(root.filePath(QStringLiteral("right/remove")), "remove"));
+        const auto oldPolicy = Settings::rsyncCopyPolicy();
+        const bool oldDeletions = Settings::rsyncAllowDeletions();
+        const auto restore = qScopeGuard([oldPolicy, oldDeletions] {
+            Settings::setRsyncCopyPolicy(oldPolicy);
+            Settings::setRsyncAllowDeletions(oldDeletions);
+        });
+        Settings::setRsyncCopyPolicy(Settings::EnumRsyncCopyPolicy::All);
+        Settings::setRsyncAllowDeletions(true);
         FolderSyncDialog dialog(root.filePath(QStringLiteral("left")), root.filePath(QStringLiteral("right")));
         auto *backend = dialog.findChild<QComboBox *>(QStringLiteral("folderSyncBackend"));
         auto *compare = dialog.findChild<QPushButton *>(QStringLiteral("folderSyncCompare"));
@@ -441,7 +449,128 @@ private Q_SLOTS:
         QVERIFY2(report->toPlainText().contains(QStringLiteral("rsync changed 4 items.")), qPrintable(report->toPlainText()));
     }
 
+    void startsFromTheRsyncDefaults()
+    {
+        if (RsyncSync::program().isEmpty()) {
+            QSKIP("rsync is not installed");
+        }
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("left")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("right")));
+        const auto write = [](const QString &path) {
+            QFile file(path);
+            return file.open(QIODevice::WriteOnly) && file.write("data") == 4;
+        };
+        QVERIFY(write(root.filePath(QStringLiteral("left/a"))));
+        QVERIFY(write(root.filePath(QStringLiteral("right/b"))));
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("profilesrc")), KConfig::SimpleConfig);
+        const QString id = QStringLiteral("0f8fad5b-d9cb-469f-a165-70867728950e");
+        FolderSync::Options options;
+        options.includePatterns = {QStringLiteral("*.txt")};
+        options.compareContents = true;
+        QString error;
+        QVERIFY2(FolderSyncProfiles::save(config->group(QStringLiteral("FolderSyncProfiles")),
+                                          {{QStringLiteral("Other"), {}, {}}, {QStringLiteral("Text"), options, id}},
+                                          &error),
+                 qPrintable(error));
+        const auto restore = qScopeGuard(&FolderSyncDialogTest::restoreRsyncDefaults);
+        const auto oldPolicy = Settings::folderSyncCopyPolicy();
+        const auto restorePolicy = qScopeGuard([oldPolicy] {
+            Settings::setFolderSyncCopyPolicy(oldPolicy);
+        });
+        Settings::setFolderSyncCopyPolicy(Settings::EnumFolderSyncCopyPolicy::All);
+        Settings::setRsyncForLocalFolders(true);
+        Settings::setRsyncProfile(id);
+        Settings::setRsyncCopyPolicy(Settings::EnumRsyncCopyPolicy::SkipExisting);
+
+        FolderSyncDialog dialog(root.filePath(QStringLiteral("left")), root.filePath(QStringLiteral("right")), nullptr, config);
+        auto *backend = dialog.findChild<QComboBox *>(QStringLiteral("folderSyncBackend"));
+        auto *policy = dialog.findChild<QComboBox *>(QStringLiteral("folderSyncCopyPolicy"));
+        auto *include = dialog.findChild<QPlainTextEdit *>(QStringLiteral("folderSyncInclude"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("folderSyncStatus"));
+        QCOMPARE(backend->currentData().toString(), QStringLiteral("rsync"));
+        QCOMPARE(policy->currentIndex(), int(FolderSync::CopyPolicy::SkipExisting));
+        QCOMPARE(include->toPlainText(), QStringLiteral("*.txt"));
+        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("folderSyncContents"))->isChecked());
+        QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("folderSyncProfiles"))->currentText(), QStringLiteral("Text"));
+        QVERIFY2(status->text().contains(QStringLiteral("Text")), qPrintable(status->text()));
+
+        // Each backend starts from its own copy policy.
+        backend->setCurrentIndex(backend->findData(QStringLiteral("builtin")));
+        QCOMPARE(policy->currentIndex(), int(FolderSync::CopyPolicy::All));
+        backend->setCurrentIndex(backend->findData(QStringLiteral("rsync")));
+        QCOMPARE(policy->currentIndex(), int(FolderSync::CopyPolicy::SkipExisting));
+
+        // Deleting with rsync is turned off by default. Both backends now share
+        // a copy policy, so switching keeps the plan.
+        Settings::setFolderSyncCopyPolicy(Settings::EnumFolderSyncCopyPolicy::SkipExisting);
+        include->clear();
+        auto *compare = dialog.findChild<QPushButton *>(QStringLiteral("folderSyncCompare"));
+        auto *rows = dialog.findChild<QTreeWidget *>(QStringLiteral("folderSyncResults"));
+        auto *action = dialog.findChild<QComboBox *>(QStringLiteral("folderSyncAction"));
+        compare->click();
+        QTRY_VERIFY(compare->isEnabled());
+        QCOMPARE(rows->topLevelItemCount(), 2);
+        QCOMPARE(rows->topLevelItem(1)->text(0), QStringLiteral("b"));
+        rows->setCurrentItem(rows->topLevelItem(1));
+        QCOMPARE(action->findData(int(FolderSync::Action::DeleteRight)), -1);
+        backend->setCurrentIndex(backend->findData(QStringLiteral("builtin")));
+        action->setCurrentIndex(action->findData(int(FolderSync::Action::DeleteRight)));
+        QCOMPARE(rows->topLevelItem(1)->text(2), QStringLiteral("Delete from second"));
+        backend->setCurrentIndex(backend->findData(QStringLiteral("rsync")));
+        QCOMPARE(rows->topLevelItem(1)->text(2), QStringLiteral("Skip"));
+        QVERIFY2(status->text().contains(QStringLiteral("skipped")), qPrintable(status->text()));
+
+        // A plan made while deletions were allowed is refused once they are not.
+        Settings::setRsyncAllowDeletions(true);
+        rows->setCurrentItem(rows->topLevelItem(0));
+        rows->setCurrentItem(rows->topLevelItem(1));
+        action->setCurrentIndex(action->findData(int(FolderSync::Action::DeleteRight)));
+        QCOMPARE(rows->topLevelItem(1)->text(2), QStringLiteral("Delete from second"));
+        Settings::setRsyncAllowDeletions(false);
+        dialog.findChild<QPushButton *>(QStringLiteral("folderSyncApply"))->click();
+        QVERIFY2(status->text().contains(QStringLiteral("turned off")), qPrintable(status->text()));
+        QVERIFY(QFile::exists(root.filePath(QStringLiteral("right/b"))));
+
+        // A deleted profile is reported rather than loaded.
+        Settings::setRsyncProfile(QStringLiteral("6ba7b810-9dad-11d1-80b4-00c04fd430c8"));
+        FolderSyncDialog missing(root.filePath(QStringLiteral("left")), root.filePath(QStringLiteral("right")), nullptr, config);
+        QVERIFY(missing.findChild<QPlainTextEdit *>(QStringLiteral("folderSyncInclude"))->toPlainText().isEmpty());
+        QVERIFY(missing.findChild<QLabel *>(QStringLiteral("folderSyncStatus"))->text().contains(QStringLiteral("no longer exists")));
+    }
+
+    void turnsOffTheRsyncBackend()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto restore = qScopeGuard(&FolderSyncDialogTest::restoreRsyncDefaults);
+        Settings::setRsyncEnabled(false);
+        Settings::setRsyncForLocalFolders(true);
+        {
+            FolderSyncDialog dialog(root.path(), root.path());
+            auto *backend = dialog.findChild<QComboBox *>(QStringLiteral("folderSyncBackend"));
+            auto *model = qobject_cast<QStandardItemModel *>(backend->model());
+            QCOMPARE(backend->currentData().toString(), QStringLiteral("builtin"));
+            QVERIFY(!model->item(1)->isEnabled());
+            QVERIFY(model->item(1)->toolTip().contains(QStringLiteral("turned off")));
+        }
+        FolderSyncDialog dialog(QUrl(QStringLiteral("sftp://me@host/srv")), QUrl::fromLocalFile(root.path()));
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("folderSyncCompare"))->isEnabled());
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("folderSyncStatus"))->text().contains(QStringLiteral("turned off")));
+    }
+
 private:
+    static void restoreRsyncDefaults()
+    {
+        for (const QString &name : {QStringLiteral("RsyncEnabled"),
+                                    QStringLiteral("RsyncForLocalFolders"),
+                                    QStringLiteral("RsyncProfile"),
+                                    QStringLiteral("RsyncCopyPolicy"),
+                                    QStringLiteral("RsyncAllowDeletions")}) {
+            Settings::self()->findItem(name)->setDefault();
+        }
+    }
     static void answerWhenShown(QMessageBox::StandardButton button, const std::function<void(QMessageBox *)> &check = {})
     {
         auto *timer = new QTimer;

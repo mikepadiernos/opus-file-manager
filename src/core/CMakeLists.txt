@@ -39,6 +39,8 @@ add_library(opusfm_core STATIC
     colorschemes.h
     customcommands.cpp
     customcommands.h
+    defaultfilemanager.cpp
+    defaultfilemanager.h
     diskimages.cpp
     diskimages.h
     filechooser.cpp
@@ -95,6 +97,8 @@ add_library(opusfm_core STATIC
     mailhandoff.h
     mailmessage.cpp
     mailmessage.h
+    mcpsettings.cpp
+    mcpsettings.h
     kwinscript.cpp
     kwinscript.h
     mediabackend.cpp
@@ -227,6 +231,8 @@ add_library(opusfm_core STATIC
     transferqueue.h
     traypolicy.cpp
     traypolicy.h
+    vaultsettings.cpp
+    vaultsettings.h
     viewsettings.cpp
     viewsettings.h
     wikilinks.cpp

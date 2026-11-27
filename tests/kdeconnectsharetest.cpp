@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "kdeconnectshare.h"
+#include "settings.h"
+
+#include <KConfigGroup>
+#include <KSharedConfig>
 
 #include <QDir>
 #include <QFile>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -75,6 +80,50 @@ private Q_SLOTS:
         QVERIFY(!unavailableReason(laptop).isEmpty());
         QVERIFY(!unavailableReason(stranger).isEmpty());
         QVERIFY(unavailableReason(tablet) != unavailableReason(laptop));
+    }
+
+    void prefersThePreviousDeviceWhenItCanReceiveFiles()
+    {
+        const Device phone{QStringLiteral("a"), QStringLiteral("Phone"), true, true, true};
+        const Device tablet{QStringLiteral("b"), QStringLiteral("Tablet"), false, true, true};
+        const Device laptop{QStringLiteral("c"), QStringLiteral("Laptop"), true, true, true};
+
+        QCOMPARE(preferredDevice({phone, laptop}, phone.id), phone.id);
+        // Otherwise the first device that can, by name.
+        QCOMPARE(preferredDevice({phone, laptop}, QString()), laptop.id);
+        QCOMPARE(preferredDevice({tablet, phone}, tablet.id), phone.id);
+        QCOMPARE(preferredDevice({phone, laptop}, QStringLiteral("gone")), laptop.id);
+        // With none that can, the previous one stays chosen to show why.
+        QCOMPARE(preferredDevice({tablet}, tablet.id), tablet.id);
+        QCOMPARE(preferredDevice({tablet}, QStringLiteral("gone")), tablet.id);
+        QVERIFY(preferredDevice({}, phone.id).isEmpty());
+    }
+
+    void remembersTheLastDeviceOnlyWhenTheSettingIsOn()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            forgetDevice();
+        });
+        const KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("KdeConnectShare"));
+        QVERIFY(Settings::kdeConnectRememberDevice());
+        rememberDevice(QStringLiteral("phone"));
+        QCOMPARE(state.readEntry("LastDevice"), QStringLiteral("phone"));
+        QCOMPARE(rememberedDevice(), QStringLiteral("phone"));
+
+        // Turned off, the device is neither offered nor recorded, and sending forgets it.
+        Settings::setKdeConnectRememberDevice(false);
+        QVERIFY(rememberedDevice().isEmpty());
+        QVERIFY(state.hasKey("LastDevice"));
+        rememberDevice(QStringLiteral("tablet"));
+        QVERIFY(!state.hasKey("LastDevice"));
+
+        Settings::setKdeConnectRememberDevice(true);
+        QVERIFY(rememberedDevice().isEmpty());
+        rememberDevice(QStringLiteral("tablet"));
+        forgetDevice();
+        QVERIFY(rememberedDevice().isEmpty());
     }
 };
 

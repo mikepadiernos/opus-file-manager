@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "mountmanagerdialog.h"
+#include "settings.h"
 #include "symbolicicon.h"
 
-#include <KConfigGroup>
 #include <KFormat>
 #include <KIO/ApplicationLauncherJob>
 #include <KIO/JobUiDelegateFactory>
 #include <KLocalizedString>
 #include <KMessageWidget>
 #include <KService>
-#include <KSharedConfig>
 #include <KWindowStateSaver>
 
 #include <QApplication>
@@ -27,11 +26,6 @@
 namespace
 {
 const QString PartitionManager = QStringLiteral("org.kde.partitionmanager");
-
-KConfigGroup stateGroup()
-{
-    return KSharedConfig::openStateConfig()->group(QStringLiteral("MountManager"));
-}
 
 /// Draws the usage column as a bar, keeping the percentage as the item's text for accessibility.
 class UsageDelegate : public QStyledItemDelegate
@@ -94,7 +88,8 @@ MountManagerDialog::MountManagerDialog(MountBackend *backend, QWidget *parent)
 
     m_removableOnly = new QCheckBox(i18nc("@option:check", "Show only removable devices"), this);
     m_removableOnly->setObjectName(QStringLiteral("mountManagerRemovableOnly"));
-    m_removableOnly->setChecked(stateGroup().readEntry("RemovableOnly", false));
+    m_removableOnly->setToolTip(i18nc("@info:tooltip", "Choose whether this starts checked under Preferences › KDE Plasma › Mount Manager"));
+    m_removableOnly->setChecked(Settings::mountRemovableOnly());
     layout->addWidget(m_removableOnly);
 
     m_tree = new QTreeWidget(this);
@@ -157,12 +152,7 @@ MountManagerDialog::MountManagerDialog(MountBackend *backend, QWidget *parent)
         job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, this));
         job->start();
     });
-    connect(m_removableOnly, &QCheckBox::toggled, this, [this](bool checked) {
-        KConfigGroup state = stateGroup();
-        state.writeEntry("RemovableOnly", checked);
-        state.sync();
-        populate();
-    });
+    connect(m_removableOnly, &QCheckBox::toggled, this, &MountManagerDialog::populate);
     connect(m_tree, &QTreeWidget::currentItemChanged, this, &MountManagerDialog::updateButtons);
     connect(m_tree, &QTreeWidget::itemActivated, this, &MountManagerDialog::activateCurrent);
     connect(m_backend, &MountBackend::changed, this, &MountManagerDialog::populate);
@@ -244,6 +234,9 @@ void MountManagerDialog::populate()
         }
         if (device.removable) {
             notes.append(i18nc("@info:tooltip", "Removable device"));
+        }
+        if (device.system) {
+            notes.append(i18nc("@info:tooltip", "System file system, which Plasma Opus does not mount or unmount"));
         }
         if (!notes.isEmpty()) {
             item->setToolTip(NameColumn, notes.join(QLatin1Char('\n')));

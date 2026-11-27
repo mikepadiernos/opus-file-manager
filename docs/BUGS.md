@@ -20,7 +20,7 @@ tracking rules.
 > ([#756][issue-756]), slow opening of the app and Preferences
 > ([#752][issue-752]) and a test reliability report ([#696][issue-696]).
 > Issue states and project statuses were last checked against GitHub on
-> 2026-11-26.
+> 2026-11-27.
 
 ## Contents
 

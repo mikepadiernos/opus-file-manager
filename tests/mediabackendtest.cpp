@@ -43,6 +43,15 @@ private Q_SLOTS:
         QVERIFY(MediaBackend::startFailedNotice(QStringLiteral("boom")).contains(QStringLiteral("boom")));
     }
 
+    void describesWhatPlays()
+    {
+        QCOMPARE(MediaBackend::status(Kind::QtMultimedia, {true, true}), QStringLiteral("Qt Multimedia plays audio and video."));
+        QVERIFY(MediaBackend::status(Kind::QtMultimedia, {false, false}).endsWith(QStringLiteral("no mpv support, so mpv can't be chosen.")));
+        QVERIFY(MediaBackend::status(Kind::Mpv, {false, true}).contains(QStringLiteral("no mpv support, so Qt Multimedia plays audio and video")));
+        QVERIFY(MediaBackend::status(Kind::Mpv, {true, false}).startsWith(QStringLiteral("mpv plays audio. It needs OpenGL")));
+        QVERIFY(MediaBackend::status(Kind::Mpv, {true, true}).startsWith(QStringLiteral("mpv plays audio and video")));
+    }
+
     void reportsWhetherMpvIsBuilt()
     {
 #ifdef OPUSFM_HAVE_MPV

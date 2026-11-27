@@ -4,17 +4,16 @@
 
 #include "symbolicicon.h"
 
-#include <KConfigGroup>
 #include <KFormat>
 #include <KLocalizedString>
 #include <KMessageWidget>
-#include <KSharedConfig>
 
 #include <QApplication>
 #include <QCheckBox>
 #include <QClipboard>
+#include <QComboBox>
 #include <QDialogButtonBox>
-#include <QDir>
+
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
@@ -27,7 +26,7 @@
 #include <QMimeDatabase>
 #include <QPushButton>
 #include <QSpinBox>
-#include <QStandardPaths>
+
 #include <QTimer>
 #include <QTreeWidget>
 #include <QVBoxLayout>
@@ -39,21 +38,18 @@
 namespace
 {
 constexpr int qrCodeSize = 160;
-
-KConfigGroup settingsGroup()
-{
-    return KSharedConfig::openStateConfig()->group(QStringLiteral("LanShare"));
-}
 }
 
 LanShareDialog::LanShareDialog(const QStringList &paths, QWidget *parent)
     : QDialog(parent)
     , m_paths(paths)
+    , m_defaults(LanShare::defaultsFromSettings())
     , m_server(new LanShareServer(this))
     , m_message(new KMessageWidget(this))
     , m_items(new QListWidget(this))
     , m_addresses(new QListWidget(this))
     , m_port(new QSpinBox(this))
+    , m_protocol(new QComboBox(this))
     , m_tls(new QCheckBox(i18nc("@option:check", "Encrypt with HTTPS"), this))
     , m_uploads(new QCheckBox(i18nc("@option:check", "Allow uploads to:"), this))
     , m_uploadFolder(new QLineEdit(this))
@@ -73,9 +69,12 @@ LanShareDialog::LanShareDialog(const QStringList &paths, QWidget *parent)
     setWindowTitle(i18nc("@title:window", "Share on Local Network"));
     setMinimumWidth(520);
     m_addresses->setObjectName(QStringLiteral("addresses"));
+    m_port->setObjectName(QStringLiteral("port"));
+    m_protocol->setObjectName(QStringLiteral("protocol"));
     m_tls->setObjectName(QStringLiteral("tls"));
     m_uploads->setObjectName(QStringLiteral("uploads"));
     m_uploadFolder->setObjectName(QStringLiteral("uploadFolder"));
+    m_minutes->setObjectName(QStringLiteral("minutes"));
     m_urls->setObjectName(QStringLiteral("urls"));
     m_fingerprint->setObjectName(QStringLiteral("fingerprint"));
     m_sessions->setObjectName(QStringLiteral("sessions"));
@@ -91,17 +90,24 @@ LanShareDialog::LanShareDialog(const QStringList &paths, QWidget *parent)
     }
     m_items->setMaximumHeight(m_items->sizeHintForRow(0) * 4 + 2 * m_items->frameWidth() + 4);
 
-    const KConfigGroup group = settingsGroup();
     m_addresses->setMaximumHeight(m_items->maximumHeight());
     m_addresses->setToolTip(i18nc("@info:tooltip", "The network addresses that serve the shared items. Public addresses can be reached from the internet."));
     connect(m_addresses, &QListWidget::itemChanged, this, &LanShareDialog::updateState);
 
     m_port->setRange(0, 65535);
     m_port->setSpecialValueText(i18nc("@item:inrange port chosen automatically", "Automatic"));
-    m_port->setValue(group.readEntry("Port", 0));
+    m_port->setValue(m_defaults.port);
     m_port->setToolTip(i18nc("@info:tooltip", "The port that clients connect to. Choose a fixed port to open it in a firewall."));
 
-    m_tls->setChecked(m_tlsUnavailable.isEmpty() && group.readEntry("Https", true));
+    m_protocol->addItem(i18nc("@item:inlistbox", "Browsers and file managers (WebDAV)"), int(LanShare::Protocol::BrowsersAndWebDav));
+    m_protocol->addItem(i18nc("@item:inlistbox", "Browsers only"), int(LanShare::Protocol::Browsers));
+    m_protocol->addItem(i18nc("@item:inlistbox", "File managers only (WebDAV)"), int(LanShare::Protocol::WebDav));
+    m_protocol->setCurrentIndex(m_protocol->findData(int(m_defaults.protocol)));
+    m_protocol->setToolTip(i18nc("@info:tooltip",
+                                 "Browsers get a page listing each folder; file managers and other WebDAV clients can browse, download and "
+                                 "upload like in a network folder"));
+
+    m_tls->setChecked(m_tlsUnavailable.isEmpty() && m_defaults.tls);
     m_tls->setEnabled(m_tlsUnavailable.isEmpty());
     m_tls->setToolTip(m_tlsUnavailable.isEmpty() ? i18nc("@info:tooltip",
                                                          "Encrypt transfers with a certificate made for this share. Browsers warn that it isn't trusted; "
@@ -109,8 +115,8 @@ LanShareDialog::LanShareDialog(const QStringList &paths, QWidget *parent)
                                                  : m_tlsUnavailable);
 
     m_uploads->setToolTip(i18nc("@info:tooltip", "Let clients upload files to this folder. Uploads never replace existing files."));
-    const QString downloads = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
-    m_uploadFolder->setText(group.readEntry("UploadFolder", downloads.isEmpty() ? QDir::homePath() : downloads));
+    m_uploads->setChecked(m_defaults.allowUploads);
+    m_uploadFolder->setText(m_defaults.uploadFolder);
     m_browseUploads->setToolTip(i18nc("@info:tooltip", "Choose the folder that receives uploads"));
     connect(m_uploads, &QCheckBox::toggled, this, &LanShareDialog::updateState);
     connect(m_browseUploads, &QPushButton::clicked, this, [this] {
@@ -125,7 +131,7 @@ LanShareDialog::LanShareDialog(const QStringList &paths, QWidget *parent)
     uploadRow->addWidget(m_browseUploads);
 
     m_minutes->setRange(1, 24 * 60);
-    m_minutes->setValue(group.readEntry("Minutes", 30));
+    m_minutes->setValue(m_defaults.timeoutMinutes);
     const auto updateSuffix = [this](int minutes) {
         m_minutes->setSuffix(i18ncp("@item:valuesuffix", " minute", " minutes", minutes));
     };
@@ -134,7 +140,8 @@ LanShareDialog::LanShareDialog(const QStringList &paths, QWidget *parent)
 
     auto *note = new QLabel(i18nc("@info",
                                   "Plasma Opus doesn't open firewall ports. To send files to a phone, KDE Connect may be simpler; "
-                                  "to share folders permanently, use Samba sharing in the folder's properties."),
+                                  "to share folders permanently, use Samba sharing in the folder's properties. Preferences › Remote and "
+                                  "Cloud › LAN Sharing sets the choices this window starts with."),
                             this);
     note->setWordWrap(true);
     note->setForegroundRole(QPalette::PlaceholderText);
@@ -143,6 +150,7 @@ LanShareDialog::LanShareDialog(const QStringList &paths, QWidget *parent)
     settingsForm->setContentsMargins({});
     settingsForm->addRow(i18nc("@label:listbox", "Addresses:"), m_addresses);
     settingsForm->addRow(i18nc("@label:spinbox", "Port:"), m_port);
+    settingsForm->addRow(i18nc("@label:listbox", "Serve to:"), m_protocol);
     settingsForm->addRow(QString(), m_tls);
     settingsForm->addRow(QString(), uploadRow);
     settingsForm->addRow(i18nc("@label:spinbox", "Stop after:"), m_minutes);
@@ -230,7 +238,7 @@ LanShareDialog::LanShareDialog(const QStringList &paths, QWidget *parent)
         updateState();
     });
 
-    setAddresses(LanShare::localAddresses());
+    setAddresses(LanShare::interfaceAddresses());
 }
 
 LanShareDialog::~LanShareDialog()
@@ -241,21 +249,49 @@ LanShareDialog::~LanShareDialog()
 
 void LanShareDialog::setAddresses(const QList<QHostAddress> &addresses)
 {
+    QList<LanShare::InterfaceAddress> withInterfaces;
+    for (const QHostAddress &address : addresses) {
+        withInterfaces.append({address, QString()});
+    }
+    setAddresses(withInterfaces);
+}
+
+void LanShareDialog::setAddresses(const QList<LanShare::InterfaceAddress> &addresses)
+{
     const QSignalBlocker blocker(m_addresses);
     m_addresses->clear();
-    for (const QHostAddress &address : addresses) {
+    bool excludedPrivate = false;
+    bool chosen = false;
+    for (const LanShare::InterfaceAddress &entry : addresses) {
+        const QHostAddress &address = entry.address;
         const bool local = LanShare::isPrivateAddress(address) || address.isLoopback();
-        auto *item = new QListWidgetItem(local ? address.toString() : i18nc("@item %1 is a network address", "%1 (public)", address.toString()), m_addresses);
+        const bool check = LanShare::chosenByDefault(entry, m_defaults.excludedInterfaces);
+        excludedPrivate = excludedPrivate || (local && !check);
+        chosen = chosen || check;
+        QString text = local ? address.toString() : i18nc("@item %1 is a network address", "%1 (public)", address.toString());
+        if (!entry.interface.isEmpty()) {
+            text = i18nc("@item %1 is a network address, %2 a network interface", "%1 on %2", text, entry.interface);
+        }
+        auto *item = new QListWidgetItem(text, m_addresses);
         item->setData(Qt::UserRole, address.toString());
         item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-        item->setCheckState(local ? Qt::Checked : Qt::Unchecked);
+        item->setCheckState(check ? Qt::Checked : Qt::Unchecked);
         if (!local) {
             item->setToolTip(i18nc("@info:tooltip", "This address may be reachable from the internet"));
+        } else if (!check) {
+            item->setToolTip(i18nc("@info:tooltip", "Preferences › Remote and Cloud › LAN Sharing leaves out this network interface"));
         }
     }
     if (addresses.isEmpty()) {
         auto *item = new QListWidgetItem(i18nc("@item", "No network connection"), m_addresses);
         item->setFlags(Qt::NoItemFlags);
+    }
+    if (excludedPrivate && !chosen && !m_server->isRunning()) {
+        m_message->setMessageType(KMessageWidget::Information);
+        m_message->setText(i18nc("@info",
+                                 "Preferences › Remote and Cloud › LAN Sharing leaves out the network interfaces that are connected. "
+                                 "Check an address to share on it anyway."));
+        m_message->animatedShow();
     }
     updateState();
 }
@@ -279,6 +315,7 @@ LanShareServer::Options LanShareDialog::options() const
     options.addresses = checkedAddresses();
     options.port = quint16(m_port->value());
     options.tls = m_tls->isEnabled() && m_tls->isChecked();
+    options.protocol = LanShare::Protocol(m_protocol->currentData().toInt());
     if (m_uploads->isChecked()) {
         options.uploadFolder = m_uploadFolder->text().trimmed();
     }
@@ -309,7 +346,6 @@ QString LanShareDialog::startSharing()
         updateState();
         return error;
     }
-    saveSettings();
     if (shareOptions.tls) {
         m_message->setMessageType(KMessageWidget::Information);
         m_message->setText(i18nc("@info",
@@ -428,16 +464,4 @@ void LanShareDialog::updateQrCode()
     m_qrCode->setPixmap(pixmap);
     m_qrCode->setToolTip(i18nc("@info:tooltip", "Scan this code to open the link on a phone"));
 #endif
-}
-
-void LanShareDialog::saveSettings() const
-{
-    KConfigGroup group = settingsGroup();
-    group.writeEntry("Port", m_port->value());
-    group.writeEntry("Https", m_tls->isChecked());
-    group.writeEntry("Minutes", m_minutes->value());
-    if (m_uploads->isChecked()) {
-        group.writeEntry("UploadFolder", m_uploadFolder->text().trimmed());
-    }
-    group.sync();
 }

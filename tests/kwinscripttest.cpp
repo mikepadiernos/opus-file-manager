@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "kwinscript.h"
+#include "settings.h"
 
 #include <KConfig>
 #include <KConfigGroup>
 #include <QDir>
 #include <QFile>
 #include <QJsonDocument>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -78,6 +80,82 @@ private Q_SLOTS:
         dropDown.workspaceId = QStringLiteral("ws");
         writeDropDown(group, dropDown);
         QCOMPARE(readDropDown(group), dropDown);
+    }
+
+    void settingsMatchTheScriptOptions()
+    {
+        Settings *settings = Settings::self();
+        const auto reset = qScopeGuard([settings] {
+            settings->setDefaults();
+            settings->save();
+        });
+        settings->setDefaults();
+        settings->save();
+        const KConfigGroup group = settings->config()->group(QStringLiteral("KWinScript"));
+        QCOMPARE(readOptions(group), Options());
+
+        settings->setKWinRestoreWindows(false);
+        settings->setKWinTileCompanions(true);
+        settings->setKWinFollowDesktops(true);
+        settings->save();
+        QCOMPARE(readOptions(group), (Options{.restoreWindows = false, .tileCompanions = true, .followDesktops = true}));
+
+        // The script's own writes are what the settings read back.
+        KConfigGroup written = settings->config()->group(QStringLiteral("KWinScript"));
+        writeOptions(written, Options());
+        settings->load();
+        QVERIFY(settings->kWinRestoreWindows());
+        QVERIFY(!settings->kWinTileCompanions());
+        QVERIFY(!settings->kWinFollowDesktops());
+    }
+
+    void settingsMatchTheDropDown()
+    {
+        Settings *settings = Settings::self();
+        const auto reset = qScopeGuard([settings] {
+            settings->setDefaults();
+            settings->save();
+        });
+        settings->setDefaults();
+        settings->save();
+        const KConfigGroup group = settings->config()->group(QStringLiteral("KWinScript"));
+        QCOMPARE(readDropDown(group), DropDown());
+
+        settings->setDropDownEnabled(true);
+        settings->setDropDownEdge(Settings::EnumDropDownEdge::Right);
+        settings->setDropDownWidth(40);
+        settings->setDropDownHeight(100);
+        settings->setDropDownScreen(QStringLiteral("DP-2"));
+        settings->setDropDownSlide(false);
+        settings->setDropDownHideOnFocusLoss(true);
+        settings->setDropDownScreenEdge(true);
+        settings->setDropDownTouchEdge(true);
+        settings->setDropDownWorkspace(QStringLiteral("w1"));
+        settings->save();
+        const DropDown expected{.enabled = true,
+                                .edge = Edge::Right,
+                                .width = 40,
+                                .height = 100,
+                                .screen = QStringLiteral("DP-2"),
+                                .slide = false,
+                                .hideOnFocusLoss = true,
+                                .screenEdge = true,
+                                .touchEdge = true,
+                                .workspaceId = QStringLiteral("w1")};
+        QCOMPARE(readDropDown(group), expected);
+        QCOMPARE(group.readEntry("DropDownEdge", QString()), QStringLiteral("right"));
+
+        // The script's own writes are what the settings read back.
+        KConfigGroup written = settings->config()->group(QStringLiteral("KWinScript"));
+        writeDropDown(written, {.edge = Edge::Bottom, .width = 5});
+        settings->load();
+        QVERIFY(!settings->dropDownEnabled());
+        QCOMPARE(settings->dropDownEdge(), Settings::EnumDropDownEdge::Bottom);
+        QCOMPARE(settings->dropDownWidth(), 10);
+        QCOMPARE(settings->dropDownHeight(), 50);
+        QVERIFY(settings->dropDownScreen().isEmpty());
+        QVERIFY(settings->dropDownSlide());
+        QVERIFY(settings->dropDownWorkspace().isEmpty());
     }
 
     void dropDownClampsSizesAndUnknownEdges()

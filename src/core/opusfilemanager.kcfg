@@ -400,6 +400,18 @@
     <entry name="PreviewFormatted" type="Bool"><default>true</default></entry>
     <entry name="PreviewLineNumbers" type="Bool"><default>true</default></entry>
     <entry name="PreviewSyntaxHighlighting" type="Bool"><default>true</default></entry>
+    <entry name="PreviewEditing" type="Bool">
+      <label>Offer editing in text previews</label>
+      <default>true</default>
+    </entry>
+    <entry name="PreviewEditOnDoubleClick" type="Bool">
+      <label>Start editing when a text preview is double-clicked</label>
+      <default>false</default>
+    </entry>
+    <entry name="PreviewReturnAfterSave" type="Bool">
+      <label>Return to the preview after saving a file edited in the preview</label>
+      <default>true</default>
+    </entry>
     <entry name="ShowPreviews" type="Bool">
       <label>Show previews in a new window</label>
       <default>false</default>
@@ -411,6 +423,26 @@
     <entry name="TextPreviewLimitKiB" type="Int">
       <label>Maximum text preview size in KiB</label>
       <default>1024</default><min>1</min><max>16384</max>
+    </entry>
+    <entry name="EbookPreviews" type="Bool">
+      <label>Whether the preview panel shows ebooks and DjVu documents with an installed document viewer part</label>
+      <default>true</default>
+    </entry>
+    <entry name="ComicPreviews" type="Bool">
+      <label>Whether the preview panel shows comic book archives with an installed document viewer part</label>
+      <default>true</default>
+    </entry>
+    <entry name="HelpFilePreviews" type="Bool">
+      <label>Whether the preview panel shows compiled help files with an installed document viewer part</label>
+      <default>true</default>
+    </entry>
+    <entry name="FontPreviews" type="Bool">
+      <label>Whether the preview panel shows font files</label>
+      <default>true</default>
+    </entry>
+    <entry name="FontSampleText" type="String">
+      <label>Sample text of font previews; empty for the translated default</label>
+      <default></default>
     </entry>
   </group>
   <group name="Terminal">
@@ -431,6 +463,29 @@
         <choice name="Kwi"/>
       </choices>
       <default>Konsole</default>
+    </entry>
+    <entry name="SeparateTerminal" type="Enum">
+      <label>Terminal application that Open Terminal Here opens the active folder in</label>
+      <choices>
+        <choice name="SystemDefault"/>
+        <choice name="Konsole"/>
+        <choice name="Yakuake"/>
+        <choice name="Kwi"/>
+      </choices>
+      <default>SystemDefault</default>
+    </entry>
+    <entry name="AtuinHistory" type="Bool">
+      <label>Offer the Search Command History with Atuin action</label>
+      <default>true</default>
+    </entry>
+    <entry name="AtuinSession" type="Enum">
+      <label>Embedded terminal session that Atuin's history search opens in</label>
+      <choices>
+        <choice name="Current"/>
+        <choice name="NewWhenBusy"/>
+        <choice name="New"/>
+      </choices>
+      <default>Current</default>
     </entry>
   </group>
   <group name="Search">
@@ -499,6 +554,14 @@
     </entry>
     <entry name="DoubleShiftSearch" type="Bool">
       <label>Open search by pressing Shift twice</label>
+      <default>true</default>
+    </entry>
+    <entry name="SearchOfferRanking" type="Bool">
+      <label>Offer ranking search results by similarity in the search panel</label>
+      <default>true</default>
+    </entry>
+    <entry name="SearchOfferLiveFallback" type="Bool">
+      <label>Offer to repeat an indexed search live when it finishes</label>
       <default>true</default>
     </entry>
   </group>
@@ -582,6 +645,22 @@
     </entry>
     <entry name="FolderSyncSpeedLimitKiB" type="Int"><default>0</default><min>0</min><max>1048576</max></entry>
   </group>
+  <group name="Rsync">
+    <entry name="RsyncEnabled" type="Bool">
+      <label>Offer rsync for folder synchronization and SSH folders</label>
+      <default>true</default>
+    </entry>
+    <entry name="RsyncForLocalFolders" type="Bool"><default>false</default></entry>
+    <entry name="RsyncProfile" type="String">
+      <label>Identifier of the comparison profile loaded when synchronizing with rsync</label>
+      <default></default>
+    </entry>
+    <entry name="RsyncCopyPolicy" type="Enum">
+      <choices><choice name="All"/><choice name="SkipExisting"/><choice name="NewerOnly"/></choices>
+      <default>NewerOnly</default>
+    </entry>
+    <entry name="RsyncAllowDeletions" type="Bool"><default>false</default></entry>
+  </group>
   <group name="ListingExport">
     <entry name="ListingExportFormat" type="Enum">
       <choices><choice name="Csv"/><choice name="Pdf"/></choices>
@@ -616,6 +695,44 @@
       <label>Hide the window in the system tray when it is closed</label>
       <default>false</default>
     </entry>
+    <entry name="StartHiddenInTray" type="Bool">
+      <label>Start with the window hidden in the system tray</label>
+      <default>false</default>
+    </entry>
+    <entry name="GlobalShortcut" type="Bool">
+      <label>Register the global shortcut that shows or hides Plasma Opus</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="Notifications">
+    <entry name="NotifyChecksums" type="Bool">
+      <label>Report checksum file creation and verification to Plasma</label>
+      <default>true</default>
+    </entry>
+    <entry name="NotifyFolderSync" type="Bool">
+      <label>Report folder synchronization to Plasma</label>
+      <default>true</default>
+    </entry>
+    <entry name="NotifyDuplicateFinder" type="Bool">
+      <label>Report duplicate file searches to Plasma</label>
+      <default>true</default>
+    </entry>
+    <entry name="NotifyFileSplit" type="Bool">
+      <label>Report file splitting and combining to Plasma</label>
+      <default>true</default>
+    </entry>
+    <entry name="NotifyBatchRename" type="Bool">
+      <label>Report batch renaming to Plasma</label>
+      <default>true</default>
+    </entry>
+    <entry name="NotifyImageConversion" type="Bool">
+      <label>Report image conversion to Plasma</label>
+      <default>true</default>
+    </entry>
+    <entry name="NotifyLibraryRefresh" type="Bool">
+      <label>Report tag library refreshes to Plasma</label>
+      <default>true</default>
+    </entry>
   </group>
   <group name="Activities">
     <entry name="ActivityAssociations" type="Bool">
@@ -631,7 +748,21 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="KdeConnect">
+    <entry name="KdeConnectSharing" type="Bool">
+      <label>Offer File › Send to Device… to send files with KDE Connect</label>
+      <default>true</default>
+    </entry>
+    <entry name="KdeConnectRememberDevice" type="Bool">
+      <label>Choose the device the files were last sent to again</label>
+      <default>true</default>
+    </entry>
+  </group>
   <group name="KRunner">
+    <entry name="RunnerEnabled" type="Bool">
+      <label>Offer saved workspaces and Favorites in KRunner and Plasma Search</label>
+      <default>true</default>
+    </entry>
     <entry name="RunnerWorkspaces" type="Bool">
       <label>Offer saved workspaces in KRunner and Plasma Search</label>
       <default>true</default>
@@ -639,6 +770,98 @@
     <entry name="RunnerFavorites" type="Bool">
       <label>Offer Favorites in KRunner and Plasma Search</label>
       <default>true</default>
+    </entry>
+    <entry name="RunnerHiddenWorkspaces" type="StringList">
+      <label>The ids of the saved workspaces that KRunner does not offer</label>
+      <default></default>
+    </entry>
+    <entry name="RunnerHiddenFavorites" type="StringList">
+      <label>The KRunner ids of the Favorites that KRunner does not offer, which never contain their URLs</label>
+      <default></default>
+    </entry>
+  </group>
+  <group name="MountManager">
+    <entry name="MountRemovableOnly" type="Bool">
+      <label>List only removable devices in Go › Mount Points and when the Mount Manager opens</label>
+      <default>true</default>
+    </entry>
+    <entry name="MountHideSystem" type="Bool">
+      <label>Leave pseudo, snap, container and other system file systems out of the Mount Manager and Go › Mount Points</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="KWinScript">
+    <entry name="KWinRestoreWindows" key="RestoreWindows" type="Bool">
+      <label>Let the KWin script restore the main window's screen, size, tile and virtual desktops when a workspace is applied</label>
+      <default>true</default>
+    </entry>
+    <entry name="KWinTileCompanions" key="TileCompanions" type="Bool">
+      <label>Let the KWin script place detached Plasma Opus windows beside the main window</label>
+      <default>false</default>
+    </entry>
+    <entry name="KWinFollowDesktops" key="FollowDesktops" type="Bool">
+      <label>Apply the workspace assigned to a virtual desktop when it becomes current</label>
+      <default>false</default>
+    </entry>
+    <entry name="DropDownEnabled" type="Bool">
+      <label>Show and hide the main window as a drop-down window</label>
+      <default>false</default>
+    </entry>
+    <entry name="DropDownEdge" type="Enum">
+      <label>The screen edge the drop-down window slides in from</label>
+      <choices>
+        <choice name="Top" value="top"/>
+        <choice name="Bottom" value="bottom"/>
+        <choice name="Left" value="left"/>
+        <choice name="Right" value="right"/>
+      </choices>
+      <default>Top</default>
+    </entry>
+    <entry name="DropDownWidth" type="Int">
+      <label>The drop-down window's width, as a percentage of the screen</label>
+      <default>100</default>
+      <min>10</min>
+      <max>100</max>
+    </entry>
+    <entry name="DropDownHeight" type="Int">
+      <label>The drop-down window's height, as a percentage of the screen</label>
+      <default>50</default>
+      <min>10</min>
+      <max>100</max>
+    </entry>
+    <entry name="DropDownScreen" type="String">
+      <label>The screen the drop-down window opens on; empty for the active screen</label>
+      <default></default>
+    </entry>
+    <entry name="DropDownSlide" type="Bool">
+      <label>Slide the drop-down window in and out</label>
+      <default>true</default>
+    </entry>
+    <entry name="DropDownHideOnFocusLoss" type="Bool">
+      <label>Hide the drop-down window when another application is activated</label>
+      <default>false</default>
+    </entry>
+    <entry name="DropDownScreenEdge" type="Bool">
+      <label>Show or hide the drop-down window by pushing the pointer against its screen edge</label>
+      <default>false</default>
+    </entry>
+    <entry name="DropDownTouchEdge" type="Bool">
+      <label>Show or hide the drop-down window by swiping in from its screen edge</label>
+      <default>false</default>
+    </entry>
+    <entry name="DropDownWorkspace" type="String">
+      <label>The workspace applied when the drop-down window is shown; empty keeps the current layout</label>
+      <default></default>
+    </entry>
+  </group>
+  <group name="OnlineAccounts">
+    <entry name="OnlineAccountsEnabled" type="Bool">
+      <label>Show the folders of KDE Online Accounts in Plasma Opus</label>
+      <default>false</default>
+    </entry>
+    <entry name="OnlineAccountsHidden" type="StringList">
+      <label>The KDE Online Accounts ids of the accounts that Plasma Opus does not show, which only hides them in Plasma Opus</label>
+      <default></default>
     </entry>
   </group>
   <group name="Editor">
@@ -667,6 +890,108 @@
     <entry name="EditorPdfMarginTop" type="Int"><default>10</default><min>0</min><max>50</max></entry>
     <entry name="EditorPdfMarginRight" type="Int"><default>10</default><min>0</min><max>50</max></entry>
     <entry name="EditorPdfMarginBottom" type="Int"><default>10</default><min>0</min><max>50</max></entry>
+    <entry name="TextEditorProvider" type="Enum">
+      <label>Editor that Edit opens text files in</label>
+      <choices>
+        <choice name="BuiltIn"/>
+        <choice name="KWrite"/>
+        <choice name="Kate"/>
+        <choice name="Neovim"/>
+        <choice name="Rune"/>
+        <choice name="Micro"/>
+        <choice name="Nano"/>
+      </choices>
+      <default>BuiltIn</default>
+    </entry>
+    <entry name="TerminalEditorSession" type="Enum">
+      <label>Where terminal editors, such as Neovim, run</label>
+      <choices><choice name="Embedded"/><choice name="Separate"/></choices>
+      <default>Embedded</default>
+    </entry>
+    <entry name="EditorVaultFolder" type="Url">
+      <label>The local folder of Markdown notes that wiki links, backlinks and tags use; empty for no vault</label>
+    </entry>
+    <entry name="EditorMarkdownDialect" type="Enum">
+      <label>The Markdown dialect that the built-in editor's preview renders</label>
+      <choices><choice name="GitHub"/><choice name="CommonMark"/></choices>
+      <default>GitHub</default>
+    </entry>
+    <entry name="EditorMarkdownPreviewOnOpen" type="Bool">
+      <label>Whether the built-in editor shows the Markdown preview when it opens a Markdown file</label>
+      <default>false</default>
+    </entry>
+    <entry name="EditorWikiLinks" type="Bool">
+      <label>Whether wiki links in vault notes open the notes they name</label>
+      <default>true</default>
+    </entry>
+    <entry name="EditorVaultBacklinks" type="Bool">
+      <label>Whether the vault panel lists the notes that link to the open note</label>
+      <default>true</default>
+    </entry>
+    <entry name="EditorVaultLinks" type="Bool">
+      <label>Whether the vault panel lists the open note's links</label>
+      <default>true</default>
+    </entry>
+    <entry name="EditorVaultTags" type="Bool">
+      <label>Whether the vault panel lists the open note's tags and the notes that share them</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="Office">
+    <entry name="OfficeEditor" type="Enum">
+      <label>Office application that Edit opens documents in</label>
+      <choices>
+        <choice name="Automatic"/>
+        <choice name="LibreOffice"/>
+        <choice name="Calligra"/>
+        <choice name="OnlyOffice"/>
+      </choices>
+      <default>Automatic</default>
+    </entry>
+    <entry name="OfficePreviews" type="Bool">
+      <label>Whether the preview panel shows office documents with an installed document viewer part</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="ApplicationPackages">
+    <entry name="AppImageActions" type="Bool">
+      <label>Whether Application Package offers to run, update and add AppImages to the application menu</label>
+      <default>true</default>
+    </entry>
+    <entry name="FlatpakActions" type="Bool">
+      <label>Whether Application Package offers actions for Flatpak bundles, references, repositories and installed applications</label>
+      <default>true</default>
+    </entry>
+    <entry name="SnapActions" type="Bool">
+      <label>Whether Application Package offers actions for snap files and installed snaps</label>
+      <default>true</default>
+    </entry>
+    <entry name="AppImageMenuIntegration" type="Bool">
+      <label>Whether Application Package offers to add AppImages to the application menu</label>
+      <default>true</default>
+    </entry>
+    <entry name="AppImageReadDetails" type="Bool">
+      <label>Whether adding an AppImage to the application menu runs its runtime to read its own name, icon and categories</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="Mail">
+    <entry name="SendByEmail" type="Bool">
+      <label>Whether Send by Email is offered for selected files</label>
+      <default>true</default>
+    </entry>
+    <entry name="MailRemoteFiles" type="Enum">
+      <label>Whether Send by Email offers private local copies of remote files, downloaded only after asking, or skips remote files</label>
+      <choices>
+        <choice name="Ask"/>
+        <choice name="Skip"/>
+      </choices>
+      <default>Ask</default>
+    </entry>
+    <entry name="MailPreviews" type="Bool">
+      <label>Whether the preview panel shows mail files (.eml) as messages, rather than as plain text</label>
+      <default>true</default>
+    </entry>
   </group>
   <group name="Gallery">
     <entry name="ImageBackground" type="Enum">
@@ -732,6 +1057,14 @@
       <label>Show the Places panel</label>
       <default>false</default>
     </entry>
+    <entry name="FileTypeCategoriesHidden" type="StringList">
+      <label>The ids of the file-type categories, such as large-files, that Places does not list</label>
+      <default></default>
+    </entry>
+    <entry name="LargeFileSizeMiB" type="Int">
+      <label>The size in MiB above which the Large Files category in Places finds a file</label>
+      <default>100</default><min>1</min><max>1048576</max>
+    </entry>
   </group>
   <group name="PanelSettings">
     <entry name="PanelsVisible" key="Visible" type="Bool"><default>true</default></entry>
@@ -766,6 +1099,18 @@
       <default>0</default><min>0</min><max>5</max>
     </entry>
     <entry name="ArchiveOtherPaneByDefault" type="Bool"><default>false</default></entry>
+    <entry name="ArchiveSplitByDefault" type="Bool">
+      <label>Whether Compress splits new archives into volumes by default</label>
+      <default>false</default>
+    </entry>
+    <entry name="ArchiveVolumeSizeMiB" type="Int">
+      <label>The volume size Compress offers for split archives, in mebibytes</label>
+      <default>100</default><min>1</min><max>1048576</max>
+    </entry>
+    <entry name="ArchivePromptForPassword" type="Bool">
+      <label>Whether Compress offers a password for ZIP archives</label>
+      <default>true</default>
+    </entry>
   </group>
   <group name="Files">
     <entry name="IgnoreList" type="StringList"><default code="true">IgnoreList::defaultEntries()</default></entry>
@@ -1457,6 +1802,234 @@
     <entry name="McpAuditLog" type="Bool">
       <label>Whether the MCP server records each tool call, without file contents, in its audit log</label>
       <default>true</default>
+    </entry>
+  </group>
+  <group name="PlasmaVault">
+    <entry name="PlasmaVaultMenu" type="Bool">
+      <label>Offer Go › Plasma Vaults, which lists Plasma Vault's encrypted vaults</label>
+      <default>true</default>
+    </entry>
+    <entry name="PlasmaVaultHidden" type="StringList">
+      <label>The encrypted data folders of the vaults that Go › Plasma Vaults leaves out</label>
+      <default></default>
+    </entry>
+    <entry name="PlasmaVaultShowState" type="Bool">
+      <label>Whether Go › Plasma Vaults shows whether each vault is open or closed</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="Encryption">
+    <entry name="GnuPGActions" type="Bool">
+      <label>Offer the GnuPG and Kleopatra actions in File › Encryption</label>
+      <default>true</default>
+    </entry>
+    <entry name="AesCryptActions" type="Bool">
+      <label>Offer the AES Crypt actions in File › Encryption</label>
+      <default>true</default>
+    </entry>
+    <entry name="EncryptionArmor" type="Bool">
+      <label>Whether encrypting and signing with GnuPG start with text (.asc) output chosen</label>
+      <default>false</default>
+    </entry>
+    <entry name="EncryptedSuffix" type="Enum">
+      <label>Suffix added to files encrypted with GnuPG in binary form</label>
+      <choices>
+        <choice name="Gpg"/>
+        <choice name="Pgp"/>
+      </choices>
+      <default>Gpg</default>
+    </entry>
+    <entry name="DecryptedNames" type="Enum">
+      <label>How decrypted copies are named</label>
+      <choices>
+        <choice name="Original"/>
+        <choice name="Marked"/>
+      </choices>
+      <default>Original</default>
+    </entry>
+  </group>
+  <group name="FileChooser">
+    <entry name="FileChooserStartFolder" type="Enum">
+      <label>Folder the system file chooser starts in when the application suggests none</label>
+      <choices>
+        <choice name="Home"/>
+        <choice name="LastFolder"/>
+      </choices>
+      <default>Home</default>
+    </entry>
+  </group>
+  <group name="RemoteConnections">
+    <entry name="RemoteDefaultProtocol" type="Enum">
+      <label>The protocol that new saved remote connections start with</label>
+      <choices>
+        <choice name="Sftp" value="sftp"/>
+        <choice name="WebDavs" value="webdavs"/>
+        <choice name="WebDav" value="webdav"/>
+        <choice name="Smb" value="smb"/>
+        <choice name="Ftps" value="ftps"/>
+        <choice name="Ftp" value="ftp"/>
+      </choices>
+      <default>Sftp</default>
+    </entry>
+    <entry name="RemoteDefaultUser" type="String">
+      <label>The user name that new saved remote connections start with; empty for none</label>
+      <default></default>
+    </entry>
+    <entry name="RemoteDefaultAuthentication" type="Enum">
+      <label>How new saved SSH connections sign in: a password KIO asks for when needed, or an SSH key or agent</label>
+      <choices>
+        <choice name="Password" value="password"/>
+        <choice name="KeyOrAgent" value="key"/>
+      </choices>
+      <default>Password</default>
+    </entry>
+    <entry name="RemoteShowNetwork" type="Bool">
+      <label>Offer Go › Network, which lists the shares and services discovered on the local network</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="CloudStorage">
+    <entry name="RcloneEnabled" type="Bool">
+      <label>Offer Go › Cloud Storage, which opens the remotes configured in rclone</label>
+      <default>true</default>
+    </entry>
+    <entry name="RcloneHiddenRemotes" type="StringList">
+      <label>The rclone remotes that Go › Cloud Storage leaves out</label>
+      <default></default>
+    </entry>
+    <entry name="RcloneOpenMode" type="Enum">
+      <label>How Go › Cloud Storage opens a remote: by mounting it as a local folder, or by serving it over WebDAV on the loopback interface</label>
+      <choices>
+        <choice name="Mount" value="mount"/>
+        <choice name="WebDav" value="webdav"/>
+      </choices>
+      <default>Mount</default>
+    </entry>
+  </group>
+  <group name="RemoteDrives">
+    <entry name="RemoteDriveSftpBackend" type="Enum">
+      <label>How SFTP connections without mount options of their own are mounted: with KIO FUSE or sshfs</label>
+      <choices>
+        <choice name="KioFuse" value="kio-fuse"/>
+        <choice name="Sshfs" value="sshfs"/>
+      </choices>
+      <default>KioFuse</default>
+    </entry>
+    <entry name="RemoteDriveWebDavBackend" type="Enum">
+      <label>How WebDAV connections without mount options of their own are mounted: with KIO FUSE or davfs2</label>
+      <choices>
+        <choice name="KioFuse" value="kio-fuse"/>
+        <choice name="Davfs2" value="davfs2"/>
+      </choices>
+      <default>KioFuse</default>
+    </entry>
+    <entry name="RemoteDriveSmbBackend" type="Enum">
+      <label>How SMB connections without mount options of their own are mounted: with KIO FUSE or the kernel CIFS client</label>
+      <choices>
+        <choice name="KioFuse" value="kio-fuse"/>
+        <choice name="Cifs" value="cifs"/>
+      </choices>
+      <default>KioFuse</default>
+    </entry>
+    <entry name="RemoteDriveMountFolder" type="Url">
+      <label>The folder holding the mounts of connections without a folder of their own; empty for a private folder in the runtime directory</label>
+    </entry>
+    <entry name="RemoteDriveReadOnly" type="Bool">
+      <label>Whether connections without mount options of their own are mounted read-only, with the backends that can</label>
+      <default>false</default>
+    </entry>
+    <entry name="RemoteDriveMountAtLogin" type="Bool">
+      <label>Whether Plasma Opus starts in the system tray at login to mount the connections chosen to mount when it starts</label>
+      <default>false</default>
+    </entry>
+    <entry name="RemoteDriveMountOnWorkspace" type="Bool">
+      <label>Whether activating a workspace mounts the saved connections holding the locations assigned to it</label>
+      <default>false</default>
+    </entry>
+    <entry name="RemoteDriveUnmountOnExit" type="Bool">
+      <label>Whether sshfs, davfs2 and CIFS mounts started by Plasma Opus are unmounted when it quits</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="CloudSync">
+    <entry name="CloudSyncAtLogin" key="StartAtLogin" type="Bool">
+      <label>Whether Plasma Opus starts in the system tray at login to synchronize the cloud sync pairs in the background</label>
+      <default>false</default>
+    </entry>
+    <entry name="CloudSyncPauseOnMetered" key="PauseOnMeteredConnections" type="Bool">
+      <label>Whether background cloud sync runs wait while the network connection is metered</label>
+      <default>true</default>
+    </entry>
+    <entry name="CloudSyncCheckInterval" key="CheckIntervalMinutes" type="Int">
+      <label>How often, in minutes, cloud sync pairs that use the default interval are checked, for remotes that do not report changes</label>
+      <default>15</default>
+      <min>1</min>
+      <max>1440</max>
+    </entry>
+  </group>
+  <!-- The limit keys are also read and written by CloudActivity::loadLimits() and the Cloud Activity window. -->
+  <group name="CloudActivity">
+    <entry name="CloudBandwidthLimitKiB" key="BandwidthLimitKiB" type="Int">
+      <label>The bandwidth limit of rclone mounts and rclone sync pairs, in KiB/s, or 0 for no limit</label>
+      <default>0</default>
+      <min>0</min>
+      <max>1048576</max>
+    </entry>
+    <entry name="CloudParallelTransfers" key="ParallelTransfers" type="Int">
+      <label>The number of files rclone mounts and rclone sync pairs transfer at once</label>
+      <default>4</default>
+      <min>1</min>
+      <max>32</max>
+    </entry>
+    <entry name="CloudCacheSizeMiB" key="CacheSizeMiB" type="Int">
+      <label>The size limit of the cache that keeps opened files of mounted rclone remotes, in MiB, or 0 to cache only files being written</label>
+      <default>0</default>
+      <min>0</min>
+      <max>1048576</max>
+    </entry>
+    <entry name="CloudCacheMaxAgeHours" key="CacheMaxAgeHours" type="Int">
+      <label>How long, in hours, files not in use stay in the cache of mounted rclone remotes</label>
+      <default>1</default>
+      <min>1</min>
+      <max>8760</max>
+    </entry>
+    <entry name="CloudActivityInTray" key="ShowInTray" type="Bool">
+      <label>Whether the system tray menu offers Cloud Activity</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <!-- The starting choices of File › Share on Local Network…, read by LanShare::defaultsFromSettings(). -->
+  <group name="LanShare">
+    <entry name="LanShareProtocol" key="Protocol" type="Enum">
+      <label>Whether shares serve folder pages to browsers, WebDAV to file managers or both</label>
+      <choices><choice name="BrowsersAndWebDav"/><choice name="Browsers"/><choice name="WebDav"/></choices>
+      <default>BrowsersAndWebDav</default>
+    </entry>
+    <entry name="LanShareHttps" key="Https" type="Bool">
+      <label>Whether shares are encrypted with HTTPS when openssl is available</label>
+      <default>true</default>
+    </entry>
+    <entry name="LanShareExcludedInterfaces" key="ExcludedInterfaces" type="StringList">
+      <label>The network interfaces whose addresses aren't chosen when a share starts</label>
+    </entry>
+    <entry name="LanSharePort" key="Port" type="Int">
+      <label>The port that shares listen on, or 0 to choose one</label>
+      <default>0</default>
+      <min>0</min>
+      <max>65535</max>
+    </entry>
+    <entry name="LanShareTimeoutMinutes" key="TimeoutMinutes" type="Int">
+      <label>How many minutes a share lasts before it stops by itself</label>
+      <default>30</default>
+      <min>1</min>
+      <max>1440</max>
+    </entry>
+    <entry name="LanShareAllowUploads" key="AllowUploads" type="Bool">
+      <label>Whether shares start with uploads allowed</label>
+      <default>false</default>
+    </entry>
+    <entry name="LanShareUploadFolder" key="UploadFolder" type="Url">
+      <label>The folder that receives uploads; empty for Downloads</label>
     </entry>
   </group>
 </kcfg>

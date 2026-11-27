@@ -317,6 +317,19 @@ private Q_SLOTS:
         QVERIFY(!RsyncSync::planError(invalid, {Action::CopyToRight}, nullptr).isEmpty());
     }
 
+    void checksDeletions()
+    {
+        RsyncSync::Transfer transfer;
+        transfer.copies = {QStringLiteral("a")};
+        QCOMPARE(RsyncSync::deletionsError(transfer, false), QString());
+        QCOMPARE(RsyncSync::deletionsError(transfer, true), QString());
+        transfer.deletions = {QStringLiteral("b"), QStringLiteral("c")};
+        QCOMPARE(RsyncSync::deletionsError(transfer, true), QString());
+        const QString error = RsyncSync::deletionsError(transfer, false);
+        QVERIFY(error.contains(QStringLiteral("2 files")));
+        QVERIFY(error.contains(QStringLiteral("Remote and Cloud")));
+    }
+
     void buildsTransferSteps()
     {
         RsyncSync::Transfer transfer;

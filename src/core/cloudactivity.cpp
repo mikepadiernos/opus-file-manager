@@ -41,12 +41,18 @@ QString nameKey(const QString &name)
 }
 }
 
+QString CloudActivity::limitsGroupName()
+{
+    return QStringLiteral("CloudActivity");
+}
+
 CloudActivity::Limits CloudActivity::loadLimits(const KConfigGroup &group)
 {
     Limits limits;
     limits.bandwidthKiB = std::clamp(group.readEntry("BandwidthLimitKiB", 0), 0, 1048576);
     limits.parallelTransfers = std::clamp(group.readEntry("ParallelTransfers", 4), 1, 32);
     limits.cacheMiB = std::clamp(group.readEntry("CacheSizeMiB", 0), 0, 1048576);
+    limits.cacheMaxAgeHours = std::clamp(group.readEntry("CacheMaxAgeHours", 1), 1, 8760);
     return limits;
 }
 
@@ -55,6 +61,7 @@ void CloudActivity::saveLimits(KConfigGroup group, const Limits &limits)
     group.writeEntry("BandwidthLimitKiB", limits.bandwidthKiB);
     group.writeEntry("ParallelTransfers", limits.parallelTransfers);
     group.writeEntry("CacheSizeMiB", limits.cacheMiB);
+    group.writeEntry("CacheMaxAgeHours", limits.cacheMaxAgeHours);
     group.sync();
 }
 
@@ -68,7 +75,8 @@ QStringList CloudActivity::rcloneMountOptions(const Limits &limits, const QStrin
     QStringList options{QStringLiteral("--cache-dir"), cacheDir, QStringLiteral("--vfs-cache-mode")};
     if (limits.cacheMiB > 0) {
         // Full caching keeps recently opened files, up to the size limit.
-        options << QStringLiteral("full") << QStringLiteral("--vfs-cache-max-size") << QStringLiteral("%1M").arg(limits.cacheMiB);
+        options << QStringLiteral("full") << QStringLiteral("--vfs-cache-max-size") << QStringLiteral("%1M").arg(limits.cacheMiB)
+                << QStringLiteral("--vfs-cache-max-age") << QStringLiteral("%1h").arg(limits.cacheMaxAgeHours);
     } else {
         options << QStringLiteral("writes");
     }

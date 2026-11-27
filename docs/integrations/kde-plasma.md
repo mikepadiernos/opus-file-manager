@@ -5,11 +5,11 @@
 [![Roadmap: M28 integration settings](https://img.shields.io/badge/roadmap-M28%20integration%20settings-8957e5?style=flat-square)](../ROADMAP.md#m28-integration-settings)
 
 ![Milestones M27–M28](https://img.shields.io/badge/milestones-M27%E2%80%93M28-8957e5?style=flat-square)
-![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)
+![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)
 
-How Plasma Opus builds on KDE Plasma today and which desktop integrations are
-planned for [M27](../ROADMAP.md#m27-integrations) and
-[M28](../ROADMAP.md#m28-integration-settings).
+How Plasma Opus builds on KDE Plasma: the desktop integrations added in
+[M27](../ROADMAP.md#m27-integrations), and the Preferences that configure them
+in [M28](../ROADMAP.md#m28-integration-settings).
 
 **Integration plans:** **KDE Plasma** · [Nextcloud](nextcloud.md) ·
 [Plasma Impresario](plasma-impresario.md)
@@ -19,6 +19,9 @@ planned for [M27](../ROADMAP.md#m27-integrations) and
 > [Existing foundations](#existing-foundations), from merged milestones
 > M01–M26, and the M27 integrations listed there, from default file-manager
 > registration to cloud sync and cloud activity.
+> **Settings:** the M28 settings for these integrations, on the **KDE Plasma**,
+> **Applications**, **Remote and Cloud** and **Security** pages of
+> Preferences; each foundation names its setting and location.
 > **Planned:** everything under [Planned features](#planned-features). The
 > [roadmap](../ROADMAP.md) is authoritative for status.
 
@@ -64,8 +67,13 @@ behaves like the rest of the desktop and follows the user's choices.
   by default and never change the desktop's global settings.
 - **Default file manager:** `install.sh --default` registers Plasma Opus as the
   `inode/directory` handler through `xdg-mime`; uninstalling restores Dolphin
-  when Plasma Opus is still the handler.
-  ([M27.01](../ROADMAP.md#m27-integrations))
+  when Plasma Opus is still the handler. **Preferences › KDE Plasma › File
+  Manager** shows the current default file manager; **Set Plasma Opus as
+  Default** makes Plasma Opus the user's default for folders, as System
+  Settings › Default Applications does, and reports failures, including a
+  desktop-specific list such as `kde-mimeapps.list` that overrides it.
+  ([M27.01](../ROADMAP.md#m27-integrations),
+  [#293](https://github.com/mikepadiernos/plasma-opus/issues/293))
 - **File-manager service:** while Plasma Opus is the default folder handler,
   it answers `org.freedesktop.FileManager1` requests, such as **Show in
   folder** in browsers and mail clients. `ShowFolders` opens each folder in a
@@ -73,8 +81,13 @@ behaves like the rest of the desktop and follows the user's choices.
   selected, and `ShowItemProperties` opens KDE's properties dialog. It never
   replaces another owner of the service. `install.sh --default` also installs
   a per-user D-Bus activation file, so a request starts Plasma Opus when no
-  file manager is running; uninstalling removes it.
-  ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279))
+  file manager is running; uninstalling removes it. Install, update or remove
+  the activation file under **Preferences › KDE Plasma › File Manager**,
+  which leaves a file that another application wrote unchanged. Setting
+  Plasma Opus as the default there also claims the service at once when no
+  other application owns it.
+  ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279),
+  [#293](https://github.com/mikepadiernos/plasma-opus/issues/293))
 - **Language preferences:** with no interface language selected in
   **Settings › Translation › Language and Layout**, Plasma Opus follows
   Plasma's language list: the session's `LANGUAGE` variable, or the list saved
@@ -90,43 +103,60 @@ behaves like the rest of the desktop and follows the user's choices.
   batch renaming, batch image conversion and tag-library refreshes. The job
   shows file and folder names, never full paths; error details stay in the
   Plasma Opus dialog. File copies, moves and deletions keep using KIO's own
-  reporting.
-  ([#388](https://github.com/mikepadiernos/plasma-opus/issues/388))
+  reporting. Choose which of these operations report to Plasma under
+  **Preferences › KDE Plasma › Notifications**; all do by default, and an
+  operation that does not report still shows its progress and errors in its
+  dialog. **Configure Plasma Notifications…** there opens Plasma's
+  notification settings for Plasma Opus, which control how the reports
+  appear, and reports when System Settings cannot open them.
+  ([#388](https://github.com/mikepadiernos/plasma-opus/issues/388),
+  [#392](https://github.com/mikepadiernos/plasma-opus/issues/392))
 - **System tray and global shortcut:** while Plasma Opus runs, its icon sits
   in the system tray's hidden section. Clicking it shows or hides the window;
   its menu also opens the home folder or the transfer queue, and quits.
   The **Show or Hide Plasma Opus** global shortcut, Meta+Alt+O by default,
   brings the window to the front, or hides it when it is already in front.
-  Change or remove it under **Settings › Configure Keyboard Shortcuts** or in
-  System Settings; KDE leaves it unassigned when another application already
-  uses the default. The window hides to the tray only while a tray can show
-  the icon. While hidden, the icon moves out of the hidden section until the
-  window is shown again. Minimizing or closing to the tray is off by default;
-  turn either on, or remove the icon, under **Settings › General › System
-  Tray**. Closing to the tray applies only to the window's close button; **File ›
-  Quit** and the tray menu's **Quit** still quit.
-  ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285); shortcut
-  settings in [M28](../ROADMAP.md#m28-integration-settings) and
-  [M31](../ROADMAP.md#m31-keyboard-shortcut-settings))
-- **Plasma Activities:** each Activity can name a workspace and a default
-  folder for each pane under **View › Activity Associations**, once
-  associations are turned on under **Settings › Workspaces › Activities**.
-  An association uses the workspace's own behaviours, or all, selected or
-  none of them, independently of other Activities. When the current Activity
-  changes, a message above the panes offers to switch to its workspace and
-  open its folders in new tabs; nothing is applied until **Apply** is
-  chosen, and the switch asks first as any workspace switch does.
-  **View › Apply Activity Association** applies it at any other time.
-  Associations are kept when their Activity is removed, their workspace is
-  deleted or a folder is missing, and the missing parts are reported instead
-  of applied. Plasma Opus only reads Activities: it never creates, removes or
-  switches them, and leaves recent-file history to KDE. It reports visited
-  folders and opened files to the current Activity, as Dolphin does, so they
-  appear in Plasma's recent files and locations; turn this off under
-  **Settings › Workspaces › Activities**. Temporary files, open encrypted
-  vaults, searches, the trash and administrator locations are never
+  Turn it off, or choose its key combination, under **Preferences › KDE
+  Plasma › Shortcuts**, which also says when no key is assigned or KDE's
+  global shortcut service is not running; Plasma's Shortcuts settings can
+  change it too while it is on. KDE leaves it unassigned when another
+  application already uses the default. The window hides to the tray only
+  while a tray can show the icon. While hidden, the icon moves out of the
+  hidden section until the window is shown again. Minimizing or closing to
+  the tray is off by default; turn either on, or remove the icon, under
+  **Preferences › KDE Plasma › System Tray**. Closing to the tray applies
+  only to the window's close button; **File › Quit** and the tray menu's
+  **Quit** still quit. **Start with the window hidden in the system tray**
+  there starts Plasma Opus with only its tray icon when it opens no folders
+  or workspace and a tray can already show the icon; otherwise the window is
+  shown as usual.
+  ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285),
+  [#290](https://github.com/mikepadiernos/plasma-opus/issues/290),
+  [#291](https://github.com/mikepadiernos/plasma-opus/issues/291); more
+  shortcut settings in [M31](../ROADMAP.md#m31-keyboard-shortcut-settings))
+- **Plasma Activities:** each Activity can name a workspace and a default folder
+  for each pane under **Preferences › KDE Plasma › Activities**, once
+  **Associate workspaces and default folders with Plasma Activities** is checked
+  there; **View › Activity Associations** opens the tab. An association uses the
+  workspace's own behaviours, or all, selected or none of them, independently of
+  other Activities. Changes are saved with the other settings, and **Restore
+  Defaults** turns associations off without clearing them. **Configure Plasma
+  Activities…** there opens Plasma's Activities settings to create, rename or
+  remove Activities. When the current Activity changes, a message above the
+  panes offers to switch to its workspace and open its folders in new tabs;
+  nothing is applied until **Apply** is chosen, and the switch asks first as any
+  workspace switch does. **View › Apply Activity Association** applies it at any
+  other time. Associations are kept when their Activity is removed, their
+  workspace is deleted or a folder is missing, and the missing parts are
+  reported instead of applied. Plasma Opus only reads Activities: it never
+  creates, removes or switches them, and leaves recent-file history to KDE. It
+  reports visited folders and opened files to the current Activity, as Dolphin
+  does, so they appear in Plasma's recent files and locations; turn this off
+  under **Preferences › KDE Plasma › Activities**. Temporary files, open
+  encrypted vaults, searches, the trash and administrator locations are never
   reported, nor are passwords in remote addresses.
   ([#387](https://github.com/mikepadiernos/plasma-opus/issues/387),
+  [#391](https://github.com/mikepadiernos/plasma-opus/issues/391),
   [#659](https://github.com/mikepadiernos/plasma-opus/issues/659))
 - **KDE Connect:** **File › Send to Device…** sends the selected local files
   to a paired device through KDE Connect's share plugin. The dialog lists the
@@ -136,8 +166,12 @@ behaves like the rest of the desktop and follows the user's choices.
   sent until **Send** is pressed, and the last device used is chosen again.
   When KDE Connect is not running or no device is paired, the dialog says so.
   KDE Connect's own notifications show each transfer's progress and result.
-  Plasma Opus never pairs devices or changes KDE Connect settings.
-  ([#389](https://github.com/mikepadiernos/plasma-opus/issues/389))
+  Plasma Opus never pairs devices or changes KDE Connect settings. Turn the
+  action off, or stop choosing the last device used again, under
+  **Preferences › KDE Plasma › KDE Connect**, where **Configure KDE
+  Connect…** opens KDE Connect's own settings.
+  ([#389](https://github.com/mikepadiernos/plasma-opus/issues/389),
+  [#393](https://github.com/mikepadiernos/plasma-opus/issues/393))
 - **KRunner:** an installed build adds a **Plasma Opus** plugin to KRunner
   and Plasma Search that offers saved workspaces and Favorites whose name
   matches the query. Choosing a workspace starts Plasma Opus, or uses the
@@ -145,11 +179,16 @@ behaves like the rest of the desktop and follows the user's choices.
   does; choosing a Favorite opens it in a new tab. History, searches and
   recent folders are never offered, and a match carries only an opaque id,
   so no location or credentials pass through KRunner. Workspaces or
-  Favorites removed since the match was shown are not opened. Turn either
-  kind off under **Settings › General › Plasma Search**, or the whole plugin
-  off in **System Settings › Search › Plasma Search**. The
-  `opus-file-manager-krunner` helper is started by D-Bus when KRunner first
-  asks. ([#390](https://github.com/mikepadiernos/plasma-opus/issues/390))
+  Favorites removed since the match was shown are not opened. Turn the
+  results off, or choose which saved workspaces and Favorites are offered,
+  under **Preferences › KDE Plasma › KRunner**; workspaces and Favorites
+  added later are offered until they are cleared there, and KRunner uses a
+  change from its next search session. Turn the whole plugin off in
+  **System Settings › Search › Plasma Search**, which **Configure Plasma
+  Search…** there opens. The `opus-file-manager-krunner` helper is started
+  by D-Bus when KRunner first asks.
+  ([#390](https://github.com/mikepadiernos/plasma-opus/issues/390),
+  [#394](https://github.com/mikepadiernos/plasma-opus/issues/394))
 - **Service-menu downloads:** **Download New Services…** under **Settings ›
   Context Menu › Service Menus** opens KDE's download window for service
   menus, using the provider Dolphin installs, to browse, install, update and
@@ -173,51 +212,75 @@ behaves like the rest of the desktop and follows the user's choices.
   `opus-file-manager --uninstall-portal`, or `./install.sh --uninstall`,
   restores the backup, or removes only the Plasma Opus entry when the file
   has changed since. Setup changes nothing when xdg-desktop-portal is not
-  running. The chooser shows Places, a breadcrumb, the folder in the Plasma
+  running. **Preferences › KDE Plasma › File Manager** shows whether Plasma
+  Opus serves the file chooser and offers **Set Up**, **Complete Setup** for
+  a partial setup and **Restore Previous Chooser**, which ask before
+  restarting xdg-desktop-portal and report failures
+  ([#292](https://github.com/mikepadiernos/plasma-opus/issues/292)). The
+  chooser shows Places, a breadcrumb, the folder in the Plasma
   Opus list, a name filter and the application's file-type filters and
   choices. It supports opening one or several files or a folder, saving with
   the selected filter's extension after confirming an overwrite, and saving
   several files into a folder. It returns local files only, is placed over
-  the requesting window and remembers its size. The
+  the requesting window and remembers its size. When the application
+  suggests no folder, it starts in the home folder or, with **Start folder**
+  set to **Folder of the last choice** under **Preferences › KDE Plasma ›
+  File Manager**, in the folder of that application's last accepted choice,
+  kept in session state; **Forget Remembered Folders** clears them
+  ([#750](https://github.com/mikepadiernos/plasma-opus/issues/750)). The
   `opus-file-manager-portal` helper is started by D-Bus and exits after two
   idle minutes.
   ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
 - **Mount manager:** **File › Mount Manager…** lists mounted and
   fstab-defined file systems with their name, state, device, type, mount
-  point, size, free space and a usage bar, optionally only removable devices.
-  Pseudo, snap, container and other system file systems are hidden; network
-  and FUSE mounts, such as remote drives, are included. Activating an entry
-  opens it in the active pane, mounting it first when needed. Mount, unmount
-  and eject go through Solid and UDisks2, with Plasma's authorization prompts,
-  and fall back to `mount`, `umount` and `fusermount` for fstab entries marked
-  `user` or `users` and for FUSE mounts. Busy devices, denied authorization,
-  cancelled prompts and failures are reported. **Go › Mount Points**, also on
-  the toolbar, lists each file system with a check mark when mounted and opens
-  or mounts it. Partitioning, formatting and fstab editing are left to KDE
-  Partition Manager, which the dialog opens when installed.
+  point, size, free space and a usage bar. Network and FUSE mounts, such as
+  remote drives, are included. Activating an entry opens it in the active
+  pane, mounting it first when needed. Mount, unmount and eject go through
+  Solid and UDisks2, with Plasma's authorization prompts, and fall back to
+  `mount`, `umount` and `fusermount` for fstab entries marked `user` or
+  `users` and for FUSE mounts. Busy devices, denied authorization,
+  cancelled prompts and failures are reported. **Go › Mount Points** lists
+  each file system with a check mark when mounted and opens or mounts it.
+  Partitioning, formatting and fstab editing are left to KDE Partition
+  Manager, which the dialog opens when installed. Under **Preferences › KDE
+  Plasma › Mount Manager**, **Show only removable devices**, on by default,
+  limits **Go › Mount Points** to removable devices and is how the dialog's
+  own checkbox starts each time it opens; **Hide pseudo, snap and other system
+  file systems**, also on by default, can be cleared to list them, though
+  Plasma Opus never mounts or unmounts them; and **Show the Mount Points menu
+  on the main toolbar** adds or removes the toolbar menu
+  ([#705](https://github.com/mikepadiernos/plasma-opus/issues/705)).
   ([#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
-- **KWin script:** **Settings › Configure KWin Integration…** installs,
-  updates, enables, disables or removes an optional Plasma Opus KWin script,
-  only when asked, and shows whether KWin, its scripting interface and the
-  script are available and which version is running. With the script running,
-  applying a workspace or Activity association that restores the layout also
-  restores the window's screen, virtual desktops, size, tile and keep-above
-  state as last seen with that workspace; detached Plasma Opus windows can be
-  placed beside the main window; and a workspace can be assigned to each
-  virtual desktop and applied when that desktop becomes current. See
+- **KWin script:** the **KWin Script** group under **Preferences › KDE Plasma ›
+  KWin** installs, updates, enables, disables or removes an optional Plasma Opus
+  KWin script, only when asked, shows whether KWin, its scripting interface and
+  the script are available and which version is running, and opens KWin's script
+  settings. With the script running, applying a workspace or Activity
+  association that restores the layout also restores the window's screen,
+  virtual desktops, size, tile and keep-above state as last seen with that
+  workspace; detached Plasma Opus windows can be placed beside the main window;
+  and a workspace can be assigned to each virtual desktop and applied when that
+  desktop becomes current. The **Window Management** group in the same tab
+  chooses each of these behaviours and opens KWin's window rules, which Plasma
+  Opus never edits
+  ([#709](https://github.com/mikepadiernos/plasma-opus/issues/709)). See
   [KWin scripts](#kwin-scripts).
   ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707))
-- **Drop-down window:** turned on in the same dialog, the main window slides in
-  from a chosen screen edge, like [Yakuake](https://apps.kde.org/yakuake/),
-  with a width and height as percentages of the screen, on the active or a
-  chosen screen. **View › Show or Hide Drop-Down Window** toggles it; its
-  global shortcut is unassigned until one is chosen in the dialog or in
-  System Settings, and the script can also register a screen edge or a
-  touch-screen edge. While shown, it stays above other windows and out of the
-  taskbar, pager and task switcher. It can hide when another application is
-  activated, but not while a dialog, menu or another Plasma Opus window is
-  active, and it can switch to an assigned workspace when shown. Without the
-  script it shows and hides as a regular window and says so once.
+- **Drop-down window:** turned on in the **Drop-Down Window** group under
+  **Preferences › KDE Plasma › KWin**, which **Settings › Configure KWin
+  Integration…** also opens, the main window slides in from a chosen screen
+  edge, like [Yakuake](https://apps.kde.org/yakuake/), with a width and height
+  as percentages of the screen, on the active or a chosen screen. **View › Show
+  or Hide Drop-Down Window** toggles it; its global shortcut is unassigned until
+  one is chosen in that group or in System Settings, and the script can also
+  register a screen edge or a touch-screen edge. While shown, it stays above
+  other windows and out of the taskbar, pager and task switcher. It can hide
+  when another application is activated, but not while a dialog, menu or another
+  Plasma Opus window is active, and it can switch to an assigned workspace when
+  shown. Without the script it shows and hides as a regular window and says so
+  once. The group also chooses the slide animation and whether it hides on
+  focus loss, and says whether the global shortcut works
+  ([#710](https://github.com/mikepadiernos/plasma-opus/issues/710)).
   ([#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
 - **Ark:** when [Ark](https://apps.kde.org/ark/) is installed, **File › Open
   in Ark** opens a local archive in Ark's window to add, rename or remove
@@ -236,9 +299,14 @@ behaves like the rest of the desktop and follows the user's choices.
   compression levels and multi-volume archives where Ark's backends support
   them. **File › Add to Archive…** adds the selection to an existing archive
   Ark can write, after a confirmation, and refuses formats the installed
-  backends can only extract, such as RAR without `rar`. See
-  [Split archives](../CAVEATS.md#archives).
-  ([#647](https://github.com/mikepadiernos/plasma-opus/issues/647))
+  backends can only extract, such as RAR without `rar`. Set the default
+  format, whether to split into volumes and their size, and whether to offer
+  a ZIP password under **Preferences › Archives › Defaults**, which also
+  reports whether Ark can write encrypted 7z archives. See
+  [Split archives](../CAVEATS.md#archives) and
+  [Archive settings](../CAVEATS.md#integration-settings).
+  ([#647](https://github.com/mikepadiernos/plasma-opus/issues/647),
+  [#665](https://github.com/mikepadiernos/plasma-opus/issues/665))
 - **Disk images:** **File › Mount Disk Image** and **Unmount Disk Image**
   mount and unmount the selected ISO or raw disk image through the Mount ISO
   action from Dolphin's plugins, which asks UDisks2 to attach a loop device
@@ -268,9 +336,16 @@ behaves like the rest of the desktop and follows the user's choices.
 
   Changes are confirmed first and never change sandbox permissions or snap
   confinement. Missing tools disable their actions with an explanation, and
-  failures show the tool's output. See
-  [Application packages](../CAVEATS.md#desktop-integration).
-  ([#281](https://github.com/mikepadiernos/plasma-opus/issues/281))
+  failures show the tool's output. Turn AppImage, Flatpak and Snap actions
+  on or off separately under **Preferences › Applications › Packages**,
+  which reports the missing tools; other packages then open like any other
+  file. The same tab turns off **Add to Application Menu**, while existing
+  entries can still be removed, and can add AppImages without running their
+  runtime to read their name and icon. See
+  [Application packages](../CAVEATS.md#desktop-integration) and
+  [Package settings](../CAVEATS.md#integration-settings).
+  ([#281](https://github.com/mikepadiernos/plasma-opus/issues/281),
+  [#296](https://github.com/mikepadiernos/plasma-opus/issues/296))
 
 - **Baloo status:** **File › Indexing Status…**, also offered by the search
   panel's **Indexing Status…** button in the **Indexed locations (Baloo)**
@@ -303,7 +378,12 @@ behaves like the rest of the desktop and follows the user's choices.
   After an indexed search, **Search Current Folder Live** or **Search
   Workspace Locations Live** repeats it as a live search, with the usual
   limits, progress, cancellation and errors; the scope never changes on its
-  own. See [Indexed metadata and ranking](../CAVEATS.md#search).
+  own. Choose whether the search panel offers ranking and the live search
+  under **Preferences › KDE Plasma › Baloo**, which also shows the indexer's
+  state and opens KDE File Search settings; the search defaults stay under
+  **Preferences › Tools › Search**
+  ([#443](https://github.com/mikepadiernos/plasma-opus/issues/443)). See
+  [Indexed metadata and ranking](../CAVEATS.md#search).
   ([#442](https://github.com/mikepadiernos/plasma-opus/issues/442))
 
 - **Baloo queries:** Indexed searches pass required content terms and
@@ -338,8 +418,12 @@ behaves like the rest of the desktop and follows the user's choices.
   basic details, it asks first and offers **Show Indexed Results** or the
   live search. The live search runs in the search panel for the chosen folder
   by MIME type or file extension, with the panel's usual limits, progress and
-  cancellation. **Large Files**, over 100 MiB, always searches a chosen
-  folder live, since Baloo doesn't index file sizes. See
+  cancellation. **Large Files**, over 100 MiB by default, always searches a
+  chosen folder live, since Baloo doesn't index file sizes. Choose which
+  categories Places lists, and the size above which a file is large, under
+  **Preferences › KDE Plasma › Baloo**; removing an entry from Places clears
+  its category there
+  ([#660](https://github.com/mikepadiernos/plasma-opus/issues/660)). See
   [File-type categories](../CAVEATS.md#desktop-integration).
   ([#649](https://github.com/mikepadiernos/plasma-opus/issues/649))
 
@@ -351,10 +435,14 @@ behaves like the rest of the desktop and follows the user's choices.
   Yakuake first when it isn't running, and the status bar notes that its
   window may need its shortcut. Providers that aren't installed are disabled
   with a tooltip saying so, and remote or missing folders are reported
-  without starting anything. **Open Terminal Here** still uses KDE's default
-  terminal. The embedded terminal panel's menu gains **Terminal Component**,
-  which chooses the Konsole or Kwi component for new sessions; open sessions
-  keep theirs, and a missing component is reported instead of replaced. See
+  without starting anything. The embedded terminal panel's menu gains
+  **Terminal Component**, which chooses the Konsole or Kwi component for new
+  sessions; open sessions keep theirs, and a missing component is reported
+  instead of replaced. Choose the terminal that **Open Terminal Here** opens,
+  KDE's default terminal unless changed, and the embedded terminal's component
+  under **Preferences › Applications › Terminal**, which marks the terminals
+  that aren't installed
+  ([#295](https://github.com/mikepadiernos/plasma-opus/issues/295)). See
   [Terminal providers](../CAVEATS.md#desktop-integration) and
   [Embedded terminal](../CAVEATS.md#embedded-terminal).
   ([#289](https://github.com/mikepadiernos/plasma-opus/issues/289))
@@ -367,7 +455,11 @@ behaves like the rest of the desktop and follows the user's choices.
   folders its installers use, and that its history exists, but never reads
   the history, changes shell configuration, or installs, initializes or syncs
   Atuin. A session running another program is reported instead of receiving
-  the search. See [Embedded terminal](../CAVEATS.md#embedded-terminal).
+  the search. Hide the action, or choose whether the search uses the current
+  session, a new one when it is busy or always a new one, under
+  **Preferences › Applications › Terminal**
+  ([#367](https://github.com/mikepadiernos/plasma-opus/issues/367)). See
+  [Embedded terminal](../CAVEATS.md#embedded-terminal).
   ([#364](https://github.com/mikepadiernos/plasma-opus/issues/364))
 
 - **Editor integrations:** **Tools › Edit With**, also in the context menu
@@ -378,7 +470,10 @@ behaves like the rest of the desktop and follows the user's choices.
   absolute paths, without a shell; terminal editors start in the first
   file's folder and their tab closes when they exit. KWrite and Kate also
   open remote files, while terminal editors report them, as they do folders.
-  **Open Editor** still opens the built-in editor. See
+  **Open Editor** still opens the built-in editor. Choose whether terminal
+  editors run in the embedded terminal or in a separate window of KDE's
+  default terminal under **Preferences › Applications › Editor**
+  ([#320](https://github.com/mikepadiernos/plasma-opus/issues/320)). See
   [Editor integrations](../CAVEATS.md#desktop-integration).
   ([#319](https://github.com/mikepadiernos/plasma-opus/issues/319))
 - **Office documents:** The preview panel shows OpenDocument and Microsoft
@@ -392,9 +487,16 @@ behaves like the rest of the desktop and follows the user's choices.
   aren't installed are disabled with a tooltip saying so. LibreOffice and
   ONLYOFFICE open a mixed selection together; Calligra opens each kind in
   Calligra Words, Sheets or Stage. Only Calligra opens remote files. The
-  application handles editing, saving and format conversion. See
-  [Office documents](../CAVEATS.md#desktop-integration).
-  ([#674](https://github.com/mikepadiernos/plasma-opus/issues/674))
+  application handles editing, saving and format conversion. Choose the
+  application that **Edit** opens office documents in, and whether the
+  preview panel shows them, under **Preferences › Applications › Office**,
+  which marks the applications that aren't installed and lists the viewer
+  component that previews each kind of document; a chosen application that
+  isn't installed is reported rather than replaced. See
+  [Office documents](../CAVEATS.md#desktop-integration) and
+  [Office settings](../CAVEATS.md#integration-settings).
+  ([#674](https://github.com/mikepadiernos/plasma-opus/issues/674),
+  [#676](https://github.com/mikepadiernos/plasma-opus/issues/676))
 - **Edit action:** **Tools › Edit**, <kbd>F4</kbd>, also in the context
   menu of a single editable file, opens the selected file in a suitable tool:
   text files in the built-in editor; office documents in LibreOffice,
@@ -406,7 +508,16 @@ behaves like the rest of the desktop and follows the user's choices.
   [Tenacity](https://tenacityaudio.org/). It uses the first installed tool
   in that order, and its tooltip names the tool or the tools to install.
   Files that can be viewed but not edited, such as videos and PDF documents,
-  leave it disabled. See [Edit action](../CAVEATS.md#desktop-integration).
+  leave it disabled. Choose KWrite, Kate, Neovim, Rune, micro or nano for
+  text files instead of the built-in editor under
+  **Preferences › Applications › Editor**, which marks the editors that
+  aren't installed; a chosen editor that isn't installed is reported rather
+  than replaced
+  ([#320](https://github.com/mikepadiernos/plasma-opus/issues/320)). Choose
+  the office application likewise under **Preferences › Applications ›
+  Office** ([#676](https://github.com/mikepadiernos/plasma-opus/issues/676)).
+  See
+  [Edit action](../CAVEATS.md#desktop-integration).
   ([#675](https://github.com/mikepadiernos/plasma-opus/issues/675))
 - **Editing in the preview:** When the preview panel shows a text file,
   **Edit** switches it in place to the built-in KTextEditor editor with the
@@ -416,9 +527,15 @@ behaves like the rest of the desktop and follows the user's choices.
   or folder changes, and **Preview Selection…**, hiding the panel or quitting
   asks to save, discard or keep editing. **Move to Editor** continues the
   session in the editor panel with its unsaved changes. Read-only, remote,
-  binary and very large files are reported rather than opened. See
-  [Editing in the preview](../CAVEATS.md#editor).
-  ([#729](https://github.com/mikepadiernos/plasma-opus/issues/729))
+  binary and very large files are reported rather than opened. Under
+  **Preferences › Applications › Editor**, **Preview Editing** chooses
+  whether text previews offer **Edit**, whether double-clicking the preview
+  starts editing and whether saving returns to the preview; editing in the
+  preview always uses the built-in editor. See
+  [Editing in the preview](../CAVEATS.md#editor) and
+  [Preview editing settings](../CAVEATS.md#integration-settings).
+  ([#729](https://github.com/mikepadiernos/plasma-opus/issues/729),
+  [#730](https://github.com/mikepadiernos/plasma-opus/issues/730))
 - **Markdown vault links:** The built-in editor's **Vault** menu chooses a
   local folder of Markdown notes, such as an Obsidian vault, without
   changing its notes or configuration. In a note inside that folder, the
@@ -426,38 +543,61 @@ behaves like the rest of the desktop and follows the user's choices.
   note in the editor, keeping unsaved changes as a draft, and the
   **Backlinks** list shows the notes that link to the open one. Missing,
   ambiguous and out-of-vault links, and incomplete scans, are reported
-  below the list. See [Markdown vault links](../CAVEATS.md#desktop-integration).
-  ([#564](https://github.com/mikepadiernos/plasma-opus/issues/564))
+  below the list. Choose the vault folder, the preview dialect, whether the
+  preview shows when a Markdown file opens, whether wiki links open notes and
+  which lists the vault panel shows under **Preferences › Applications ›
+  Editor**. See [Markdown vault links](../CAVEATS.md#desktop-integration) and
+  [Markdown settings](../CAVEATS.md#integration-settings).
+  ([#564](https://github.com/mikepadiernos/plasma-opus/issues/564),
+  [#577](https://github.com/mikepadiernos/plasma-opus/issues/577))
 - **Workspace vaults and tags:** In **Workspaces**, **Use as Editor Vault**
   makes one of a workspace's assigned local folders the vault of every
   editor while the workspace is active, and the editor's own vault returns
   afterwards. Beside **Backlinks**, the **Links** tab lists the open note's
   wiki links with whether each resolves, and the **Tags** tab lists its
   inline `#tags` and front matter `tags:` with the other notes that share
-  them; activating an entry opens the note. See
-  [Workspace vaults and tags](../CAVEATS.md#desktop-integration).
-  ([#565](https://github.com/mikepadiernos/plasma-opus/issues/565))
+  them; activating an entry opens the note. Under **Preferences ›
+  Applications › Editor**, **Workspace Vault** turns each workspace's vault
+  on or off, chooses its location and can give it its own Markdown mode,
+  preview dialect, preview, wiki link and vault panel options, kept with the
+  workspace; it reports a vault location that can't be found and how many
+  notes the vault has. See
+  [Workspace vaults and tags](../CAVEATS.md#desktop-integration) and
+  [Workspace vault settings](../CAVEATS.md#integration-settings).
+  ([#565](https://github.com/mikepadiernos/plasma-opus/issues/565),
+  [#566](https://github.com/mikepadiernos/plasma-opus/issues/566))
 - **Embedded mpv playback:** When Plasma Opus is built with libmpv, the
   preview panel and gallery can play audio and video through an embedded
   [mpv](https://mpv.io/) player instead of Qt Multimedia. Choose it with the
   backend button beside the playback controls, or with **Audio and video
-  playback** under **Preferences › Interface › Previews**. Video needs
-  OpenGL; when mpv is missing or can't draw, Qt Multimedia plays the file
-  and a notice says why. The embedded player ignores your `mpv.conf` and
-  scripts. **Open with mpv** in the context menu still opens local audio
-  and video in the mpv application. See
-  [Embedded mpv playback](../CAVEATS.md#desktop-integration).
-  ([#563](https://github.com/mikepadiernos/plasma-opus/issues/563))
+  playback** under **Preferences › Applications › Media**, which reports
+  when this build has no mpv support or mpv can't show video, and whether
+  the mpv application is installed; an open preview follows the choice.
+  Video needs OpenGL; when mpv is missing or can't draw, Qt Multimedia plays
+  the file and a notice says why. The embedded player ignores your
+  `mpv.conf` and scripts. **Open with mpv** in the context menu still opens
+  local audio and video in the mpv application. See
+  [Embedded mpv playback](../CAVEATS.md#desktop-integration) and
+  [Media settings](../CAVEATS.md#integration-settings).
+  ([#563](https://github.com/mikepadiernos/plasma-opus/issues/563),
+  [#578](https://github.com/mikepadiernos/plasma-opus/issues/578))
 - **Ebooks, comics, help files and fonts:** The preview panel shows EPUB,
   MOBI, FictionBook, comic book archives such as CBZ and CBR, DjVu and CHM
   help files through [Okular](https://okular.kde.org/)'s viewer component
   when it is installed, and names what to install when it isn't. Remote
   files download first, within the 128 MiB remote preview limit. Fonts show
-  their family and style with editable sample text at several sizes; the
-  sample text is remembered. **Install Font…** opens Plasma's font
-  installer, `kfontinst`, for TrueType, OpenType, Type 1 and bitmap fonts.
-  See [Ebook and font previews](../CAVEATS.md#desktop-integration).
-  ([#650](https://github.com/mikepadiernos/plasma-opus/issues/650))
+  their family and style with editable sample text at several sizes.
+  **Install Font…** opens Plasma's font installer, `kfontinst`, for
+  TrueType, OpenType, Type 1 and bitmap fonts. Turn previews of ebooks and
+  DjVu documents, comics, help files and fonts on or off, and set the
+  sample text that every font preview shows, under **Preferences ›
+  Applications › Ebooks and Fonts**, which lists the viewer component for
+  each kind and reports when `kfontinst` is missing; editing the text in a
+  preview changes the same setting. See
+  [Ebook and font previews](../CAVEATS.md#desktop-integration) and
+  [Ebook and font settings](../CAVEATS.md#integration-settings).
+  ([#650](https://github.com/mikepadiernos/plasma-opus/issues/650),
+  [#661](https://github.com/mikepadiernos/plasma-opus/issues/661))
 - **Remote connections:** **Go › Remote Connections** lists saved SSH
   (SFTP), WebDAV and WebDAV over HTTPS connections. Each one opens in the
   active pane or the other pane through KDE's KIO workers, and SSH
@@ -467,19 +607,28 @@ behaves like the rest of the desktop and follows the user's choices.
   asks for when needed, or an SSH key or agent. Passwords are never saved
   with the connection; KIO keeps them in KWallet when you choose to. KIO and
   `ssh` verify SSH host keys and TLS certificates, and connection and
-  sign-in errors appear in the pane. Unencrypted WebDAV shows a warning. See
-  [Remote connections](../CAVEATS.md#desktop-integration).
-  ([#282](https://github.com/mikepadiernos/plasma-opus/issues/282))
+  sign-in errors appear in the pane. Unencrypted WebDAV shows a warning. Manage
+  saved connections under **Preferences › Remote and Cloud › Connections** too,
+  where changes take effect immediately, choose the protocol, user and SSH
+  sign-in method that new connections start with, and open KDE Wallet Manager to
+  review saved passwords. See [Remote
+  connections](../CAVEATS.md#desktop-integration) and [Remote connection
+  settings](../CAVEATS.md#integration-settings).
+  ([#282](https://github.com/mikepadiernos/plasma-opus/issues/282),
+  [#297](https://github.com/mikepadiernos/plasma-opus/issues/297))
 - **Network shares and FTP:** Remote connections also cover Windows shares
   (SMB), FTP and FTP over TLS (FTPS) through KIO. An SMB user can include a
-  domain as `DOMAIN;user`. Plain FTP shows a warning that it sends passwords
-  and files unencrypted, and the dialog names the package to install when no
-  KIO worker handles a protocol. **Go › Network**, also in the Remote
-  Connections menu, opens KIO's `network:/` location to browse shares and
-  services discovered on the local network, or Dolphin's `remote:/` Network
-  folder when `network:/` isn't installed. See
-  [Network shares and FTP](../CAVEATS.md#desktop-integration).
-  ([#651](https://github.com/mikepadiernos/plasma-opus/issues/651))
+  domain as `DOMAIN;user`. Plain FTP shows a warning that it sends passwords and
+  files unencrypted, and the dialog names the package to install when no KIO
+  worker handles a protocol. **Go › Network**, also in the Remote Connections
+  menu, opens KIO's `network:/` location to browse shares and services
+  discovered on the local network, or Dolphin's `remote:/` Network folder when
+  `network:/` isn't installed. Show or hide it under **Preferences › Remote and
+  Cloud › Connections**. See [Network shares and
+  FTP](../CAVEATS.md#desktop-integration) and [Network discovery
+  settings](../CAVEATS.md#integration-settings).
+  ([#651](https://github.com/mikepadiernos/plasma-opus/issues/651),
+  [#662](https://github.com/mikepadiernos/plasma-opus/issues/662))
 - **rclone cloud storage:** **Go › Cloud Storage** lists the remotes
   configured in [rclone](https://rclone.org/), such as Dropbox, OneDrive,
   Box, MEGA and pCloud, with their types. Choosing one mounts it with
@@ -491,9 +640,20 @@ behaves like the rest of the desktop and follows the user's choices.
   Plasma Opus only reads remote names and types: it never reads, stores or
   changes rclone's configuration or credentials, and rclone reports an
   error instead of asking for a configuration password. Missing rclone,
-  listing and mount errors are reported. See
-  [rclone cloud storage](../CAVEATS.md#desktop-integration).
-  ([#652](https://github.com/mikepadiernos/plasma-opus/issues/652))
+  listing and mount errors are reported.
+  Under **Preferences › Remote and Cloud › rclone**, turn the integration off to
+  hide **Go › Cloud Storage** and its shortcut, clear the remotes the menu
+  leaves out, and choose to serve remotes over WebDAV instead of mounting them.
+  A served remote runs `rclone serve webdav` on 127.0.0.1, at a port derived
+  from its name, and opens through KIO's WebDAV worker; it needs no FUSE. Its
+  password is created once, passed to rclone in its environment rather than on
+  the command line, and kept by KDE's password server, in KDE Wallet when it's
+  enabled, so KIO signs in without asking and the location shows no password.
+  Served remotes are checked too, and the menu's **Stop Serving** section stops
+  them. See [rclone cloud storage](../CAVEATS.md#desktop-integration) and
+  [rclone settings](../CAVEATS.md#integration-settings).
+  ([#652](https://github.com/mikepadiernos/plasma-opus/issues/652),
+  [#663](https://github.com/mikepadiernos/plasma-opus/issues/663))
 - **Remote drives:** each saved connection in **Go › Remote Connections**
   offers **Mount as Folder**, which mounts it as a local folder that
   applications without KIO support can open and save in, opens it in the
@@ -503,16 +663,28 @@ behaves like the rest of the desktop and follows the user's choices.
   davfs2 and CIFS mounts can be read-only and use an empty folder under the
   user's runtime directory or a chosen empty folder; any connection can mount
   when Plasma Opus starts. A mounted connection offers **Open Mounted
-  Folder** and **Unmount**, and Plasma Opus unmounts what it mounted when it
-  quits. Credentials stay with KDE and the backends: KIO FUSE asks KDE's
-  password server, sshfs uses the SSH agent, keys or KDE's `ksshaskpass`
-  prompt, and davfs2 and CIFS mount only through a user-mountable fstab entry,
-  for which the dialog shows an example line. Plasma Opus never edits fstab
-  or backend configuration. Missing tools, missing or unsuitable fstab
-  entries, folders that aren't empty, stale mounts, busy folders and failed
-  unmounts are reported. See
-  [Remote drives](../CAVEATS.md#desktop-integration).
-  ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702))
+  Folder** and **Unmount**, and by default Plasma Opus unmounts the sshfs,
+  davfs2 and CIFS mounts it started when it quits. Credentials stay with KDE and
+  the backends: KIO FUSE asks KDE's password server, sshfs uses the SSH agent,
+  keys or KDE's `ksshaskpass` prompt, and davfs2 and CIFS mount only through a
+  user-mountable fstab entry, for which the dialog shows an example line. Plasma
+  Opus never edits fstab or backend configuration. Missing tools, missing or
+  unsuitable fstab entries, folders that aren't empty, stale mounts, busy
+  folders and failed unmounts are reported. Under **Preferences › Remote and
+  Cloud › Remote Drives**, choose the backend each protocol mounts with, from
+  KIO FUSE and the installed alternatives, the folder that holds sshfs, davfs2
+  and CIFS mounts, and whether they mount read-only, for connections without
+  **Mount Options…** of their own. The same tab starts Plasma Opus in the system
+  tray at login, through an autostart entry, to mount the connections chosen to
+  mount at startup; mounts the connections holding the Favorites and Places
+  assigned to a workspace when it is activated; and chooses whether sshfs,
+  davfs2 and CIFS mounts stay after Plasma Opus quits. sshfs then runs on its
+  own, and the next session takes the mounts it finds in place over, so that
+  they can be opened and unmounted from the menu. See [Remote
+  drives](../CAVEATS.md#desktop-integration) and [Remote drive
+  settings](../CAVEATS.md#integration-settings).
+  ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702),
+  [#704](https://github.com/mikepadiernos/plasma-opus/issues/704))
 - **Temporary LAN sharing:** **File › Share on Local Network…** shares the
   selected local items, or the current folder when nothing is selected, with
   browsers and WebDAV clients on the local network until the dialog closes,
@@ -527,23 +699,37 @@ behaves like the rest of the desktop and follows the user's choices.
   in the upload folder; WebDAV clients can browse, download and upload. Hidden
   files and symbolic links leading outside the shared items aren't served.
   Plasma Opus never opens firewall ports, warns when the connection isn't
-  encrypted and points to KDE Connect and Samba sharing. See
-  [Temporary LAN sharing](../CAVEATS.md#desktop-integration).
-  ([#653](https://github.com/mikepadiernos/plasma-opus/issues/653))
+  encrypted and points to KDE Connect and Samba sharing.
+  **Preferences › Remote and Cloud › LAN Sharing** sets the dialog's starting
+  choices: whether to serve browsers, WebDAV file managers or both, HTTPS, the
+  network interfaces whose private addresses start checked, the port, the time
+  limit, and whether uploads are allowed and to which folder. The dialog also
+  offers **Serve to:**, and choices made in it apply to that share only. See
+  [Temporary LAN sharing](../CAVEATS.md#desktop-integration) and [LAN sharing
+  settings](../CAVEATS.md#integration-settings).
+  ([#653](https://github.com/mikepadiernos/plasma-opus/issues/653),
+  [#664](https://github.com/mikepadiernos/plasma-opus/issues/664))
 - **KDE Online Accounts:** **Go › Online Accounts** lists the accounts set up
   in System Settings' Online Accounts page, each with the folders it gives
   access to: Google Drive through
   [kio-gdrive](https://apps.kde.org/kio_gdrive/), and Nextcloud and
   ownCloud storage through KIO's WebDAV worker. Each folder opens in the
-  active pane or the other pane. Accounts without file storage are listed but
-  disabled, as are turned-off accounts and services, accounts without a
-  server address and folders whose KIO worker isn't installed; the tooltip
-  explains why and names what to install. **Manage Online Accounts…** opens
+  active pane or the other pane. Turned-off accounts and services, accounts
+  without a server address and folders whose KIO worker isn't installed are
+  disabled; the tooltip explains why and names what to install. Accounts
+  without file storage aren't listed. **Manage Online Accounts…** opens
   the System Settings page to add, remove or sign in to accounts. The menu
   rereads the accounts each time it opens, so removed accounts disappear.
   Plasma Opus only reads account names, services and server addresses; it
   never reads or stores tokens or passwords, which stay with KDE's providers
   and KIO, and KIO reports denied access and expired sign-ins in the pane.
+  Plasma Opus reads the accounts, and offers the menu and the accounts menu
+  of cloud sync pairs, only after checking **Show the folders of KDE Online
+  Accounts in Plasma Opus** under **Preferences › KDE Plasma › Online
+  Accounts**, where you also choose the accounts to show; clearing an
+  account only hides it in Plasma Opus, and **Manage Online Accounts…**
+  there opens KDE's settings
+  ([#371](https://github.com/mikepadiernos/plasma-opus/issues/371)).
   See [KDE Online Accounts](../CAVEATS.md#desktop-integration).
   ([#370](https://github.com/mikepadiernos/plasma-opus/issues/370))
 - **rsync backend:** **File › Compare and Synchronize Folders…** offers
@@ -560,8 +746,16 @@ behaves like the rest of the desktop and follows the user's choices.
   and reports progress and cancellation to Plasma's job view; the report
   lists what rsync changed and any errors. SSH keeps OpenSSH's host-key
   checks, and KDE's ksshaskpass asks for passwords; passwords never reach the
-  command line. See [rsync backend](../CAVEATS.md#desktop-integration).
-  ([#363](https://github.com/mikepadiernos/plasma-opus/issues/363))
+  command line. Under **Preferences › Remote and Cloud › Sync**, the **rsync
+  Backend** group turns rsync on or off, chooses whether local folders start
+  with rsync, and sets the comparison profile and copy policy used when the
+  dialog starts with rsync. It starts with safe defaults: rsync replaces only
+  older files and doesn't delete files until deletions are allowed there, and
+  the dry run and confirmation stay required either way. See [rsync
+  backend](../CAVEATS.md#desktop-integration) and [rsync
+  settings](../CAVEATS.md#integration-settings).
+  ([#363](https://github.com/mikepadiernos/plasma-opus/issues/363),
+  [#366](https://github.com/mikepadiernos/plasma-opus/issues/366))
 - **Cloud sync:** **File › Cloud Sync…** keeps chosen local folders in
   two-way sync with KIO locations, such as Nextcloud, WebDAV, SFTP, SMB or S3
   folders and KDE Online Accounts storage, or with rclone remotes. Each pair
@@ -578,9 +772,19 @@ behaves like the rest of the desktop and follows the user's choices.
   Nextcloud, ownCloud, Syncthing or Dropbox clients are refused. Nested pairs
   can exclude each other. **Synchronize in the background after login**
   starts Plasma Opus in the system tray, which asks for attention when a run
-  needs review. Pairs store no passwords. See
-  [Cloud sync](../CAVEATS.md#desktop-integration).
-  ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718))
+  needs review. Pairs store no passwords. Each pair also chooses how conflicts
+  are resolved: **Ask When Reviewing**, **Keep Both**, **Keep Local Version** or
+  **Keep Remote Version**; background and **Sync Now** runs apply that choice,
+  and reviews start from it. Under **Preferences › Remote and Cloud › Sync**,
+  manage the same pairs with the same editor, with changes taking effect
+  immediately, and choose whether Plasma Opus starts in the system tray at login
+  to synchronize them, whether background runs pause on metered connections, and
+  how often pairs that use the default interval are checked, 15 minutes unless
+  changed, since remotes don't report changes. See [Cloud
+  sync](../CAVEATS.md#desktop-integration) and [Cloud sync
+  settings](../CAVEATS.md#integration-settings).
+  ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718),
+  [#720](https://github.com/mikepadiernos/plasma-opus/issues/720))
 - **Cloud activity:** **File › Cloud Activity…** and the tray menu's
   **Cloud Activity…** open one window for cloud sync pairs and rclone mounts.
   It lists each connection with its state, free space and pending uploads,
@@ -591,8 +795,15 @@ behaves like the rest of the desktop and follows the user's choices.
   sync runs. Unmounting a remote or quitting Plasma Opus waits for pending
   uploads, with **Continue Without Waiting** and **Cancel**. Connections can
   be exported and imported without passwords; imported pairs start paused.
-  See [Cloud activity](../CAVEATS.md#desktop-integration).
-  ([#719](https://github.com/mikepadiernos/plasma-opus/issues/719))
+  The same limits, and how long files not in use stay in the offline cache, are
+  under **Preferences › Remote and Cloud › Transfers and Cache**, which also
+  chooses whether the tray menu offers **Cloud Activity…**. They apply only to
+  rclone; remote drives mounted with KIO FUSE, sshfs, davfs2 or CIFS, and cloud
+  sync pairs with network folders, ignore them, as the tab says. See [Cloud
+  activity](../CAVEATS.md#desktop-integration) and [Transfer and cache
+  settings](../CAVEATS.md#integration-settings).
+  ([#719](https://github.com/mikepadiernos/plasma-opus/issues/719),
+  [#721](https://github.com/mikepadiernos/plasma-opus/issues/721))
 - **Administrator mode:** **File › Act as Administrator** reopens the active
   pane's local folder through KIO's `admin:` worker from the `kio-admin`
   package, as in Dolphin, after a warning that can be turned off. KDE's
@@ -623,26 +834,34 @@ behaves like the rest of the desktop and follows the user's choices.
   { "mcpServers": { "plasma-opus": { "command": "opus-file-manager-mcp" } } }
   ```
 
-  Until the M28 settings page, change the access level, folders and audit log
-  in the `[Mcp]` group of `~/.config/opus-file-managerrc`, for example with
-  `kwriteconfig6 --file opus-file-managerrc --group Mcp --key McpAccess Write`
-  (`Off`, `Read` or `Write`) or `--key McpFolders ~/Projects,~/Documents`.
-  The `--read-only` option keeps one client to reading. See
-  [MCP server](../CAVEATS.md#desktop-integration).
-  ([#287](https://github.com/mikepadiernos/plasma-opus/issues/287))
+  Choose whether clients may read or also change files, or turn access off,
+  the folders they may use and whether calls are logged under
+  **Preferences › Security › MCP**, which also shows this configuration and
+  the audit log. Running servers follow the settings from the next request.
+  No access token is needed, because clients start the server themselves as
+  you and no network port is opened. The `--read-only` option keeps one
+  client to reading. See
+  [MCP server](../CAVEATS.md#desktop-integration) and
+  [MCP settings](../CAVEATS.md#integration-settings).
+  ([#287](https://github.com/mikepadiernos/plasma-opus/issues/287),
+  [#294](https://github.com/mikepadiernos/plasma-opus/issues/294))
 
 - **Password-gated folders:** **File › Password Protection › Protect with
   Password…** asks for a password before Plasma Opus shows a local folder. A
   protected folder starts locked in each session: Plasma Opus shows it with a
   lock icon and an **Unlock…** bar, and does not list, preview, search,
   copy, move, trash or open a terminal in it or anything inside it until it
-  is unlocked. **Lock All Protected Folders** locks them again, and the same
-  submenu changes or removes a password. Plasma Opus stores a salted
-  PBKDF2-SHA256 verifier, never the password. The gate applies only inside
-  Plasma Opus and is not encryption; other applications open the folder
-  freely. See
+  is unlocked. **Lock Protected Folders** locks them again, and the same
+  submenu changes or removes a password. **Preferences › Security ›
+  Password-Gated Folders** lists the protected folders and whether each is
+  locked, and protects, unlocks, locks, changes or removes them; its changes
+  take effect at once in every window, even if Preferences is cancelled.
+  Plasma Opus stores a salted PBKDF2-SHA256 verifier, never the password. The
+  gate applies only inside Plasma Opus and is not encryption; other
+  applications open the folder freely. See
   [Password-gated folders](../CAVEATS.md#password-gated-folders).
-  ([#402](https://github.com/mikepadiernos/plasma-opus/issues/402))
+  ([#402](https://github.com/mikepadiernos/plasma-opus/issues/402),
+  [#403](https://github.com/mikepadiernos/plasma-opus/issues/403))
 - **Plasma Vault:** **Go › Plasma Vaults** lists Plasma Vault's encrypted
   CryFS, gocryptfs and EncFS vaults with their state, read from its
   `org.kde.plasmavault` kded6 module. **Open Vault…** asks Plasma Vault to
@@ -650,9 +869,14 @@ behaves like the rest of the desktop and follows the user's choices.
   pane; **Show Vault Contents**, **Close Vault**, **Configure Vault…** and
   **Create Vault…** use the same service. Before closing, Plasma Opus lists
   the programs using files in the vault and asks first. Plasma Opus stores no
-  vault passwords or settings, and reports a missing Plasma Vault in the
-  menu. See [Plasma Vault](../CAVEATS.md#desktop-integration).
-  ([#654](https://github.com/mikepadiernos/plasma-opus/issues/654))
+  vault passwords or vault configuration, and reports a missing Plasma Vault
+  in the menu. **Preferences › Security › Encryption** lists the vaults with
+  their state, hides the menu and its shortcut, leaves chosen vaults and
+  their messages out of it, and can leave out whether each vault is open or
+  closed. See [Plasma Vault](../CAVEATS.md#desktop-integration) and
+  [Plasma Vault settings](../CAVEATS.md#integration-settings).
+  ([#654](https://github.com/mikepadiernos/plasma-opus/issues/654),
+  [#669](https://github.com/mikepadiernos/plasma-opus/issues/669))
 - **File encryption:** **File › Encryption**, also in the context menu,
   encrypts selected files for OpenPGP keys or with a password, decrypts
   them, saves detached signatures and verifies signed files through GnuPG.
@@ -662,9 +886,17 @@ behaves like the rest of the desktop and follows the user's choices.
   tool, which reads the password from a private file rather than the command
   line. Results are new files beside the originals, and the information
   panel names encrypted, signed and signature files. Keys and key passwords
-  stay with GnuPG and Kleopatra. See
-  [File encryption](../CAVEATS.md#desktop-integration).
-  ([#655](https://github.com/mikepadiernos/plasma-opus/issues/655))
+  stay with GnuPG and Kleopatra. **Preferences › Security › Encryption**
+  offers or hides the GnuPG and Kleopatra actions and the AES Crypt actions,
+  together with their shortcuts, and hides **File › Encryption** when both
+  are off. It also chooses whether encrypting and signing start with text
+  (`.asc`) output, whether binary encrypted files end in `.gpg` or `.pgp`,
+  and whether decrypted copies take back their name before encryption or
+  are marked, as in `report (decrypted).pdf`. See
+  [File encryption](../CAVEATS.md#desktop-integration) and
+  [File encryption settings](../CAVEATS.md#integration-settings).
+  ([#655](https://github.com/mikepadiernos/plasma-opus/issues/655),
+  [#670](https://github.com/mikepadiernos/plasma-opus/issues/670))
 
 ## Planned features
 
@@ -696,9 +928,9 @@ to load it over the `org.kde.KWin` `/Scripting` interface.
   the interface version, the Plasma Opus process id, the options and any
   pending commands; a script that receives another interface version stays
   passive.
-- **Versions:** the dialog compares the installed package's version with the
-  bundled one and offers **Update**, and reports when KWin still runs an older
-  version. Installing or updating reloads the script.
+- **Versions:** the **KWin** tab compares the installed package's version with
+  the bundled one and offers **Update**, and reports when KWin still runs an
+  older version. Installing or updating reloads the script.
 - **Workspace windows:** the script reports the main window's screen, virtual
   desktops, geometry, tile and keep-above state after it is moved, resized,
   retiled or sent to another screen or desktop. Plasma Opus keeps the last
@@ -709,7 +941,8 @@ to load it over the `org.kde.KWin` `/Scripting` interface.
   and the popped-out second pane, open in the half of the screen the main
   window does not occupy, in a matching KWin tile when there is one.
 - **Virtual desktops:** the script reports the virtual desktops, which the
-  dialog lists for workspace assignment, and the desktop that becomes current.
+  **KWin** tab lists for workspace assignment, and the desktop that becomes
+  current.
 - **Drop-down window:** the script styles and places the main window whenever
   it is mapped while the drop-down window is on, restores its previous
   geometry and flags when it is turned off, and registers the chosen screen

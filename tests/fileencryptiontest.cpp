@@ -65,6 +65,7 @@ private Q_SLOTS:
     void identifiesFiles_data();
     void identifiesFiles();
     void namesOutputs();
+    void namesOutputsAsChosen();
     void avoidsExistingFiles();
     void findsSignatures();
     void parsesKeys();
@@ -172,10 +173,11 @@ void FileEncryptionTest::identifiesFiles()
 
 void FileEncryptionTest::namesOutputs()
 {
+    const Options armor{.armor = true};
     QCOMPARE(outputName(Operation::Encrypt, QStringLiteral("a.txt")), QStringLiteral("a.txt.gpg"));
-    QCOMPARE(outputName(Operation::Encrypt, QStringLiteral("a.txt"), true), QStringLiteral("a.txt.asc"));
+    QCOMPARE(outputName(Operation::Encrypt, QStringLiteral("a.txt"), armor), QStringLiteral("a.txt.asc"));
     QCOMPARE(outputName(Operation::Sign, QStringLiteral("a.txt")), QStringLiteral("a.txt.sig"));
-    QCOMPARE(outputName(Operation::Sign, QStringLiteral("a.txt"), true), QStringLiteral("a.txt.asc"));
+    QCOMPARE(outputName(Operation::Sign, QStringLiteral("a.txt"), armor), QStringLiteral("a.txt.asc"));
     QCOMPARE(outputName(Operation::Decrypt, QStringLiteral("a.txt.gpg")), QStringLiteral("a.txt"));
     QCOMPARE(outputName(Operation::Decrypt, QStringLiteral("a.txt.PGP")), QStringLiteral("a.txt"));
     QCOMPARE(outputName(Operation::Decrypt, QStringLiteral("a.txt.asc")), QStringLiteral("a.txt"));
@@ -185,6 +187,27 @@ void FileEncryptionTest::namesOutputs()
     QCOMPARE(outputName(Operation::AesDecrypt, QStringLiteral("a.jpg.aes")), QStringLiteral("a.jpg"));
     QCOMPARE(outputName(Operation::AesDecrypt, QStringLiteral("a.jpg")), QStringLiteral("a.jpg.out"));
     QVERIFY(outputName(Operation::Verify, QStringLiteral("a.sig")).isEmpty());
+}
+
+void FileEncryptionTest::namesOutputsAsChosen()
+{
+    const Options pgp{.pgpSuffix = true};
+    QCOMPARE(outputName(Operation::Encrypt, QStringLiteral("a.txt"), pgp), QStringLiteral("a.txt.pgp"));
+    // Text output keeps its own suffix, and other tools keep theirs.
+    QCOMPARE(outputName(Operation::Encrypt, QStringLiteral("a.txt"), {.armor = true, .pgpSuffix = true}), QStringLiteral("a.txt.asc"));
+    QCOMPARE(outputName(Operation::Sign, QStringLiteral("a.txt"), pgp), QStringLiteral("a.txt.sig"));
+    QCOMPARE(outputName(Operation::AesEncrypt, QStringLiteral("a.txt"), pgp), QStringLiteral("a.txt.aes"));
+    QCOMPARE(identify(QStringLiteral("a.txt.pgp"), {}), Kind::Encrypted);
+    QCOMPARE(outputName(Operation::Decrypt, QStringLiteral("a.txt.pgp")), QStringLiteral("a.txt"));
+
+    const Options marked{.markDecrypted = true};
+    QCOMPARE(outputName(Operation::Decrypt, QStringLiteral("report.pdf.gpg"), marked), QStringLiteral("report (decrypted).pdf"));
+    QCOMPARE(outputName(Operation::Decrypt, QStringLiteral("Report.PDF.asc"), marked), QStringLiteral("Report (decrypted).PDF"));
+    QCOMPARE(outputName(Operation::AesDecrypt, QStringLiteral("backup.tar.gz.aes"), marked), QStringLiteral("backup (decrypted).tar.gz"));
+    QCOMPARE(outputName(Operation::AesDecrypt, QStringLiteral("notes.aes"), marked), QStringLiteral("notes (decrypted)"));
+    QCOMPARE(outputName(Operation::Decrypt, QStringLiteral("message"), marked), QStringLiteral("message (decrypted)"));
+    QCOMPARE(outputName(Operation::Decrypt, QStringLiteral(".bashrc.gpg"), marked), QStringLiteral(".bashrc (decrypted)"));
+    QCOMPARE(outputName(Operation::Encrypt, QStringLiteral("a.txt"), marked), QStringLiteral("a.txt.gpg"));
 }
 
 void FileEncryptionTest::avoidsExistingFiles()
@@ -592,6 +615,16 @@ void FileEncryptionTest::passesAesPasswordsThroughKeyFile()
 
     const Run noPassword = run(runner, Operation::AesDecrypt, {plain + QStringLiteral(".aes")});
     QVERIFY(!noPassword.outcomes.first().success);
+
+    // Decrypted copies are named as chosen, beside the original that is kept.
+    qputenv("PATH", QByteArray(bin.toLocal8Bit() + ':' + m_oldPath));
+    const Run marked = run(runner, Operation::AesDecrypt, {plain + QStringLiteral(".aes")}, {.markDecrypted = true}, password);
+    qputenv("PATH", m_oldPath);
+    QCOMPARE(marked.outcomes.size(), 1);
+    QVERIFY2(marked.outcomes.first().success, qPrintable(marked.outcomes.first().message));
+    QCOMPARE(marked.outcomes.first().output, dir.filePath(QStringLiteral("photo (decrypted).jpg")));
+    QCOMPARE(readFile(marked.outcomes.first().output), QByteArray("jpeg"));
+    QCOMPARE(readFile(plain), QByteArray("jpeg"));
 }
 
 void FileEncryptionTest::removesFailedAesOutput()

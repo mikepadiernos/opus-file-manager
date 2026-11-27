@@ -66,10 +66,10 @@ improve it.
 | -------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Embedded mpv playback ([#563], M27.05) | KDE's MpvQt renders libmpv only through a Qt Quick item | Not adopted: libmpv's OpenGL render API draws into a `QOpenGLWidget` without MpvQt |
 
-The **Audio and video playback** setting on the **Previews** page, and the
-backend button beside the playback controls, choose between Qt Multimedia and
-mpv. Qt Multimedia remains the fallback when a build lacks libmpv or OpenGL is
-unavailable for video.
+The **Audio and video playback** setting under **Preferences › Applications ›
+Media**, and the backend button beside the playback controls, choose between
+Qt Multimedia and mpv. Qt Multimedia remains the fallback when a build lacks
+libmpv or OpenGL is unavailable for video.
 
 [KWin scripts](integrations/kde-plasma.md#kwin-scripts) can use QML, but they
 are separate packages that KWin runs. They are not part of the application's

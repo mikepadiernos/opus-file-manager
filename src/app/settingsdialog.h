@@ -2,30 +2,44 @@
 
 #pragma once
 
+#include "activityassociations.h"
+
 #include <KConfigDialog>
 #include <KFilePlacesModel>
+#include <QKeySequence>
+#include <QMap>
 
 #include <functional>
 
 class AccentColorChooser;
+class ActivityAssociationsEditor;
+class ActivityController;
 class ColorSchemeCombo;
+class DesktopTray;
+class DesktopWorkspacesEditor;
 class EmbeddedMetadataKeyList;
 class EmbeddedMetadataMappingTable;
 class FieldTemplateEditor;
 class HiddenItemsList;
+class KKeySequenceWidget;
 class KPageWidgetItem;
+class KWinIntegration;
 class PreviewSizeSpinBox;
 class QCheckBox;
 class QComboBox;
+class QGroupBox;
 class QLabel;
 class QListWidget;
 class QPushButton;
 class QTabWidget;
 class QTreeWidget;
 class QVBoxLayout;
+class RemoteProfilesEditor;
 class RuleListEditor;
 class StartupWorkspaceCombo;
 class TagFieldManagerWidget;
+class WorkspaceCombo;
+class WorkspaceVaultSettings;
 class YaziColumnRatiosEditor;
 
 namespace LibraryConfirmations
@@ -58,6 +72,10 @@ public:
      */
     SettingsDialog(KFilePlacesModel *places, QWidget *parent);
     void showToolbarPage();
+    /// Shows the KDE Plasma › Activities tab, where Activity associations are edited.
+    void showActivitiesPage();
+    /// Shows the KDE Plasma › KWin tab, where the KWin script and the drop-down window are configured.
+    void showKWinPage();
     /**
      * Sets the appearance options in the dialog to Plasma's defaults, except
      * AppearanceDefaults::keptEntries(). Nothing is saved until they are
@@ -87,6 +105,21 @@ public:
     void resetYaziModeToDefaults();
     /// Replaces the yes or no question asked before Restore Yazi Mode Defaults, for tests.
     void setYaziResetConfirmation(std::function<bool(const QString &)> confirm);
+    /**
+     * Replaces how KDE Plasma › File Manager checks for and restarts
+     * xdg-desktop-portal, and the question asked before restarting it, for tests.
+     * @p restart returns an error message, or an empty string on success.
+     */
+    void setPortalSetupHooks(std::function<bool()> available, std::function<QString()> restart, std::function<bool(const QString &)> confirm);
+    /// Replaces the yes or no question asked before removing the KWin script, for tests.
+    void setKWinRemovalConfirmation(std::function<bool()> confirm);
+    /**
+     * Replaces how KDE Plasma › KWin reads and assigns the drop-down window's
+     * global shortcut, for tests, and loads the shortcut again.
+     */
+    void setDropDownShortcutHooks(std::function<QKeySequence()> read, std::function<void(const QKeySequence &)> write);
+    /// Replaces the folder chooser of Security › Password-Gated Folders, for tests; it returns an empty path when canceled.
+    void setFolderGateChooser(std::function<QString()> choose);
     /// The theme profile options shown in the dialog, which may not be applied yet.
     QVariantMap appearanceValues() const;
     /// Shows Themes options in the dialog without applying them.
@@ -110,6 +143,8 @@ Q_SIGNALS:
      * settings are saved right after this signal.
      */
     void yaziDefaultsRestored();
+    /// Asks the main window to show local items, such as the MCP audit log, selected in a new tab of their folder.
+    void showItemsRequested(const QList<QUrl> &items);
 
 protected:
     void accept() override;
@@ -142,8 +177,8 @@ private:
     void applySidebarStyle(int size, bool below);
 
     QWidget *createSettingsDialogPage();
+    /// The KDE Plasma › System Tray tab.
     QWidget *createSystemTrayPage();
-    QWidget *createPlasmaSearchPage();
     QWidget *createLanguagePage();
     QWidget *createDateLanguagePage();
     QWidget *createToolbarEntriesPage();
@@ -266,7 +301,166 @@ private:
     QWidget *createWorkspaceLocationBarsPage();
     QWidget *createWorkspaceBehaviorsPage();
     QWidget *createWorkspacePortabilityPage();
-    QWidget *createWorkspaceActivitiesPage();
+    /// The KDE Plasma › File Manager tab: the default file manager and the system file chooser.
+    QWidget *createFileManagerIntegrationPage();
+    QGroupBox *createDefaultFileManagerGroup();
+    QGroupBox *createFileChooserGroup();
+    /// The KDE Plasma › Notifications tab: which operations report to Plasma.
+    QWidget *createNotificationsIntegrationPage();
+    /// The KDE Plasma › Shortcuts tab: the global shortcut that shows or hides Plasma Opus.
+    QWidget *createShortcutsIntegrationPage();
+    /// The main window's tray, which owns the global shortcut, if the dialog has one.
+    DesktopTray *desktopTray() const;
+    /**
+     * The KDE Plasma › Activities tab: whether Activity associations are used
+     * and offered, each Activity's association, and Activity usage reports.
+     */
+    QWidget *createActivitiesIntegrationPage();
+    /// The KDE Plasma › KDE Connect tab: whether File › Send to Device… is offered and remembers the device used last.
+    QWidget *createKdeConnectIntegrationPage();
+    /**
+     * The KDE Plasma › KRunner tab: whether the KRunner plugin offers
+     * anything, and which saved workspaces and Favorites it offers.
+     */
+    QWidget *createKRunnerIntegrationPage();
+    /// Lists the Favorites again in the KRunner tab after they change.
+    void reloadRunnerFavorites();
+    /**
+     * The KDE Plasma › Online Accounts tab: whether Plasma Opus shows KDE
+     * Online Accounts at all, and which of the accounts with file storage.
+     */
+    QWidget *createOnlineAccountsIntegrationPage();
+    /**
+     * The KDE Plasma › Mount Manager tab: which file systems the Mount Manager
+     * and Go › Mount Points list, and whether Mount Points is on the toolbar.
+     */
+    QWidget *createMountManagerIntegrationPage();
+    /**
+     * The KDE Plasma › KWin tab: installs, updates, enables, disables or
+     * removes the Plasma Opus KWin script on request, and chooses what it
+     * does with Plasma Opus windows and which workspace each virtual desktop
+     * applies.
+     */
+    QWidget *createKWinIntegrationPage();
+    /// The Drop-Down Window group of the KWin tab: how the main window slides in from a screen edge.
+    QGroupBox *createDropDownGroup();
+    /// The main window's KWin integration, which manages the KWin script, if the dialog has one.
+    KWinIntegration *kwinIntegration() const;
+    /**
+     * The KDE Plasma › Baloo tab: which indexed search extras the search
+     * panel offers, with the state of KDE's shared index, and KDE's File
+     * Search settings on request; and which file-type categories Places lists.
+     */
+    QWidget *createBalooIntegrationPage();
+    QGroupBox *createBalooSearchGroup();
+    /// The KDE Plasma › Baloo categories group: which file-type categories Places lists, and the large-file size.
+    QGroupBox *createFileTypeCategoriesGroup();
+    /// The Applications › Terminal tab.
+    QWidget *createTerminalIntegrationPage();
+    /// The Provider group of the Terminal tab: the terminals for Open Terminal Here and the embedded terminal.
+    QGroupBox *createTerminalProviderGroup();
+    /// The Atuin group of the Terminal tab: the history search action and the session it opens in.
+    /// @p embedded is the embedded terminal choice, whose component the search needs.
+    QGroupBox *createAtuinHistoryGroup(QComboBox *embedded);
+    /// The Applications › Editor tab.
+    QWidget *createEditorIntegrationPage();
+    /// The Provider group of the Editor tab: the editor that Edit opens text files in, and where terminal editors run.
+    QGroupBox *createEditorProviderGroup();
+    /// The Markdown group of the Editor tab: the vault folder and how the built-in editor previews and links Markdown notes.
+    QGroupBox *createEditorMarkdownGroup();
+    /// The Workspace vault group of the Editor tab: each workspace's vault location and its own Markdown options.
+    QGroupBox *createEditorWorkspaceVaultGroup();
+    /// The Preview Editing group of the Editor tab: whether and how text previews offer editing.
+    QGroupBox *createEditorPreviewGroup();
+    /// The Applications › Office tab.
+    QWidget *createOfficeIntegrationPage();
+    /// The Editing group of the Office tab: the office application that Edit opens documents in.
+    QGroupBox *createOfficeEditorGroup();
+    /// The Previews group of the Office tab: whether the preview panel shows office documents, and the viewer parts it uses.
+    QGroupBox *createOfficePreviewGroup();
+    /// The Applications › Media tab.
+    QWidget *createMediaIntegrationPage();
+    /// The Playback group of the Media tab: the backend that plays audio and video in the preview panel and gallery.
+    QGroupBox *createMediaBackendGroup();
+    /// The Applications › Ebooks and Fonts tab.
+    QWidget *createEbookFontIntegrationPage();
+    /// The Document Previews group of the Ebooks and Fonts tab: which ebook, comic and help file formats the preview panel shows.
+    QGroupBox *createEbookPreviewGroup();
+    /// The Fonts group of the Ebooks and Fonts tab: whether the preview panel shows fonts, and their sample text.
+    QGroupBox *createFontPreviewGroup();
+    /// The Applications › Packages tab.
+    QWidget *createPackagesIntegrationPage();
+    /// The Actions group of the Packages tab: which package families Application Package offers actions for, and the tools they need.
+    QGroupBox *createPackageActionsGroup();
+    /// The AppImage Menu Entries group of the Packages tab: whether and how AppImages are added to the application menu.
+    QGroupBox *createAppImageIntegrationGroup(QCheckBox *appImages);
+    /// The Applications › Mail tab.
+    QWidget *createMailIntegrationPage();
+    /// The Client group of the Mail tab: the default mail client, and whether Send by Email is offered.
+    QGroupBox *createMailClientGroup();
+    /// The Remote Files group of the Mail tab: whether Send by Email asks before preparing local copies of remote files or skips them.
+    QGroupBox *createMailRemoteFilesGroup();
+    /// The Mail File Preview group of the Mail tab: whether the preview panel shows mail files as messages.
+    QGroupBox *createMailPreviewGroup();
+    /// The Remote and Cloud › Connections tab.
+    QWidget *createRemoteConnectionsIntegrationPage();
+    /// The Saved Connections group of the Connections tab: @p editor, which saves changes immediately.
+    QGroupBox *createRemoteProfilesGroup(RemoteProfilesEditor *editor);
+    /// The Defaults for New Connections group of the Connections tab, which @p editor's new connections start with.
+    QGroupBox *createRemoteDefaultsGroup(RemoteProfilesEditor *editor);
+    /// The Local Network group of the Connections tab, which shows or hides Go › Network.
+    QGroupBox *createRemoteDiscoveryGroup();
+    /**
+     * The Remote and Cloud › rclone tab: whether Go › Cloud Storage offers
+     * rclone's remotes, which of them, and whether it mounts or serves them.
+     */
+    QWidget *createRcloneIntegrationPage();
+    /**
+     * Creates the Remote and Cloud › Remote Drives tab, which chooses how saved
+     * connections are mounted by default, where, and when they are mounted
+     * and unmounted automatically.
+     */
+    QWidget *createRemoteDrivesIntegrationPage();
+    /**
+     * The Remote and Cloud › Sync tab: the cloud sync pairs, managed as in
+     * File › Cloud Sync…, and when they synchronize in the background, and
+     * the rsync backend of File › Compare and Synchronize Folders….
+     */
+    QWidget *createSyncIntegrationPage();
+    /**
+     * The Remote and Cloud › Transfers and Cache tab: the limits of rclone
+     * mounts and rclone sync pairs, also set in File › Cloud Activity…, and
+     * whether the tray menu offers Cloud Activity….
+     */
+    QWidget *createTransfersIntegrationPage();
+    /**
+     * The Remote and Cloud › LAN Sharing tab: the choices that File › Share
+     * on Local Network… starts with.
+     */
+    QWidget *createLanSharingIntegrationPage();
+    /**
+     * The Security › MCP tab: what the opus-file-manager-mcp server lets MCP
+     * clients do, the folders they may use and its audit log.
+     */
+    QWidget *createMcpIntegrationPage();
+    /**
+     * The Security › Password-Gated Folders tab: the folders that Plasma Opus
+     * shows only after their password is entered, managed immediately.
+     */
+    QWidget *createFolderGatesIntegrationPage();
+    /**
+     * The Security › Encryption tab: the vaults Go › Plasma Vaults lists and
+     * whether it shows their state, and the file encryption actions.
+     */
+    QWidget *createEncryptionIntegrationPage();
+    /// The Plasma Vault group of Security › Encryption.
+    QGroupBox *createPlasmaVaultGroup();
+    /// The Files group of Security › Encryption.
+    QGroupBox *createFileEncryptionGroup();
+    /// Shows the Editor › Editor tab, with the built-in editor's settings.
+    void showBuiltInEditorSettings();
+    /// The main window's Activity controller, which reads the Activities, if the dialog has one.
+    ActivityController *activityController() const;
     void createSettingsBackup();
     void restoreSettingsBackup();
     void exportWorkspaceProfiles();
@@ -283,6 +477,31 @@ private:
     QTabWidget *m_toolbarTabs = nullptr;
     KPageWidgetItem *m_workspacePage = nullptr;
     QTabWidget *m_workspaceTabs = nullptr;
+    KPageWidgetItem *m_editorPage = nullptr;
+    QTabWidget *m_editorTabs = nullptr;
+    KPageWidgetItem *m_toolsPage = nullptr;
+    QTabWidget *m_toolsTabs = nullptr;
+    KPageWidgetItem *m_plasmaPage = nullptr;
+    QTabWidget *m_plasmaTabs = nullptr;
+    ActivityAssociationsEditor *m_activityAssociations = nullptr;
+    HiddenItemsList *m_runnerWorkspaces = nullptr;
+    HiddenItemsList *m_runnerFavorites = nullptr;
+    DesktopWorkspacesEditor *m_desktopWorkspaces = nullptr;
+    /// The virtual desktop workspaces when they were last loaded or saved, to tell whether the dialog changed them.
+    QMap<QString, QString> m_savedDesktopWorkspaces;
+    std::function<bool()> m_confirmKWinRemoval;
+    WorkspaceCombo *m_dropDownWorkspace = nullptr;
+    WorkspaceVaultSettings *m_workspaceVaultSettings = nullptr;
+    KKeySequenceWidget *m_dropDownShortcut = nullptr;
+    /// The drop-down window's global shortcut when it was last loaded or assigned, to tell whether the dialog changed it.
+    QKeySequence m_savedDropDownShortcut;
+    /// Read and assign the drop-down window's global shortcut; empty without a main window.
+    std::function<QKeySequence()> m_readDropDownShortcut;
+    std::function<void(const QKeySequence &)> m_writeDropDownShortcut;
+    /// Enables the drop-down shortcut and shows whether it can work.
+    std::function<void()> m_refreshDropDownShortcut;
+    /// The Activity associations when they were last loaded or saved, to tell whether the dialog changed them.
+    QList<ActivityAssociations::Association> m_savedActivityAssociations;
     QLabel *m_yaziWorkspaceDefault = nullptr;
     QListWidget *m_workspaceSummary = nullptr;
     StartupWorkspaceCombo *m_startupWorkspace = nullptr;
@@ -292,6 +511,7 @@ private:
     std::function<bool(const QString &)> m_confirm;
     std::function<bool(const LibraryConfirmations::Confirmation &)> m_confirmLibrary;
     std::function<QString()> m_chooseLibraryFolder;
+    std::function<QString()> m_chooseGateFolder;
     QTreeWidget *m_libraries = nullptr;
     QPushButton *m_removeLibrary = nullptr;
     QPushButton *m_moveLibraryDocument = nullptr;
@@ -314,6 +534,12 @@ private:
     int m_confirmedYaziKeyPreset = -1;
     std::function<bool(const QString &, const QStringList &)> m_confirmYaziKeys;
     std::function<bool(const QString &)> m_confirmYaziReset;
+    std::function<bool()> m_portalAvailable;
+    std::function<QString()> m_restartPortal;
+    std::function<bool(const QString &)> m_confirmPortalRestart;
+    KKeySequenceWidget *m_globalShortcutKey = nullptr;
+    /// Shows whether the applied global shortcut works.
+    std::function<void()> m_refreshGlobalShortcut;
     /// Whether Yazi mode defaults were restored since the settings were last applied or reloaded.
     bool m_yaziResetPending = false;
     /// A checkbox for a setting kept outside Settings, in config that KIO

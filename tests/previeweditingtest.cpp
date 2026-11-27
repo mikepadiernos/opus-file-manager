@@ -294,6 +294,59 @@ private Q_SLOTS:
         QVERIFY(!edit->isVisible());
     }
 
+    void settingsChooseHowEditingIsOffered()
+    {
+        const QString path = writeFile(QStringLiteral("offered.txt"), "offered\n");
+        PreviewPanel panel;
+        panel.resize(500, 400);
+        panel.show();
+        panel.setItems({item(path)});
+        auto *text = panel.findChild<QPlainTextEdit *>(QStringLiteral("previewText"));
+        QTRY_COMPARE(text->toPlainText(), QStringLiteral("offered\n"));
+        auto *edit = button(&panel, QStringLiteral("previewEdit"));
+        QVERIFY(edit->isVisible());
+
+        // Double-clicking only starts editing when it is turned on.
+        QTest::mouseDClick(text->viewport(), Qt::LeftButton);
+        QVERIFY(!panel.isEditing());
+        Settings::setPreviewEditOnDoubleClick(true);
+        panel.applyPresentationSettings();
+        QTest::mouseDClick(text->viewport(), Qt::LeftButton);
+        QVERIFY(panel.isEditing());
+        QVERIFY(panel.queryClose());
+        QVERIFY(!panel.isEditing());
+
+        Settings::setPreviewEditing(false);
+        panel.applyPresentationSettings();
+        QVERIFY(!edit->isVisible());
+        QTest::mouseDClick(text->viewport(), Qt::LeftButton);
+        QVERIFY(!panel.isEditing());
+        const QString other = writeFile(QStringLiteral("not-offered.txt"), "not offered\n");
+        panel.setItems({item(other)});
+        QTRY_COMPARE(text->toPlainText(), QStringLiteral("not offered\n"));
+        QVERIFY(!edit->isVisible());
+
+        Settings::setPreviewEditing(true);
+        panel.applyPresentationSettings();
+        QVERIFY(edit->isVisible());
+    }
+
+    void savingCanKeepTheFileOpen()
+    {
+        Settings::setPreviewReturnAfterSave(false);
+        const QString path = writeFile(QStringLiteral("kept-open.txt"), "open\n");
+        PreviewPanel panel;
+        panel.show();
+        QVERIFY(startEditing(panel, path));
+        KTextEditor::Document *doc = document(panel);
+        QVERIFY(doc->setText(QStringLiteral("saved\n")));
+        QVERIFY(doc->documentSave());
+        QTest::qWait(50);
+        QVERIFY(panel.isEditing());
+        QCOMPARE(readFile(path), QByteArray("saved\n"));
+        QVERIFY(panel.queryClose());
+    }
+
     void moveToEditorHandsOverTheChanges()
     {
         const QString path = writeFile(QStringLiteral("move.txt"), "move\n");

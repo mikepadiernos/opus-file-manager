@@ -184,7 +184,20 @@ QString findInPath(Tool tool, const QString &mimeType)
 std::optional<Choice> choose(const QUrl &url, const QString &mimeType, QString *error, const Finder &finder)
 {
     const Category fileCategory = category(mimeType);
-    const QList<Tool> tools = candidates(fileCategory);
+    QList<Tool> tools = candidates(fileCategory);
+    std::optional<Tool> preferred;
+    if (fileCategory == Category::Office) {
+        if (const auto app = OfficeApps::preferredApp()) {
+            for (const Tool tool : std::as_const(tools)) {
+                if (officeApp(tool) == app) {
+                    preferred = tool;
+                }
+            }
+            if (preferred) {
+                tools = {*preferred};
+            }
+        }
+    }
     if (tools.isEmpty()) {
         const QMimeType type = QMimeDatabase().mimeTypeForName(mimeType);
         *error = i18nc("@info %1 is a file name, %2 a file type",
@@ -214,6 +227,13 @@ std::optional<Choice> choose(const QUrl &url, const QString &mimeType, QString *
     }
     if (localOnly) {
         *error = i18nc("@info %1 is an application", "%1 can only open local files. Copy the file to a local folder first.", name(*localOnly));
+        return std::nullopt;
+    }
+    if (preferred) {
+        *error = i18nc("@info %1 is an office application, %2 its command",
+                       "%1, chosen under Preferences › Applications › Office, is not installed, or its %2 command is not in PATH.",
+                       name(*preferred),
+                       executable(*preferred, mimeType));
         return std::nullopt;
     }
     switch (fileCategory) {

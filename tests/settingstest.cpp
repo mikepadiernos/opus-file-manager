@@ -55,6 +55,7 @@
 #include <QFile>
 #include <QFrame>
 #include <QGraphicsOpacityEffect>
+#include <QGroupBox>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLayout>
@@ -1314,34 +1315,83 @@ private Q_SLOTS:
         for (int row = 0; row < pages->rowCount(); ++row) {
             titles.append(pages->index(row, 0).data().toString());
         }
-        QCOMPARE(titles,
-                 QStringList({QStringLiteral("General"),
-                              QStringLiteral("Translation"),
-                              QStringLiteral("Backup"),
-                              QStringLiteral("Interface"),
-                              QStringLiteral("Themes"),
-                              QStringLiteral("Branding"),
-                              QStringLiteral("View"),
-                              QStringLiteral("Yazi Mode"),
-                              QStringLiteral("Context Menu"),
-                              QStringLiteral("Archives"),
-                              QStringLiteral("Files"),
-                              QStringLiteral("Tagging"),
-                              QStringLiteral("Workspaces"),
-                              QStringLiteral("Gallery"),
-                              QStringLiteral("Editor"),
-                              QStringLiteral("Tools")}));
+        QCOMPARE(titles, QStringList({QStringLiteral("General"),
+                                      QStringLiteral("Translation"),
+                                      QStringLiteral("Backup"),
+                                      QStringLiteral("Interface"),
+                                      QStringLiteral("Themes"),
+                                      QStringLiteral("Branding"),
+                                      QStringLiteral("View"),
+                                      QStringLiteral("Yazi Mode"),
+                                      QStringLiteral("Context Menu"),
+                                      QStringLiteral("Archives"),
+                                      QStringLiteral("Files"),
+                                      QStringLiteral("Tagging"),
+                                      QStringLiteral("Workspaces"),
+                                      QStringLiteral("Gallery"),
+                                      QStringLiteral("Editor"),
+                                      QStringLiteral("Tools"),
+                                      QStringLiteral("KDE Plasma"),
+                                      QStringLiteral("Applications"),
+                                      QStringLiteral("Remote and Cloud"),
+                                      QStringLiteral("Security")}));
 
         const auto tabOf = [&dialog](const QString &entry) {
             return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));
         };
         QCOMPARE(tabOf(QStringLiteral("SidebarTitlePosition")), QStringLiteral("Settings Dialog"));
-        for (const QString &entry : {QStringLiteral("ShowTrayIcon"), QStringLiteral("MinimizeToTray"), QStringLiteral("CloseToTray")}) {
+        for (const QString &entry :
+             {QStringLiteral("ShowTrayIcon"), QStringLiteral("MinimizeToTray"), QStringLiteral("CloseToTray"), QStringLiteral("StartHiddenInTray")}) {
             QCOMPARE(tabOf(entry), QStringLiteral("System Tray"));
         }
+        QCOMPARE(tabOf(QStringLiteral("GlobalShortcut")), QStringLiteral("Shortcuts"));
         QCOMPARE(tabOf(QStringLiteral("ActivityAssociations")), QStringLiteral("Activities"));
-        QCOMPARE(tabOf(QStringLiteral("RunnerWorkspaces")), QStringLiteral("Plasma Search"));
-        QCOMPARE(tabOf(QStringLiteral("RunnerFavorites")), QStringLiteral("Plasma Search"));
+        QCOMPARE(tabOf(QStringLiteral("FileChooserStartFolder")), QStringLiteral("File Manager"));
+        for (const QString &entry : {QStringLiteral("McpAccess"), QStringLiteral("McpFolders"), QStringLiteral("McpAuditLog")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("MCP"));
+        }
+        for (const QString &entry : {QStringLiteral("PlasmaVaultMenu"), QStringLiteral("PlasmaVaultHidden"), QStringLiteral("PlasmaVaultShowState")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Encryption"));
+        }
+        for (const QString &entry : {QStringLiteral("GnuPGActions"),
+                                     QStringLiteral("AesCryptActions"),
+                                     QStringLiteral("EncryptionArmor"),
+                                     QStringLiteral("EncryptedSuffix"),
+                                     QStringLiteral("DecryptedNames")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Encryption"));
+        }
+        QCOMPARE(tabOf(QStringLiteral("SeparateTerminal")), QStringLiteral("Terminal"));
+        QCOMPARE(tabOf(QStringLiteral("EmbeddedTerminal")), QStringLiteral("Terminal"));
+        QCOMPARE(tabOf(QStringLiteral("AtuinHistory")), QStringLiteral("Terminal"));
+        QCOMPARE(tabOf(QStringLiteral("AtuinSession")), QStringLiteral("Terminal"));
+        for (const QString &entry : {QStringLiteral("TextEditorProvider"),
+                                     QStringLiteral("TerminalEditorSession"),
+                                     QStringLiteral("EditorVaultFolder"),
+                                     QStringLiteral("EditorMarkdownDialect"),
+                                     QStringLiteral("EditorMarkdownPreviewOnOpen"),
+                                     QStringLiteral("EditorWikiLinks"),
+                                     QStringLiteral("EditorVaultBacklinks"),
+                                     QStringLiteral("EditorVaultLinks"),
+                                     QStringLiteral("EditorVaultTags")}) {
+            QVERIFY(dialog.findChild<QWidget *>(QStringLiteral("editorIntegrationPage"))
+                        ->isAncestorOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry)));
+        }
+        for (const QString &entry : {QStringLiteral("NotifyChecksums"),
+                                     QStringLiteral("NotifyFolderSync"),
+                                     QStringLiteral("NotifyDuplicateFinder"),
+                                     QStringLiteral("NotifyFileSplit"),
+                                     QStringLiteral("NotifyBatchRename"),
+                                     QStringLiteral("NotifyImageConversion"),
+                                     QStringLiteral("NotifyLibraryRefresh")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Notifications"));
+        }
+        for (const QString &entry : {QStringLiteral("RunnerEnabled"),
+                                     QStringLiteral("RunnerWorkspaces"),
+                                     QStringLiteral("RunnerFavorites"),
+                                     QStringLiteral("RunnerHiddenWorkspaces"),
+                                     QStringLiteral("RunnerHiddenFavorites")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("KRunner"));
+        }
         QCOMPARE(tabOf(QStringLiteral("OfferActivityAssociation")), QStringLiteral("Activities"));
         QCOMPARE(tabOf(QStringLiteral("ReportActivityUsage")), QStringLiteral("Activities"));
         QCOMPARE(tabOf(QStringLiteral("NewLibraryStorage")), QStringLiteral("Privacy"));
@@ -1743,12 +1793,25 @@ private Q_SLOTS:
         dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_DefaultSelectionMarkers"))->setChecked(true);
         dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_DefaultSelectionMode"))->setChecked(true);
         dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultArchiveFormat"))->setCurrentIndex(static_cast<int>(ArchiveWriter::Format::TarXz));
+        auto *archivesPage = dialog.findChild<QWidget *>(QStringLiteral("archivesPage"));
+        QVERIFY(archivesPage);
+        QVERIFY(archivesPage->findChild<QGroupBox *>(QStringLiteral("archiveCreationGroup")));
+        QVERIFY(archivesPage->findChild<QLabel *>(QStringLiteral("archiveCreationStatus"))->text().contains(QStringLiteral("Ark")));
+        auto *volumeSize = archivesPage->findChild<QSpinBox *>(QStringLiteral("kcfg_ArchiveVolumeSizeMiB"));
+        QVERIFY(volumeSize && !volumeSize->isEnabled());
+        archivesPage->findChild<QCheckBox *>(QStringLiteral("kcfg_ArchiveSplitByDefault"))->setChecked(true);
+        QVERIFY(volumeSize->isEnabled());
+        volumeSize->setValue(700);
+        archivesPage->findChild<QCheckBox *>(QStringLiteral("kcfg_ArchivePromptForPassword"))->setChecked(false);
         dialog.button(QDialogButtonBox::Apply)->click();
 
         QVERIFY(!Settings::favoritesVisible());
         QCOMPARE(Settings::panelPosition(), Settings::EnumPanelPosition::right);
         QCOMPARE(Settings::defaultArchiveFormat(), static_cast<int>(ArchiveWriter::Format::TarXz));
         QVERIFY(Settings::archiveOtherPaneByDefault());
+        QVERIFY(Settings::archiveSplitByDefault());
+        QCOMPARE(Settings::archiveVolumeSizeMiB(), 700);
+        QVERIFY(!Settings::archivePromptForPassword());
         QVERIFY(!Settings::showTabColors());
         auto *tree = qobject_cast<QTreeView *>(window.activePane()->view()->currentView());
         QVERIFY(tree);
@@ -1787,6 +1850,10 @@ private Q_SLOTS:
         QCOMPARE(Settings::panelPosition(), Settings::EnumPanelPosition::left);
         QCOMPARE(Settings::defaultArchiveFormat(), static_cast<int>(ArchiveWriter::Format::Zip));
         QVERIFY(!Settings::archiveOtherPaneByDefault());
+        QVERIFY(!Settings::archiveSplitByDefault());
+        QCOMPARE(Settings::archiveVolumeSizeMiB(), 100);
+        QVERIFY(Settings::archivePromptForPassword());
+        QVERIFY(!volumeSize->isEnabled());
         QVERIFY(Settings::showTabColors());
         QVERIFY(tree->itemsExpandable());
         QVERIFY(!window.activePane()->view()->selectionMarkersVisible());

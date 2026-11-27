@@ -42,6 +42,7 @@
 #include <QMediaPlayer>
 #include <QMenu>
 #include <QMimeDatabase>
+#include <QMouseEvent>
 #include <QPaintEvent>
 #include <QPainter>
 #include <QPlainTextEdit>
@@ -93,6 +94,25 @@ protected:
 bool isDocumentMime(const QString &mimeType)
 {
     return DocumentFormats::usesDocumentViewer(mimeType);
+}
+
+/// The bit of formatPreviews() for mail file previews, above the document format kinds.
+constexpr quint32 MailPreviewBit = 1U << 31;
+
+/// The document formats and mail files that are previewed, one bit per kind, so that changing them loads the preview again.
+quint32 formatPreviews()
+{
+    using DocumentFormats::Kind;
+    quint32 enabled = 0;
+    for (const Kind kind : {Kind::Pdf, Kind::Office, Kind::Ebook, Kind::Comic, Kind::DjVu, Kind::HelpFile, Kind::Font}) {
+        if (DocumentFormats::previewEnabled(kind)) {
+            enabled |= 1U << static_cast<int>(kind);
+        }
+    }
+    if (Settings::mailPreviews()) {
+        enabled |= MailPreviewBit;
+    }
+    return enabled;
 }
 
 bool isMailMime(const QString &mimeType)
@@ -285,6 +305,9 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     m_preferFormatted = Settings::previewFormatted();
     m_showLineNumbers = Settings::previewLineNumbers();
     m_syntaxHighlighting = Settings::previewSyntaxHighlighting();
+    m_editingOffered = Settings::previewEditing();
+    m_editOnDoubleClick = Settings::previewEditOnDoubleClick();
+    m_returnAfterSave = Settings::previewReturnAfterSave();
     m_text->setLineNumbersVisible(m_showLineNumbers);
     setMinimumWidth(240);
     m_title->setTextFormat(Qt::PlainText);
@@ -310,6 +333,9 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     m_renderedText->setOpenLinks(false);
     m_renderedText->setOpenExternalLinks(false);
     m_renderedText->setLineWrapMode(QTextEdit::NoWrap);
+    // Double-clicking either text view can start editing.
+    m_text->viewport()->installEventFilter(this);
+    m_renderedText->viewport()->installEventFilter(this);
 
     m_close = new QToolButton(this);
     m_close->setObjectName(QStringLiteral("previewClose"));
@@ -390,7 +416,6 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     m_edit = new QToolButton(this);
     m_edit->setObjectName(QStringLiteral("previewEdit"));
     m_edit->setText(i18nc("@action", "Edit"));
-    m_edit->setToolTip(i18nc("@info:tooltip", "Edit the whole file here"));
     m_edit->hide();
     connect(m_edit, &QToolButton::clicked, this, &PreviewPanel::startEditing);
     m_editMove = new QToolButton(this);
@@ -568,7 +593,7 @@ void PreviewPanel::endEditing()
 
 void PreviewPanel::startEditing()
 {
-    if (m_editing || m_compact || m_url.isEmpty() || m_textMimeType.isEmpty()) {
+    if (!m_editingOffered || m_editing || m_compact || m_url.isEmpty() || m_textMimeType.isEmpty()) {
         return;
     }
     if (!m_url.isLocalFile()) {
@@ -608,7 +633,7 @@ void PreviewPanel::startEditing()
         m_content->addWidget(m_editor);
         connect(m_editor->document(), &KTextEditor::Document::documentSavedOrUploaded, this, [this] {
             QTimer::singleShot(0, this, [this] {
-                if (m_editing && !m_editor->document()->isModified()) {
+                if (m_editing && !m_editor->document()->isModified() && m_returnAfterSave) {
                     stopEditing();
                 }
             });
@@ -665,7 +690,9 @@ void PreviewPanel::stopEditing()
 
 void PreviewPanel::updateEditControls()
 {
-    m_edit->setVisible(!m_compact && !m_editing && !m_url.isEmpty() && !m_textMimeType.isEmpty());
+    m_edit->setVisible(m_editingOffered && !m_compact && !m_editing && !m_url.isEmpty() && !m_textMimeType.isEmpty());
+    m_edit->setToolTip(m_editOnDoubleClick ? i18nc("@info:tooltip", "Edit the whole file here; double-clicking the preview does too")
+                                           : i18nc("@info:tooltip", "Edit the whole file here"));
     m_editMove->setVisible(m_editing);
     m_editClose->setVisible(m_editing);
     if (m_editing) {
@@ -706,6 +733,11 @@ void PreviewPanel::applyPresentationSettings()
     m_showLineNumbers = Settings::previewLineNumbers();
     m_syntaxHighlighting = Settings::previewSyntaxHighlighting();
     m_text->setLineNumbersVisible(m_showLineNumbers);
+    // Turning editing off leaves a file being edited open until it is closed.
+    m_editingOffered = Settings::previewEditing();
+    m_editOnDoubleClick = Settings::previewEditOnDoubleClick();
+    m_returnAfterSave = Settings::previewReturnAfterSave();
+    updateEditControls();
     if (!changed || m_textMimeType.isEmpty()) {
         return;
     }
@@ -755,11 +787,13 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
     m_title->setText(imageIndex >= 0 ? i18nc("@title", "%1 (%2 of %3)", item.text(), imageIndex + 1, m_images.size()) : item.text());
     m_title->show();
     const qint64 textLimit = qint64(Settings::textPreviewLimitKiB()) * 1024;
-    if (item.url() == m_url && textLimit == m_textLimit) {
+    const quint32 previews = formatPreviews();
+    if (item.url() == m_url && textLimit == m_textLimit && previews == m_formatPreviews) {
         return;
     }
     m_url = item.url();
     m_textLimit = textLimit;
+    m_formatPreviews = previews;
     ++m_generation;
     m_editNotice->hide();
     m_pendingUrl = {};
@@ -789,6 +823,11 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
     setBusy(true);
 
     if (!m_url.isLocalFile()) {
+        // A format whose previews are off isn't downloaded.
+        if (const DocumentFormats::Kind format = DocumentFormats::kind(item.mimetype()); !DocumentFormats::previewEnabled(format)) {
+            showMessage(DocumentFormats::previewDisabledMessage(format));
+            return;
+        }
         startRemotePreview(m_url);
         return;
     }
@@ -802,7 +841,8 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
         showFont(m_url, m_url, mimeType);
         return;
     }
-    if (isMailMime(mimeType)) {
+    // With mail previews off, a message shows as plain text like other text files.
+    if (isMailMime(mimeType) && Settings::mailPreviews()) {
         showMail(m_url);
         return;
     }
@@ -1044,6 +1084,10 @@ void PreviewPanel::showDocument(const QUrl &url, const QString &mimeType)
         showMessage(i18nc("@info", "Could not open this document."));
         return;
     }
+    if (const DocumentFormats::Kind format = DocumentFormats::kind(mimeType); !DocumentFormats::previewEnabled(format)) {
+        showMessage(DocumentFormats::previewDisabledMessage(format));
+        return;
+    }
     if (KParts::PartLoader::partsForMimeType(mimeType).isEmpty()) {
         showMessage(DocumentFormats::missingViewerMessage(DocumentFormats::kind(mimeType)));
         return;
@@ -1095,6 +1139,10 @@ void PreviewPanel::clearDocument()
 
 void PreviewPanel::showFont(const QUrl &url, const QUrl &source, const QString &mimeType)
 {
+    if (!DocumentFormats::previewEnabled(DocumentFormats::Kind::Font)) {
+        showMessage(DocumentFormats::previewDisabledMessage(DocumentFormats::Kind::Font));
+        return;
+    }
     if (!m_font) {
         m_font = new FontPreview(m_content);
         m_font->setObjectName(QStringLiteral("previewFont"));
@@ -1308,6 +1356,11 @@ bool PreviewPanel::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == m_imageLabel && event->type() == QEvent::Resize) {
         updateImage();
+    }
+    if (event->type() == QEvent::MouseButtonDblClick && m_editOnDoubleClick && !m_edit->isHidden()
+        && (watched == m_text->viewport() || watched == m_renderedText->viewport()) && static_cast<QMouseEvent *>(event)->button() == Qt::LeftButton) {
+        startEditing();
+        return true;
     }
     return QWidget::eventFilter(watched, event);
 }

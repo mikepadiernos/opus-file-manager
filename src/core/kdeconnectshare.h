@@ -55,4 +55,18 @@ QString unavailableReason(const Device &device);
 
 /// A short, localized description of why @p rejected cannot be sent.
 QString reasonText(Reason reason);
+
+/// The device to choose among @p devices: @p previous when it can receive
+/// files, otherwise the first device that can, otherwise @p previous when it
+/// is listed, otherwise the first device. Empty when none is listed.
+QString preferredDevice(const QList<Device> &devices, const QString &previous);
+
+/// The device the files were last sent to, or an empty string when none is
+/// remembered or the KdeConnectRememberDevice setting is off.
+QString rememberedDevice();
+/// Remembers @p deviceId as the last device used, in the state config, only
+/// while the KdeConnectRememberDevice setting is on; otherwise forgets it.
+void rememberDevice(const QString &deviceId);
+/// Forgets the last device used.
+void forgetDevice();
 }

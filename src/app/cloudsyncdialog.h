@@ -79,6 +79,8 @@ private:
     QPlainTextEdit *m_exclude;
     QCheckBox *m_recursive;
     QSpinBox *m_interval;
+    QCheckBox *m_defaultInterval;
+    QComboBox *m_conflictChoice;
     QCheckBox *m_paused;
     QLabel *m_error;
     QPushButton *m_ok;
@@ -102,16 +104,18 @@ private:
     QList<std::pair<QString, QComboBox *>> m_choices;
 };
 
-/// Manages two-way synchronization pairs and shows their status.
-class CloudSyncDialog : public QDialog
+/// Manages two-way synchronization pairs and shows their status. Changes
+/// take effect immediately.
+class CloudSyncPairsWidget : public QWidget
 {
     Q_OBJECT
 
 public:
-    CloudSyncDialog(CloudSync::Scheduler *scheduler, KSharedConfig::Ptr config, RcloneMounts *rclone, QWidget *parent = nullptr);
+    CloudSyncPairsWidget(CloudSync::Scheduler *scheduler, KSharedConfig::Ptr config, RcloneMounts *rclone, QWidget *parent = nullptr);
 
     /// Opens the review of @p id once its preview is ready.
     void review(const QString &id);
+    void showMessage(const QString &message);
 
 private:
     void refresh();
@@ -124,7 +128,6 @@ private:
     void removePair();
     void editPair(const CloudSync::Pair &pair, bool isNew);
     void showReview(const QString &id, const CloudSync::Report &report);
-    void showMessage(const QString &message);
 
     QPointer<CloudSync::Scheduler> m_scheduler;
     KSharedConfig::Ptr m_config;
@@ -138,10 +141,29 @@ private:
     QPushButton *m_cancel;
     QPushButton *m_pause;
     QPushButton *m_pauseAccount;
-    QCheckBox *m_startAtLogin;
-    QCheckBox *m_metered;
     QLabel *m_message;
     /// Pairs whose review opens once their requested preview or run finishes.
     QSet<QString> m_awaitingReview;
     QPointer<CloudSyncReviewDialog> m_reviewDialog;
+};
+
+/// Manages two-way synchronization pairs and whether they synchronize in the
+/// background.
+class CloudSyncDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    CloudSyncDialog(CloudSync::Scheduler *scheduler, KSharedConfig::Ptr config, RcloneMounts *rclone, QWidget *parent = nullptr);
+
+    /// Opens the review of @p id once its preview is ready.
+    void review(const QString &id);
+
+private:
+    void updateBackground();
+
+    QPointer<CloudSync::Scheduler> m_scheduler;
+    CloudSyncPairsWidget *m_list;
+    QCheckBox *m_startAtLogin;
+    QCheckBox *m_metered;
 };

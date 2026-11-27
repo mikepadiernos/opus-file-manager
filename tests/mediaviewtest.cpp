@@ -126,6 +126,32 @@ private Q_SLOTS:
 #endif
     }
 
+    void followsABackendChosenElsewhere()
+    {
+        MediaView view;
+        view.show();
+        view.open(audio(), false, false);
+        QVERIFY(view.player());
+        // Preferences › Applications › Media saves the setting, which an open view follows.
+        Settings::setMediaBackend(Settings::EnumMediaBackend::Mpv);
+        Settings::self()->save();
+        auto *backend = view.findChild<QToolButton *>(QStringLiteral("mediaBackend"));
+        QCOMPARE(backend->text(), QStringLiteral("mpv"));
+        QVERIFY(view.findChild<QAction *>(QStringLiteral("mediaBackendMpv"))->isChecked());
+        if (MediaBackend::mpvBuilt()) {
+            QVERIFY(view.mpvPlayer());
+            QVERIFY(!view.player());
+        } else {
+            QVERIFY(view.player());
+            QVERIFY(view.findChild<QLabel *>(QStringLiteral("mediaNotice"))->text().contains(QStringLiteral("no mpv support")));
+        }
+        Settings::setMediaBackend(Settings::EnumMediaBackend::QtMultimedia);
+        Settings::self()->save();
+        QCOMPARE(backend->text(), QStringLiteral("Qt Multimedia"));
+        QVERIFY(view.player());
+        QVERIFY(!view.mpvPlayer());
+    }
+
     void missingMpvSupportIsReported()
     {
         if (MediaBackend::mpvBuilt()) {

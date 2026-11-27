@@ -3,7 +3,6 @@
 #include "mainwindow.h"
 #include "metadataeditdialog.h"
 
-#include "activityassociationsdialog.h"
 #include "activitycontroller.h"
 #include "activityreporting.h"
 #include "adminmode.h"
@@ -57,9 +56,10 @@
 #include "indexstatusdialog.h"
 #include "informationpanel.h"
 #include "kdeconnectclient.h"
+#include "kdeconnectshare.h"
 #include "kdeconnectsharedialog.h"
 #include "kwinintegration.h"
-#include "kwinintegrationdialog.h"
+
 #include "labelcolor.h"
 #include "lansharedialog.h"
 #include "libraryautorefresh.h"
@@ -77,6 +77,7 @@
 #include "remotemountdialog.h"
 #include "remotemounts.h"
 #include "remoteprofilesdialog.h"
+#include "remoteprofileseditor.h"
 #include "searchdefaults.h"
 #include "searchpanel.h"
 #include "searchquery.h"
@@ -124,6 +125,7 @@
 #include <KGlobalAccel>
 #include <KGuiItem>
 #include <KHamburgerMenu>
+#include <KIO/AuthInfo>
 #include <KIO/CommandLauncherJob>
 #include <KIO/CopyJob>
 #include <KIO/DirectorySizeJob>
@@ -139,11 +141,13 @@
 #include <KMessageBox>
 #include <KMessageWidget>
 #include <KNewFileMenu>
+#include <KPasswdServerClient>
 #include <KPropertiesDialog>
 #include <KProtocolInfo>
 #include <KSelectAction>
 #include <KSharedConfig>
 #include <KStandardAction>
+#include <KTerminalLauncherJob>
 #include <KTextEditor/Document>
 #include <KToggleAction>
 #include <KToolBar>
@@ -523,7 +527,8 @@ MainWindow::MainWindow(QWidget *parent)
     if (searchDefaultsMigrated) {
         searchDefaults.sync();
     }
-    if (ViewSettings::migrateColumns(legacyView, views) || searchDefaultsMigrated) {
+    const bool cloudSyncMigrated = CloudSync::migrateStartAtLogin(KSharedConfig::openConfig()->group(QStringLiteral("CloudSync")));
+    if (ViewSettings::migrateColumns(legacyView, views) || searchDefaultsMigrated || cloudSyncMigrated) {
         Settings::self()->load();
     }
     setComponentName(AppIdentity::componentName(), AppIdentity::displayName());
@@ -575,7 +580,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_cloudActivity = new CloudActivity::Monitor(this);
     m_cloudActivity->setTransferQueue(FileOperations::transferQueue());
     m_cloudActivity->setScheduler(m_cloudSync);
-    applyCloudLimits(CloudActivity::loadLimits(KSharedConfig::openConfig()->group(QStringLiteral("CloudActivity"))));
+    applyCloudLimits(CloudActivity::loadLimits(KSharedConfig::openConfig()->group(CloudActivity::limitsGroupName())));
     connect(m_desktopTray, &DesktopTray::cloudActivityRequested, this, &MainWindow::showCloudActivity);
     m_desktopTray->setQuitCheck([this] {
         return waitForCloudUploads(i18nc("@info", "Plasma Opus is still uploading files. Quitting now stops the uploads."), {}, true);
@@ -978,6 +983,7 @@ void MainWindow::showWorkspaces()
         }
         m_currentWorkspaceId = id;
         refreshWorkspaceLocations();
+        mountRemoteProfilesForWorkspace(id);
         const auto workspace = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [&id](const auto &entry) {
             return entry.id == id;
         });
@@ -1018,11 +1024,10 @@ ActivityController *MainWindow::activityController() const
 
 void MainWindow::showActivityAssociations()
 {
-    reloadWorkspaceCatalog();
-    auto *dialog = new ActivityAssociationsDialog(m_activityController, m_workspaceCatalog, this);
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->setModal(true);
-    dialog->show();
+    showSettings();
+    if (auto *dialog = qobject_cast<SettingsDialog *>(KConfigDialog::exists(QLatin1String(SettingsDialog::Name)))) {
+        dialog->showActivitiesPage();
+    }
 }
 
 void MainWindow::applyActivityPlan(const ActivityAssociations::Plan &plan)
@@ -1271,24 +1276,22 @@ void MainWindow::refreshWorkspaceLocations()
         const bool workspaceVisible = m_workspaceLocations->isVisible(m_placesModel->url(index), m_workspaceCatalog, m_currentWorkspaceId);
         m_placesView->setRowHidden(row, !nativeVisible || !workspaceVisible);
     }
-    EditorPanel::setWorkspaceVault(workspaceVaultRoot());
+    EditorPanel::setWorkspaceVaultState(workspaceVault());
     scheduleWorkspaceSelectorRefresh();
 }
 
-QString MainWindow::workspaceVaultRoot() const
+EditorPanel::WorkspaceVault MainWindow::workspaceVault() const
 {
     const auto workspace = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [this](const auto &entry) {
         return entry.id == m_currentWorkspaceId;
     });
-    if (workspace == m_workspaceCatalog.workspaces.cend() || workspace->vaultLocationId.isEmpty()) {
+    if (workspace == m_workspaceCatalog.workspaces.cend() || workspace->vaultLocationId.isEmpty() || !workspace->vaultEnabled) {
         return {};
     }
-    for (const auto &location : m_workspaceLocations->locations()) {
-        if (location.id == workspace->vaultLocationId && !location.ambiguous && location.url.isLocalFile()) {
-            return location.url.toLocalFile();
-        }
-    }
-    return {};
+    EditorPanel::WorkspaceVault vault;
+    vault.root = m_workspaceLocations->vaultFolder(workspace->vaultLocationId, &vault.unavailable);
+    vault.options = workspace->vaultOptions;
+    return vault;
 }
 
 void MainWindow::watchWorkspaceCatalog()
@@ -2014,6 +2017,8 @@ void MainWindow::compress()
                           static_cast<ArchiveWriter::Format>(Settings::defaultArchiveFormat()),
                           Settings::archiveOtherPaneByDefault(),
                           Ark::isInstalled());
+    dialog.setVolumeDefaults(Settings::archiveSplitByDefault(), Settings::archiveVolumeSizeMiB());
+    dialog.setPasswordOffered(Settings::archivePromptForPassword());
     const int result = dialog.exec();
     if (result == CompressDialog::UseArk) {
         launchArk(Ark::compressArguments(sources));
@@ -2538,28 +2543,81 @@ void MainWindow::showIndexStatus()
     dialog->show();
 }
 
+namespace
+{
+/// The file-type places listed in @p model, with their rows.
+QList<std::pair<FileTypePlaces::Category, QModelIndex>> fileTypePlaceRows(const KFilePlacesModel *model)
+{
+    // The model lists only the entries this application can see, so another
+    // application's OnlyInApp entries for the same URLs don't count.
+    QList<std::pair<FileTypePlaces::Category, QModelIndex>> rows;
+    for (int row = 0; row < model->rowCount(); ++row) {
+        const QModelIndex index = model->index(row, 0);
+        FileTypePlaces::Category category = FileTypePlaces::Category::Documents;
+        if (FileTypePlaces::fromPlaceUrl(model->url(index), &category)) {
+            rows.append({category, index});
+        }
+    }
+    return rows;
+}
+
+QList<FileTypePlaces::Category> fileTypePlacesIn(const KFilePlacesModel *model)
+{
+    QList<FileTypePlaces::Category> present;
+    for (const auto &[category, index] : fileTypePlaceRows(model)) {
+        present.append(category);
+    }
+    return present;
+}
+}
+
 void MainWindow::addFileTypePlaces()
 {
     KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("FileTypePlaces"));
     if (state.readEntry("Added", false)) {
-        return;
+        rememberFileTypePlaces();
+    } else {
+        syncFileTypePlaces();
+        state.writeEntry("Added", true);
+        state.sync();
+    }
+    // Removing an entry from Places hides its category, as clearing it in Preferences does.
+    connect(m_placesModel, &QAbstractItemModel::rowsInserted, this, &MainWindow::rememberFileTypePlaces);
+    connect(m_placesModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::rememberFileTypePlaces);
+    connect(m_placesModel, &QAbstractItemModel::modelReset, this, &MainWindow::rememberFileTypePlaces);
+}
+
+void MainWindow::syncFileTypePlaces()
+{
+    m_syncingFileTypePlaces = true;
+    const FileTypePlaces::PlaceChanges changes = FileTypePlaces::placeChanges(Settings::fileTypeCategoriesHidden(), fileTypePlacesIn(m_placesModel));
+    for (const FileTypePlaces::Category category : changes.remove) {
+        // Each removal moves the later rows, so look the entry up again.
+        for (const auto &[present, index] : fileTypePlaceRows(m_placesModel)) {
+            if (present == category) {
+                m_placesModel->removePlace(index);
+                break;
+            }
+        }
     }
     // OnlyInApp keeps the entries out of other applications' Places, which can't open them.
     const QString appName = QCoreApplication::applicationName();
-    // The model lists only the entries this application can see, so another
-    // application's OnlyInApp entries for the same URLs don't count.
-    QSet<QUrl> existing;
-    for (int row = 0; row < m_placesModel->rowCount(); ++row) {
-        existing.insert(m_placesModel->url(m_placesModel->index(row, 0)));
+    for (const FileTypePlaces::Category category : changes.add) {
+        m_placesModel->addPlace(FileTypePlaces::title(category), FileTypePlaces::placeUrl(category), FileTypePlaces::iconName(category), appName);
     }
-    for (const FileTypePlaces::Category category : FileTypePlaces::categories()) {
-        const QUrl url = FileTypePlaces::placeUrl(category);
-        if (!existing.contains(url)) {
-            m_placesModel->addPlace(FileTypePlaces::title(category), url, FileTypePlaces::iconName(category), appName);
-        }
+    m_syncingFileTypePlaces = false;
+}
+
+void MainWindow::rememberFileTypePlaces()
+{
+    if (m_syncingFileTypePlaces) {
+        return;
     }
-    state.writeEntry("Added", true);
-    state.sync();
+    const QStringList hidden = FileTypePlaces::absentIds(fileTypePlacesIn(m_placesModel));
+    if (hidden != Settings::fileTypeCategoriesHidden()) {
+        Settings::setFileTypeCategoriesHidden(hidden);
+        Settings::self()->save();
+    }
 }
 
 void MainWindow::openFileTypePlace(Pane *pane, const QUrl &url, bool newTab)
@@ -2863,12 +2921,12 @@ void MainWindow::setupActions()
     applyActivity->setText(i18nc("@action", "Apply Activity Association"));
     QAction *kwinIntegration = actions->addAction(QStringLiteral("kwin_integration"), this, &MainWindow::showKWinIntegration);
     kwinIntegration->setText(i18nc("@action", "Configure KWin Integration…"));
-    kwinIntegration->setToolTip(i18nc("@info:tooltip", "Install the optional KWin script and choose how it manages Plasma Opus windows"));
+    kwinIntegration->setToolTip(i18nc("@info:tooltip", "Open Preferences › KDE Plasma › KWin to manage the KWin script and the drop-down window"));
     kwinIntegration->setIcon(SymbolicIcon::fromTheme(QStringLiteral("kwin")));
     QAction *toggleDropDown = actions->addAction(QStringLiteral("toggle_drop_down"), this, &MainWindow::toggleDropDown);
     toggleDropDown->setText(i18nc("@action", "Show or Hide Drop-Down Window"));
     toggleDropDown->setIcon(SymbolicIcon::fromTheme(QStringLiteral("go-down")));
-    // Unassigned by default; the user chooses one in Configure KWin Integration.
+    // Unassigned by default; the user chooses one under Preferences › KDE Plasma › KWin.
     KGlobalAccel::setGlobalShortcut(toggleDropDown, QList<QKeySequence>{});
 
     // File
@@ -3103,9 +3161,12 @@ void MainWindow::setupActions()
             if (!reason.isEmpty()) {
                 entry->setToolTip(reason);
             } else if (EditorProviders::runsInTerminal(editorProvider)) {
-                entry->setToolTip(i18nc("@info:tooltip %1 is a text editor",
-                                        "Open the selected files with %1 in the embedded terminal",
-                                        EditorProviders::name(editorProvider)));
+                entry->setToolTip(EditorProviders::usesSeparateTerminal() ? i18nc("@info:tooltip %1 is a text editor",
+                                                                                  "Open the selected files with %1 in a separate terminal",
+                                                                                  EditorProviders::name(editorProvider))
+                                                                          : i18nc("@info:tooltip %1 is a text editor",
+                                                                                  "Open the selected files with %1 in the embedded terminal",
+                                                                                  EditorProviders::name(editorProvider)));
             } else {
                 entry->setToolTip(i18nc("@info:tooltip %1 is a text editor", "Open the selected files in %1", EditorProviders::name(editorProvider)));
             }
@@ -3392,10 +3453,12 @@ void MainWindow::setupActions()
         updateTerminalPanelVisibility();
     });
     QAction *terminalHistory = actions->addAction(QStringLiteral("search_terminal_history"), this, [this] {
+        const int sessions = m_terminalPanel->sessionCount();
         if (!m_terminalPanelAction->isChecked()) {
             m_terminalPanelAction->setChecked(true);
         }
-        m_terminalPanel->searchHistory();
+        // Showing the panel may have opened a session for the search already.
+        m_terminalPanel->searchHistory(activePane()->url(), m_terminalPanel->sessionCount() > sessions);
     });
     terminalHistory->setText(i18nc("@action", "Search Command History with Atuin"));
     terminalHistory->setToolTip(i18nc("@info:tooltip", "Open Atuin's command history search in the embedded terminal without running the chosen command"));
@@ -3863,7 +3926,7 @@ void MainWindow::setupActions()
     manageRemote->setToolTip(i18nc("@info:tooltip", "Add, edit or remove saved SSH, WebDAV, SMB and FTP connections"));
     manageRemote->setIcon(SymbolicIcon::fromTheme(QStringLiteral("network-server")));
     auto *cloudStorage = new KActionMenu(SymbolicIcon::fromTheme(QStringLiteral("folder-cloud")), i18nc("@action", "Cloud Storage"), this);
-    cloudStorage->setToolTip(i18nc("@info:tooltip", "Mount and open a cloud remote configured in rclone"));
+    cloudStorage->setToolTip(i18nc("@info:tooltip", "Open a cloud remote configured in rclone"));
     cloudStorage->setPopupMode(QToolButton::InstantPopup);
     m_cloudStorageMenu = cloudStorage->menu();
     actions->addAction(QStringLiteral("cloud_storage"), cloudStorage);
@@ -4396,7 +4459,12 @@ void MainWindow::updateActions()
     QAction *editFile = actions->action(QStringLiteral("edit_file"));
     const bool editable = selected.size() == 1 && !selected.first().isDir() && EditTools::category(selected.first().mimetype()) != EditTools::Category::None;
     editFile->setEnabled(editable);
-    if (editable) {
+    const std::optional<EditorProviders::Editor> preferredEditor = EditorProviders::preferredEditor();
+    if (editable && preferredEditor && EditTools::category(selected.first().mimetype()) == EditTools::Category::Text) {
+        const QString reason = EditorProviders::unavailableReason(*preferredEditor);
+        editFile->setToolTip(
+            reason.isEmpty() ? i18nc("@info:tooltip %1 is a text editor", "Edit the selected file with %1", EditorProviders::name(*preferredEditor)) : reason);
+    } else if (editable) {
         QString error;
         const std::optional<EditTools::Choice> choice = EditTools::choose(selected.first().mostLocalUrl(), selected.first().mimetype(), &error);
         editFile->setToolTip(
@@ -4423,10 +4491,11 @@ void MainWindow::updateActions()
                                 return item.url().isLocalFile() && item.isFile() && !item.isLink();
                             });
     actions->action(QStringLiteral("create_checksum"))->setEnabled(localFiles);
-    actions->action(QStringLiteral("kdeconnect_send"))->setEnabled(hasSelection);
-    actions->action(QStringLiteral("send_by_email"))->setEnabled(std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
-        return !item.isDir();
-    }));
+    actions->action(QStringLiteral("kdeconnect_send"))->setEnabled(hasSelection && Settings::kdeConnectSharing());
+    actions->action(QStringLiteral("send_by_email"))
+        ->setEnabled(Settings::sendByEmail() && std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
+                         return !item.isDir();
+                     }));
     actions->action(QStringLiteral("share_on_network"))
         ->setEnabled(hasSelection ? std::all_of(selected.cbegin(),
                                                 selected.cend(),
@@ -5273,6 +5342,12 @@ void MainWindow::editFile()
     const KFileItem &item = items.first();
     const QUrl url = item.mostLocalUrl();
     const QString mimeType = item.mimetype();
+    // The editor chosen under Applications › Editor opens text; an unavailable one is reported rather than replaced.
+    if (const std::optional<EditorProviders::Editor> editor = EditorProviders::preferredEditor();
+        editor && EditTools::category(mimeType) == EditTools::Category::Text) {
+        editWithEditor(*editor);
+        return;
+    }
     QString error;
     const std::optional<EditTools::Choice> choice = EditTools::choose(url, mimeType, &error);
     if (!choice) {
@@ -5314,6 +5389,18 @@ void MainWindow::editWithEditor(EditorProviders::Editor editor)
         return;
     }
     const QString name = EditorProviders::name(editor);
+    if (EditorProviders::runsInTerminal(editor) && EditorProviders::usesSeparateTerminal()) {
+        // KDE's configured terminal application, as for Open Terminal Here.
+        auto *job = new KTerminalLauncherJob(EditorProviders::terminalCommand(executable, arguments), this);
+        job->setWorkingDirectory(EditorProviders::workingDirectory(urls));
+        connect(job, &KJob::result, this, [this, name](KJob *finished) {
+            if (finished->error()) {
+                showStatusMessage(i18nc("@info:status %1 is a text editor, %2 the error", "Could not start %1: %2", name, finished->errorString()));
+            }
+        });
+        job->start();
+        return;
+    }
     if (EditorProviders::runsInTerminal(editor)) {
         // Showing the panel through its action would also start a shell session.
         if (!m_terminalPanelAction->isChecked()) {
@@ -6030,7 +6117,7 @@ void MainWindow::setKdeConnectClient(KdeConnectClient *client)
 void MainWindow::sendByEmail()
 {
     const KFileItemList items = activePane()->view()->selectedItems();
-    if (items.isEmpty()) {
+    if (items.isEmpty() || !Settings::sendByEmail()) {
         return;
     }
     auto *dialog = new SendByEmailDialog(items, this);
@@ -6041,7 +6128,7 @@ void MainWindow::sendByEmail()
 void MainWindow::sendToDevice()
 {
     const KFileItemList items = activePane()->view()->selectedItems();
-    if (items.isEmpty()) {
+    if (items.isEmpty() || !Settings::kdeConnectSharing()) {
         return;
     }
     auto *dialog = new KdeConnectShareDialog(kdeConnectClient(), urlsOf(items), this);
@@ -6171,7 +6258,13 @@ void MainWindow::populateMountPoints()
     MountBackend *backend = mountBackend();
     backend->refresh();
     const QList<MountDevice> devices = backend->devices();
+    const bool removableOnly = Settings::mountRemovableOnly();
+    bool listed = false;
     for (const MountDevice &device : devices) {
+        if (removableOnly && !device.removable) {
+            continue;
+        }
+        listed = true;
         QString name = device.name;
         name.replace(QLatin1Char('&'), QStringLiteral("&&"));
         QString mountPoint = device.mountPoint;
@@ -6201,6 +6294,10 @@ void MainWindow::populateMountPoints()
     }
     if (devices.isEmpty()) {
         m_mountPointsMenu->addAction(i18nc("@action:inmenu", "No file systems found"))->setEnabled(false);
+    } else if (!listed) {
+        QAction *none = m_mountPointsMenu->addAction(i18nc("@action:inmenu", "No removable devices"));
+        none->setEnabled(false);
+        none->setToolTip(i18nc("@info:tooltip", "Choose whether other file systems are listed under Preferences › KDE Plasma › Mount Manager"));
     }
     m_mountPointsMenu->setToolTipsVisible(true);
     m_mountPointsMenu->addSeparator();
@@ -6272,19 +6369,22 @@ void MainWindow::populateRemoteConnections()
         problem->setEnabled(false);
     }
     m_remoteConnectionsMenu->addSeparator();
-    QAction *network = actionCollection()->action(QStringLiteral("network_locations"));
-    network->setEnabled(!RemoteProfiles::networkUrl().isEmpty());
-    m_remoteConnectionsMenu->addAction(network);
+    if (Settings::remoteShowNetwork()) {
+        QAction *network = actionCollection()->action(QStringLiteral("network_locations"));
+        network->setEnabled(!RemoteProfiles::networkUrl().isEmpty());
+        m_remoteConnectionsMenu->addAction(network);
+    }
     m_remoteConnectionsMenu->addAction(actionCollection()->action(QStringLiteral("manage_remote_connections")));
 }
 
 void MainWindow::populateOnlineAccounts()
 {
     QString error;
-    const QList<OnlineAccounts::Account> accounts = OnlineAccounts::readAccounts(&error);
+    // The accounts are read only after opting in.
+    const QList<OnlineAccounts::Account> accounts = Settings::onlineAccountsEnabled() ? OnlineAccounts::readAccounts(&error) : QList<OnlineAccounts::Account>();
     OnlineAccountsMenu::populate(
         m_onlineAccountsMenu,
-        accounts,
+        OnlineAccounts::shownAccounts(accounts, Settings::onlineAccountsHidden()),
         error,
         [](const QString &protocol) {
             return KProtocolInfo::isKnownProtocol(protocol);
@@ -6305,6 +6405,7 @@ void MainWindow::showRemoteConnections()
 {
     auto *dialog = new RemoteProfilesDialog(KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles")), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setNewProfileDefaults(RemoteProfilesEditor::defaultsFromSettings());
     dialog->setOtherPaneAvailable(isDualLayout() && !inactivePane()->isHidden());
     connect(dialog, &RemoteProfilesDialog::openRequested, this, [this, dialog](const QUrl &, bool otherPane) {
         openRemoteProfile(dialog->formProfile(), otherPane);
@@ -6363,7 +6464,7 @@ RcloneMounts *MainWindow::rcloneMounts()
     }
     m_rcloneMounts = new RcloneMounts(this);
     m_rcloneMounts->setMountOptions(
-        CloudActivity::rcloneMountOptions(CloudActivity::loadLimits(KSharedConfig::openConfig()->group(QStringLiteral("CloudActivity"))),
+        CloudActivity::rcloneMountOptions(CloudActivity::loadLimits(KSharedConfig::openConfig()->group(CloudActivity::limitsGroupName())),
                                           CloudActivity::rcloneCacheDir()));
     if (m_cloudActivityDialog) {
         m_cloudActivityDialog->setRcloneMounts(m_rcloneMounts);
@@ -6383,15 +6484,46 @@ RcloneMounts *MainWindow::rcloneMounts()
         m_openAfterRcloneMount.clear();
         activePane()->setUrl(QUrl::fromLocalFile(path));
     });
+    // Served remotes require a password that KDE's password server keeps, in
+    // KDE Wallet when it's enabled, so KIO signs in without asking and without
+    // the password appearing in the location or on rclone's command line.
+    m_rcloneMounts->setPasswordProvider([this](const QString &, const QUrl &url, const std::function<void(const QString &)> &done) {
+        KIO::AuthInfo info;
+        info.url = url;
+        info.username = Rclone::serveUser();
+        info.realmValue = Rclone::serveRealm();
+        KPasswdServerClient client;
+        if (client.checkAuthInfo(&info, qlonglong(winId()), 0) && info.username == Rclone::serveUser() && !info.password.isEmpty()) {
+            done(info.password);
+            return;
+        }
+        info.url = url;
+        info.username = Rclone::serveUser();
+        info.realmValue = Rclone::serveRealm();
+        info.password = Rclone::randomPassword();
+        info.keepPassword = true;
+        client.addAuthInfo(info, qlonglong(winId()));
+        done(info.password);
+    });
+    connect(m_rcloneMounts, &RcloneMounts::served, this, [this](const QString &remote, const QUrl &url) {
+        if (remote != m_openAfterRcloneMount) {
+            return;
+        }
+        m_openAfterRcloneMount.clear();
+        activePane()->setUrl(url);
+    });
+    connect(m_rcloneMounts, &RcloneMounts::serveStopped, this, [this](const QString &remote) {
+        showStatusMessage(i18nc("@info:status %1 is an rclone remote", "Stopped serving %1", remote));
+    });
     connect(m_rcloneMounts, &RcloneMounts::failed, this, [this](const QString &remote, const QString &error) {
         m_cloudActivity->addEvent(remote, error);
         if (remote != m_openAfterRcloneMount) {
-            showStatusMessage(i18nc("@info:status %1 is an rclone remote, %2 the error", "Could not mount %1: %2", remote, error));
+            showStatusMessage(i18nc("@info:status %1 is an rclone remote, %2 the error", "Could not open %1: %2", remote, error));
             return;
         }
         m_openAfterRcloneMount.clear();
         KMessageBox::error(this,
-                           i18nc("@info %1 is an rclone remote, %2 the error", "Could not mount %1:\n%2", remote, error),
+                           i18nc("@info %1 is an rclone remote, %2 the error", "Could not open %1:\n%2", remote, error),
                            i18nc("@title:window", "Cloud Storage"));
     });
     connect(m_rcloneMounts, &RcloneMounts::unmounted, this, [this](const QString &remote) {
@@ -6415,7 +6547,14 @@ void MainWindow::populateCloudStorage()
         empty->setToolTip(i18nc("@info:tooltip", "Run rclone config in a terminal to add a remote"));
         empty->setEnabled(false);
     }
+    const QStringList hidden = Settings::rcloneHiddenRemotes();
+    const bool serve = Settings::rcloneOpenMode() == Settings::EnumRcloneOpenMode::WebDav;
+    int shown = 0;
     for (const Rclone::Remote &remote : std::as_const(m_rcloneRemotes)) {
+        if (hidden.contains(remote.name)) {
+            continue;
+        }
+        ++shown;
         QString name = remote.name;
         name.replace(QLatin1Char('&'), QStringLiteral("&&"));
         QString type = remote.type;
@@ -6424,15 +6563,24 @@ void MainWindow::populateCloudStorage()
             m_cloudStorageMenu->addAction(QIcon::fromTheme(QStringLiteral("folder-cloud")),
                                           type.isEmpty() ? name : i18nc("@action:inmenu %1 is an rclone remote, %2 its type", "%1 (%2)", name, type));
         action->setCheckable(true);
-        action->setChecked(mounts->isMounted(remote.name));
+        const bool mounted = mounts->isMounted(remote.name);
+        const bool served = mounts->isServed(remote.name);
+        action->setChecked(mounted || served);
         action->setEnabled(!mounts->isStarting(remote.name));
-        action->setToolTip(mounts->isStarting(remote.name)      ? i18nc("@info:tooltip", "Mounting…")
-                               : mounts->isMounted(remote.name) ? i18nc("@info:tooltip", "Mounted; open it in the active pane")
-                                                                : i18nc("@info:tooltip", "Mount it and open it in the active pane"));
+        action->setToolTip(mounts->isStarting(remote.name) ? i18nc("@info:tooltip", "Opening…")
+                               : mounted                   ? i18nc("@info:tooltip", "Mounted; open it in the active pane")
+                               : served                    ? i18nc("@info:tooltip", "Served over WebDAV on this computer; open it in the active pane")
+                               : serve                     ? i18nc("@info:tooltip", "Serve it over WebDAV on this computer and open it in the active pane")
+                                                           : i18nc("@info:tooltip", "Mount it and open it in the active pane"));
         const QString id = remote.name;
         connect(action, &QAction::triggered, this, [this, id] {
             openRcloneRemote(id);
         });
+    }
+    if (shown == 0 && !m_rcloneRemotes.isEmpty()) {
+        QAction *none = m_cloudStorageMenu->addAction(i18nc("@action:inmenu", "All rclone remotes are hidden"));
+        none->setToolTip(i18nc("@info:tooltip", "Choose the remotes to show in Preferences › Remote and Cloud › rclone"));
+        none->setEnabled(false);
     }
     const QStringList mounted = mounts->mountedRemotes();
     if (!mounted.isEmpty()) {
@@ -6447,25 +6595,48 @@ void MainWindow::populateCloudStorage()
             });
         }
     }
+    const QStringList served = mounts->servedRemotes();
+    if (!served.isEmpty()) {
+        m_cloudStorageMenu->addSection(i18nc("@title:menu", "Stop Serving"));
+        for (const QString &remote : served) {
+            QString name = remote;
+            name.replace(QLatin1Char('&'), QStringLiteral("&&"));
+            QAction *action = m_cloudStorageMenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("process-stop")), name);
+            action->setToolTip(i18nc("@info:tooltip", "Stop the WebDAV server Plasma Opus started"));
+            connect(action, &QAction::triggered, this, [this, remote] {
+                unmountRcloneRemote(remote);
+            });
+        }
+    }
 }
 
 void MainWindow::openRcloneRemote(const QString &remote)
 {
     m_openAfterRcloneMount = remote;
-    rcloneMounts()->mount(remote);
+    if (Settings::rcloneOpenMode() == Settings::EnumRcloneOpenMode::WebDav) {
+        rcloneMounts()->serve(remote);
+    } else {
+        rcloneMounts()->mount(remote);
+    }
 }
 
 void MainWindow::unmountRcloneRemote(const QString &remote)
 {
-    if (!waitForCloudUploads(i18nc("@info %1 is an rclone remote", "Files written to %1 are still uploading. Unmounting now stops the uploads.", remote),
+    const bool served = rcloneMounts()->isServed(remote);
+    if (!waitForCloudUploads(served
+                                 ? i18nc("@info %1 is an rclone remote", "Files written to %1 are still uploading. Stopping now stops the uploads.", remote)
+                                 : i18nc("@info %1 is an rclone remote", "Files written to %1 are still uploading. Unmounting now stops the uploads.", remote),
                              {remote},
                              false)) {
         return;
     }
+    const QUrl servedUrl = rcloneMounts()->servedUrl(remote);
     const QString path = Rclone::mountPoint(remote);
     for (Pane *pane : {activePane(), inactivePane()}) {
         const QUrl url = pane->url();
-        if (url.isLocalFile() && (url.toLocalFile() == path || url.toLocalFile().startsWith(path + QLatin1Char('/')))) {
+        const bool inside = servedUrl.isEmpty() ? url.isLocalFile() && (url.toLocalFile() == path || url.toLocalFile().startsWith(path + QLatin1Char('/')))
+                                                : url.scheme() == servedUrl.scheme() && url.host() == servedUrl.host() && url.port() == servedUrl.port();
+        if (inside) {
             pane->setUrl(QUrl::fromLocalFile(QDir::homePath()));
         }
     }
@@ -6505,6 +6676,8 @@ RemoteMountManager *MainWindow::remoteMounts()
         return m_remoteMounts;
     }
     m_remoteMounts = new RemoteMountManager(this);
+    m_remoteMounts->setMountFolder(RemoteMounts::defaultsFromSettings().folder);
+    m_remoteMounts->setUnmountOnExit(Settings::remoteDriveUnmountOnExit());
     if (m_cloudActivityDialog) {
         m_cloudActivityDialog->setRemoteMounts(m_remoteMounts);
     }
@@ -6567,7 +6740,9 @@ void MainWindow::mountRemoteProfile(const RemoteProfiles::Profile &profile, bool
     if (open) {
         m_openAfterRemoteMount = profile.id;
     }
-    remoteMounts()->mount(profile, RemoteMounts::loadOptions(KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts")), profile));
+    remoteMounts()->mount(
+        profile,
+        RemoteMounts::loadOptions(KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts")), profile, RemoteMounts::defaultsFromSettings()));
 }
 
 void MainWindow::unmountRemoteProfile(const QString &id)
@@ -6596,15 +6771,55 @@ void MainWindow::showRemoteMountOptions(const RemoteProfiles::Profile &profile)
 
 void MainWindow::mountRemoteProfilesAtStartup()
 {
-    // Mounts end when Plasma Opus quits, so recorded entries are left from a session that didn't quit cleanly.
+    // Places entries are removed at quit, so recorded entries are left from a session that didn't quit cleanly.
     const QStringList places = remoteMountState().readEntry(remoteMountPlacesKey, QStringList());
     for (const QString &place : places) {
         removeRemoteMountPlace(m_placesModel, QUrl(place));
     }
     const KConfigGroup options = KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts"));
     const QList<RemoteProfiles::Profile> profiles = RemoteProfiles::load(KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles")));
+    const RemoteMounts::Defaults defaults = RemoteMounts::defaultsFromSettings();
     for (const RemoteProfiles::Profile &profile : profiles) {
-        if (RemoteMounts::loadOptions(options, profile).atStartup) {
+        const RemoteMounts::Options profileOptions = RemoteMounts::loadOptions(options, profile, defaults);
+        // Mounts kept after an earlier session quit are taken over, so they can be opened and unmounted here.
+        if (profileOptions.atStartup || remoteMounts()->isMountedAt(profile, profileOptions)) {
+            mountRemoteProfile(profile, false);
+        }
+    }
+    // Starting in a workspace activates it.
+    mountRemoteProfilesForWorkspace(m_currentWorkspaceId);
+}
+
+void MainWindow::mountRemoteProfilesForWorkspace(const QString &workspaceId)
+{
+    if (!Settings::remoteDriveMountOnWorkspace() || workspaceId.isEmpty()) {
+        return;
+    }
+    QList<QUrl> locations;
+    const QList<WorkspaceLocations::Location> saved = m_workspaceLocations->locations();
+    for (const WorkspaceLocations::Location &location : saved) {
+        if (!location.ambiguous && m_workspaceCatalog.locationAssignments.value(location.id) == workspaceId) {
+            locations.append(location.url);
+        }
+    }
+    if (locations.isEmpty()) {
+        return;
+    }
+    const KConfigGroup options = KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts"));
+    const QList<RemoteProfiles::Profile> profiles = RemoteProfiles::load(KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles")));
+    const RemoteMounts::Defaults defaults = RemoteMounts::defaultsFromSettings();
+    for (const RemoteProfiles::Profile &profile : profiles) {
+        if (remoteMounts()->isMounted(profile.id) || remoteMounts()->isStarting(profile.id)) {
+            continue;
+        }
+        const RemoteMounts::Options profileOptions = RemoteMounts::loadOptions(options, profile, defaults);
+        // KIO FUSE chooses its own folder, so only remote locations show that it is needed.
+        const QString mountPoint = profileOptions.backend == RemoteMounts::Backend::KioFuse
+            ? QString()
+            : RemoteMounts::mountPoint(profile, profileOptions, remoteMounts()->mountFolder());
+        if (std::any_of(locations.cbegin(), locations.cend(), [&profile, &mountPoint](const QUrl &url) {
+                return RemoteMounts::covers(profile, url, mountPoint);
+            })) {
             mountRemoteProfile(profile, false);
         }
     }
@@ -6656,6 +6871,11 @@ void MainWindow::encryptSelection(FileEncryption::Operation operation)
 {
     using FileEncryption::Kind;
     using FileEncryption::Operation;
+    // Turned-off actions are hidden, but a shortcut or caller may still reach them.
+    const bool aesCrypt = operation == Operation::AesEncrypt || operation == Operation::AesDecrypt;
+    if (!(aesCrypt ? Settings::aesCryptActions() : Settings::gnuPGActions())) {
+        return;
+    }
     QStringList paths;
     for (const KFileItem &item : activePane()->view()->selectedItems()) {
         if (!item.url().isLocalFile() || item.isDir()) {
@@ -6697,6 +6917,9 @@ void MainWindow::encryptSelection(FileEncryption::Operation operation)
 void MainWindow::openSelectionInKleopatra(bool decrypt)
 {
     using FileEncryption::Kind;
+    if (!Settings::gnuPGActions()) {
+        return;
+    }
     const QString kleopatra = FileEncryption::findExecutable(FileEncryption::Tool::Kleopatra);
     if (kleopatra.isEmpty()) {
         showStatusMessage(FileEncryption::missingText(FileEncryption::Tool::Kleopatra));
@@ -6784,10 +7007,28 @@ void MainWindow::updateEncryptionActions()
         localFiles && aesCrypt,
         aesCrypt ? i18nc("@info:tooltip", "Encrypt copies of the selected files with a password, as .aes files") : noAesCrypt);
     set("aes_decrypt_files", localFiles && aesCrypt && aesFile, aesCrypt ? i18nc("@info:tooltip", "Decrypt copies of the selected .aes files") : noAesCrypt);
-    actions->action(QStringLiteral("kleopatra_encrypt_sign"))->setVisible(kleopatra);
+    actions->action(QStringLiteral("kleopatra_encrypt_sign"))->setVisible(kleopatra && Settings::gnuPGActions());
     actions->action(QStringLiteral("kleopatra_encrypt_sign"))->setEnabled(localFiles);
-    actions->action(QStringLiteral("kleopatra_decrypt_verify"))->setVisible(kleopatra);
+    actions->action(QStringLiteral("kleopatra_decrypt_verify"))->setVisible(kleopatra && Settings::gnuPGActions());
     actions->action(QStringLiteral("kleopatra_decrypt_verify"))->setEnabled(localFiles && (openPgp || verifiable));
+}
+
+void MainWindow::applyEncryptionSettings()
+{
+    KActionCollection *actions = actionCollection();
+    const bool gnupg = Settings::gnuPGActions();
+    const bool aesCrypt = Settings::aesCryptActions();
+    // Hiding an action also turns off its shortcut; Kleopatra's actions also need Kleopatra.
+    for (const char *name : {"encrypt_files", "decrypt_files", "sign_files", "verify_signatures"}) {
+        actions->action(QLatin1String(name))->setVisible(gnupg);
+    }
+    for (const char *name : {"kleopatra_encrypt_sign", "kleopatra_decrypt_verify"}) {
+        actions->action(QLatin1String(name))->setVisible(gnupg && !FileEncryption::findExecutable(FileEncryption::Tool::Kleopatra).isEmpty());
+    }
+    for (const char *name : {"aes_encrypt_files", "aes_decrypt_files"}) {
+        actions->action(QLatin1String(name))->setVisible(aesCrypt);
+    }
+    actions->action(QStringLiteral("encryption"))->setVisible(gnupg || aesCrypt);
 }
 
 void MainWindow::compareFoldersFiltered()
@@ -7248,7 +7489,16 @@ void MainWindow::showProperties()
 
 void MainWindow::openTerminal()
 {
-    FileOperations::openTerminal(activePane()->url(), this);
+    const TerminalProviders::Provider provider = TerminalProviders::separateProvider();
+    if (provider == TerminalProviders::Provider::SystemDefault) {
+        FileOperations::openTerminal(activePane()->url(), this);
+        return;
+    }
+    TerminalLauncher::open(provider, activePane()->url(), this, [window = QPointer<MainWindow>(this)](const QString &message) {
+        if (window) {
+            window->showStatusMessage(message);
+        }
+    });
 }
 
 void MainWindow::newFolder()
@@ -7915,6 +8165,15 @@ void MainWindow::showCloudActivity()
         m_cloudActivityDialog = new CloudActivityDialog(sources, this);
         m_cloudActivityDialog->setAttribute(Qt::WA_DeleteOnClose);
         connect(m_cloudActivityDialog, &CloudActivityDialog::limitsChanged, this, &MainWindow::applyCloudLimits);
+        // Preferences › Remote and Cloud › Transfers and Cache shows the same keys.
+        connect(m_cloudActivityDialog, &CloudActivityDialog::limitsChanged, this, [] {
+            for (const QString &name : {QStringLiteral("CloudBandwidthLimitKiB"),
+                                        QStringLiteral("CloudParallelTransfers"),
+                                        QStringLiteral("CloudCacheSizeMiB"),
+                                        QStringLiteral("CloudCacheMaxAgeHours")}) {
+                Settings::self()->findItem(name)->readConfig(Settings::self()->config());
+            }
+        });
     }
     DesktopTray::bringToFront(m_cloudActivityDialog);
 }
@@ -7936,8 +8195,11 @@ bool MainWindow::waitForCloudUploads(const QString &text, const QStringList &rem
         if (!self) {
             return status;
         }
-        // rclone uploads only while a remote is mounted.
-        const QStringList checked = !remotes.isEmpty() ? remotes : (self->m_rcloneMounts ? self->m_rcloneMounts->mountedRemotes() : QStringList());
+        // rclone uploads only while a remote is mounted or served.
+        QStringList checked = remotes;
+        if (checked.isEmpty() && self->m_rcloneMounts) {
+            checked = self->m_rcloneMounts->mountedRemotes() + self->m_rcloneMounts->servedRemotes();
+        }
         for (const QString &remote : checked) {
             const CloudActivity::PendingUploads pending = CloudActivity::pendingUploads(cacheDir, remote);
             status.uploads.files += pending.files;
@@ -7963,19 +8225,10 @@ void MainWindow::setKWinBackend(std::unique_ptr<KWinBackend> backend)
 
 void MainWindow::showKWinIntegration()
 {
-    if (auto *existing = findChild<KWinIntegrationDialog *>()) {
-        existing->raise();
-        existing->activateWindow();
-        return;
+    showSettings();
+    if (auto *dialog = qobject_cast<SettingsDialog *>(KConfigDialog::exists(QLatin1String(SettingsDialog::Name)))) {
+        dialog->showKWinPage();
     }
-    reloadWorkspaceCatalog();
-    QList<QPair<QString, QString>> workspaces;
-    for (const WorkspaceCatalog::Workspace &workspace : std::as_const(m_workspaceCatalog.workspaces)) {
-        workspaces.append({workspace.id, workspace.name});
-    }
-    auto *dialog = new KWinIntegrationDialog(m_kwin, workspaces, actionCollection()->action(QStringLiteral("toggle_drop_down")), this);
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->show();
 }
 
 void MainWindow::toggleDropDown()
@@ -8028,6 +8281,48 @@ void MainWindow::applySettings()
     scheduleWorkspaceSelectorRefresh();
     m_desktopTray->applySettings();
     m_activityController->applySettings();
+    syncFileTypePlaces();
+    actionCollection()->action(QStringLiteral("kdeconnect_send"))->setVisible(Settings::kdeConnectSharing());
+    actionCollection()->action(QStringLiteral("send_by_email"))->setVisible(Settings::sendByEmail());
+    actionCollection()->action(QStringLiteral("online_accounts"))->setVisible(Settings::onlineAccountsEnabled());
+    // Hiding it also turns off its shortcut.
+    actionCollection()->action(QStringLiteral("network_locations"))->setVisible(Settings::remoteShowNetwork());
+    actionCollection()->action(QStringLiteral("cloud_storage"))->setVisible(Settings::rcloneEnabled());
+    actionCollection()->action(QStringLiteral("plasma_vaults"))->setVisible(Settings::plasmaVaultMenu());
+    applyEncryptionSettings();
+    if (m_remoteMounts) {
+        // Mounts already in place keep their folder and stay or stop at quit as they were started.
+        m_remoteMounts->setMountFolder(RemoteMounts::defaultsFromSettings().folder);
+        m_remoteMounts->setUnmountOnExit(Settings::remoteDriveUnmountOnExit());
+    }
+    QString autostartError;
+    if (!RemoteMounts::setMountAtLogin(Settings::remoteDriveMountAtLogin(),
+                                       QCoreApplication::applicationFilePath(),
+                                       AppIdentity::desktopFileName(),
+                                       &autostartError)) {
+        showStatusMessage(autostartError);
+    }
+    // Both autostart entries start the same tray instance; later launches are ignored.
+    if (!CloudSync::setStartAtLogin(Settings::cloudSyncAtLogin(), QCoreApplication::applicationFilePath(), AppIdentity::desktopFileName(), &autostartError)) {
+        showStatusMessage(autostartError);
+    }
+    // Mounts and servers already running keep their options until they are mounted again.
+    applyCloudLimits(CloudActivity::loadLimits(KSharedConfig::openConfig()->group(CloudActivity::limitsGroupName())));
+    if (m_cloudActivityDialog) {
+        m_cloudActivityDialog->reloadLimits();
+    }
+    QAction *terminalHistory = actionCollection()->action(QStringLiteral("search_terminal_history"));
+    terminalHistory->setVisible(Settings::atuinHistory());
+    terminalHistory->setEnabled(Settings::atuinHistory());
+    if (m_mountBackend) {
+        // Lists system file systems, or leaves them out, as now chosen.
+        m_mountBackend->refresh();
+    }
+    if (!Settings::kdeConnectRememberDevice()) {
+        KdeConnectShare::forgetDevice();
+    }
+    // The KWin script reads the window management and drop-down options at its next sync.
+    m_kwin->requestSync();
     const bool toolbarsLocked = Settings::lockToolbars();
     QAction *customizeToolbar = actionCollection()->action(QStringLiteral("customize_main_toolbar"));
     customizeToolbar->setEnabled(!toolbarsLocked);
@@ -8062,8 +8357,18 @@ void MainWindow::applySettings()
         m_terminalPanel->start(activePane()->url());
     }
     m_searchPanel->searchWidget()->applyDefaults();
-    if (m_editor) {
-        m_editor->applySettings();
+    // Preferences › Applications › Editor may have changed the workspace vaults.
+    if (!m_workspaceConfig->isDirty()) {
+        m_workspaceConfig->reparseConfiguration();
+        WorkspaceCatalog::Catalog stored;
+        QString workspaceError;
+        if (WorkspaceCatalog::load(m_workspaceConfig->group(QStringLiteral("Workspaces")), stored, workspaceError) && stored != m_workspaceCatalog) {
+            reloadWorkspaceCatalog();
+        }
+    }
+    // Including the editors that previews open.
+    for (EditorPanel *editor : findChildren<EditorPanel *>()) {
+        editor->applySettings();
     }
     const bool sizeDefaultsChanged =
         m_automaticLocalSizeDefault != Settings::automaticLocalFolderSizes() || m_automaticRemoteSizeDefault != Settings::automaticRemoteFolderSizes();
@@ -8276,6 +8581,11 @@ void MainWindow::showSettings()
     connect(dialog, &KConfigDialog::settingsChanged, this, &MainWindow::applySettings);
     connect(dialog, &SettingsDialog::customCommandsChanged, this, &MainWindow::refreshCustomCommandActions);
     connect(dialog, &SettingsDialog::manageWorkspacesRequested, this, &MainWindow::showWorkspaces);
+    connect(dialog, &SettingsDialog::showItemsRequested, this, [this](const QList<QUrl> &items) {
+        showItems(items);
+        activateWindow();
+        raise();
+    });
     connect(this, &MainWindow::workspaceCatalogChanged, dialog, &SettingsDialog::reloadWorkspaces);
     // Library changes in Preferences apply at once, to every window.
     connect(dialog, &SettingsDialog::libraryChanged, this, [](const QString &root) {

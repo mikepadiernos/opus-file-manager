@@ -1,6 +1,6 @@
 add_library(opusfm_app STATIC
-    activityassociationsdialog.cpp
-    activityassociationsdialog.h
+    activityassociationseditor.cpp
+    activityassociationseditor.h
     activitycontroller.cpp
     activitycontroller.h
     activityreporting.cpp
@@ -81,8 +81,6 @@ add_library(opusfm_app STATIC
     diskimagebackend.h
     kwinintegration.cpp
     kwinintegration.h
-    kwinintegrationdialog.cpp
-    kwinintegrationdialog.h
     kwinscript.qrc
     mountbackend.cpp
     mountbackend.h
@@ -112,6 +110,7 @@ add_library(opusfm_app STATIC
     imagebackground.h
     informationpanel.cpp
     informationpanel.h
+    integrationsettingspages.cpp
     librarymovetracker.cpp
     librarymovetracker.h
     libraryautorefresh.cpp
@@ -146,6 +145,8 @@ add_library(opusfm_app STATIC
     remotemountdialog.h
     remoteprofilesdialog.cpp
     remoteprofilesdialog.h
+    remoteprofileseditor.cpp
+    remoteprofileseditor.h
     previewpanel.cpp
     previewpanel.h
     searchpanel.cpp
@@ -200,6 +201,8 @@ add_library(opusfm_app STATIC
     workspaceappearanceeditor.h
     workspacelocations.cpp
     workspacelocations.h
+    workspacevaultsettings.cpp
+    workspacevaultsettings.h
     yazicolumns.cpp
     yazicolumns.h
     yazikeys.cpp

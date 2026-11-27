@@ -212,7 +212,12 @@ void WorkspaceDialog::refreshLocations()
         const QString owner = m_catalog.locationAssignments.value(id);
         for (const auto &workspace : m_catalog.workspaces) {
             if (workspace.id == owner) {
-                return workspace.vaultLocationId == id ? i18nc("@item:inlistbox workspace name", "%1, editor vault", workspace.name) : workspace.name;
+                if (workspace.vaultLocationId != id) {
+                    return workspace.name;
+                }
+                // Preferences › Applications › Editor can turn the vault off and keep it for later.
+                return workspace.vaultEnabled ? i18nc("@item:inlistbox workspace name", "%1, editor vault", workspace.name)
+                                              : i18nc("@item:inlistbox workspace name", "%1, editor vault turned off", workspace.name);
             }
         }
         return i18nc("@item:inlistbox location without a workspace", "Unassigned");
@@ -373,7 +378,8 @@ void WorkspaceDialog::toggleSelectedVault()
     const auto workspace = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [&owner](const auto &entry) {
         return entry.id == owner;
     });
-    const bool current = workspace != m_catalog.workspaces.cend() && workspace->vaultLocationId == id;
+    // Using a vault that is turned off turns it on again.
+    const bool current = workspace != m_catalog.workspaces.cend() && workspace->vaultLocationId == id && workspace->vaultEnabled;
     if (!current && (!item->data(Qt::UserRole + 3).toBool() || item->data(Qt::UserRole + 1).toBool())) {
         m_status->setText(i18nc("@info", "Only an available, unambiguous local folder can be an editor vault."));
         return;

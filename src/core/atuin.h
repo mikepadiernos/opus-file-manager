@@ -31,4 +31,31 @@ QString unavailableReason();
  * keeps the line out of shell history where leading spaces are ignored.
  */
 QString searchInput(const QString &executable);
+
+/// The embedded terminal sessions that history search may use, from the AtuinSession setting.
+enum class SessionMode {
+    /// Only the current session, which must have an idle shell.
+    Current,
+    /// The current session, or a new one when it is running a program or there is none.
+    NewWhenBusy,
+    /// Always a new session, unless the current one has just been opened.
+    New,
+};
+/// Where history search goes for one session.
+enum class Session {
+    Current,
+    New,
+    /// Report why the search isn't opened.
+    Refuse,
+};
+/// The configured session mode.
+SessionMode sessionMode();
+/**
+ * Where history search goes in @p mode, given whether there is a current
+ * session, whether it has just been opened for the search and whether it is
+ * running a program. A new session that is busy is refused rather than
+ * replaced, so a shell profile that starts a program can't open sessions
+ * repeatedly.
+ */
+Session session(SessionMode mode, bool hasSession, bool sessionIsNew, bool busy);
 }

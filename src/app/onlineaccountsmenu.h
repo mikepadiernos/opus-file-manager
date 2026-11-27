@@ -22,7 +22,8 @@ namespace OnlineAccountsMenu
 using OpenHandler = std::function<void(const QUrl &url, bool otherPane)>;
 
 /// Replaces the contents of @p menu with a section per account in
-/// @p accounts and a submenu per folder each account gives access to.
+/// @p accounts, the accounts chosen to be shown, and a submenu per folder each
+/// account gives access to.
 /// Unavailable folders are disabled and explain why in their tooltip. A
 /// non-empty @p error is shown as a disabled entry. The menu ends with
 /// @p manage when it is not null. Open actions call @p open with @p context

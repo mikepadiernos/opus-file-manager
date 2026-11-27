@@ -37,12 +37,12 @@
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. Since then, `main` has gained M15–M27: workspaces
+> released after M14. Since then, `main` has gained M15–M28: workspaces
 > (M15–M16), themes (M17–M18), branding (M19–M20), advanced search (M21–M22),
-> native tagging (M23–M24) and Yazi mode (M25–M26), each followed by a settings
-> milestone, and desktop integrations (M27). Features marked with a milestone
-> badge below are on `main` but not in v0.2.0. See the
-> [roadmap](docs/ROADMAP.md#at-a-glance) for status and the planned M28–M32.
+> native tagging (M23–M24), Yazi mode (M25–M26) and desktop integrations
+> (M27–M28), each followed by a settings milestone. Features marked with a
+> milestone badge below are on `main` but not in v0.2.0. See the
+> [roadmap](docs/ROADMAP.md#at-a-glance) for status and the planned M29–M32.
 
 ## Features
 
@@ -104,10 +104,12 @@ preview. Both behaviours can be changed in Preferences.
 ### Integrate with Plasma
 
 - **Desktop services**
-  [![M27](https://img.shields.io/badge/M27-8957e5?style=flat-square)](docs/integrations/kde-plasma.md):
+  [![M27–M28](https://img.shields.io/badge/M27%E2%80%93M28-8957e5?style=flat-square)](docs/integrations/kde-plasma.md):
   register as the default file manager, report progress through Plasma
   notifications, and offer a system tray icon, a global shortcut, a drop-down
   window, KRunner, KDE Connect, Activities and an optional system file chooser.
+  Configure each integration on the **KDE Plasma**, **Applications**,
+  **Remote and Cloud** and **Security** pages of Preferences.
 - **Files and applications:** Ark archives, disk images, AppImage, Flatpak and
   Snap packages, Baloo search, office and ebook previews, editing in suitable
   applications, Markdown vaults with wiki links and tags, and optional embedded
@@ -193,7 +195,7 @@ applications through `org.freedesktop.FileManager1`. Installing also adds the
 Plasma Opus KRunner plugin and its `opus-file-manager-krunner` helper, which
 offer saved workspaces and Favorites in KRunner and Plasma Search, and the
 `opus-file-manager-mcp` server, which lets MCP clients such as AI assistants
-read files in your home folder; see
+read files in your home folder by default; see
 [KDE Plasma integration](docs/integrations/kde-plasma.md).
 `./install.sh --file-chooser` also lets Plasma Opus answer the Open and Save
 dialogs that Flatpak, Snap and other portal-enabled applications request
@@ -256,12 +258,16 @@ Preferences also include
 [language and regional formats](docs/ROADMAP.md#m14-translation-settings),
 [workspace settings](docs/ROADMAP.md#m16-workspace-settings),
 [advanced search settings](docs/ROADMAP.md#m22-advanced-search-settings),
-[tagging settings](docs/tagging.md#settings) and
-[Yazi mode settings](docs/yazi-mode.md#settings).
+[tagging settings](docs/tagging.md#settings),
+[Yazi mode settings](docs/yazi-mode.md#settings) and
+[integration settings](docs/integrations/kde-plasma.md) on the **KDE Plasma**,
+**Applications**, **Remote and Cloud** and **Security** pages
+([M28](docs/ROADMAP.md#m28-integration-settings)).
 
 > [!IMPORTANT]
-> Path-filter, saved-search, collection, rename-preset and automation management
-> changes take effect immediately, even if Preferences is cancelled. KDE File
+> Path-filter, saved-search, collection, rename-preset, automation, remote
+> connection, cloud sync pair and password-protected folder management changes
+> take effect immediately, even if Preferences is cancelled. KDE File
 > Associations changes shared desktop settings.
 
 ## Safety and limitations

@@ -5,6 +5,7 @@
 #include "markdownexport.h"
 #include "safetextdocument.h"
 #include "settings.h"
+#include "vaultsettings.h"
 #include "wikilinks.h"
 
 #include <KConfigGroup>
@@ -60,18 +61,13 @@ QString defaultDraftDirectory()
 
 constexpr QLatin1StringView WikiLinkScheme("opus-note");
 
-KConfigGroup vaultState()
-{
-    return KSharedConfig::openStateConfig()->group(QStringLiteral("EditorVault"));
-}
-
 QString cleanVaultRoot(const QString &root)
 {
     return root.isEmpty() ? QString() : QDir::cleanPath(QFileInfo(root).absoluteFilePath());
 }
 
 // Only one main window shows editors, so the active workspace's vault applies process-wide.
-QString s_workspaceVault;
+EditorPanel::WorkspaceVault s_workspaceVault;
 QList<EditorPanel *> s_editorPanels;
 }
 
@@ -237,6 +233,7 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     m_vaultTitle->setWordWrap(true);
     vaultLayout->addWidget(m_vaultTitle);
     auto *vaultTabs = new QTabWidget(m_vaultPanel);
+    m_vaultTabs = vaultTabs;
     vaultTabs->setObjectName(QStringLiteral("editorVaultTabs"));
     vaultTabs->setDocumentMode(true);
     m_backlinks = new QListWidget(vaultTabs);
@@ -461,8 +458,12 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
                     || extension.compare(QLatin1String("md"), Qt::CaseInsensitive) == 0
                     || extension.compare(QLatin1String("markdown"), Qt::CaseInsensitive) == 0
                     || extension.compare(QLatin1String("mkd"), Qt::CaseInsensitive) == 0;
+                const VaultSettings::Options options = vaultOptions();
                 if (m_modeRevision == modeRevision) {
-                    setVisualMode(markdown && Settings::editorMarkdownMode() == Settings::EnumEditorMarkdownMode::Visual);
+                    setVisualMode(markdown && options.visual);
+                }
+                if (markdown && options.preview) {
+                    m_previewToggle->setChecked(true);
                 }
                 showDrafts();
             }
@@ -529,9 +530,7 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     updateTitle();
     applySettings();
     setVisualMode(false);
-    m_ownVaultRoot = cleanVaultRoot(vaultState().readEntry(QStringLiteral("Root"), QString()));
     s_editorPanels.append(this);
-    applyVault();
 }
 
 EditorPanel::~EditorPanel()
@@ -634,37 +633,49 @@ KTextEditor::Document *EditorPanel::document() const
 
 void EditorPanel::setVault(const QString &root)
 {
-    m_ownVaultRoot = cleanVaultRoot(root);
-    KConfigGroup state = vaultState();
-    if (m_ownVaultRoot.isEmpty()) {
-        state.deleteEntry(QStringLiteral("Root"));
-    } else {
-        state.writeEntry(QStringLiteral("Root"), m_ownVaultRoot);
+    VaultSettings::setVaultFolder(root);
+    const QString folder = VaultSettings::vaultFolder();
+    for (EditorPanel *panel : std::as_const(s_editorPanels)) {
+        panel->m_ownVaultRoot = folder;
+        panel->applyVault();
     }
-    state.sync();
-    applyVault();
 }
 
 void EditorPanel::setWorkspaceVault(const QString &root)
 {
-    const QString clean = cleanVaultRoot(root);
+    setWorkspaceVaultState({root, {}, std::nullopt});
+}
+
+QString EditorPanel::workspaceVault()
+{
+    return s_workspaceVault.root;
+}
+
+void EditorPanel::setWorkspaceVaultState(const WorkspaceVault &vault)
+{
+    WorkspaceVault clean = vault;
+    clean.root = cleanVaultRoot(vault.root);
+    if (!clean.isActive()) {
+        clean = {};
+    }
     if (clean == s_workspaceVault) {
         return;
     }
     s_workspaceVault = clean;
     for (EditorPanel *panel : std::as_const(s_editorPanels)) {
-        panel->applyVault();
+        // The workspace's options may change the dialect as well as the vault.
+        panel->applyMarkdownSettings();
     }
 }
 
-QString EditorPanel::workspaceVault()
+EditorPanel::WorkspaceVault EditorPanel::workspaceVaultState()
 {
     return s_workspaceVault;
 }
 
 void EditorPanel::applyVault()
 {
-    const QString root = s_workspaceVault.isEmpty() ? m_ownVaultRoot : s_workspaceVault;
+    const QString root = s_workspaceVault.isActive() ? s_workspaceVault.root : m_ownVaultRoot;
     if (root == m_vaultRoot) {
         updateVaultPanel();
         return;
@@ -682,6 +693,14 @@ QString EditorPanel::vaultRoot() const
 const NoteVault::Index &EditorPanel::vaultIndex() const
 {
     return m_vaultIndex;
+}
+
+VaultSettings::Options EditorPanel::vaultOptions() const
+{
+    if (s_workspaceVault.isActive() && s_workspaceVault.options) {
+        return *s_workspaceVault.options;
+    }
+    return VaultSettings::general();
 }
 
 void EditorPanel::rescanVault()
@@ -739,7 +758,7 @@ void EditorPanel::refreshPreview()
     }
     const auto features = m_dialect->currentIndex() == 1 ? QTextDocument::MarkdownDialectCommonMark : QTextDocument::MarkdownDialectGitHub;
     QString text = m_document->text();
-    if (!currentNotePath().isEmpty()) {
+    if (vaultOptions().wikiLinks && !currentNotePath().isEmpty()) {
         // The source is unchanged; only the preview's copy gets clickable links.
         text = WikiLinks::toMarkdownLinks(text, [](const WikiLinks::Link &link) {
             QUrl url;
@@ -761,6 +780,10 @@ void EditorPanel::openWikiLink(const QUrl &url)
     const QString from = currentNotePath();
     const QString target = url.path();
     if (from.isEmpty()) {
+        return;
+    }
+    if (!vaultOptions().wikiLinks) {
+        m_vaultStatus->setText(i18nc("@info", "Following wiki links is turned off in Preferences › Applications › Editor."));
         return;
     }
     const NoteVault::Resolution resolution = NoteVault::resolve(m_vaultIndex, from, target);
@@ -801,26 +824,43 @@ void EditorPanel::openWikiLink(const QUrl &url)
 void EditorPanel::updateVaultPanel()
 {
     const bool hasVault = !m_vaultRoot.isEmpty();
-    const bool workspace = !s_workspaceVault.isEmpty();
-    m_vaultPanel->setVisible(hasVault);
+    const bool workspace = s_workspaceVault.isActive();
+    // A workspace vault that can't be found stays in view to say why.
+    m_vaultPanel->setVisible(hasVault || workspace);
     m_vaultRescan->setEnabled(hasVault);
     // The workspace decides the vault while it has one; the panel's own choice returns afterwards.
     m_vaultChoose->setEnabled(!workspace);
     m_vaultClose->setEnabled(hasVault && !workspace);
     m_vaultButton->setToolTip(workspace ? i18nc("@info:tooltip", "The active workspace uses %1 as the vault for wiki links, backlinks and tags", m_vaultRoot)
                                         : i18nc("@info:tooltip", "Choose a folder of Markdown notes for wiki links, backlinks and tags"));
-    m_vaultTitle->setText(workspace ? i18nc("@info %1 is a folder name", "Workspace vault: %1", QFileInfo(m_vaultRoot).fileName())
-                                    : i18nc("@info %1 is a folder name", "Vault: %1", QFileInfo(m_vaultRoot).fileName()));
+    if (workspace && !hasVault) {
+        m_vaultButton->setToolTip(i18nc("@info:tooltip", "The active workspace's vault folder can't be found"));
+        m_vaultTitle->setText(i18nc("@info", "Workspace vault unavailable"));
+    } else {
+        m_vaultTitle->setText(workspace ? i18nc("@info %1 is a folder name", "Workspace vault: %1", QFileInfo(m_vaultRoot).fileName())
+                                        : i18nc("@info %1 is a folder name", "Vault: %1", QFileInfo(m_vaultRoot).fileName()));
+    }
     m_vaultTitle->setToolTip(m_vaultRoot);
     m_backlinks->clear();
     m_outgoingLinks->clear();
     m_tags->clear();
+    const VaultSettings::Options options = vaultOptions();
+    m_vaultTabs->setTabVisible(m_vaultTabs->indexOf(m_backlinks), options.backlinks);
+    m_vaultTabs->setTabVisible(m_vaultTabs->indexOf(m_outgoingLinks), options.links);
+    m_vaultTabs->setTabVisible(m_vaultTabs->indexOf(m_tags), options.tags);
+    m_vaultTabs->setVisible(hasVault && (options.backlinks || options.links || options.tags));
     if (!hasVault) {
-        m_vaultStatus->clear();
+        if (workspace) {
+            m_vaultStatus->setText(s_workspaceVault.unavailable);
+        } else {
+            m_vaultStatus->clear();
+        }
         return;
     }
     if (m_vaultIndex.root.isEmpty()) {
-        m_vaultStatus->setText(m_vaultScanning ? i18nc("@info", "Scanning the vault…") : i18nc("@info", "The vault folder %1 can't be read.", m_vaultRoot));
+        const QString reason = VaultSettings::unavailableReason(m_vaultRoot);
+        m_vaultStatus->setText(m_vaultScanning ? i18nc("@info", "Scanning the vault…")
+                                               : (reason.isEmpty() ? i18nc("@info", "The vault folder %1 can't be read.", m_vaultRoot) : reason));
         return;
     }
     const QString note = currentNotePath();
@@ -843,7 +883,7 @@ void EditorPanel::updateVaultPanel()
     }
 
     QStringList status;
-    if (backlinks.isEmpty()) {
+    if (options.backlinks && backlinks.isEmpty()) {
         status.append(i18nc("@info", "No other notes link here."));
     }
     int missing = 0;
@@ -1036,6 +1076,25 @@ void EditorPanel::applySettings()
     } else if (m_document->isModified()) {
         m_draftTimer->start();
     }
+    applyMarkdownSettings();
+}
+
+void EditorPanel::applyMarkdownSettings()
+{
+    // A dialect chosen in the panel lasts until the setting changes.
+    const VaultSettings::Dialect dialect = vaultOptions().dialect;
+    if (dialect != m_appliedDialect) {
+        m_appliedDialect = dialect;
+        m_dialect->setCurrentIndex(dialect == VaultSettings::Dialect::CommonMark ? 1 : 0);
+    }
+    m_ownVaultRoot = VaultSettings::vaultFolder();
+    const QString previous = m_vaultRoot;
+    applyVault();
+    // A folder that couldn't be read before, such as one on a drive connected since, is read again.
+    if (previous == m_vaultRoot && !m_vaultRoot.isEmpty() && !m_vaultScanning && m_vaultIndex.root.isEmpty()) {
+        rescanVault();
+    }
+    refreshPreview();
 }
 
 void EditorPanel::setDraftError(const QString &error)

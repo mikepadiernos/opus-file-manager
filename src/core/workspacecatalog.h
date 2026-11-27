@@ -3,6 +3,7 @@
 #pragma once
 
 #include "session.h"
+#include "vaultsettings.h"
 
 #include <KConfigGroup>
 #include <QByteArray>
@@ -138,6 +139,10 @@ struct Workspace {
     Appearance appearance;
     /** An assigned location used as the editor's Markdown vault, or empty. */
     QString vaultLocationId;
+    /** Whether the editor uses the workspace's vault; turning it off keeps the location and options. */
+    bool vaultEnabled = true;
+    /** The workspace vault's own Markdown options, or empty to use the Editor settings. */
+    std::optional<VaultSettings::Options> vaultOptions;
     bool operator==(const Workspace &other) const = default;
 };
 
@@ -191,7 +196,8 @@ bool assignLocation(Catalog &catalog, const QString &locationId, const QString &
  */
 bool unassignLocation(Catalog &catalog, const QString &locationId, QString &error);
 /**
- * Uses one of a workspace's assigned locations as its editor vault.
+ * Uses one of a workspace's assigned locations as its editor vault, and
+ * turns the workspace vault on when @p locationId isn't empty.
  * @param catalog the workspace catalog to update
  * @param workspaceId the workspace UUID
  * @param locationId a location assigned to that workspace, or empty to clear the vault
@@ -199,4 +205,11 @@ bool unassignLocation(Catalog &catalog, const QString &locationId, QString &erro
  * @returns whether the vault was set
  */
 bool setVault(Catalog &catalog, const QString &workspaceId, const QString &locationId, QString &error);
+/**
+ * Turns a workspace's editor vault on or off and sets its own Markdown
+ * options, keeping its location so the vault returns when turned on again.
+ * @param options the workspace vault's options, or empty to use the Editor settings
+ * @returns false and sets error if the workspace is missing
+ */
+bool setVaultOptions(Catalog &catalog, const QString &workspaceId, bool enabled, const std::optional<VaultSettings::Options> &options, QString &error);
 }

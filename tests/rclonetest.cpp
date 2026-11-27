@@ -4,8 +4,10 @@
 
 #include <QDir>
 #include <QFile>
+#include <QHostAddress>
 #include <QSignalSpy>
 #include <QStandardPaths>
+#include <QTcpServer>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -30,6 +32,7 @@ private Q_SLOTS:
         qputenv("PATH", m_path);
         qunsetenv("FAKE_RCLONE_FAIL");
         QFile::remove(m_arguments);
+        QFile::remove(m_arguments + QStringLiteral(".pass"));
     }
 
     void parsesRemotes()
@@ -198,6 +201,199 @@ private Q_SLOTS:
         QVERIFY(!QFileInfo::exists(Rclone::mountPoint(QStringLiteral("gdrive"))));
     }
 
+    void buildsServeArguments()
+    {
+        const QStringList arguments = Rclone::serveArguments(QStringLiteral("my box"), 8123, {QStringLiteral("--transfers"), QStringLiteral("2")});
+        QCOMPARE(arguments,
+                 (QStringList{QStringLiteral("serve"),
+                              QStringLiteral("webdav"),
+                              QStringLiteral("--addr"),
+                              QStringLiteral("127.0.0.1:8123"),
+                              QStringLiteral("--user"),
+                              Rclone::serveUser(),
+                              QStringLiteral("--realm"),
+                              Rclone::serveRealm(),
+                              QStringLiteral("--transfers"),
+                              QStringLiteral("2"),
+                              QStringLiteral("--"),
+                              QStringLiteral("my box:")}));
+        QVERIFY(Rclone::serveArguments(QStringLiteral("gdrive"), 1).contains(QStringLiteral("writes")));
+        // The password stays out of the command line and the location.
+        QCOMPARE(Rclone::serveEnvironment(QStringLiteral("secret")).value(QStringLiteral("RCLONE_PASS")), QStringLiteral("secret"));
+        QCOMPARE(Rclone::serveEnvironment(QStringLiteral("secret")).value(QStringLiteral("RCLONE_ASK_PASSWORD")), QStringLiteral("false"));
+        const QUrl url = Rclone::serveUrl(8123);
+        QCOMPARE(url.toString(), QStringLiteral("webdav://rclone@127.0.0.1:8123/"));
+        QVERIFY(url.password().isEmpty());
+
+        const QString password = Rclone::randomPassword();
+        QCOMPARE(password.size(), 32);
+        QVERIFY(password != Rclone::randomPassword());
+        const quint16 preferred = Rclone::preferredServePort(QStringLiteral("gdrive"));
+        QCOMPARE(Rclone::preferredServePort(QStringLiteral("gdrive")), preferred);
+        QVERIFY(preferred >= 24000 && preferred < 32000);
+        QVERIFY(Rclone::preferredServePort(QStringLiteral("gdrive2")) != preferred);
+        const quint16 port = Rclone::freeLoopbackPort();
+        QVERIFY(port > 0);
+        QVERIFY(!Rclone::isListening(port));
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost, port));
+        QVERIFY(Rclone::isListening(port));
+        // A busy preferred port moves to a later one.
+        const quint16 next = Rclone::freeLoopbackPort(port);
+        QVERIFY(next != port && next != 0);
+    }
+
+    void servesAndStops()
+    {
+        writeFakeRclone();
+        RcloneMounts mounts;
+        mounts.setServeCheck([this](quint16) {
+            return QFile::exists(m_arguments);
+        });
+        QSignalSpy served(&mounts, &RcloneMounts::served);
+        QSignalSpy mounted(&mounts, &RcloneMounts::mounted);
+        QSignalSpy stopped(&mounts, &RcloneMounts::serveStopped);
+        QString password;
+        QUrl asked;
+        mounts.setPasswordProvider([&](const QString &remote, const QUrl &url, const std::function<void(const QString &)> &done) {
+            QCOMPARE(remote, QStringLiteral("my box"));
+            asked = url;
+            password = Rclone::randomPassword();
+            done(password);
+        });
+        mounts.serve(QStringLiteral("my box"));
+        QVERIFY(mounts.isStarting(QStringLiteral("my box")));
+        QVERIFY(served.wait(5000));
+        const QUrl url = served.first().at(1).toUrl();
+        QCOMPARE(url, asked);
+        QCOMPARE(url.scheme(), QStringLiteral("webdav"));
+        QCOMPARE(url.host(), QStringLiteral("127.0.0.1"));
+        QVERIFY(url.password().isEmpty());
+        QVERIFY(mounts.isServed(QStringLiteral("my box")));
+        QVERIFY(!mounts.isMounted(QStringLiteral("my box")));
+        QCOMPARE(mounts.servedRemotes(), QStringList{QStringLiteral("my box")});
+        QVERIFY(mounts.mountedRemotes().isEmpty());
+        QCOMPARE(mounts.servedUrl(QStringLiteral("my box")), url);
+        QVERIFY(!QFileInfo::exists(Rclone::mountPoint(QStringLiteral("my box"))));
+
+        QFile file(m_arguments);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QStringList arguments = QString::fromLocal8Bit(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        file.close();
+        QCOMPARE(arguments, Rclone::serveArguments(QStringLiteral("my box"), quint16(url.port())));
+        QVERIFY(!arguments.join(QLatin1Char(' ')).contains(password));
+        QFile pass(m_arguments + QStringLiteral(".pass"));
+        QVERIFY(pass.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromLatin1(pass.readAll()), password);
+
+        // A served remote stays served when it is opened again, whatever is asked.
+        served.clear();
+        mounts.mount(QStringLiteral("my box"));
+        mounts.serve(QStringLiteral("my box"));
+        QCOMPARE(served.size(), 2);
+        QCOMPARE(mounted.size(), 0);
+        QCOMPARE(served.last().at(1).toUrl(), url);
+
+        mounts.unmount(QStringLiteral("my box"));
+        QVERIFY(!mounts.isServed(QStringLiteral("my box")));
+        QVERIFY(stopped.wait(5000));
+        QCOMPARE(stopped.first().at(1).toUrl(), url);
+        QVERIFY(mounts.servedRemotes().isEmpty());
+    }
+
+    void reportsServeFailures()
+    {
+        writeFakeRclone();
+        qputenv("FAKE_RCLONE_FAIL", "1");
+        RcloneMounts mounts;
+        mounts.setServeCheck([](quint16) {
+            return false;
+        });
+        QSignalSpy failed(&mounts, &RcloneMounts::failed);
+        mounts.serve(QStringLiteral("gdrive"));
+        QVERIFY(failed.wait(5000));
+        QCOMPARE(failed.first().at(1).toString(), QStringLiteral("Fatal error: failed to start server"));
+        QVERIFY(!mounts.isStarting(QStringLiteral("gdrive")));
+
+        qunsetenv("FAKE_RCLONE_FAIL");
+        failed.clear();
+        mounts.setTimeout(400);
+        mounts.serve(QStringLiteral("gdrive"));
+        QVERIFY(failed.wait(5000));
+        QVERIFY(failed.first().at(1).toString().contains(QStringLiteral("not served in time")));
+        QVERIFY(mounts.servedRemotes().isEmpty());
+
+        failed.clear();
+        mounts.serve(QStringLiteral("-x"));
+        QCOMPARE(failed.size(), 1);
+
+        // Without a password, nothing is served.
+        mounts.setPasswordProvider([](const QString &, const QUrl &, const std::function<void(const QString &)> &done) {
+            done(QString());
+        });
+        mounts.serve(QStringLiteral("gdrive"));
+        QCOMPARE(failed.size(), 2);
+        QVERIFY(failed.last().at(1).toString().contains(QStringLiteral("password")));
+        QVERIFY(!mounts.isStarting(QStringLiteral("gdrive")));
+
+        qputenv("PATH", m_bin.filePath(QStringLiteral("empty")).toLocal8Bit());
+        mounts.serve(QStringLiteral("gdrive"));
+        QCOMPARE(failed.size(), 3);
+        QVERIFY(failed.last().at(1).toString().contains(QStringLiteral("not installed")));
+    }
+
+    void stopsServingWhileWaitingForThePassword()
+    {
+        writeFakeRclone();
+        RcloneMounts mounts;
+        std::function<void(const QString &)> pending;
+        mounts.setPasswordProvider([&](const QString &, const QUrl &, const std::function<void(const QString &)> &done) {
+            pending = done;
+        });
+        QSignalSpy served(&mounts, &RcloneMounts::served);
+        QSignalSpy failed(&mounts, &RcloneMounts::failed);
+        mounts.serve(QStringLiteral("gdrive"));
+        QVERIFY(pending);
+        QVERIFY(mounts.isStarting(QStringLiteral("gdrive")));
+        // Opening it again waits for the same password.
+        mounts.serve(QStringLiteral("gdrive"));
+        mounts.unmount(QStringLiteral("gdrive"));
+        QVERIFY(!mounts.isStarting(QStringLiteral("gdrive")));
+        pending(QStringLiteral("secret"));
+        QTest::qWait(300);
+        QVERIFY(!QFile::exists(m_arguments));
+        QCOMPARE(served.size(), 0);
+        QCOMPARE(failed.size(), 0);
+
+        // The answer can also come after the mounts are gone.
+        pending = {};
+        auto *gone = new RcloneMounts;
+        gone->setPasswordProvider([&](const QString &, const QUrl &, const std::function<void(const QString &)> &done) {
+            pending = done;
+        });
+        gone->serve(QStringLiteral("gdrive"));
+        delete gone;
+        pending(QStringLiteral("secret"));
+        QVERIFY(!QFile::exists(m_arguments));
+    }
+
+    void stopsServersAtQuit()
+    {
+        writeFakeRclone();
+        RcloneMounts mounts;
+        mounts.setServeCheck([this](quint16) {
+            return QFile::exists(m_arguments);
+        });
+        QSignalSpy served(&mounts, &RcloneMounts::served);
+        QSignalSpy stopped(&mounts, &RcloneMounts::serveStopped);
+        mounts.serve(QStringLiteral("gdrive"));
+        QVERIFY(served.wait(5000));
+        mounts.stopAllNow();
+        QVERIFY(mounts.servedRemotes().isEmpty());
+        QTest::qWait(100);
+        QCOMPARE(stopped.size(), 0);
+    }
+
     void stopsMountsAtQuit()
     {
         writeFakeRclone();
@@ -232,6 +428,11 @@ private:
             "  printf 'gdrive:   drive\\nmy box:   box\\n'; exit 0;;\n"
             "mount)\n"
             "  if [ -n \"$FAKE_RCLONE_FAIL\" ]; then echo '2024/05/01 10:00:00 CRITICAL: Fatal error: failed to mount FUSE fs' >&2; exit 1; fi\n"
+            "  printf '%s\\n' \"$@\" > \"$FAKE_RCLONE_ARGS\"\n"
+            "  exec sleep 30;;\n"
+            "serve)\n"
+            "  if [ -n \"$FAKE_RCLONE_FAIL\" ]; then echo '2024/05/01 10:00:00 CRITICAL: Fatal error: failed to start server' >&2; exit 1; fi\n"
+            "  printf '%s' \"$RCLONE_PASS\" > \"$FAKE_RCLONE_ARGS.pass\"\n"
             "  printf '%s\\n' \"$@\" > \"$FAKE_RCLONE_ARGS\"\n"
             "  exec sleep 30;;\n"
             "esac\n"

@@ -39,6 +39,13 @@ public:
     bool isSavedPlace(const QModelIndex &index) const;
     /// Whether a location is visible in the selected workspace.
     bool isVisible(const QUrl &url, const WorkspaceCatalog::Catalog &catalog, const QString &workspaceId) const;
+    /**
+     * The local folder of the saved location @p locationId, for use as an
+     * editor vault, or empty with @p unavailable set to why it can't be used:
+     * the location was removed, several saved locations share its identity,
+     * or it isn't a local folder.
+     */
+    QString vaultFolder(const QString &locationId, QString *unavailable = nullptr) const;
 
 Q_SIGNALS:
     void changed();

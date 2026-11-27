@@ -105,6 +105,32 @@ private Q_SLOTS:
         QCOMPARE(unnamed.displayName(), QStringLiteral("/data/x.enc"));
     }
 
+    void lockStatesAndHiddenVaults()
+    {
+        using PlasmaVaults::Status;
+        for (Status status : {Status::Opened, Status::Closed, Status::Opening, Status::Closing}) {
+            QVERIFY(PlasmaVaults::isLockState(status));
+        }
+        for (Status status : {Status::NotInitialized, Status::Creating, Status::Dismantling, Status::Dismantled, Status::DeviceMissing, Status::Error}) {
+            QVERIFY(!PlasmaVaults::isLockState(status));
+        }
+
+        const QList<PlasmaVaults::Vault> all{vault(QStringLiteral("a"), Status::Opened),
+                                             vault(QStringLiteral("b"), Status::Closed),
+                                             vault(QStringLiteral("c"), Status::Error)};
+        const auto devices = [](const QList<PlasmaVaults::Vault> &vaults) {
+            QStringList result;
+            for (const PlasmaVaults::Vault &each : vaults) {
+                result.append(each.device);
+            }
+            return result;
+        };
+        QCOMPARE(devices(PlasmaVaults::shownVaults(all, {})), devices(all));
+        QCOMPARE(devices(PlasmaVaults::shownVaults(all, {all.at(1).device, QStringLiteral("/gone.enc")})), QStringList({all.at(0).device, all.at(2).device}));
+        // Names don't hide vaults; only the encrypted data folder identifies one.
+        QCOMPARE(PlasmaVaults::shownVaults(all, {QStringLiteral("a")}).size(), 3);
+    }
+
     void findsProcessesUsingAMountPoint()
     {
         const QString root = QDir(m_dir.path()).canonicalPath();

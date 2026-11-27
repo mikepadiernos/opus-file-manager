@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "lanshare.h"
+#include "settings.h"
 
 #include <KLocalizedString>
 
@@ -146,10 +147,15 @@ QByteArray jsString(const QString &text)
 
 namespace LanShare
 {
-QList<QHostAddress> localAddresses()
+QList<InterfaceAddress> interfaceAddresses()
 {
-    QList<QHostAddress> ipv4;
-    QList<QHostAddress> ipv6;
+    QList<InterfaceAddress> ipv4;
+    QList<InterfaceAddress> ipv6;
+    const auto contains = [](const QList<InterfaceAddress> &list, const QHostAddress &address) {
+        return std::any_of(list.cbegin(), list.cend(), [&address](const InterfaceAddress &item) {
+            return item.address == address;
+        });
+    };
     const auto interfaces = QNetworkInterface::allInterfaces();
     for (const QNetworkInterface &interface : interfaces) {
         const auto flags = interface.flags();
@@ -163,15 +169,96 @@ QList<QHostAddress> localAddresses()
                 continue;
             }
             if (address.protocol() == QAbstractSocket::IPv6Protocol) {
-                if (!address.isLinkLocal() && !ipv6.contains(address)) {
-                    ipv6.append(address);
+                if (!address.isLinkLocal() && !contains(ipv6, address)) {
+                    ipv6.append({address, interface.name()});
                 }
-            } else if (address.protocol() == QAbstractSocket::IPv4Protocol && !ipv4.contains(address)) {
-                ipv4.append(address);
+            } else if (address.protocol() == QAbstractSocket::IPv4Protocol && !contains(ipv4, address)) {
+                ipv4.append({address, interface.name()});
             }
         }
     }
     return ipv4 + ipv6;
+}
+
+QList<QHostAddress> localAddresses()
+{
+    QList<QHostAddress> result;
+    const auto addresses = interfaceAddresses();
+    for (const InterfaceAddress &address : addresses) {
+        result.append(address.address);
+    }
+    return result;
+}
+
+QList<NetworkInterface> networkInterfaces()
+{
+    QList<NetworkInterface> result;
+    const auto interfaces = QNetworkInterface::allInterfaces();
+    for (const QNetworkInterface &interface : interfaces) {
+        if (interface.flags().testFlag(QNetworkInterface::IsLoopBack) || interface.name().isEmpty()) {
+            continue;
+        }
+        QString kind;
+        switch (interface.type()) {
+        case QNetworkInterface::Ethernet:
+            kind = i18nc("@item kind of network interface", "Ethernet");
+            break;
+        case QNetworkInterface::Wifi:
+            kind = i18nc("@item kind of network interface", "Wi-Fi");
+            break;
+        case QNetworkInterface::Virtual:
+            kind = i18nc("@item kind of network interface", "virtual");
+            break;
+        case QNetworkInterface::Ppp:
+            kind = i18nc("@item kind of network interface", "point-to-point");
+            break;
+        default:
+            break;
+        }
+        const QString name = interface.name();
+        const QString label = kind.isEmpty() ? name : i18nc("@item %1 is a network interface, %2 its kind", "%1 (%2)", name, kind);
+        const auto flags = interface.flags();
+        result.append({name, label, flags.testFlag(QNetworkInterface::IsUp) && flags.testFlag(QNetworkInterface::IsRunning)});
+    }
+    return result;
+}
+
+bool chosenByDefault(const InterfaceAddress &address, const QStringList &excludedInterfaces)
+{
+    if (!isPrivateAddress(address.address) && !address.address.isLoopback()) {
+        return false;
+    }
+    return address.interface.isEmpty() || !excludedInterfaces.contains(address.interface);
+}
+
+QString defaultUploadFolder()
+{
+    const QString downloads = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    return downloads.isEmpty() ? QDir::homePath() : downloads;
+}
+
+Defaults defaultsFromSettings()
+{
+    Defaults defaults;
+    switch (Settings::lanShareProtocol()) {
+    case Settings::EnumLanShareProtocol::Browsers:
+        defaults.protocol = Protocol::Browsers;
+        break;
+    case Settings::EnumLanShareProtocol::WebDav:
+        defaults.protocol = Protocol::WebDav;
+        break;
+    default:
+        defaults.protocol = Protocol::BrowsersAndWebDav;
+        break;
+    }
+    defaults.tls = Settings::lanShareHttps();
+    defaults.excludedInterfaces = Settings::lanShareExcludedInterfaces();
+    defaults.port = quint16(std::clamp(Settings::lanSharePort(), 0, 65535));
+    defaults.timeoutMinutes = std::clamp(Settings::lanShareTimeoutMinutes(), 1, 24 * 60);
+    defaults.allowUploads = Settings::lanShareAllowUploads();
+    const QUrl folder = Settings::lanShareUploadFolder();
+    defaults.uploadFolder = folder.isLocalFile() && !folder.toLocalFile().isEmpty() ? folder.toLocalFile() : defaultUploadFolder();
+    return defaults;
 }
 
 bool isPrivateAddress(const QHostAddress &address)
@@ -800,8 +887,24 @@ private:
 
     QByteArray allowed() const
     {
-        return m_server->m_options.uploadFolder.isEmpty() ? QByteArrayLiteral("OPTIONS, GET, HEAD, PROPFIND")
-                                                          : QByteArrayLiteral("OPTIONS, GET, HEAD, PROPFIND, PUT");
+        QByteArray methods = "OPTIONS, GET, HEAD";
+        if (servesWebDav()) {
+            methods += ", PROPFIND";
+        }
+        if (!m_server->m_options.uploadFolder.isEmpty()) {
+            methods += ", PUT";
+        }
+        return methods;
+    }
+
+    bool servesWebDav() const
+    {
+        return m_server->m_options.protocol != LanShare::Protocol::Browsers;
+    }
+
+    bool servesBrowsers() const
+    {
+        return m_server->m_options.protocol != LanShare::Protocol::WebDav;
     }
 
     void route()
@@ -813,10 +916,14 @@ private:
             return;
         }
         if (method == "OPTIONS") {
-            respond(200, {}, {}, {{"DAV", "1"}, {"Allow", allowed()}, {"MS-Author-Via", "DAV"}});
+            Headers headers = {{"Allow", allowed()}};
+            if (servesWebDav()) {
+                headers += {{"DAV", "1"}, {"MS-Author-Via", "DAV"}};
+            }
+            respond(200, {}, {}, headers);
             return;
         }
-        if (method != "GET" && method != "HEAD" && method != "PROPFIND") {
+        if (method != "GET" && method != "HEAD" && !(method == "PROPFIND" && servesWebDav())) {
             respond(405, {}, {}, {{"Allow", allowed()}});
             return;
         }
@@ -882,6 +989,14 @@ private:
         }
 
         if (isDir) {
+            if (!servesBrowsers()) {
+                const QByteArray explanation = i18nc("@info shown to a browser that opens a share for WebDAV clients only",
+                                                     "This share is for file managers and other WebDAV clients. Open this address in one of them to browse it.")
+                                                   .toUtf8()
+                    + '\n';
+                respond(405, explanation, "text/plain; charset=utf-8", {{"Allow", allowed()}});
+                return;
+            }
             if (!t.trailingSlash) {
                 respond(301, {}, {}, {{"Location", m_request.path + '/'}});
                 return;

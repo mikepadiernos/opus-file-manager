@@ -2,12 +2,14 @@
 
 #include "onlineaccountsmenu.h"
 #include "mainwindow.h"
+#include "settings.h"
 
 #include <KActionCollection>
 #include <KActionMenu>
 
 #include <QAction>
 #include <QMenu>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -142,11 +144,19 @@ private Q_SLOTS:
 
     void goMenuOffersOnlineAccounts()
     {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+        });
         MainWindow window;
         auto *accounts = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("online_accounts")));
         QVERIFY(accounts);
         QAction *manage = window.actionCollection()->action(QStringLiteral("manage_online_accounts"));
         QVERIFY(manage);
+        // Online Accounts are offered only after opting in.
+        QVERIFY(!accounts->isVisible());
+        Settings::setOnlineAccountsEnabled(true);
+        window.applySettings();
+        QVERIFY(accounts->isVisible());
 
         Q_EMIT accounts->menu()->aboutToShow();
         const QList<QAction *> items = entries(accounts->menu());

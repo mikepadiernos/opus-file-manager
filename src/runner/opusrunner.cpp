@@ -112,7 +112,13 @@ const QList<RunnerMatches::Target> &OpusRunner::targets()
             const QModelIndex index = model.index(row);
             favorites.append({index.data(FavoritesModel::UrlRole).toUrl(), index.data(Qt::DisplayRole).toString()});
         }
-        m_targets = RunnerMatches::targets(catalog, favorites, {Settings::runnerWorkspaces(), Settings::runnerFavorites()});
+        m_targets = RunnerMatches::targets(catalog,
+                                           favorites,
+                                           {.enabled = Settings::runnerEnabled(),
+                                            .workspaces = Settings::runnerWorkspaces(),
+                                            .favorites = Settings::runnerFavorites(),
+                                            .hiddenWorkspaces = Settings::runnerHiddenWorkspaces(),
+                                            .hiddenFavorites = Settings::runnerHiddenFavorites()});
     }
     return *m_targets;
 }

@@ -23,6 +23,7 @@
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QStandardPaths>
+#include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTextBrowser>
@@ -460,7 +461,7 @@ private Q_SLOTS:
         QSignalSpy scanned(&editor, &EditorPanel::vaultScanned);
         editor.setVault(root);
         QCOMPARE(editor.vaultRoot(), root);
-        QCOMPARE(KSharedConfig::openStateConfig()->group(QStringLiteral("EditorVault")).readEntry(QStringLiteral("Root")), root);
+        QCOMPARE(Settings::editorVaultFolder(), QUrl::fromLocalFile(root));
         QVERIFY(!panel->isHidden());
         QTRY_COMPARE_WITH_TIMEOUT(scanned.size(), 1, 10000);
         QCOMPARE(editor.vaultIndex().notes.size(), 3);
@@ -508,7 +509,7 @@ private Q_SLOTS:
 
         editor.setVault({});
         QVERIFY(panel->isHidden());
-        QVERIFY(!KSharedConfig::openStateConfig()->group(QStringLiteral("EditorVault")).hasKey(QStringLiteral("Root")));
+        QVERIFY(Settings::editorVaultFolder().isEmpty());
     }
 
     void vaultListsOutgoingLinksAndTags()
@@ -564,6 +565,98 @@ private Q_SLOTS:
         editor.setVault({});
     }
 
+    void markdownSettingsApplyToTheVaultAndPreview()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString root = QFileInfo(directory.path()).canonicalFilePath() + QStringLiteral("/Vault");
+        QVERIFY(QDir().mkpath(root));
+        const QString home = root + QStringLiteral("/Home.md");
+        QFile file(home);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("See [[Other]].\n");
+        file.close();
+        QFile other(root + QStringLiteral("/Other.md"));
+        QVERIFY(other.open(QIODevice::WriteOnly));
+        other.write("[[Home]]\n");
+        other.close();
+
+        Settings::setEditorMarkdownPreviewOnOpen(true);
+        Settings::setEditorMarkdownDialect(Settings::EnumEditorMarkdownDialect::CommonMark);
+        Settings::setEditorWikiLinks(false);
+        Settings::setEditorVaultLinks(false);
+        Settings::setEditorVaultFolder(QUrl::fromLocalFile(root));
+        EditorPanel editor(nullptr, directory.filePath(QStringLiteral("drafts")));
+        editor.show();
+        auto *previewToggle = editor.findChild<QPushButton *>(QStringLiteral("editorMarkdownPreview"));
+        auto *preview = editor.findChild<QTextBrowser *>(QStringLiteral("editorRenderedMarkdown"));
+        auto *dialect = editor.findChild<QComboBox *>(QStringLiteral("editorMarkdownDialect"));
+        auto *tabs = editor.findChild<QTabWidget *>(QStringLiteral("editorVaultTabs"));
+        auto *links = editor.findChild<QListWidget *>(QStringLiteral("editorOutgoingLinks"));
+        auto *backlinks = editor.findChild<QListWidget *>(QStringLiteral("editorBacklinks"));
+        auto *status = editor.findChild<QLabel *>(QStringLiteral("editorVaultStatus"));
+        QVERIFY(previewToggle && preview && dialect && tabs && links && backlinks && status);
+        // The vault comes from the setting, and the dialect from its own.
+        QCOMPARE(editor.vaultRoot(), root);
+        QCOMPARE(dialect->currentIndex(), 1);
+        QVERIFY(!tabs->isTabVisible(tabs->indexOf(links)));
+        QVERIFY(tabs->isTabVisible(tabs->indexOf(backlinks)));
+        QTRY_COMPARE_WITH_TIMEOUT(editor.vaultIndex().notes.size(), 2, 10000);
+
+        QVERIFY(editor.openUrl(QUrl::fromLocalFile(home)));
+        QTRY_VERIFY(previewToggle->isChecked());
+        QTRY_VERIFY(preview->toPlainText().contains(QStringLiteral("[[Other]]")));
+        QTRY_COMPARE(backlinks->count(), 1);
+        Q_EMIT preview->anchorClicked(QUrl(QStringLiteral("opus-note:Other")));
+        QVERIFY2(status->text().contains(QStringLiteral("turned off")), qPrintable(status->text()));
+        QCOMPARE(editor.document()->url(), QUrl::fromLocalFile(home));
+
+        // A dialect chosen in the panel stays until the setting changes.
+        dialect->setCurrentIndex(0);
+        Settings::setEditorWikiLinks(true);
+        Settings::setEditorVaultLinks(true);
+        Settings::setEditorVaultBacklinks(false);
+        Settings::setEditorVaultTags(false);
+        editor.applySettings();
+        QCOMPARE(dialect->currentIndex(), 0);
+        QVERIFY(tabs->isTabVisible(tabs->indexOf(links)));
+        QVERIFY(!tabs->isTabVisible(tabs->indexOf(backlinks)));
+        QCOMPARE(preview->document()->find(QStringLiteral("Other")).charFormat().anchorHref(), QStringLiteral("opus-note:Other"));
+        Settings::setEditorVaultLinks(false);
+        editor.applySettings();
+        QVERIFY(tabs->isHidden());
+        Settings::setEditorMarkdownDialect(Settings::EnumEditorMarkdownDialect::GitHub);
+        editor.applySettings();
+        QCOMPARE(dialect->currentIndex(), 0);
+        Settings::setEditorVaultFolder({});
+    }
+
+    void vaultFolderIsSharedAndReadAgainWhenItReturns()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString root = QFileInfo(directory.path()).canonicalFilePath() + QStringLiteral("/Later");
+        EditorPanel first(nullptr, directory.filePath(QStringLiteral("drafts")));
+        EditorPanel second(nullptr, directory.filePath(QStringLiteral("drafts")));
+        auto *status = first.findChild<QLabel *>(QStringLiteral("editorVaultStatus"));
+        QVERIFY(status);
+        first.setVault(root);
+        // Every panel uses the one vault folder.
+        QCOMPARE(second.vaultRoot(), root);
+        QTRY_VERIFY2(status->text().contains(QStringLiteral("doesn't exist")), qPrintable(status->text()));
+        QVERIFY(QDir().mkpath(root));
+        QFile note(root + QStringLiteral("/Note.md"));
+        QVERIFY(note.open(QIODevice::WriteOnly));
+        note.close();
+        QSignalSpy scanned(&first, &EditorPanel::vaultScanned);
+        first.applySettings();
+        QTRY_COMPARE_WITH_TIMEOUT(scanned.size(), 1, 10000);
+        QCOMPARE(first.vaultIndex().notes.size(), 1);
+        second.setVault({});
+        QCOMPARE(first.vaultRoot(), QString());
+        QVERIFY(Settings::editorVaultFolder().isEmpty());
+    }
+
     void workspaceVaultOverridesWithoutForgettingTheOwnVault()
     {
         QTemporaryDir directory;
@@ -598,7 +691,7 @@ private Q_SLOTS:
         QTRY_VERIFY_WITH_TIMEOUT(!scanned.isEmpty(), 10000);
         QCOMPARE(editor.vaultIndex().notes.size(), 1);
         QCOMPARE(editor.document()->url(), QUrl::fromLocalFile(note));
-        QCOMPARE(KSharedConfig::openStateConfig()->group(QStringLiteral("EditorVault")).readEntry(QStringLiteral("Root")), own);
+        QCOMPARE(Settings::editorVaultFolder(), QUrl::fromLocalFile(own));
 
         {
             EditorPanel later(nullptr, directory.filePath(QStringLiteral("drafts")));
@@ -611,6 +704,54 @@ private Q_SLOTS:
         QVERIFY(close->isEnabled());
         QVERIFY2(title->text().startsWith(QStringLiteral("Vault")), qPrintable(title->text()));
         QCOMPARE(editor.document()->url(), QUrl::fromLocalFile(note));
+        editor.setVault({});
+    }
+
+    void workspaceVaultReportsAMissingFolderAndUsesItsOptions()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString own = QFileInfo(directory.path()).canonicalFilePath() + QStringLiteral("/Own");
+        const QString workspace = QFileInfo(directory.path()).canonicalFilePath() + QStringLiteral("/Workspace");
+        QVERIFY(QDir().mkpath(own));
+        QVERIFY(QDir().mkpath(workspace));
+
+        EditorPanel editor(nullptr, directory.filePath(QStringLiteral("drafts")));
+        editor.show();
+        auto *choose = editor.findChild<QAction *>(QStringLiteral("editorVaultChoose"));
+        auto *title = editor.findChild<QLabel *>(QStringLiteral("editorVaultTitle"));
+        auto *status = editor.findChild<QLabel *>(QStringLiteral("editorVaultStatus"));
+        auto *dialect = editor.findChild<QComboBox *>(QStringLiteral("editorMarkdownDialect"));
+        auto *tabs = editor.findChild<QTabWidget *>(QStringLiteral("editorVaultTabs"));
+        auto *tags = editor.findChild<QTreeWidget *>(QStringLiteral("editorTags"));
+        QVERIFY(choose && title && status && dialect && tabs && tags);
+        editor.setVault(own);
+        QCOMPARE(dialect->currentIndex(), 0);
+
+        VaultSettings::Options options;
+        options.dialect = VaultSettings::Dialect::CommonMark;
+        options.tags = false;
+        // A workspace vault that can't be found isn't replaced by the panel's own.
+        EditorPanel::setWorkspaceVaultState({{}, QStringLiteral("The location was removed."), options});
+        QVERIFY(editor.vaultRoot().isEmpty());
+        QVERIFY(EditorPanel::workspaceVault().isEmpty());
+        QCOMPARE(status->text(), QStringLiteral("The location was removed."));
+        QVERIFY2(title->text().contains(QStringLiteral("unavailable")), qPrintable(title->text()));
+        QVERIFY(!choose->isEnabled());
+        QVERIFY(tabs->isHidden());
+        QCOMPARE(dialect->currentIndex(), 1);
+
+        EditorPanel::setWorkspaceVaultState({workspace, {}, options});
+        QCOMPARE(editor.vaultRoot(), workspace);
+        QVERIFY(!tabs->isHidden());
+        QVERIFY(!tabs->isTabVisible(tabs->indexOf(tags)));
+
+        // The Editor settings and the panel's own vault return with the workspace.
+        EditorPanel::setWorkspaceVaultState({});
+        QCOMPARE(editor.vaultRoot(), own);
+        QCOMPARE(dialect->currentIndex(), 0);
+        QVERIFY(tabs->isTabVisible(tabs->indexOf(tags)));
+        QVERIFY(choose->isEnabled());
         editor.setVault({});
     }
 };

@@ -6,6 +6,7 @@
 #include "colorschemes.h"
 #include "customstylesheet.h"
 #include "filecolorrules.h"
+#include "foldersyncprofiles.h"
 #include "ignorelist.h"
 #include "savedpathfilters.h"
 #include "settings.h"
@@ -45,6 +46,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QScreen>
 #include <QSet>
 #include <QSignalBlocker>
 #include <QStandardPaths>
@@ -59,6 +61,33 @@
 #include <limits>
 #include <tuple>
 #include <utility>
+
+namespace SettingsWidgets
+{
+QComboBox *comboBox(const QString &entry, const QStringList &choices)
+{
+    auto *combo = new QComboBox;
+    combo->setObjectName(QStringLiteral("kcfg_") + entry);
+    combo->addItems(choices);
+    return combo;
+}
+
+QCheckBox *checkBox(const QString &entry, const QString &text)
+{
+    auto *check = new QCheckBox(text);
+    check->setObjectName(QStringLiteral("kcfg_") + entry);
+    return check;
+}
+
+QSpinBox *pixelSpinBox(const QString &entry, int minimum, int maximum)
+{
+    auto *spin = new QSpinBox;
+    spin->setObjectName(QStringLiteral("kcfg_") + entry);
+    spin->setRange(minimum, maximum);
+    spin->setSuffix(i18nc("@item:valuesuffix pixels", " px"));
+    return spin;
+}
+}
 
 namespace
 {
@@ -213,6 +242,164 @@ void StartupWorkspaceCombo::setWorkspaces(const QList<std::pair<QString, QString
     setWorkspace(workspace());
 }
 
+WorkspaceCombo::WorkspaceCombo(const QString &noneText, QWidget *parent)
+    : QComboBox(parent)
+    , m_noneText(noneText)
+{
+    // KConfigDialogManager would otherwise watch QComboBox::activated, which
+    // misses programmatic changes.
+    setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(workspaceChanged())));
+    setWorkspace(QString());
+    connect(this, &QComboBox::currentIndexChanged, this, &WorkspaceCombo::workspaceChanged);
+}
+
+QString WorkspaceCombo::workspace() const
+{
+    return currentData().toString();
+}
+
+void WorkspaceCombo::setWorkspace(const QString &workspace)
+{
+    const QString previous = this->workspace();
+    {
+        const QSignalBlocker blocker(this);
+        clear();
+        addItem(m_noneText, QString());
+        for (const auto &[id, name] : std::as_const(m_workspaces)) {
+            addItem(name, id);
+        }
+        int index = findData(workspace);
+        if (index < 0) {
+            addItem(i18nc("@item:inlistbox workspace that was deleted", "Missing workspace (%1)", workspace), workspace);
+            index = count() - 1;
+        }
+        setCurrentIndex(index);
+    }
+    if (previous != this->workspace()) {
+        Q_EMIT workspaceChanged();
+    }
+}
+
+void WorkspaceCombo::setWorkspaces(const QList<std::pair<QString, QString>> &workspaces)
+{
+    m_workspaces = workspaces;
+    setWorkspace(workspace());
+}
+
+ScreenCombo::ScreenCombo(QWidget *parent)
+    : QComboBox(parent)
+{
+    setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(screenChanged())));
+    setScreen(QString());
+    connect(this, &QComboBox::currentIndexChanged, this, &ScreenCombo::screenChanged);
+    // List screens connected or disconnected while the dialog is open.
+    connect(qApp, &QGuiApplication::screenAdded, this, [this] {
+        setScreen(screen());
+    });
+    connect(qApp, &QGuiApplication::screenRemoved, this, [this] {
+        setScreen(screen());
+    });
+}
+
+QString ScreenCombo::screen() const
+{
+    return currentData().toString();
+}
+
+void ScreenCombo::setScreen(const QString &screen)
+{
+    const QString previous = this->screen();
+    {
+        const QSignalBlocker blocker(this);
+        clear();
+        addItem(i18nc("@item:inlistbox the screen with the pointer or the active window", "Active screen"), QString());
+        const QList<QScreen *> screens = QGuiApplication::screens();
+        for (const QScreen *connected : screens) {
+            if (!connected->name().isEmpty()) {
+                addItem(connected->name(), connected->name());
+            }
+        }
+        int index = findData(screen);
+        if (index < 0) {
+            addItem(i18nc("@item:inlistbox %1 is a screen's output name", "%1 (not connected)", screen), screen);
+            index = count() - 1;
+        }
+        setCurrentIndex(index);
+    }
+    if (previous != this->screen()) {
+        Q_EMIT screenChanged();
+    }
+}
+
+DesktopWorkspacesEditor::DesktopWorkspacesEditor(QWidget *parent)
+    : QWidget(parent)
+{
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    m_form = new QFormLayout;
+    layout->addLayout(m_form);
+    m_empty = new QLabel(i18nc("@info", "Virtual desktops are listed here once the KWin script is running."), this);
+    m_empty->setObjectName(QStringLiteral("desktopWorkspacesEmpty"));
+    m_empty->setWordWrap(true);
+    layout->addWidget(m_empty);
+    rebuild();
+}
+
+void DesktopWorkspacesEditor::setDesktops(const QList<std::pair<QString, QString>> &desktops)
+{
+    if (desktops != m_desktops) {
+        m_desktops = desktops;
+        rebuild();
+    }
+}
+
+void DesktopWorkspacesEditor::setWorkspaces(const QList<std::pair<QString, QString>> &workspaces)
+{
+    m_workspaces = workspaces;
+    for (auto *combo : findChildren<WorkspaceCombo *>()) {
+        combo->setWorkspaces(workspaces);
+    }
+}
+
+QMap<QString, QString> DesktopWorkspacesEditor::assignments() const
+{
+    return m_assignments;
+}
+
+void DesktopWorkspacesEditor::setAssignments(const QMap<QString, QString> &assignments)
+{
+    m_assignments.clear();
+    for (auto it = assignments.cbegin(); it != assignments.cend(); ++it) {
+        if (!it.key().isEmpty() && !it.value().isEmpty()) {
+            m_assignments.insert(it.key(), it.value());
+        }
+    }
+    rebuild();
+}
+
+void DesktopWorkspacesEditor::rebuild()
+{
+    while (m_form->rowCount() > 0) {
+        m_form->removeRow(0);
+    }
+    for (const auto &[id, name] : std::as_const(m_desktops)) {
+        auto *combo = new WorkspaceCombo(i18nc("@item:inlistbox no workspace", "None"), this);
+        combo->setObjectName(QStringLiteral("desktopWorkspace_") + id);
+        combo->setWorkspaces(m_workspaces);
+        combo->setWorkspace(m_assignments.value(id));
+        connect(combo, &WorkspaceCombo::workspaceChanged, this, [this, combo, desktop = id] {
+            if (combo->workspace().isEmpty()) {
+                m_assignments.remove(desktop);
+            } else {
+                m_assignments.insert(desktop, combo->workspace());
+            }
+            Q_EMIT changed();
+        });
+        m_form->addRow(i18nc("@label:listbox %1 is a virtual desktop name", "%1:", name), combo);
+    }
+    m_empty->setVisible(m_desktops.isEmpty());
+}
+
 SavedPathFilterCombo::SavedPathFilterCombo(QWidget *parent)
     : QComboBox(parent)
 {
@@ -254,6 +441,56 @@ void SavedPathFilterCombo::setFilterName(const QString &name)
 void SavedPathFilterCombo::reload()
 {
     setFilterName(filterName());
+}
+
+FolderSyncProfileCombo::FolderSyncProfileCombo(QWidget *parent)
+    : QComboBox(parent)
+{
+    // KConfigDialogManager would otherwise watch QComboBox::activated, which
+    // misses programmatic changes.
+    setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(profileIdChanged())));
+    setProfileId(QString());
+    connect(this, &QComboBox::currentIndexChanged, this, &FolderSyncProfileCombo::profileIdChanged);
+}
+
+QString FolderSyncProfileCombo::profileId() const
+{
+    return currentData().toString();
+}
+
+void FolderSyncProfileCombo::setProfileId(const QString &id)
+{
+    const QString previous = profileId();
+    {
+        const QSignalBlocker blocker(this);
+        clear();
+        addItem(i18nc("@item:inlistbox no comparison profile", "None"), QString());
+        const QList<FolderSyncProfiles::Profile> profiles = FolderSyncProfiles::load(KSharedConfig::openConfig()->group(QStringLiteral("FolderSyncProfiles")));
+        for (const FolderSyncProfiles::Profile &profile : profiles) {
+            addItem(profile.name, profile.id);
+        }
+        const std::optional<FolderSyncProfiles::Profile> chosen = FolderSyncProfiles::find(profiles, id);
+        int index = chosen ? findData(chosen->id) : findData(id);
+        m_unavailable = index < 0;
+        if (m_unavailable) {
+            addItem(i18nc("@item:inlistbox comparison profile that was deleted", "Unavailable profile"), id);
+            index = count() - 1;
+        }
+        setCurrentIndex(index);
+    }
+    if (previous != profileId()) {
+        Q_EMIT profileIdChanged();
+    }
+}
+
+void FolderSyncProfileCombo::reload()
+{
+    setProfileId(profileId());
+}
+
+bool FolderSyncProfileCombo::isUnavailable() const
+{
+    return m_unavailable && currentIndex() == count() - 1;
 }
 
 ColorSchemeCombo::ColorSchemeCombo(QWidget *parent)

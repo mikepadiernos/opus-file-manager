@@ -171,6 +171,7 @@ ecm_add_tests(
     treemaptest.cpp
     transferqueuetest.cpp
     traypolicytest.cpp
+    vaultsettingstest.cpp
     viewsettingstest.cpp
     wikilinkstest.cpp
     workspaceappearancetest.cpp
@@ -191,6 +192,13 @@ ecm_add_test(mcpservertest.cpp
     LINK_LIBRARIES opusfm_mcp Qt6::Test
     NAME_PREFIX "opusfm-"
 )
+
+ecm_add_test(mcpsettingstest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test KF6::ConfigCore
+    NAME_PREFIX "opusfm-"
+)
+add_dependencies(mcpsettingstest opus-file-manager-mcp)
+target_compile_definitions(mcpsettingstest PRIVATE OPUSFM_MCP_EXECUTABLE="$<TARGET_FILE:opus-file-manager-mcp>")
 
 ecm_add_test(yazimodeuitest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
@@ -434,6 +442,17 @@ ecm_add_test(sendbyemaildialogtest.cpp
     GUI
 )
 
+ecm_add_test(integrationsettingstest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+if(AccountsQt6_FOUND)
+    target_compile_definitions(integrationsettingstest PRIVATE OPUSFM_HAVE_ACCOUNTS)
+    target_include_directories(integrationsettingstest SYSTEM PRIVATE ${ACCOUNTSQT_INCLUDE_DIRS})
+    target_link_libraries(integrationsettingstest ${ACCOUNTSQT_LIBRARIES})
+endif()
+
 ecm_add_test(lansharedialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
@@ -500,12 +519,16 @@ ecm_add_test(filemanagerservicetest.cpp
 )
 find_program(DBUS_RUN_SESSION_EXECUTABLE dbus-run-session)
 if(DBUS_RUN_SESSION_EXECUTABLE)
-    add_test(NAME opusfm-filemanagerservice-dbus COMMAND ${DBUS_RUN_SESSION_EXECUTABLE} $<TARGET_FILE:filemanagerservicetest> exportsTheInterfaceOnTheBus)
-    set_tests_properties(opusfm-filemanagerservice-dbus PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+    add_test(NAME opusfm-filemanagerservice-dbus COMMAND ${DBUS_RUN_SESSION_EXECUTABLE} $<TARGET_FILE:filemanagerservicetest> exportsTheInterfaceOnTheBus claimsTheNameOnAPrivateBus)
+    set_tests_properties(opusfm-filemanagerservice-dbus PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;OPUSFM_PRIVATE_SESSION_BUS=1")
 endif()
 
 ecm_add_test(filechoosertest.cpp
     LINK_LIBRARIES opusfm_core Qt6::DBus Qt6::Test
+    NAME_PREFIX "opusfm-"
+)
+ecm_add_test(defaultfilemanagertest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test
     NAME_PREFIX "opusfm-"
 )
 ecm_add_test(portalsetuptest.cpp
@@ -518,7 +541,7 @@ ecm_add_test(chooserdialogtest.cpp
     GUI
 )
 if(DBUS_RUN_SESSION_EXECUTABLE)
-    add_test(NAME opusfm-chooserdialog-dbus COMMAND ${DBUS_RUN_SESSION_EXECUTABLE} $<TARGET_FILE:chooserdialogtest> answersRequestsOnTheBus)
+    add_test(NAME opusfm-chooserdialog-dbus COMMAND ${DBUS_RUN_SESSION_EXECUTABLE} $<TARGET_FILE:chooserdialogtest> answersRequestsOnTheBus remembersTheLastFolderOnTheBus)
     set_tests_properties(opusfm-chooserdialog-dbus PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 endif()
 

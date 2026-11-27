@@ -9,6 +9,7 @@
 #include <QDialog>
 #include <QHash>
 #include <QListWidget>
+#include <QMap>
 #include <QPalette>
 #include <QSpinBox>
 #include <QWidget>
@@ -16,8 +17,27 @@
 #include <functional>
 #include <optional>
 
+class QCheckBox;
+class QFormLayout;
 class QLabel;
 class QLineEdit;
+
+/// Widgets that KConfigDialog binds to settings through their "kcfg_<Entry>" object names.
+namespace SettingsWidgets
+{
+QComboBox *comboBox(const QString &entry, const QStringList &choices);
+QCheckBox *checkBox(const QString &entry, const QString &text);
+QSpinBox *pixelSpinBox(const QString &entry, int minimum, int maximum);
+
+/// Binds @p editor to @p entry through its @p property.
+template<typename Editor>
+Editor *bound(Editor *editor, const QString &entry, const char *property)
+{
+    editor->setObjectName(QStringLiteral("kcfg_") + entry);
+    editor->setProperty("kcfg_property", QByteArray(property));
+    return editor;
+}
+}
 
 class InterfaceLanguageCombo : public QComboBox
 {
@@ -75,6 +95,89 @@ private:
 };
 
 /**
+ * Chooses a saved workspace, or none. A chosen workspace that no longer
+ * exists stays selected as missing, so its reference is kept until the user
+ * changes it.
+ */
+class WorkspaceCombo : public QComboBox
+{
+    Q_OBJECT
+    Q_PROPERTY(QString workspace READ workspace WRITE setWorkspace NOTIFY workspaceChanged USER true)
+
+public:
+    /// @param noneText the text of the choice that names no workspace
+    explicit WorkspaceCombo(const QString &noneText, QWidget *parent = nullptr);
+    /// The chosen workspace's UUID, or an empty string for none.
+    QString workspace() const;
+    void setWorkspace(const QString &workspace);
+    /**
+     * Lists the catalog's workspaces, keeping the current choice.
+     * @param workspaces each workspace's UUID and display name
+     */
+    void setWorkspaces(const QList<std::pair<QString, QString>> &workspaces);
+
+Q_SIGNALS:
+    void workspaceChanged();
+
+private:
+    QString m_noneText;
+    QList<std::pair<QString, QString>> m_workspaces;
+};
+
+/**
+ * Chooses a screen by its output name, or the active screen. The screens are
+ * those currently connected; a chosen screen that is not connected is kept.
+ */
+class ScreenCombo : public QComboBox
+{
+    Q_OBJECT
+    Q_PROPERTY(QString screen READ screen WRITE setScreen NOTIFY screenChanged USER true)
+
+public:
+    explicit ScreenCombo(QWidget *parent = nullptr);
+    /// The chosen screen's output name, or an empty string for the active screen.
+    QString screen() const;
+    void setScreen(const QString &screen);
+
+Q_SIGNALS:
+    void screenChanged();
+};
+
+/**
+ * Assigns a saved workspace, or none, to each listed virtual desktop. The
+ * assignments of desktops that are not listed are kept.
+ */
+class DesktopWorkspacesEditor : public QWidget
+{
+    Q_OBJECT
+
+public:
+    explicit DesktopWorkspacesEditor(QWidget *parent = nullptr);
+    /**
+     * Lists @p desktops, keeping every assignment, including unsaved ones.
+     * @param desktops each virtual desktop's id and name
+     */
+    void setDesktops(const QList<std::pair<QString, QString>> &desktops);
+    /// @param workspaces each workspace's UUID and display name
+    void setWorkspaces(const QList<std::pair<QString, QString>> &workspaces);
+    /// Workspace UUIDs by virtual desktop id, without desktops that have none.
+    QMap<QString, QString> assignments() const;
+    void setAssignments(const QMap<QString, QString> &assignments);
+
+Q_SIGNALS:
+    void changed();
+
+private:
+    void rebuild();
+
+    QFormLayout *m_form;
+    QLabel *m_empty;
+    QList<std::pair<QString, QString>> m_desktops;
+    QList<std::pair<QString, QString>> m_workspaces;
+    QMap<QString, QString> m_assignments;
+};
+
+/**
  * Chooses the shared saved path filter applied to new searches, or none. A
  * chosen filter that no longer exists stays selected as unavailable, so its
  * reference is kept until the user changes it.
@@ -93,6 +196,32 @@ public:
 
 Q_SIGNALS:
     void filterNameChanged();
+};
+
+/**
+ * Chooses a saved folder comparison profile by its identifier, or none. A
+ * chosen profile that no longer exists stays selected as unavailable, so its
+ * reference is kept until the user changes it.
+ */
+class FolderSyncProfileCombo : public QComboBox
+{
+    Q_OBJECT
+    Q_PROPERTY(QString profileId READ profileId WRITE setProfileId NOTIFY profileIdChanged USER true)
+
+public:
+    explicit FolderSyncProfileCombo(QWidget *parent = nullptr);
+    QString profileId() const;
+    void setProfileId(const QString &id);
+    /// Rereads the saved profiles, keeping the current choice.
+    void reload();
+    /// Whether the chosen profile is missing from the saved profiles.
+    bool isUnavailable() const;
+
+Q_SIGNALS:
+    void profileIdChanged();
+
+private:
+    bool m_unavailable = false;
 };
 
 /**

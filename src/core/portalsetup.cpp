@@ -365,6 +365,42 @@ QString uninstall(const Paths &paths, KConfigGroup &backup)
     return {};
 }
 
+QString backupGroupName()
+{
+    return QStringLiteral("FileChooserPortal");
+}
+
+bool readsKdeConfig(const QString &currentDesktops)
+{
+    const QStringList desktops = currentDesktops.split(QLatin1Char(':'), Qt::SkipEmptyParts);
+    return std::any_of(desktops.cbegin(), desktops.cend(), [](const QString &desktop) {
+        return desktop.trimmed().compare(QLatin1String("KDE"), Qt::CaseInsensitive) == 0;
+    });
+}
+
+Outcome change(Change change, const Paths &paths, KConfigGroup &backup, bool portalAvailable, const std::function<QString()> &restart)
+{
+    Outcome outcome;
+    if (change == Change::Install && !portalAvailable) {
+        outcome.error = i18nc("@info",
+                              "xdg-desktop-portal is not available on the session bus, so applications cannot use the Plasma Opus file chooser. "
+                              "Nothing was changed.");
+        return outcome;
+    }
+    if (change == Change::Uninstall && state(paths) == State::NotInstalled && !backup.exists()) {
+        return outcome;
+    }
+    outcome.error = change == Change::Install ? install(paths, backup) : uninstall(paths, backup);
+    if (!outcome.error.isEmpty()) {
+        return outcome;
+    }
+    outcome.changed = true;
+    if (restart) {
+        outcome.restartError = restart();
+    }
+    return outcome;
+}
+
 bool portalServiceAvailable()
 {
     const QDBusConnection bus = QDBusConnection::sessionBus();

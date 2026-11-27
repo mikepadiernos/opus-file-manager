@@ -18,38 +18,63 @@ state and the steps to resume.
 
 Board statuses were last confirmed on 2026-11-27.
 
-| Handoff                                                                     | Milestone                                                                      | Issues         | Board status                                                                                                                                            |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [mpv integration](#mpv-integration-563)                                     | [M27](ROADMAP.md#m27-integrations)                                             | [#563], [#578] | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square) ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square) |
-| [Markdown editor and backlinks](#markdown-editor-and-backlinks-564)         | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
-| [Workspace vault editing](#workspace-vault-editing-565)                     | [M27](ROADMAP.md#m27-integrations), [M28](ROADMAP.md#m28-integration-settings) | [#565], [#566] | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square) ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square) |
-| [System file chooser on Plasma](#system-file-chooser-on-plasma-286)         | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
-| [Mount manager on Plasma](#mount-manager-on-plasma-703)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
-| [KWin script on Plasma](#kwin-script-on-plasma-707-708)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#707], [#708] | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
-| [Administrator mode on Plasma](#administrator-mode-on-plasma-288)           | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
-| [Plasma Vault on Plasma](#plasma-vault-on-plasma-654)                       | [M27](ROADMAP.md#m27-integrations)                                             | [#654]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
-| [File encryption on Plasma](#file-encryption-on-plasma-655)                 | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
-| [Send by Email on Plasma](#send-by-email-on-plasma-656)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#656]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
-| [Mail attachments on Plasma](#mail-attachments-on-plasma-657)               | [M27](ROADMAP.md#m27-integrations)                                             | [#657]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
-| [Mail file preview on Plasma](#mail-file-preview-on-plasma-658)             | [M27](ROADMAP.md#m27-integrations)                                             | [#658]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
-| [Shared Activity context on Plasma](#shared-activity-context-on-plasma-659) | [M27](ROADMAP.md#m27-integrations)                                             | [#659]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
+| Handoff                                                                             | Milestone                                                                      | Issues         | Board status                                                                                                                                          |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [mpv integration](#mpv-integration-563)                                             | [M27](ROADMAP.md#m27-integrations)                                             | [#563], [#578] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square) |
+| [Markdown editor and backlinks](#markdown-editor-and-backlinks-564)                 | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
+| [Workspace vault editing](#workspace-vault-editing-565)                             | [M27](ROADMAP.md#m27-integrations), [M28](ROADMAP.md#m28-integration-settings) | [#565], [#566] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square) |
+| [System file chooser on Plasma](#system-file-chooser-on-plasma-286)                 | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
+| [Mount manager on Plasma](#mount-manager-on-plasma-703)                             | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
+| [KWin script on Plasma](#kwin-script-on-plasma-707-708)                             | [M27](ROADMAP.md#m27-integrations)                                             | [#707], [#708] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)       |
+| [Administrator mode on Plasma](#administrator-mode-on-plasma-288)                   | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
+| [Plasma Vault on Plasma](#plasma-vault-on-plasma-654)                               | [M27](ROADMAP.md#m27-integrations)                                             | [#654]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
+| [File encryption on Plasma](#file-encryption-on-plasma-655)                         | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
+| [Send by Email on Plasma](#send-by-email-on-plasma-656)                             | [M27](ROADMAP.md#m27-integrations)                                             | [#656]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
+| [Mail attachments on Plasma](#mail-attachments-on-plasma-657)                       | [M27](ROADMAP.md#m27-integrations)                                             | [#657]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
+| [Mail file preview on Plasma](#mail-file-preview-on-plasma-658)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#658]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
+| [Shared Activity context on Plasma](#shared-activity-context-on-plasma-659)         | [M27](ROADMAP.md#m27-integrations)                                             | [#659]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
+| [Default file manager on Plasma](#default-file-manager-on-plasma-293)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#293]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [File chooser settings on Plasma](#file-chooser-settings-on-plasma-292)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#292]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Chooser start folder on Plasma](#chooser-start-folder-on-plasma-750)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#750]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Operation notifications on Plasma](#operation-notifications-on-plasma-392)         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#392]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Start hidden in tray on Plasma](#start-hidden-in-tray-on-plasma-290)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#290]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Global shortcut on Plasma](#global-shortcut-on-plasma-291)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#291]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Activity associations on Plasma](#activity-associations-on-plasma-391)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#391]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [KDE Connect settings on Plasma](#kde-connect-settings-on-plasma-393)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#393]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [KRunner settings on Plasma](#krunner-settings-on-plasma-394)                       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#394]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Online account settings on Plasma](#online-account-settings-on-plasma-371)         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#371]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [KWin script settings on Plasma](#kwin-script-settings-on-plasma-709)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#709]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Drop-down settings on Plasma](#drop-down-settings-on-plasma-710)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#710]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Baloo search settings on Plasma](#baloo-search-settings-on-plasma-443)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#443]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Office settings on Plasma](#office-settings-on-plasma-676)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#676]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Mail client settings on Plasma](#mail-client-settings-on-plasma-666)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#666]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Remote connection settings on Plasma](#remote-connection-settings-on-plasma-297)   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#297]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [rclone settings on Plasma](#rclone-settings-on-plasma-663)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#663]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Remote drive settings on Plasma](#remote-drive-settings-on-plasma-704)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#704]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Cloud sync settings on Plasma](#cloud-sync-settings-on-plasma-720)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#720]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [rsync settings on Plasma](#rsync-settings-on-plasma-366)                           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#366]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Transfer and cache settings on Plasma](#transfer-and-cache-settings-on-plasma-721) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#721]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [LAN sharing settings on Plasma](#lan-sharing-settings-on-plasma-664)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#664]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Plasma Vault settings on Plasma](#plasma-vault-settings-on-plasma-669)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#669]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [File encryption settings on Plasma](#file-encryption-settings-on-plasma-670)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#670]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
 
 ## mpv integration (#563)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#563]
-  (Completed); its M28 setting is [#578] (Backlog).
+  (Merged); its M28 setting is [#578] (Completed).
 - **Resolved blocker:** Fedora 44 packages `mpv-devel`, and embedded playback
   uses libmpv's OpenGL render API in a `QOpenGLWidget` rather than KDE's
   MpvQt, so there is no Qt Quick and no process-wide numeric locale change
   unless libmpv refuses to start without it. Initialization failures return
   errors instead of terminating, and builds without libmpv or Qt OpenGL
   Widgets keep Qt Multimedia only.
-- **Confirmed state:** `feature/M27-integrations` adds `src/core/mediabackend.cpp`
+- **Confirmed state:** `main` includes `src/core/mediabackend.cpp`
   and `src/core/mpvplayer.cpp` for backend choice and libmpv playback,
   `src/app/mpvvideowidget.cpp` for drawing video, the backend button in the
-  preview and gallery playback controls, and **Audio and video playback**
-  under **Preferences › Interface › Previews**. When mpv can't start or draw,
-  Qt Multimedia plays the file with a notice. `mediabackendtest`,
+  preview and gallery playback controls, and **Audio and video playback**,
+  now under **Preferences › Applications › Media**, which says what plays
+  audio and video ([#578]). When mpv can't start or draw, Qt Multimedia
+  plays the file with a notice. `mediabackendtest`,
   `mpvplayertest` and `mediaviewtest` cover backend choice, audio playback,
   seeking, end of file, errors and fallback. The development container has
   no OpenGL, so video through mpv is untested there. See
@@ -68,17 +93,20 @@ Board statuses were last confirmed on 2026-11-27.
    frames or leftover `mpv` threads.
 4. Preview remote audio and video and confirm the temporary download is
    removed when the preview changes.
+5. Choose mpv under **Preferences › Applications › Media** and check that
+   the tab says mpv plays audio and video where mpv draws video, and names
+   the Qt Multimedia fallback where it can't.
 
 ## Markdown editor and backlinks (#564)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#564]
-  (Completed).
+  (Merged).
 - **Resolved blocker:** The source stays untouched in KTextEditor, so no
   source-preserving rewriter is needed. The preview keeps Qt's md4c-based
   Markdown renderer with its **CommonMark** and **GitHub Markdown** dialects,
   and wiki links come from a code-aware scanner in `src/core/wikilinks.cpp`
   that skips code blocks, code spans, HTML comments and escapes.
-- **Confirmed state:** `feature/M27-integrations` adds the editor's **Vault**
+- **Confirmed state:** `main` includes the editor's **Vault**
   menu, a background index of the chosen folder in `src/core/notevault.cpp`,
   clickable wiki links in the preview of notes inside the vault, and a
   **Backlinks** list with missing, ambiguous, out-of-vault, unreadable and
@@ -100,12 +128,12 @@ Board statuses were last confirmed on 2026-11-27.
 ## Workspace vault editing (#565)
 
 - **Milestone and issues:** [M27](ROADMAP.md#m27-integrations), [#565]
-  (Completed); its settings belong to
-  [M28](ROADMAP.md#m28-integration-settings), [#566] (Backlog).
+  (Merged); its settings belong to
+  [M28](ROADMAP.md#m28-integration-settings), [#566] (Completed).
 - **Resolved blocker:** The built-in Markdown and backlinks feature, [#564],
   is Completed, and workspace profiles and location assignments ([#200] and
   [#201]) are merged.
-- **Confirmed state:** `feature/M27-integrations` stores an optional editor
+- **Confirmed state:** `main` stores an optional editor
   vault per workspace in `src/core/workspacecatalog.cpp`, chosen with **Use
   as Editor Vault** in **Workspaces** from the workspace's assigned local
   locations. While that workspace is active, every editor uses its vault and
@@ -117,6 +145,16 @@ Board statuses were last confirmed on 2026-11-27.
   validation, duplication, unassignment and removal, inline and front matter
   tags, nested tags, and switching between the workspace and own vaults. See
   [Workspace vaults and tags](CAVEATS.md#desktop-integration).
+- **M28 state:** `feature/M28-integration-settings` adds the **Workspace
+  Vault** group under **Preferences › Applications › Editor**
+  (`src/app/workspacevaultsettings.cpp`). It stores each workspace's vault
+  switch and own Markdown options in the workspace catalog, which is now
+  version 9, reports a vault location that can't be found in the group and
+  the editor, and counts the vault's notes. `workspacecatalogtest`,
+  `editorpaneltest`, `workspacedialogtest`, `mainwindowtest` and
+  `integrationsettingstest` cover persistence, turning the vault off, its own
+  options and a removed location. See
+  [Workspace vault settings](CAVEATS.md#integration-settings).
 
 **Steps to resume:**
 
@@ -128,14 +166,16 @@ Board statuses were last confirmed on 2026-11-27.
 3. Rename the vault folder while the workspace is active and confirm the
    editor reports the unreadable vault, then unassign the location and
    confirm the editor's own vault returns.
-4. For [#566], provide the workspace vault options in M28 and verify
-   workspace-scoped settings persistence and recovery when vault roots or
-   editor features are unavailable.
+4. For [#566], on Plasma, put a workspace's vault on a removable drive,
+   eject it while the workspace is active, and confirm the editor and
+   **Preferences › Applications › Editor › Workspace Vault** report it, keep
+   open notes and drafts, and read the vault again after the drive is
+   mounted and **Vault › Rescan Vault** is chosen.
 
 ## System file chooser on Plasma (#286)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#286]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Plasma session, no
   xdg-desktop-portal frontend and no KWin, so the portal routing, window
   parenting and the restart of xdg-desktop-portal cannot be tried there.
@@ -163,7 +203,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Mount manager on Plasma (#703)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#703]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Plasma session, no UDisks2
   daemon, no polkit agent and no removable or optical drives, so Solid's
   mount, unmount and eject requests and their authorization prompts cannot
@@ -188,21 +228,21 @@ Board statuses were last confirmed on 2026-11-27.
 ## KWin script on Plasma (#707, #708)
 
 - **Milestone and issues:** [M27](ROADMAP.md#m27-integrations), [#707]
-  (Completed) and [#708] (Completed).
+  (Merged) and [#708] (Merged).
 - **Blocker:** The development container has no KWin, no KPackage script
   structure registered with a compositor and no KGlobalAccel daemon, so the
   script cannot be installed, loaded or driven by real windows there.
-- **Confirmed state:** The script package, the **Configure KWin Integration**
-  dialog, the workspace placements and the drop-down window are implemented and
-  pass their tests in the container, against a fake backend and a simulated
+- **Confirmed state:** The script package, the **KDE Plasma › KWin** tab of
+  Preferences, the workspace placements and the drop-down window are implemented
+  and pass their tests in the container, against a fake backend and a simulated
   KWin JavaScript API. This verification does not block the features; it is
   recorded as a caveat under
   [Desktop integration](CAVEATS.md#desktop-integration).
 
 **Steps to resume:**
 
-1. On a Plasma 6 session, open **Settings › Configure KWin Integration…**,
-   install and enable the script, and confirm the dialog reports it as
+1. On a Plasma 6 session, open **Preferences › KDE Plasma › KWin**,
+   install and enable the script, and confirm the tab reports it as
    running. Check `journalctl --user -b | grep -i opus` for script errors.
 2. Save and restore window placements across two workspaces on Wayland and
    X11: screen, virtual desktop, size, tile and keep-above state.
@@ -218,7 +258,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Administrator mode on Plasma (#288)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#288]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no `kio-admin` worker, no
   Polkit agent and no Plasma session, so the authorization prompt and
   operations performed as root cannot be tried there.
@@ -233,7 +273,7 @@ Board statuses were last confirmed on 2026-11-27.
 
 1. On a Plasma 6 session with `kio-admin` installed, run
    `QT_QPA_PLATFORM=offscreen ctest --test-dir build -R adminmodeuitest
-   --output-on-failure` and confirm the cancel test runs and passes.
+--output-on-failure` and confirm the cancel test runs and passes.
 2. Open `/etc` in Plasma Opus, choose **File › Act as Administrator**,
    accept the warning and authenticate. Check that the warning bar appears
    and the action is checked.
@@ -248,7 +288,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Plasma Vault on Plasma (#654)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#654]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Plasma Vault, no kded6
   module for it and no CryFS, gocryptfs or EncFS, so vaults cannot be
   created, opened or closed there.
@@ -277,7 +317,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## File encryption on Plasma (#655)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#655]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no `aescrypt` tool, no
   Kleopatra and no pinentry program, so AES Crypt files, Kleopatra's dialogs
   and GnuPG's password prompt cannot be tried there.
@@ -311,7 +351,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Send by Email on Plasma (#656)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#656]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no mail client, no Plasma
   Impresario and no XDG Email portal, so real composers and the sandboxed
   path cannot be tried there.
@@ -343,7 +383,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Mail attachments on Plasma (#657)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#657]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Plasma Impresario, no IMAP
   account and no drag-and-drop between applications, so real drags into its
   composer and out of its attachment list cannot be tried there.
@@ -374,7 +414,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Mail file preview on Plasma (#658)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#658]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no registered applications, no
   mail client and no Plasma session, so opening an attachment through its
   application and the preview's layout in a real window cannot be tried
@@ -402,7 +442,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Shared Activity context on Plasma (#659)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#659]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Activities service, and
   Plasma Impresario's account-to-workspace associations aren't released, so
   reports reaching Plasma's history and both applications following one
@@ -426,10 +466,867 @@ Board statuses were last confirmed on 2026-11-27.
    Record any differences in [CAVEATS](CAVEATS.md), then remove this entry
    and its roadmap link.
 
+## Default file manager on Plasma (#293)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#293]
+  (Completed).
+- **Blocker:** The development container has no Plasma session, no System
+  Settings, no running file manager and no dbus-broker, so the default that
+  Plasma and other applications see, claiming `org.freedesktop.FileManager1`
+  while Dolphin runs and reloading activation files cannot be tried there.
+- **Confirmed state:** `src/core/defaultfilemanager.cpp` reads and sets the
+  default application for folders, finds an overriding desktop-specific
+  list, and installs, updates and removes the activation file;
+  **Preferences › KDE Plasma › File Manager** offers them.
+  `defaultfilemanagertest`, `integrationsettingstest` and
+  `filemanagerservicetest`, which claims the service on a private session
+  bus, pass in the container. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Opus installed by `./install.sh` and
+   Dolphin as the default, open **Preferences › KDE Plasma › File Manager**
+   and check that the status names Dolphin.
+2. Choose **Set Plasma Opus as Default**. Check that System Settings ›
+   Default Applications shows Plasma Opus and that a browser's **Show in
+   folder** opens Plasma Opus. With Dolphin running, check the warning; quit
+   Dolphin, restart Plasma Opus and check that **Show in folder** reaches it.
+3. Choose **Install Activation File**, quit Plasma Opus and every file
+   manager, and check that **Show in folder** starts Plasma Opus, under
+   dbus-daemon and, where available, dbus-broker. Choose **Remove Activation
+   File** and check that it no longer does.
+4. Add `inode/directory=org.kde.dolphin.desktop;` to
+   `~/.config/kde-mimeapps.list` and check that **Set Plasma Opus as
+   Default** reports it. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and its
+   roadmap link.
+
+## File chooser settings on Plasma (#292)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#292]
+  (Completed).
+- **Blocker:** The development container has no Plasma session, no session
+  bus, no xdg-desktop-portal and no systemd user manager, so whether the
+  portal is found, the restart through `systemctl --user` and the chooser
+  that applications then show cannot be tried there.
+- **Confirmed state:** `PortalSetup::change()` in
+  `src/core/portalsetup.cpp` sets up or restores the chooser and restarts
+  xdg-desktop-portal for both **Preferences › KDE Plasma › File Manager**
+  and `--install-portal`/`--uninstall-portal`. `portalsetuptest` and
+  `integrationsettingstest`, which replaces the portal check, restart and
+  question, pass in the container. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with xdg-desktop-portal 1.21.0 or later and
+   Plasma Opus installed by `./install.sh`, open **Preferences › KDE Plasma ›
+   File Manager** and check that the **System File Chooser** status says the
+   system's own chooser is used.
+2. Open a file dialog in a Flatpak application, choose **Set Up** and
+   confirm. Check that the dialog closes, that the next one is the Plasma
+   Opus chooser and that the status updates.
+3. Edit `~/.config/xdg-desktop-portal/kde-portals.conf` to prefer `kde`,
+   reopen the settings and check that **Complete Setup** appears and works.
+4. Choose **Restore Previous Chooser** and check that KDE's chooser returns
+   and the file matches its backup. Where xdg-desktop-portal does not run
+   as a systemd user service, check that the failed restart is reported
+   with the advice to log out and back in. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
+   its roadmap link.
+
+## Chooser start folder on Plasma (#750)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#750]
+  (Completed).
+- **Blocker:** The development container has no xdg-desktop-portal, so the
+  application IDs it passes for sandboxed and unsandboxed applications
+  cannot be seen there.
+- **Confirmed state:** `FileChooser::startFolder()`, `acceptedFolder()`,
+  `lastFolder()` and `rememberFolder()` in `src/core/filechooser.cpp` choose
+  and remember the folder; `FileChooserPortal` applies **Start folder** from
+  **Preferences › KDE Plasma › File Manager**. `filechoosertest`,
+  `chooserdialogtest`, including requests over a private session bus, and
+  `integrationsettingstest` pass in the container. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with the Plasma Opus file chooser set up, set
+   **Start folder** to **Folder of the last choice** and apply.
+2. In a Flatpak application, open a file from a folder other than home,
+   then open the dialog again without a suggested folder and check that it
+   starts there. Check that another Flatpak application still starts in the
+   home folder.
+3. Repeat with an unsandboxed portal application, such as a GTK
+   application with `GTK_USE_PORTAL=1`, and check which application ID
+   `~/.local/state/opus-file-managerstaterc` records under `[FileChooser]`.
+4. Choose **Forget Remembered Folders** and check that the dialogs start in
+   the home folder again. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
+   its roadmap link.
+
+## Operation notifications on Plasma (#392)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#392]
+  (Completed).
+- **Blocker:** The development container has no Plasma session, job-view
+  service or System Settings, so Plasma's job reports and its Notifications
+  settings cannot be seen there.
+- **Confirmed state:** `OperationJob::reports()` in
+  `src/core/operationjob.cpp` reads the settings under **Preferences › KDE
+  Plasma › Notifications**, and `OperationJob::track()` leaves operations
+  whose setting is cleared unreported. **Configure Plasma Notifications…**
+  runs `kcmshell6 kcm_notifications --args
+--desktop-entry=org.kde.opusfilemanager`, or `systemsettings` with the
+  same arguments. `operationjobtest` and `integrationsettingstest` pass in
+  the container. See [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Opus installed by `./install.sh`,
+   verify a checksum file and synchronize two folders, and check that both
+   appear in Plasma's job progress.
+2. Clear **Creating and verifying checksum files** under **Preferences › KDE
+   Plasma › Notifications** and apply. Verify the checksum file again and
+   check that Plasma shows nothing while the dialog shows the progress and
+   result, and that folder synchronization still reports.
+3. Choose **Configure Plasma Notifications…** and check that it opens on the
+   Plasma Opus entry, with `kcmshell6` and, with it removed from `PATH`,
+   with `systemsettings`. Check that the options there change how Plasma
+   shows Plasma Opus's reports. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
+   its roadmap link.
+
+## Start hidden in tray on Plasma (#290)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#290]
+  (Completed).
+- **Blocker:** The development container has no Plasma session or system
+  tray host, so starting hidden with Plasma's tray, at login or otherwise,
+  cannot be seen there.
+- **Confirmed state:** `TrayPolicy::startHidden()` in
+  `src/core/traypolicy.cpp` hides the window at start only when **Start with
+  the window hidden in the system tray** is checked under **Preferences ›
+  KDE Plasma › System Tray**, no folders or workspace were asked for and a
+  tray host can show the icon; `DesktopTray::startHidden()` applies it from
+  `main.cpp`. `traypolicytest`, `desktoptraytest` and
+  `integrationsettingstest` pass in the container with a simulated tray host.
+  See [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Opus installed by `./install.sh`,
+   check **Start with the window hidden in the system tray** under
+   **Preferences › KDE Plasma › System Tray** and apply. Quit and start
+   Plasma Opus from the launcher; check that only the tray icon appears and
+   that choosing it shows the window with its tabs.
+2. Quit, then run `opus-file-manager ~/Documents`, and check that the
+   window is shown. Start Plasma Opus while it is hidden and check that the
+   window is shown.
+3. Add Plasma Opus under **System Settings › Autostart**, log out and back
+   in, and check whether it starts hidden or shows the window because the
+   tray was not ready. Check both on Wayland and X11, and that the tab's
+   Wayland note appears only on Wayland. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
+   its roadmap link.
+
+## Global shortcut on Plasma (#291)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#291]
+  (Completed).
+- **Blocker:** The development container has no KDE global shortcut
+  service (kglobalaccel), so registering, removing and changing the
+  shortcut cannot be seen there.
+- **Confirmed state:** `DesktopTray::applySettings()` in
+  `src/app/desktoptray.cpp` registers **Show or Hide Plasma Opus** with
+  KGlobalAccel only while **Show or hide Plasma Opus with a global
+  shortcut** is checked under **Preferences › KDE Plasma › Shortcuts**, and
+  removes it otherwise, keeping its key in the `[Tray]` group of
+  `opus-file-managerstaterc`. The tab's key goes to KGlobalAccel with
+  `KGlobalAccel::setShortcut()`. `desktoptraytest`, `traypolicytest` and
+  `integrationsettingstest` pass in the container, where KGlobalAccel
+  assigns no key. See [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Opus installed by `./install.sh`, open
+   **Preferences › KDE Plasma › Shortcuts** and check that the tab shows
+   Meta+Alt+O, or says that no key is assigned when another application
+   uses it, and that pressing the key shows and hides the window.
+2. Choose another key and apply; check that it works, that Meta+Alt+O no
+   longer does, and that **System Settings › Keyboard › Shortcuts** shows
+   the new key. Choose a key another application uses and check that the
+   tab asks before taking it over. Choose the current key again after
+   clearing it and check whether the tab asks to take it from Plasma Opus.
+3. Clear **Show or hide Plasma Opus with a global shortcut** and apply;
+   check that the key does nothing and that Plasma's Shortcuts settings no
+   longer list it. Check it again, apply, and check that the previous key
+   works. Change the key in Plasma's Shortcuts settings while Preferences is
+   open, and check that the tab's status follows. Choose **Configure Plasma
+   Shortcuts…** and check that System Settings opens. Record any
+   differences in [CAVEATS](CAVEATS.md#integration-settings), then remove
+   this entry and its roadmap link.
+
+## Activity associations on Plasma (#391)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#391]
+  (Completed).
+- **Blocker:** The development container has no Plasma Activities service
+  and no System Settings, so the Activity list and opening Plasma's
+  Activities settings cannot be seen there.
+- **Confirmed state:** `SettingsDialog::createActivitiesIntegrationPage()`
+  in `src/app/integrationsettingspages.cpp` embeds
+  `ActivityAssociationsEditor` under **Preferences › KDE Plasma ›
+  Activities**, reading Activities through the main window's
+  `ActivityController`, and saves the associations with the other settings.
+  **Configure Plasma Activities…** opens the `kcm_activities` module through
+  `kcmshell6` or System Settings. `integrationsettingstest` and
+  `activitycontrollertest` pass in the container with a replaced Activity
+  source. See [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with at least two Activities, open **View ›
+   Activity Associations** and check that **Preferences › KDE Plasma ›
+   Activities** opens with every Activity listed and the current one
+   selected.
+2. Check **Associate workspaces and default folders with Plasma
+   Activities**, choose a workspace, **Selected** behaviours and folders for
+   another Activity, and apply. Switch to that Activity and check that the
+   offer above the panes applies the chosen workspace, behaviours and
+   folders.
+3. Create, rename and remove an Activity with Preferences open, and check
+   that the list follows. Choose **Configure Plasma Activities…** and check
+   that Plasma's Activities settings open. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
+   its roadmap link.
+
+## KDE Connect settings on Plasma (#393)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#393]
+  (Completed).
+- **Blocker:** The development container has no KDE Connect and no System
+  Settings, so **Configure KDE Connect…** cannot open KDE Connect's settings
+  there.
+- **Confirmed state:** `SettingsDialog::createKdeConnectIntegrationPage()`
+  in `src/app/integrationsettingspages.cpp` opens the `kcm_kdeconnect`
+  module through `kcmshell6` or System Settings, looking for it among both
+  the QML and the QWidgets System Settings modules. Turning **File › Send to
+  Device…** off and forgetting the remembered device pass
+  `kdeconnectsharetest`, `kdeconnectsharedialogtest` and
+  `integrationsettingstest` in the container with a replaced KDE Connect
+  client. See [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with KDE Connect installed, open **Preferences ›
+   KDE Plasma › KDE Connect**, choose **Configure KDE Connect…** and check
+   that KDE Connect's settings open rather than the tab reporting them as
+   not installed.
+2. With two paired devices that can receive files, send a file to the
+   second one, clear **Choose the device the files were last sent to
+   again**, apply, and check that **File › Send to Device…** chooses the
+   first device. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
+   its roadmap link.
+
+## KRunner settings on Plasma (#394)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#394]
+  (Completed).
+- **Blocker:** The development container has no KRunner, no Plasma session
+  and no System Settings, so the installed plugin cannot be searched and
+  **Configure Plasma Search…** cannot open Plasma's search settings there.
+- **Confirmed state:** `SettingsDialog::createKRunnerIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` stores the switch and the cleared
+  workspaces and Favorites, and opens the `kcm_plasmasearch` module through
+  `kcmshell6` or System Settings. `OpusRunner` in `src/runner/` reads them
+  again when a search session ends. Leaving out what is turned off or
+  cleared passes `runnermatchestest`, `opusrunnertest` and
+  `integrationsettingstest` in the container, calling the runner directly
+  rather than through KRunner. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Opus installed by `./install.sh`, open
+   **Preferences › KDE Plasma › KRunner**, clear one saved workspace and one
+   Favorite, apply, close KRunner and search for both; check that neither
+   is offered while the others still are.
+2. Clear **Offer saved workspaces and Favorites in KRunner and Plasma
+   Search**, apply, and check that a new search offers nothing from Plasma
+   Opus. Choose **Configure Plasma Search…** and check that Plasma's search
+   settings open rather than the tab reporting them as not installed.
+   Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
+   then remove this entry and its roadmap link.
+
+## Online account settings on Plasma (#371)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#371]
+  (Completed).
+- **Blocker:** The development container has no Plasma session and no KDE
+  account providers, so accounts cannot be added through System Settings and
+  **Manage Online Accounts…** cannot open its Online Accounts page there.
+- **Confirmed state:** `SettingsDialog::createOnlineAccountsIntegrationPage()`
+  in `src/app/integrationsettingspages.cpp` stores the opt-in and the cleared
+  account ids, and opens the `kcm_kaccounts` module through `kcmshell6` or
+  System Settings. `OnlineAccounts::shownAccounts()` in `src/core/` leaves
+  out cleared accounts and those without file storage for **Go › Online
+  Accounts** and the cloud sync accounts menu. Listing, clearing and hiding
+  accounts pass `onlineaccountstest`, `onlineaccountsmenutest` and
+  `integrationsettingstest` in the container, with accounts written to a
+  temporary libaccounts database. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Opus installed by `./install.sh` and
+   `kio-gdrive` and `kaccounts-providers` installed, add a Google or
+   Nextcloud account and an account without file storage in **System
+   Settings › Online Accounts**.
+2. Check that **Go › Online Accounts** is hidden, then check **Show the
+   folders of KDE Online Accounts in Plasma Opus** under **Preferences › KDE
+   Plasma › Online Accounts**, and check that the tab lists only the account
+   with file storage, names the other one, and that the menu offers it after
+   **Apply**.
+3. Clear the account, apply, and check that the menu and the cloud sync
+   accounts menu leave it out while System Settings still lists it. Choose
+   **Manage Online Accounts…** and check that the Online Accounts page opens.
+   Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
+   then remove this entry and its roadmap link.
+
+## KWin script settings on Plasma (#709)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#709]
+  (Completed).
+- **Blocker:** The development container has no KWin, KGlobalAccel daemon or
+  System Settings, so the script cannot be installed, enabled or removed there,
+  and **Configure KWin Scripts…** and **Configure Window Rules…** cannot open
+  KWin's settings.
+- **Confirmed state:** `SettingsDialog::createKWinIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` drives the main window's
+  `KWinIntegration` to install, update, enable, disable and remove the script,
+  stores the window management options in the `KWinScript` group and the
+  virtual desktop assignments in `KWinVirtualDesktops`, and opens the
+  `kcm_kwin_scripts` and `kcm_kwinrules` modules through `kcmshell6` or System
+  Settings. The actions, their reports and the options sent to the script pass
+  `kwinscripttest` and `integrationsettingstest` in the container against a
+  fake KWin backend. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Opus installed by `./install.sh`, open
+   **Preferences › KDE Plasma › KWin**, choose **Install and Enable**, and
+   check that the tab reports the script as running and that it appears,
+   enabled, under **Configure KWin Scripts…**.
+2. Clear **Restore the window's screen, virtual desktop, size, tile and
+   keep-above state with each workspace**, apply, and check that applying a
+   workspace no longer moves the window; check it again and confirm the
+   placement is restored. Check **Place detached previews, editors and panes
+   beside the main window** and detach a preview.
+3. Check **Apply the workspace assigned to the virtual desktop that becomes
+   current**, assign a workspace to a virtual desktop, apply, and switch to
+   that desktop. Choose **Disable** and **Enable**, then **Remove…**, and check
+   KWin's script settings after each. Choose **Configure Window Rules…** and
+   check that KWin's window rules open.
+   Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
+   then remove this entry and its roadmap link.
+
+## Drop-down settings on Plasma (#710)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#710]
+  (Completed).
+- **Blocker:** The development container has no KWin or KGlobalAccel daemon,
+  so the drop-down window cannot be placed by the script or toggled by a real
+  global shortcut or screen edge there.
+- **Confirmed state:** `SettingsDialog::createDropDownGroup()` in
+  `src/app/integrationsettingspages.cpp` stores the drop-down options in the
+  `KWinScript` group, which `KWinIntegration` sends to the script at its next
+  sync, and assigns the shortcut of the main window's `toggle_drop_down`
+  action through KGlobalAccel. **Settings › Configure KWin Integration…**
+  opens the tab. The options, the shortcut and the menu action pass
+  `kwinscripttest`, `integrationsettingstest` and `kwinintegrationtest` in the
+  container against a fake KWin backend and simulated shortcut hooks. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with the KWin script running, open **Preferences ›
+   KDE Plasma › KWin**, check **Slide the window in from a screen edge and hide
+   it again**, choose a global shortcut and apply. Check that the tab reports
+   the shortcut as working and that Plasma's Shortcuts settings list it.
+2. Press the shortcut from each **Screen edge** at several widths and heights,
+   on a chosen screen and on **Active screen**, with **Slide in and out**
+   checked and cleared.
+3. Check **Hide when another application is activated**, both triggers and a
+   workspace, apply, and check each. Choose **Restore Defaults** and apply,
+   and check that the shortcut is removed from Plasma's Shortcuts settings.
+   Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
+   then remove this entry and its roadmap link.
+
+## Baloo search settings on Plasma (#443)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#443]
+  (Completed).
+- **Blocker:** The development container has no running Baloo indexer or
+  System Settings, so the tab's indexer state can't be compared with a real
+  index there, and **Configure File Search…** cannot open KDE's File Search
+  settings.
+- **Confirmed state:** `SettingsDialog::createBalooSearchGroup()` in
+  `src/app/integrationsettingspages.cpp` stores `SearchOfferRanking` and
+  `SearchOfferLiveFallback` in the `Search` group, which `SearchDefaults::read()`
+  reads and `SearchWidget` applies when the settings are applied. The tab reads
+  the indexer's state through `IndexStatus::Config::read()` and
+  `SystemIndexBackend`, and opens the `kcm_baloofile` module through
+  `kcmshell6` or System Settings. The options pass `searchwidgettest` and
+  `integrationsettingstest` in the container. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with file indexing on, open **Preferences › KDE
+   Plasma › Baloo** and check that the tab reports the indexer's state as
+   `balooctl6 status` does. Turn indexing off in KDE File Search settings and
+   check that the tab says so the next time it is shown.
+2. Choose **Configure File Search…** and check that KDE's File Search settings
+   open. Choose **Search Defaults…** and check that **Tools › Search** is
+   shown.
+3. Clear both options, apply, and run an indexed search in the search panel:
+   check that **Rank results by similarity** and **Search Current Folder
+   Live** are not shown. Check them again, apply, and check that both return.
+   Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
+   then remove this entry and its roadmap link.
+
+## Office settings on Plasma (#676)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#676]
+  (Completed).
+- **Blocker:** The development container has no office applications,
+  document viewer components or System Settings, so the **Office** tab's list
+  of viewers, previews through a real component and **File Associations…**
+  can't be checked there.
+- **Confirmed state:** `SettingsDialog::createOfficeEditorGroup()` and
+  `createOfficePreviewGroup()` in `src/app/integrationsettingspages.cpp`
+  store `OfficeEditor` and `OfficePreviews` in the `Office` group.
+  `EditTools::choose()` uses only the chosen application through
+  `OfficeApps::preferredApp()`, and `PreviewPanel` shows a message instead of
+  a viewer when `DocumentFormats::previewEnabled()` is false. The tab lists
+  each kind's first viewer from `KParts::PartLoader::partsForMimeType()` and
+  opens the `kcm_filetypes` module. `edittoolstest`, `documentformatstest` and
+  `integrationsettingstest` pass in the container with fake applications. See
+  [Office settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma with Calligra and Okular installed, open **Preferences ›
+   Applications › Office** and check that the **Previews** group names
+   Calligra's viewer for text documents, spreadsheets and presentations.
+2. Choose **File Associations…**, check that KDE's File Associations
+   settings open, raise another viewer for ODT files, and check that the tab
+   and the preview of an ODT file follow it.
+3. Choose LibreOffice, apply, and check that **Edit** opens a local ODT file
+   in LibreOffice and reports a document on an SFTP folder. Clear **Preview
+   office documents in the preview panel**, apply, and check that local and
+   remote office documents show the message without downloading. Record any
+   differences in [CAVEATS](CAVEATS.md#integration-settings), then remove
+   this entry and its roadmap link.
+
+## Mail client settings on Plasma (#666)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#666]
+  (Completed).
+- **Blocker:** The development container has no mail client or System
+  Settings, so the **Mail** tab's client report can only be checked with a
+  fake `mailto:` handler, and **Configure Default Applications…** cannot open
+  Plasma's Default Applications settings.
+- **Confirmed state:** `SettingsDialog::createMailClientGroup()` in
+  `src/app/integrationsettingspages.cpp` names the client from
+  `MailHandoff::preferredClient()`, opens the `kcm_componentchooser` module
+  through `kcmshell6` or System Settings, and stores `SendByEmail` in the
+  `Mail` group. `MainWindow::applySettings()` hides **Send by Email…** and
+  `updateActions()` disables it, which also leaves it out of the context
+  menus. `integrationsettingstest` passes in the container with fake clients.
+  See [Mail client settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma with KMail or Thunderbird installed, open **Preferences ›
+   Applications › Mail** and check that the **Client** group names the
+   client chosen under **System Settings › Default Applications › Email
+   client**. Choose Plasma Impresario there, show the tab again, and check
+   that it says Plasma Impresario can't receive attached files.
+2. Choose **Configure Default Applications…** and check that Plasma's Default
+   Applications settings open.
+3. Clear **Offer Send by Email for selected files**, apply, and check that
+   **File › Send by Email…** and the file context menu no longer offer it.
+   Check it again, apply, and check that both offer it. Record any
+   differences in [CAVEATS](CAVEATS.md#integration-settings), then remove
+   this entry and its roadmap link.
+
+## Remote connection settings on Plasma (#297)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#297]
+  (Completed).
+- **Blocker:** The development container has no KDE password server
+  (`kpasswdserver6`), KDE Wallet or KDE Wallet Manager, so passwords for
+  connections saved under **Preferences › Remote and Cloud › Connections**
+  can't be asked for or kept, and **Open KDE Wallet Manager…** can only report
+  that the manager is missing.
+- **Confirmed state:**
+  `SettingsDialog::createRemoteConnectionsIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` embeds `RemoteProfilesEditor`
+  (`src/app/remoteprofileseditor.cpp`), the editor that the **Manage Remote
+  Connections** window also uses, on the `RemoteProfiles` group, and stores the
+  defaults for new connections as `RemoteDefaultProtocol`, `RemoteDefaultUser`
+  and `RemoteDefaultAuthentication` in the `RemoteConnections` group. Profiles
+  and URLs never contain passwords. `integrationsettingstest`,
+  `remoteprofilestest` and `remoteprofilesdialogtest` pass in the container.
+  See [Remote connection settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, save an SFTP or WebDAV connection with a password under
+   **Preferences › Remote and Cloud › Connections**, open it from **Go ›
+   Remote Connections**, and check that KIO asks for the password and offers
+   to keep it in KDE Wallet. Check that `opusfilemanagerrc` contains no
+   password.
+2. Choose **Open KDE Wallet Manager…** and check that KDE Wallet Manager opens
+   and lists the saved password, then remove it there.
+3. Set **Defaults for New Connections**, apply, and check that **Manage Remote
+   Connections…** starts new connections with them. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and its
+   roadmap link.
+
+## rclone settings on Plasma (#663)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#663]
+  (Completed).
+- **Blocker:** The development container has no rclone, KDE password server
+  (`kpasswdserver6`) or KDE Wallet, so serving a real remote over WebDAV, and
+  KIO signing in with the password that the password server keeps, are tested
+  only with a fake rclone and a fake password provider.
+- **Confirmed state:** `SettingsDialog::createRcloneIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` stores `RcloneEnabled`,
+  `RcloneHiddenRemotes` and `RcloneOpenMode` in the `CloudStorage` group.
+  `RcloneMounts::serve()` in `src/core/rclone.cpp` runs `rclone serve webdav`
+  on 127.0.0.1 with the password in `RCLONE_PASS`, and `MainWindow` looks the
+  password up with `KPasswdServerClient::checkAuthInfo()`, or creates one and
+  keeps it with `addAuthInfo()`. `rclonetest` and `integrationsettingstest`
+  pass in the container. See [rclone settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, with rclone and a configured remote, choose **Serve it over
+   WebDAV on this computer only** under **Preferences › Remote and Cloud ›
+   rclone**, apply, and open the remote from **Go › Cloud Storage**. Check
+   that it opens at `webdav://rclone@127.0.0.1:…/` without asking for a
+   password, that KDE Wallet holds the entry, and that the location bar and
+   `ps` show no password.
+2. Open a file from the served remote in a KIO application, such as Kate, save
+   it, and check that the change reaches the remote. Choose the remote under
+   **Stop Serving** and check that the panes leave it and rclone stops.
+3. Quit and restart Plasma Opus, serve the remote again, and check that the
+   kept password is reused. Clear a remote and the integration, and check the
+   menu. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and its
+   roadmap link.
+
+## Remote drive settings on Plasma (#704)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#704]
+  (Completed).
+- **Blocker:** The development container has no sshfs, FUSE, `fusermount3`,
+  KIO FUSE, davfs2, CIFS client or Plasma session, so mounting with the chosen
+  backends, keeping sshfs mounts after quitting, taking them over at startup,
+  mounting on workspace activation and starting at login are tested only with
+  fake tools, a fake KIO FUSE service and a test-mode autostart folder.
+- **Confirmed state:** `SettingsDialog::createRemoteDrivesIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` stores the `RemoteDrives` group's
+  `RemoteDriveSftpBackend`, `RemoteDriveWebDavBackend`, `RemoteDriveSmbBackend`,
+  `RemoteDriveMountFolder`, `RemoteDriveReadOnly`, `RemoteDriveMountAtLogin`,
+  `RemoteDriveMountOnWorkspace` and `RemoteDriveUnmountOnExit`.
+  `RemoteMounts::defaultsFromSettings()` in `src/core/remotemounts.cpp` gives
+  the options of connections without saved ones. With unmounting on exit off,
+  `RemoteMountManager` starts sshfs without `-f`, leaves mounts at quit and
+  takes over mounts it finds in place, unmounting them with `fusermount -u`.
+  `MainWindow::applySettings()` writes or removes
+  `autostart/<desktop file>-remote-drives.desktop`, which starts
+  `--background-mount`, and `MainWindow::mountRemoteProfilesForWorkspace()`
+  mounts the connections covering a workspace's assigned locations.
+  `remotemountstest`, `remotemountdialogtest` and `integrationsettingstest`
+  pass in the container. See
+  [Remote drive settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, with sshfs, FUSE 3 and an SSH server reached with a key, choose
+   **sshfs** for SFTP and a mount folder such as `~/Remote` under **Preferences
+   › Remote and Cloud › Remote Drives**, apply, and mount a saved SFTP
+   connection with **Mount as Folder**. Check that it mounts in that folder,
+   read-only when **Mount read-only** is checked, and that a connection with
+   saved **Mount Options…** keeps them.
+2. Clear **Unmount sshfs, davfs2 and CIFS mounts when Plasma Opus quits**,
+   apply, mount the connection, quit Plasma Opus and check with `findmnt` that
+   the mount stays and that `sshfs` runs on its own. Start Plasma Opus again,
+   check that the mount is in Places and **Go › Remote Connections** offers
+   **Unmount**, and that **Unmount** removes it. With the setting checked
+   again, check that a kept mount ends at quit.
+3. Check **Start Plasma Opus in the system tray at login**, choose **Mount
+   when Plasma Opus starts** for a connection, apply, and check that **Open
+   Autostart Settings…** lists the entry. Log out and in, and check that Plasma
+   Opus starts in the tray without a window and mounts the connection. Clear
+   the setting and check that the entry is removed.
+4. Assign a Favorite on a saved connection to a workspace, check **Mount the
+   connections holding a workspace's locations when it is activated**, and
+   switch to the workspace from **Go › Workspaces**, an Activity and KRunner.
+   Check that the connection mounts each time, with KIO FUSE and with sshfs.
+   Record any differences in [CAVEATS](CAVEATS.md#integration-settings), then
+   remove this entry and its roadmap link.
+
+## Cloud sync settings on Plasma (#720)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#720]
+  (Completed).
+- **Blocker:** The development container has no Plasma session, system tray,
+  NetworkManager or rclone, so starting at login, pausing on metered
+  connections and rclone's `--conflict-resolve` are tested only with a
+  test-mode autostart folder, a fake metered check and the generated rclone
+  arguments.
+- **Confirmed state:** `SettingsDialog::createSyncIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` embeds `CloudSyncPairsWidget` from
+  `src/app/cloudsyncdialog.cpp`, the pair list of **File › Cloud Sync…**, and
+  stores the `CloudSync` group's `CloudSyncAtLogin`, `CloudSyncPauseOnMetered`
+  and `CloudSyncCheckInterval`. `MainWindow::applySettings()` writes or removes
+  `autostart/org.kde.opusfilemanager-cloud-sync.desktop`, which starts
+  `--background-sync`, and `CloudSync::Scheduler` reads the metered and
+  interval keys. Pairs store `DefaultInterval` and `ConflictChoice`;
+  `CloudSync::Runner::planRun()` applies the choice to automatic runs and
+  `CloudSync::rcloneArguments()` passes it to bisync. `cloudsynctest`,
+  `cloudsyncrunnertest`, `cloudsyncdialogtest` and `integrationsettingstest`
+  pass in the container. See
+  [Cloud sync settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, add a pair under **Preferences › Remote and Cloud › Sync**, check
+   that it appears in **File › Cloud Sync…** at once, and that cancelling
+   Preferences keeps it.
+2. Check **Start Plasma Opus in the system tray at login to synchronize pairs
+   in the background**, apply, and check that **Open Autostart Settings…**
+   lists the entry. Log out and in, and check that Plasma Opus starts in the
+   tray without a window and synchronizes the pair on the default interval.
+   With **Start Plasma Opus in the system tray at login** under **Remote
+   Drives** also checked, check that a single tray instance starts. Clear the
+   setting and check that the entry is removed.
+3. With NetworkManager, mark the connection as metered (`nmcli connection
+   modify ID connection.metered yes`), check that the tab reports it and that
+   background runs wait, then clear **Pause background synchronization on
+   metered connections** and check that they run.
+4. With rclone 1.66 or later, give an rclone pair **Keep Local Version**,
+   change a file on both sides, and check that **Sync Now** keeps the local
+   version and bisync keeps the remote one under a conflict name. Record any
+   differences in [CAVEATS](CAVEATS.md#integration-settings), then remove this
+   entry.
+
+## rsync settings on Plasma (#366)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#366]
+  (Completed).
+- **Blocker:** The development container has rsync but no SSH host, KIO
+  `sftp:/` worker connection or ksshaskpass, so the settings are tested with
+  local folders and an unreachable SSH address only.
+- **Confirmed state:** `SettingsDialog::createSyncIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` adds the **rsync Backend** group,
+  which stores the `Rsync` group's `RsyncEnabled`, `RsyncForLocalFolders`,
+  `RsyncProfile`, `RsyncCopyPolicy` and `RsyncAllowDeletions`.
+  `FolderSyncDialog` in `src/app/foldersyncdialog.cpp` reads them when it
+  opens, hides **Delete** actions for rsync while deletions aren't allowed,
+  and refuses such plans through `RsyncSync::deletionsError()`.
+  `rsyncsynctest`, `foldersyncprofilestest`, `foldersyncdialogtest` and
+  `integrationsettingstest` pass in the container. See
+  [rsync settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, with rsync and ksshaskpass installed and an SSH host that has
+   rsync, save a profile with filters in **File › Compare and Synchronize
+   Folders…** and choose it under **Preferences › Remote and Cloud › Sync ›
+   rsync Backend**.
+2. Show the host in one pane through `sftp:/`, open the dialog, and check
+   that it starts with rsync, loads the profile and uses **Only replace older
+   files**. Compare, and check that no **Delete** action is offered.
+3. Allow deletions, compare again, plan a deletion and check that the dry
+   run lists it and the run removes the file on the host.
+4. Turn rsync off and check that the dialog reports that SSH folders can't be
+   compared. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry.
+
+## Transfer and cache settings on Plasma (#721)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#721]
+  (Completed).
+- **Blocker:** The development container has no rclone remote, FUSE device or
+  system tray, so the settings are tested through the rclone options they
+  produce and an offscreen tray menu only.
+- **Confirmed state:** `SettingsDialog::createTransfersIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` adds the **Transfers and Cache** tab,
+  which stores the `CloudActivity` group's `BandwidthLimitKiB`,
+  `ParallelTransfers`, `CacheSizeMiB`, `CacheMaxAgeHours` and `ShowInTray`.
+  `CloudActivity::loadLimits()` and `rcloneMountOptions()` in
+  `src/core/cloudactivity.cpp` turn them into `--bwlimit`, `--transfers`,
+  `--vfs-cache-max-size` and `--vfs-cache-max-age`, which
+  `MainWindow::applySettings()` passes to `RcloneMounts` and the cloud sync
+  scheduler. `DesktopTray` hides **Cloud Activity…** when `ShowInTray` is off.
+  `cloudactivitytest`, `cloudactivitydialogtest`, `desktoptraytest` and
+  `integrationsettingstest` pass in the container. See
+  [Transfer and cache settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, with rclone and a configured remote, set a bandwidth limit,
+   parallel transfers, a cache size and a retention time under
+   **Preferences › Remote and Cloud › Transfers and Cache**.
+2. Mount the remote and check that `ps` shows `--bwlimit`, `--transfers`,
+   `--vfs-cache-max-size` and `--vfs-cache-max-age` with those values. Open a
+   file, disconnect the network and check that it still opens, then check
+   that it leaves the cache after the retention time.
+3. Run an rclone cloud sync pair and check that its `rclone bisync` command
+   uses the same bandwidth limit and parallel transfers.
+4. Turn off **Offer Cloud Activity… in the system tray menu** and check
+   that the tray menu hides **Cloud Activity…**, then turn it on again.
+5. Change the limits in **File › Cloud Activity…** and check that
+   Preferences shows them when it opens again. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry.
+
+## LAN sharing settings on Plasma (#664)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#664]
+  (Completed).
+- **Blocker:** The development container has only loopback and its own network
+  interface, with no Wi-Fi, VPN, firewall or phone client, so interfaces are
+  tested with loopback and fake interfaces only.
+- **Confirmed state:** `SettingsDialog::createLanSharingIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` adds the **LAN Sharing** tab, which
+  stores the `LanShare` group's `Protocol`, `Https`, `ExcludedInterfaces`,
+  `Port`, `TimeoutMinutes`, `AllowUploads` and `UploadFolder`.
+  `LanShare::defaultsFromSettings()`, `interfaceAddresses()`,
+  `networkInterfaces()` and `chosenByDefault()` in `src/core/lanshare.cpp`
+  read them, and `LanShareServer::Options::protocol` refuses `PROPFIND` for
+  **Browsers only** and folder pages for **File managers only (WebDAV)**.
+  `LanShareDialog` starts from the defaults and adds **Serve to:**.
+  `lansharetest`, `lansharedialogtest` and `integrationsettingstest` pass in
+  the container. See [LAN sharing settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, with a VPN or virtual-machine interface up, clear it under
+   **Preferences › Remote and Cloud › LAN Sharing** and check that **File ›
+   Share on Local Network…** starts with only the other private addresses
+   checked.
+2. Set a fixed port, open it with `sudo firewall-cmd --add-port=PORT/tcp` or
+   `sudo ufw allow PORT/tcp`, and connect from a phone over HTTPS, comparing
+   the certificate's fingerprint with the window's.
+3. Choose **Browsers only** and check that Dolphin can't open the share's
+   `webdavs://` link; choose **File managers only (WebDAV)** and check that a
+   browser gets the explanation for folders but still downloads a file link.
+4. Allow uploads by default into a chosen folder, upload from the phone and
+   check that the file arrives in that folder.
+5. Set a short time limit and check that the share stops after it. Record any
+   differences in [CAVEATS](CAVEATS.md#integration-settings), then remove this
+   entry.
+
+## Plasma Vault settings on Plasma (#669)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#669]
+  (Completed).
+- **Blocker:** The development container has no Plasma Vault, no kded6
+  module for it and no CryFS, gocryptfs or EncFS, so the settings are tested
+  with a fake vault client only.
+- **Confirmed state:** `SettingsDialog::createPlasmaVaultGroup()` in
+  `src/app/integrationsettingspages.cpp` adds the **Plasma Vault** group of
+  the **Encryption** tab, which stores the `PlasmaVault` group's
+  `PlasmaVaultMenu`, `PlasmaVaultHidden` and `PlasmaVaultShowState`.
+  `MainWindow::applySettings()` shows or hides **Go › Plasma Vaults**, and
+  `PlasmaVaultMenu::populate()` in `src/app/plasmavaultmenu.cpp` leaves out
+  hidden vaults through `PlasmaVaults::shownVaults()` and their state through
+  `PlasmaVaults::isLockState()`. `plasmavaultstest`, `plasmavaultmenutest`
+  and `integrationsettingstest` pass in the container. See
+  [Plasma Vault settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, with Plasma Vault and two vaults, open **Preferences ›
+   Security › Encryption** and check that both vaults are listed with their
+   state, then open one from the system tray applet and check that the list
+   follows.
+2. Clear one vault, choose **Apply** and check that **Go › Plasma Vaults**
+   leaves it out, and that a wrong password entered for it in the applet
+   shows no message in the Plasma Opus status bar.
+3. Clear **Show whether each vault is open or closed beside its name and in
+   its icon** and check the menu's names and icons.
+4. Clear **Offer Plasma Vault's encrypted vaults in Go › Plasma Vaults**,
+   check that the menu and any shortcut assigned to it are gone, and that
+   `dbus-monitor` shows no `availableDevices` call when Preferences opens.
+   Record any differences in [CAVEATS](CAVEATS.md#integration-settings), then
+   remove this entry and its roadmap link.
+
+## File encryption settings on Plasma (#670)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#670]
+  (Completed).
+- **Blocker:** The development container has no Kleopatra, no `aescrypt`
+  and no pinentry program, so the settings are tested with GnuPG keys
+  without passwords and fake `aescrypt` and `kleopatra` scripts only.
+- **Confirmed state:** `SettingsDialog::createFileEncryptionGroup()` in
+  `src/app/integrationsettingspages.cpp` adds the **Files** group of the
+  **Encryption** tab, which stores the `Encryption` group's `GnuPGActions`,
+  `AesCryptActions`, `EncryptionArmor`, `EncryptedSuffix` and
+  `DecryptedNames`. `MainWindow::applyEncryptionSettings()` shows or hides
+  the actions and **File › Encryption**, `FileEncryptionDialog` reads the
+  text format and names, and `FileEncryption::outputName()` in
+  `src/core/fileencryption.cpp` names the files. `fileencryptiontest`,
+  `fileencryptiondialogtest` and `integrationsettingstest` pass in the
+  container. See [File encryption settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, with GnuPG, `pinentry-qt`, Kleopatra and `aescrypt`
+   installed, assign shortcuts to **Encrypt…** and **Encrypt with AES
+   Crypt…** and add **Encryption** to the main toolbar.
+2. Clear **Offer AES Crypt's encrypt and decrypt actions in File ›
+   Encryption**, choose **Apply** and check that only the AES Crypt entries
+   leave **File › Encryption** and the context menu, and that their shortcut
+   does nothing.
+3. Clear **Offer GnuPG's encrypt, decrypt, sign and verify actions, and
+   Kleopatra's, in File › Encryption** as well and check that the menu, the
+   toolbar button and the shortcuts are gone; select both again and check
+   that Kleopatra's entries return.
+4. Choose `.pgp`, **Marked as decrypted** and the text format, encrypt a
+   file for your key, then decrypt it and an `.aes` file, and check the
+   names, that GnuPG's password prompt appears and that Kleopatra opens the
+   `.pgp` file. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
+   its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
 [#288]: https://github.com/mikepadiernos/plasma-opus/issues/288
+[#290]: https://github.com/mikepadiernos/plasma-opus/issues/290
+[#291]: https://github.com/mikepadiernos/plasma-opus/issues/291
+[#292]: https://github.com/mikepadiernos/plasma-opus/issues/292
+[#293]: https://github.com/mikepadiernos/plasma-opus/issues/293
+[#297]: https://github.com/mikepadiernos/plasma-opus/issues/297
+[#366]: https://github.com/mikepadiernos/plasma-opus/issues/366
+[#371]: https://github.com/mikepadiernos/plasma-opus/issues/371
+[#391]: https://github.com/mikepadiernos/plasma-opus/issues/391
+[#392]: https://github.com/mikepadiernos/plasma-opus/issues/392
+[#393]: https://github.com/mikepadiernos/plasma-opus/issues/393
+[#394]: https://github.com/mikepadiernos/plasma-opus/issues/394
+[#443]: https://github.com/mikepadiernos/plasma-opus/issues/443
 [#563]: https://github.com/mikepadiernos/plasma-opus/issues/563
 [#564]: https://github.com/mikepadiernos/plasma-opus/issues/564
 [#565]: https://github.com/mikepadiernos/plasma-opus/issues/565
@@ -441,6 +1338,18 @@ Board statuses were last confirmed on 2026-11-27.
 [#657]: https://github.com/mikepadiernos/plasma-opus/issues/657
 [#658]: https://github.com/mikepadiernos/plasma-opus/issues/658
 [#659]: https://github.com/mikepadiernos/plasma-opus/issues/659
+[#663]: https://github.com/mikepadiernos/plasma-opus/issues/663
+[#664]: https://github.com/mikepadiernos/plasma-opus/issues/664
+[#666]: https://github.com/mikepadiernos/plasma-opus/issues/666
+[#669]: https://github.com/mikepadiernos/plasma-opus/issues/669
+[#670]: https://github.com/mikepadiernos/plasma-opus/issues/670
+[#676]: https://github.com/mikepadiernos/plasma-opus/issues/676
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
+[#704]: https://github.com/mikepadiernos/plasma-opus/issues/704
 [#707]: https://github.com/mikepadiernos/plasma-opus/issues/707
 [#708]: https://github.com/mikepadiernos/plasma-opus/issues/708
+[#709]: https://github.com/mikepadiernos/plasma-opus/issues/709
+[#710]: https://github.com/mikepadiernos/plasma-opus/issues/710
+[#720]: https://github.com/mikepadiernos/plasma-opus/issues/720
+[#721]: https://github.com/mikepadiernos/plasma-opus/issues/721
+[#750]: https://github.com/mikepadiernos/plasma-opus/issues/750

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "edittools.h"
+#include "settings.h"
 
 #include <QSet>
 #include <QStandardPaths>
@@ -31,6 +32,11 @@ private Q_SLOTS:
     {
         QStandardPaths::setTestModeEnabled(true);
         QVERIFY(m_folder.isValid());
+    }
+
+    void init()
+    {
+        Settings::self()->setDefaults();
     }
 
     void classifiesViewableFiles_data()
@@ -141,6 +147,41 @@ private Q_SLOTS:
                                    installed({Tool::LibreOffice, Tool::Calligra}));
         QVERIFY(choice);
         QCOMPARE(choice->tool, Tool::Calligra);
+    }
+
+    void usesTheChosenOfficeApplication()
+    {
+        const QUrl document = QUrl::fromLocalFile(m_folder.filePath(QStringLiteral("report.odt")));
+        const QString odt = QStringLiteral("application/vnd.oasis.opendocument.text");
+        QString error;
+        QVERIFY(!OfficeApps::preferredApp());
+        auto choice = EditTools::choose(document, odt, &error, installed({Tool::LibreOffice, Tool::Calligra}));
+        QVERIFY(choice);
+        QCOMPARE(choice->tool, Tool::LibreOffice);
+
+        Settings::setOfficeEditor(Settings::EnumOfficeEditor::Calligra);
+        QCOMPARE(OfficeApps::preferredApp(), std::optional(OfficeApps::App::Calligra));
+        choice = EditTools::choose(document, odt, &error, installed({Tool::LibreOffice, Tool::Calligra}));
+        QVERIFY(choice);
+        QCOMPARE(choice->tool, Tool::Calligra);
+        QCOMPARE(choice->executable, QStringLiteral("/usr/bin/calligrawords"));
+
+        // A missing choice is reported rather than replaced by another application.
+        Settings::setOfficeEditor(Settings::EnumOfficeEditor::OnlyOffice);
+        QVERIFY(!EditTools::choose(document, odt, &error, installed({Tool::LibreOffice, Tool::Calligra})));
+        QVERIFY(error.startsWith(QStringLiteral("ONLYOFFICE, chosen under Preferences › Applications › Office, is not installed")));
+
+        Settings::setOfficeEditor(Settings::EnumOfficeEditor::LibreOffice);
+        QVERIFY(!EditTools::choose(QUrl(QStringLiteral("smb://server/share/report.odt")), odt, &error, installed({Tool::LibreOffice, Tool::Calligra})));
+        QCOMPARE(error, QStringLiteral("LibreOffice can only open local files. Copy the file to a local folder first."));
+
+        // Other categories ignore the office choice.
+        choice = EditTools::choose(QUrl::fromLocalFile(m_folder.filePath(QStringLiteral("photo.png"))),
+                                   QStringLiteral("image/png"),
+                                   &error,
+                                   installed({Tool::Krita}));
+        QVERIFY(choice);
+        QCOMPARE(choice->tool, Tool::Krita);
     }
 
 private:

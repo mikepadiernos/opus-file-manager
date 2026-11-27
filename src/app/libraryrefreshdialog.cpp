@@ -126,7 +126,7 @@ void LibraryRefreshDialog::start()
     if (m_job) {
         m_job->cancel();
     }
-    m_job = OperationJob::track(new OperationJob(i18nc("@title job", "Refreshing tag library")));
+    m_job = OperationJob::track(new OperationJob(OperationJob::Kind::LibraryRefresh, i18nc("@title job", "Refreshing tag library")));
     m_job->setSource(QUrl::fromLocalFile(m_root));
     m_job->setCancelHandler([dialog = QPointer<LibraryRefreshDialog>(this)] {
         if (dialog) {

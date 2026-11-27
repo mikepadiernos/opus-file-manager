@@ -82,6 +82,18 @@ private Q_SLOTS:
         QVERIFY(error.isEmpty());
         QVERIFY(profiles.first().id != stableId);
     }
+
+    void findsProfilesById()
+    {
+        const QString id = QStringLiteral("0f8fad5b-d9cb-469f-a165-70867728950e");
+        const QList<FolderSyncProfiles::Profile> profiles{{QStringLiteral("Photos"), {}, QStringLiteral("a8098c1a-f86e-11da-bd1a-00112444be1e")},
+                                                          {QStringLiteral("Work"), {}, id}};
+        QCOMPARE(FolderSyncProfiles::find(profiles, id)->name, QStringLiteral("Work"));
+        QCOMPARE(FolderSyncProfiles::find(profiles, QStringLiteral("{0F8FAD5B-D9CB-469F-A165-70867728950E}"))->name, QStringLiteral("Work"));
+        QVERIFY(!FolderSyncProfiles::find(profiles, QStringLiteral("6ba7b810-9dad-11d1-80b4-00c04fd430c8")));
+        QVERIFY(!FolderSyncProfiles::find(profiles, QString()));
+        QVERIFY(!FolderSyncProfiles::find(profiles, QStringLiteral("Work")));
+    }
 };
 
 QTEST_GUILESS_MAIN(FolderSyncProfilesTest)

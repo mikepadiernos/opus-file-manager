@@ -107,6 +107,20 @@ QList<FolderSyncProfiles::Profile> FolderSyncProfiles::load(const KConfigGroup &
     return profiles;
 }
 
+std::optional<FolderSyncProfiles::Profile> FolderSyncProfiles::find(const QList<Profile> &profiles, const QString &id)
+{
+    if (!validId(id)) {
+        return std::nullopt;
+    }
+    const QString wanted = canonicalId(id);
+    for (const Profile &profile : profiles) {
+        if (profile.id == wanted) {
+            return profile;
+        }
+    }
+    return std::nullopt;
+}
+
 bool FolderSyncProfiles::save(KConfigGroup group, const QList<Profile> &profiles, QString *error)
 {
     if (error) {

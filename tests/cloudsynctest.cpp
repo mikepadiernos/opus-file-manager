@@ -8,6 +8,8 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -243,6 +245,27 @@ private Q_SLOTS:
         QCOMPARE(backup.changes, QList<Change>{change(Operation::Download, QStringLiteral("doc.txt"), 3, true)});
     }
 
+    void defaultResolutions()
+    {
+        const Listing base{{QStringLiteral("doc.txt"), file(1, 10)}};
+        const Listing local{{QStringLiteral("doc.txt"), file(2, 20)}, {QStringLiteral("x"), folder()}};
+        const Listing remote{{QStringLiteral("doc.txt"), file(3, 30)}, {QStringLiteral("x"), file(1, 10)}};
+        const Plan conflicting = plan(local, remote, snapshotOf(base, base), Mode::Sync, false);
+        QCOMPARE(conflicting.conflicts.size(), 2);
+
+        // Only conflicts that can keep one or both versions are resolved; a file and a folder wait for review.
+        QVERIFY(CloudSync::defaultResolutions(conflicting.conflicts, Resolution::Skip).isEmpty());
+        const QHash<QString, Resolution> keepRemote = CloudSync::defaultResolutions(conflicting.conflicts, Resolution::KeepRemote);
+        QCOMPARE(keepRemote, (QHash<QString, Resolution>{{QStringLiteral("doc.txt"), Resolution::KeepRemote}}));
+        const Plan resolved = plan(local, remote, snapshotOf(base, base), Mode::Sync, false, keepRemote);
+        QCOMPARE(resolved.conflicts.size(), 1);
+        QCOMPARE(resolved.conflicts.constFirst().path, QStringLiteral("x"));
+        QCOMPARE(resolved.changes, QList<Change>{change(Operation::Download, QStringLiteral("doc.txt"), 3, true)});
+
+        QCOMPARE(resolutionName(Resolution::Skip), QStringLiteral("Ask When Reviewing"));
+        QCOMPARE(resolutionName(Resolution::KeepBoth), QStringLiteral("Keep Both"));
+    }
+
     void folderDeletions()
     {
         const Listing base{{QStringLiteral("d"), folder()},
@@ -419,12 +442,15 @@ private Q_SLOTS:
         webdav.options.excludePatterns = {QStringLiteral("*.tmp")};
         webdav.options.recursive = false;
         webdav.intervalMinutes = 15;
+        webdav.conflictChoice = Resolution::KeepBoth;
         webdav.paused = true;
         Pair rclone;
         rclone.id = newId();
         rclone.localPath = QStringLiteral("/home/u/Drive");
         rclone.rcloneRemote = QStringLiteral("drive:Documents");
         rclone.mode = Mode::LocalBackup;
+        rclone.useDefaultInterval = true;
+        rclone.conflictChoice = Resolution::KeepRemote;
 
         QString error;
         QVERIFY2(save(group, {webdav, rclone}, &error), qPrintable(error));
@@ -439,6 +465,17 @@ private Q_SLOTS:
         expected.remote = QUrl(QStringLiteral("webdavs://user@cloud.example/dav/Docs"));
         QCOMPARE(first, expected);
         QCOMPARE(second, rclone);
+        QCOMPARE(group.group(rclone.id).readEntry("ConflictChoice"), QStringLiteral("keep-remote"));
+
+        // Pairs saved before the conflict choice existed, or with an unknown one, ask.
+        group.group(rclone.id).writeEntry("ConflictChoice", QStringLiteral("newest"));
+        group.group(webdav.id).deleteEntry("ConflictChoice");
+        group.group(webdav.id).deleteEntry("DefaultInterval");
+        for (const Pair &pair : load(group)) {
+            QVERIFY(pair.conflictChoice == Resolution::Skip);
+            QCOMPARE(pair.useDefaultInterval, pair.id == rclone.id);
+        }
+        QVERIFY(save(group, {webdav, rclone}));
 
         // Invalid entries are skipped.
         group.group(QStringLiteral("not-a-uuid")).writeEntry("LocalPath", QStringLiteral("/x"));
@@ -629,6 +666,14 @@ private Q_SLOTS:
                               QStringLiteral("--create-empty-src-dirs"),
                               QStringLiteral("--dry-run")}));
 
+        // A conflict choice that keeps one version makes it bisync's winner; the others keep both.
+        pair.conflictChoice = Resolution::KeepLocal;
+        QVERIFY(CloudSync::rcloneArguments(pair, false, false).join(QLatin1Char(' ')).contains(QStringLiteral(" --conflict-resolve path1")));
+        pair.conflictChoice = Resolution::KeepRemote;
+        QVERIFY(CloudSync::rcloneArguments(pair, false, false).join(QLatin1Char(' ')).contains(QStringLiteral(" --conflict-resolve path2")));
+        pair.conflictChoice = Resolution::KeepBoth;
+        QVERIFY(!CloudSync::rcloneArguments(pair, false, false).contains(QStringLiteral("--conflict-resolve")));
+
         pair.mode = Mode::CloudBackup;
         pair.mirrorDeletions = true;
         pair.options.excludePatterns = {QStringLiteral("tmp")};
@@ -701,6 +746,38 @@ private Q_SLOTS:
         QVERIFY(setStartAtLogin(false, {}, {}, &error));
         QVERIFY(!startsAtLogin());
         QVERIFY(setStartAtLogin(false, {}, {}, &error));
+    }
+
+    void migratesStartAtLogin()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        KConfig config(dir.filePath(QStringLiteral("opusrc")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("CloudSync"));
+        QFile::remove(autostartPath());
+        const auto restore = qScopeGuard([] {
+            QFile::remove(autostartPath());
+        });
+
+        // Without an autostart entry, nothing is recorded.
+        QVERIFY(!migrateStartAtLogin(group));
+        QVERIFY(!group.hasKey("StartAtLogin"));
+
+        // An entry made from File › Cloud Sync… before the setting existed turns it on.
+        QVERIFY(setStartAtLogin(true, QStringLiteral("/usr/bin/opus"), {}));
+        QVERIFY(migrateStartAtLogin(group));
+        QVERIFY(group.readEntry("StartAtLogin", false));
+
+        // A recorded choice is kept.
+        group.writeEntry("StartAtLogin", false);
+        QVERIFY(!migrateStartAtLogin(group));
+        QVERIFY(!group.readEntry("StartAtLogin", true));
+
+        // An unchanged entry isn't rewritten.
+        const QDateTime written = QFileInfo(autostartPath()).lastModified();
+        QTest::qWait(20);
+        QVERIFY(setStartAtLogin(true, QStringLiteral("/usr/bin/opus"), {}));
+        QCOMPARE(QFileInfo(autostartPath()).lastModified(), written);
     }
 };
 

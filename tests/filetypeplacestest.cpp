@@ -2,9 +2,11 @@
 
 #include "filetypeplaces.h"
 #include "searchquery.h"
+#include "settings.h"
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QImage>
 #include <QSet>
 #include <QStandardPaths>
@@ -25,6 +27,11 @@ private Q_SLOTS:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
+    }
+
+    void init()
+    {
+        Settings::self()->setDefaults();
     }
 
     void describesCategories()
@@ -122,6 +129,51 @@ private Q_SLOTS:
         QCOMPARE(matches(Category::Ebooks), (QStringList{QStringLiteral("comic.cbz"), QStringLiteral("novel.epub")}));
         QCOMPARE(matches(Category::Packages), (QStringList{QStringLiteral("app.flatpakref"), QStringLiteral("tool.AppImage")}));
         QCOMPARE(matches(Category::LargeFiles), QStringList{QStringLiteral("huge.bin")});
+    }
+
+    void readsTheLargeFileSize()
+    {
+        Settings::setLargeFileSizeMiB(2);
+        QCOMPARE(FileTypePlaces::largeFileSize(), qint64(2) * 1024 * 1024);
+        QCOMPARE(FileTypePlaces::liveQuery(Category::LargeFiles), QStringLiteral("size>2M"));
+        const SearchQuery::Query query = SearchQuery::Query::parse(FileTypePlaces::liveQuery(Category::LargeFiles));
+        QVERIFY2(query.isValid(), qPrintable(query.error()));
+
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const auto file = [&dir](const QString &name, qint64 size) {
+            QFile file(dir.filePath(name));
+            if (!file.open(QIODevice::WriteOnly) || !file.resize(size)) {
+                return QFileInfo();
+            }
+            return QFileInfo(file.fileName());
+        };
+        QVERIFY(!query.matches(file(QStringLiteral("small.bin"), qint64(2) * 1024 * 1024)));
+        QVERIFY(query.matches(file(QStringLiteral("large.bin"), qint64(2) * 1024 * 1024 + 1)));
+
+        Settings::setLargeFileSizeMiB(1048576);
+        QCOMPARE(FileTypePlaces::largeFileSize(), qint64(1024) * 1024 * 1024 * 1024);
+        QVERIFY(SearchQuery::Query::parse(FileTypePlaces::liveQuery(Category::LargeFiles)).isValid());
+    }
+
+    void choosesTheShownCategories()
+    {
+        QCOMPARE(FileTypePlaces::shownCategories(), FileTypePlaces::categories());
+        Settings::setFileTypeCategoriesHidden({QStringLiteral("large-files"), QStringLiteral("audio"), QStringLiteral("unknown")});
+        QCOMPARE(FileTypePlaces::shownCategories(),
+                 (QList<Category>{Category::Documents, Category::Images, Category::Video, Category::Archives, Category::Ebooks, Category::Packages}));
+
+        QCOMPARE(FileTypePlaces::absentIds(FileTypePlaces::categories()), QStringList());
+        QCOMPARE(FileTypePlaces::absentIds({Category::Images, Category::Documents, Category::Audio, Category::Video, Category::Archives, Category::Ebooks}),
+                 (QStringList{QStringLiteral("packages"), QStringLiteral("large-files")}));
+
+        // Hidden entries that are present go, shown ones that are missing come back, and the rest stay as they are.
+        const FileTypePlaces::PlaceChanges changes =
+            FileTypePlaces::placeChanges({QStringLiteral("audio"), QStringLiteral("video")}, {Category::Documents, Category::Video, Category::LargeFiles});
+        QCOMPARE(changes.remove, QList<Category>{Category::Video});
+        QCOMPARE(changes.add, (QList<Category>{Category::Images, Category::Archives, Category::Ebooks, Category::Packages}));
+        const FileTypePlaces::PlaceChanges none = FileTypePlaces::placeChanges({}, FileTypePlaces::categories());
+        QVERIFY(none.add.isEmpty() && none.remove.isEmpty());
     }
 
     void buildsBalooUrls()

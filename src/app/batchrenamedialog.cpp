@@ -516,7 +516,7 @@ void BatchRenameDialog::apply()
             return canceled->load();
         });
     }));
-    m_applyJob = OperationJob::track(new OperationJob(i18nc("@title job", "Renaming items")), &m_applyWatcher);
+    m_applyJob = OperationJob::track(new OperationJob(OperationJob::Kind::BatchRename, i18nc("@title job", "Renaming items")), &m_applyWatcher);
     if (!plan.rows.isEmpty()) {
         m_applyJob->setSource(QUrl::fromLocalFile(QFileInfo(plan.rows.first().source).absolutePath()));
     }

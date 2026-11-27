@@ -6,6 +6,8 @@
 
 #include <KConfigGroup>
 
+#include <optional>
+
 namespace FolderSyncProfiles
 {
 struct Profile {
@@ -16,4 +18,6 @@ struct Profile {
 
 QList<Profile> load(const KConfigGroup &group, QString *error = nullptr);
 bool save(KConfigGroup group, const QList<Profile> &profiles, QString *error = nullptr);
+/// The profile with the identifier @p id, in any notation QUuid accepts.
+std::optional<Profile> find(const QList<Profile> &profiles, const QString &id);
 }

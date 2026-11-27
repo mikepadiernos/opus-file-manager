@@ -178,6 +178,34 @@ private Q_SLOTS:
         QCOMPARE(nas.device, QStringLiteral("nas:/export"));
     }
 
+    void keepsSystemMountsOnRequest()
+    {
+        const QList<Entry> hidden = merge(parseMountInfo(MountInfo), parseFstab(Fstab));
+        QVERIFY(std::none_of(hidden.cbegin(), hidden.cend(), [](const Entry &entry) {
+            return entry.system;
+        }));
+
+        const QList<Entry> entries = merge(parseMountInfo(MountInfo), parseFstab(Fstab), {}, true);
+        QCOMPARE(entries.size(), hidden.size() + 5);
+        const auto find = [&entries](const QString &mountPoint) {
+            return *std::find_if(entries.cbegin(), entries.cend(), [&mountPoint](const Entry &entry) {
+                return entry.mountPoint == mountPoint;
+            });
+        };
+        for (const QString &mountPoint :
+             {QStringLiteral("/proc"), QStringLiteral("/dev"), QStringLiteral("/tmp"), QStringLiteral("/run/user/1000/doc"), QStringLiteral("/snap/core/1")}) {
+            QVERIFY2(find(mountPoint).system, qPrintable(mountPoint));
+            QVERIFY(find(mountPoint).mounted);
+        }
+        // tmpfs is both mounted and defined in fstab.
+        QVERIFY(find(QStringLiteral("/tmp")).inFstab);
+        // The automount stacked on /boot/efi is listed in its place.
+        QVERIFY(find(QStringLiteral("/boot/efi")).system);
+        QCOMPARE(find(QStringLiteral("/boot/efi")).type, QStringLiteral("autofs"));
+        QVERIFY(!find(QStringLiteral("/")).system);
+        QVERIFY(!find(QStringLiteral("/mnt/nas")).system);
+    }
+
     void resolvesDeviceSpecs()
     {
         QTemporaryDir dir;

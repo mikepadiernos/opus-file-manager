@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "editorproviders.h"
+#include "settings.h"
 
 #include <KLocalizedString>
+#include <KShell>
 
 #include <QDir>
 #include <QFileInfo>
@@ -134,5 +136,35 @@ QString workingDirectory(const QList<QUrl> &urls)
     }
     const QString folder = QFileInfo(urls.first().toLocalFile()).absolutePath();
     return QFileInfo(folder).isDir() ? QDir::cleanPath(folder) : QDir::homePath();
+}
+
+std::optional<Editor> preferredEditor()
+{
+    switch (Settings::textEditorProvider()) {
+    case Settings::EnumTextEditorProvider::KWrite:
+        return Editor::KWrite;
+    case Settings::EnumTextEditorProvider::Kate:
+        return Editor::Kate;
+    case Settings::EnumTextEditorProvider::Neovim:
+        return Editor::Neovim;
+    case Settings::EnumTextEditorProvider::Rune:
+        return Editor::Rune;
+    case Settings::EnumTextEditorProvider::Micro:
+        return Editor::Micro;
+    case Settings::EnumTextEditorProvider::Nano:
+        return Editor::Nano;
+    default:
+        return std::nullopt;
+    }
+}
+
+bool usesSeparateTerminal()
+{
+    return Settings::terminalEditorSession() == Settings::EnumTerminalEditorSession::Separate;
+}
+
+QString terminalCommand(const QString &executable, const QStringList &arguments)
+{
+    return KShell::joinArgs(QStringList{executable} + arguments);
 }
 }

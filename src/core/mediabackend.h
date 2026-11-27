@@ -41,4 +41,10 @@ Choice choose(Kind requested, bool video, const Capabilities &capabilities);
 
 /// The notice shown when mpv was chosen but failed to start or render.
 QString startFailedNotice(const QString &reason);
+
+/**
+ * Describes what plays audio and video when @p chosen is requested, as shown
+ * under Preferences › Applications › Media, including what mpv lacks.
+ */
+QString status(Kind chosen, const Capabilities &capabilities);
 }

@@ -2,21 +2,24 @@
 
 #include "settingsdialog.h"
 
+#include "activityassociationseditor.h"
 #include "appearancedefaults.h"
+#include "ark.h"
 #include "batchrenamedialog.h"
 #include "colorschemes.h"
 #include "customcommanddialog.h"
 #include "density.h"
+#include "desktoptray.h"
 #include "doubleshift.h"
 #include "embeddedmetadatasettings.h"
 #include "folderpreview.h"
 #include "indexbackend.h"
 #include "interfacelanguage.h"
+#include "kwinscript.h"
 #include "libraryarchive.h"
 #include "libraryconfirmations.h"
 #include "libraryregistry.h"
 #include "localizednumbers.h"
-#include "mediabackend.h"
 #include "pane.h"
 #include "pathfilterpresetsdialog.h"
 #include "searchhistory.h"
@@ -32,12 +35,14 @@
 #include "themeprofiles.h"
 #include "windoweffects.h"
 #include "workspacecatalog.h"
+#include "workspacevaultsettings.h"
 #include "yazimode.h"
 
 #include <KActionCollection>
 #include <KColorButton>
 #include <KConfigGroup>
 #include <KEditListWidget>
+#include <KKeySequenceWidget>
 #include <KLanguageName>
 #include <KLocalizedString>
 #include <KMessageBox>
@@ -52,6 +57,7 @@
 #include <KTextEditor/Editor>
 #include <KToolBar>
 #include <KUrlRequester>
+#include <KWindowSystem>
 #include <KXMLGUIFactory>
 #include <KXmlGuiWindow>
 
@@ -80,7 +86,6 @@
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSpinBox>
-#include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTimer>
@@ -97,37 +102,10 @@ namespace
 /// Largest sidebar icon size, in pixels, that uses symbolic page icons.
 constexpr int SymbolicIconMaxSize = 24;
 
-QComboBox *comboBox(const QString &entry, const QStringList &choices)
-{
-    auto *combo = new QComboBox;
-    combo->setObjectName(QStringLiteral("kcfg_") + entry);
-    combo->addItems(choices);
-    return combo;
-}
-
-QCheckBox *checkBox(const QString &entry, const QString &text)
-{
-    auto *check = new QCheckBox(text);
-    check->setObjectName(QStringLiteral("kcfg_") + entry);
-    return check;
-}
-
-QSpinBox *pixelSpinBox(const QString &entry, int minimum, int maximum)
-{
-    auto *spin = new QSpinBox;
-    spin->setObjectName(QStringLiteral("kcfg_") + entry);
-    spin->setRange(minimum, maximum);
-    spin->setSuffix(i18nc("@item:valuesuffix pixels", " px"));
-    return spin;
-}
-
-template<typename Editor>
-Editor *bound(Editor *editor, const QString &entry, const char *property)
-{
-    editor->setObjectName(QStringLiteral("kcfg_") + entry);
-    editor->setProperty("kcfg_property", QByteArray(property));
-    return editor;
-}
+using SettingsWidgets::bound;
+using SettingsWidgets::checkBox;
+using SettingsWidgets::comboBox;
+using SettingsWidgets::pixelSpinBox;
 
 /// Adds a density choice and its custom space, enabled only for Custom.
 void addDensityRows(QFormLayout *form, const QString &densityEntry, const QString &spaceEntry)
@@ -287,11 +265,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                                KStandardGuiItem::cancel())
             == KMessageBox::PrimaryAction;
     };
-    addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")},
-                   {createSystemTrayPage(), i18nc("@title:tab", "System Tray")},
-                   {createPlasmaSearchPage(), i18nc("@title:tab", "Plasma Search")}},
-                  i18nc("@title:group", "General"),
-                  QStringLiteral("configure"));
+    addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
     addTabbedPage({{createLanguagePage(), i18nc("@title:tab", "Language and Layout")}, {createDateLanguagePage(), i18nc("@title:tab", "Dates")}},
                   i18nc("@title:group", "Translation"),
                   QStringLiteral("preferences-desktop-locale"));
@@ -370,8 +344,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                      {createWorkspaceIndicatorsPage(), i18nc("@title:tab", "Indicators")},
                                      {createWorkspaceLocationBarsPage(), i18nc("@title:tab", "Location Bars")},
                                      {createWorkspaceBehaviorsPage(), i18nc("@title:tab", "Behaviors")},
-                                     {createWorkspacePortabilityPage(), i18nc("@title:tab", "Portability")},
-                                     {createWorkspaceActivitiesPage(), i18nc("@title:tab", "Activities")}},
+                                     {createWorkspacePortabilityPage(), i18nc("@title:tab", "Portability")}},
                                     i18nc("@title:group", "Workspaces"),
                                     QStringLiteral("view-grid"),
                                     &m_workspaceTabs);
@@ -390,26 +363,66 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createImageConversionPage(), i18nc("@title:tab", "Image Conversion")}},
                   i18nc("@title:group", "Gallery"),
                   QStringLiteral("view-preview"));
-    addTabbedPage({{createEditorPage(), i18nc("@title:tab", "Editor")}, {createTextEditorPage(), i18nc("@title:tab", "KTextEditor")}},
-                  i18nc("@title:group", "Editor"),
-                  QStringLiteral("view-pim-notes"));
-    addTabbedPage({{createTerminalPage(), i18nc("@title:tab", "Embedded Terminal")},
-                   {createSearchPage(), i18nc("@title:tab", "Search")},
-                   {createDuplicateFinderPage(), i18nc("@title:tab", "Duplicate Finder")},
-                   {createContentChartPage(), i18nc("@title:tab", "Content Chart")},
-                   {createLinkedPanesPage(), i18nc("@title:tab", "Linked Panes")},
-                   {createFileDiffPage(), i18nc("@title:tab", "File Diff")},
-                   {createPaneComparisonPage(), i18nc("@title:tab", "Pane Comparison")},
-                   {createFolderSyncPage(), i18nc("@title:tab", "Folder Sync")},
-                   {createBatchRenamePage(), i18nc("@title:tab", "Batch Rename")},
-                   {createListingExportPage(), i18nc("@title:tab", "Listing Export")},
-                   {createAutomationPage(), i18nc("@title:tab", "Automation")},
-                   {createAssociationsPage(), i18nc("@title:tab", "Applications")},
-                   {createTransferQueuePage(), i18nc("@title:tab", "Transfer Queue")},
-                   {createFileToolDefaultsPage(), i18nc("@title:tab", "File Tools")},
-                   {createMetadataEditorPage(), i18nc("@title:tab", "Metadata Editor")}},
-                  i18nc("@title:group", "Tools"),
-                  QStringLiteral("utilities-terminal"));
+    m_editorPage = addTabbedPage({{createEditorPage(), i18nc("@title:tab", "Editor")}, {createTextEditorPage(), i18nc("@title:tab", "KTextEditor")}},
+                                 i18nc("@title:group", "Editor"),
+                                 QStringLiteral("view-pim-notes"),
+                                 &m_editorTabs);
+    m_toolsPage = addTabbedPage({{createTerminalPage(), i18nc("@title:tab", "Embedded Terminal")},
+                                 {createSearchPage(), i18nc("@title:tab", "Search")},
+                                 {createDuplicateFinderPage(), i18nc("@title:tab", "Duplicate Finder")},
+                                 {createContentChartPage(), i18nc("@title:tab", "Content Chart")},
+                                 {createLinkedPanesPage(), i18nc("@title:tab", "Linked Panes")},
+                                 {createFileDiffPage(), i18nc("@title:tab", "File Diff")},
+                                 {createPaneComparisonPage(), i18nc("@title:tab", "Pane Comparison")},
+                                 {createFolderSyncPage(), i18nc("@title:tab", "Folder Sync")},
+                                 {createBatchRenamePage(), i18nc("@title:tab", "Batch Rename")},
+                                 {createListingExportPage(), i18nc("@title:tab", "Listing Export")},
+                                 {createAutomationPage(), i18nc("@title:tab", "Automation")},
+                                 {createAssociationsPage(), i18nc("@title:tab", "Applications")},
+                                 {createTransferQueuePage(), i18nc("@title:tab", "Transfer Queue")},
+                                 {createFileToolDefaultsPage(), i18nc("@title:tab", "File Tools")},
+                                 {createMetadataEditorPage(), i18nc("@title:tab", "Metadata Editor")}},
+                                i18nc("@title:group", "Tools"),
+                                QStringLiteral("utilities-terminal"),
+                                &m_toolsTabs);
+    m_plasmaPage = addTabbedPage({{createFileManagerIntegrationPage(), i18nc("@title:tab", "File Manager")},
+                                  {createNotificationsIntegrationPage(), i18nc("@title:tab", "Notifications")},
+                                  {createSystemTrayPage(), i18nc("@title:tab", "System Tray")},
+                                  {createShortcutsIntegrationPage(), i18nc("@title:tab", "Shortcuts")},
+                                  {createActivitiesIntegrationPage(), i18nc("@title:tab", "Activities")},
+                                  {createKdeConnectIntegrationPage(), i18nc("@title:tab", "KDE Connect")},
+                                  {createKRunnerIntegrationPage(), i18nc("@title:tab", "KRunner")},
+                                  {createOnlineAccountsIntegrationPage(), i18nc("@title:tab", "Online Accounts")},
+                                  {createMountManagerIntegrationPage(), i18nc("@title:tab", "Mount Manager")},
+                                  {createKWinIntegrationPage(), i18nc("@title:tab", "KWin")},
+                                  {createBalooIntegrationPage(), i18nc("@title:tab", "Baloo")}},
+                                 i18nc("@title:group", "KDE Plasma"),
+                                 QStringLiteral("plasma"),
+                                 &m_plasmaTabs);
+    addTabbedPage({{createTerminalIntegrationPage(), i18nc("@title:tab", "Terminal")},
+                   {createEditorIntegrationPage(), i18nc("@title:tab", "Editor")},
+                   {createOfficeIntegrationPage(), i18nc("@title:tab", "Office")},
+                   {createMediaIntegrationPage(), i18nc("@title:tab", "Media")},
+                   {createEbookFontIntegrationPage(), i18nc("@title:tab", "Ebooks and Fonts")},
+                   {createPackagesIntegrationPage(), i18nc("@title:tab", "Packages")},
+                   {createMailIntegrationPage(), i18nc("@title:tab", "Mail")}},
+                  i18nc("@title:group", "Applications"),
+                  QStringLiteral("applications-other"));
+    addTabbedPage({{createRemoteConnectionsIntegrationPage(), i18nc("@title:tab", "Connections")},
+                   {createRcloneIntegrationPage(), i18nc("@title:tab", "rclone")},
+                   {createRemoteDrivesIntegrationPage(), i18nc("@title:tab", "Remote Drives")},
+                   {createSyncIntegrationPage(), i18nc("@title:tab", "Sync")},
+                   {createTransfersIntegrationPage(), i18nc("@title:tab", "Transfers and Cache")},
+                   {createLanSharingIntegrationPage(), i18nc("@title:tab", "LAN Sharing")}},
+                  i18nc("@title:group", "Remote and Cloud"),
+                  QStringLiteral("folder-cloud"));
+    addTabbedPage({{createMcpIntegrationPage(), i18nc("@title:tab", "MCP")},
+                   {createFolderGatesIntegrationPage(), i18nc("@title:tab", "Password-Gated Folders")},
+                   {createEncryptionIntegrationPage(), i18nc("@title:tab", "Encryption")}},
+                  i18nc("@title:group", "Security"),
+                  QStringLiteral("security-high"));
+    // The Activities, KRunner and KWin tabs offer the workspaces too.
+    reloadWorkspaces();
     applySidebarStyle();
     connect(this, &KConfigDialog::settingsChanged, this, [this] {
         applySidebarStyle();
@@ -474,6 +487,18 @@ void SettingsDialog::showToolbarPage()
     m_toolbarTabs->setCurrentIndex(0);
 }
 
+void SettingsDialog::showActivitiesPage()
+{
+    setCurrentPage(m_plasmaPage);
+    m_plasmaTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("workspaceActivitiesPage")));
+}
+
+void SettingsDialog::showKWinPage()
+{
+    setCurrentPage(m_plasmaPage);
+    m_plasmaTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("kwinIntegrationPage")));
+}
+
 void SettingsDialog::applySidebarStyle()
 {
     applySidebarStyle(Settings::sidebarIconSize(), Settings::sidebarTitlePosition() == Settings::EnumSidebarTitlePosition::Below);
@@ -512,74 +537,36 @@ QWidget *SettingsDialog::createSystemTrayPage()
     auto *show = checkBox(QStringLiteral("ShowTrayIcon"), i18nc("@option:check", "Show an icon in the system tray"));
     auto *minimize = checkBox(QStringLiteral("MinimizeToTray"), i18nc("@option:check", "Hide the window in the system tray when it is minimized"));
     auto *close = checkBox(QStringLiteral("CloseToTray"), i18nc("@option:check", "Hide the window in the system tray when it is closed"));
+    auto *startHidden = checkBox(QStringLiteral("StartHiddenInTray"), i18nc("@option:check", "Start with the window hidden in the system tray"));
+    startHidden->setToolTip(i18nc("@info:tooltip", "Applies when Plasma Opus starts without folders or a workspace to open"));
     layout->addWidget(show);
     layout->addWidget(minimize);
     layout->addWidget(close);
+    layout->addWidget(startHidden);
     auto *note = new QLabel(i18nc("@info",
-                                  "The window hides only while a system tray can show the icon that brings it back. File › Quit and the "
-                                  "tray icon's Quit still quit. Change the global shortcut that shows or hides the window in Configure Keyboard "
-                                  "Shortcuts or Plasma's Shortcuts settings."),
+                                  "The window hides only while a system tray can show the icon that brings it back; otherwise it stays "
+                                  "open. Starting Plasma Opus again, or with folders or a workspace to open, shows the window. File › "
+                                  "Quit and the tray icon's Quit still quit. Turn on or change the global shortcut that shows or hides the "
+                                  "window in the Shortcuts tab."),
                             page);
     note->setWordWrap(true);
     layout->addWidget(note);
+    auto *waylandNote = new QLabel(i18nc("@info",
+                                         "On Wayland, KWin does not tell applications when they are minimized, so the window hides in the "
+                                         "tray only when it is closed, not when it is minimized."),
+                                   page);
+    waylandNote->setObjectName(QStringLiteral("trayWaylandNote"));
+    waylandNote->setWordWrap(true);
+    waylandNote->setVisible(KWindowSystem::isPlatformWayland());
+    layout->addWidget(waylandNote);
     layout->addStretch();
-    const auto update = [show, minimize, close] {
+    const auto update = [show, minimize, close, startHidden] {
         minimize->setEnabled(show->isChecked());
         close->setEnabled(show->isChecked());
+        startHidden->setEnabled(show->isChecked());
     };
     connect(show, &QCheckBox::toggled, page, update);
     update();
-    return page;
-}
-
-QWidget *SettingsDialog::createPlasmaSearchPage()
-{
-    auto *page = new QWidget;
-    page->setObjectName(QStringLiteral("plasmaSearchPage"));
-    auto *layout = new QVBoxLayout(page);
-    layout->addWidget(checkBox(QStringLiteral("RunnerWorkspaces"), i18nc("@option:check", "Offer saved workspaces in KRunner and Plasma Search")));
-    layout->addWidget(checkBox(QStringLiteral("RunnerFavorites"), i18nc("@option:check", "Offer Favorites in KRunner and Plasma Search")));
-    auto *note = new QLabel(i18nc("@info",
-                                  "Only saved workspaces and Favorites are offered, never history, searches or recent folders. Choosing a "
-                                  "workspace asks before switching, as any workspace switch does. Turn the Plasma Opus search plugin off "
-                                  "entirely in System Settings › Search › Plasma Search."),
-                            page);
-    note->setWordWrap(true);
-    layout->addWidget(note);
-    layout->addStretch();
-    return page;
-}
-
-QWidget *SettingsDialog::createWorkspaceActivitiesPage()
-{
-    auto *page = new QWidget;
-    page->setObjectName(QStringLiteral("workspaceActivitiesPage"));
-    auto *layout = new QVBoxLayout(page);
-    auto *enabled = checkBox(QStringLiteral("ActivityAssociations"), i18nc("@option:check", "Associate workspaces and default folders with Plasma Activities"));
-    auto *offer = checkBox(QStringLiteral("OfferActivityAssociation"),
-                           i18nc("@option:check", "Offer to apply an Activity's association when the current Activity changes"));
-    layout->addWidget(enabled);
-    layout->addWidget(offer);
-    auto *note = new QLabel(i18nc("@info",
-                                  "Choose each Activity's workspace, behaviors and default folders in View › Activity Associations. "
-                                  "Associations are only offered, never applied without asking, and Plasma Opus never creates, removes "
-                                  "or switches Activities."),
-                            page);
-    note->setWordWrap(true);
-    layout->addWidget(note);
-    auto *report = checkBox(QStringLiteral("ReportActivityUsage"), i18nc("@option:check", "Report visited folders and opened files to Plasma Activities"));
-    layout->addWidget(report);
-    auto *reportNote = new QLabel(i18nc("@info",
-                                        "Plasma lists them in the current Activity's recent files and locations, where other applications, "
-                                        "such as Plasma Impresario, can offer them too. Temporary files, encrypted vaults, searches and "
-                                        "administrator locations are never reported. Choose what Plasma remembers, or clear it, in System "
-                                        "Settings › Recent Files."),
-                                  page);
-    reportNote->setWordWrap(true);
-    layout->addWidget(reportNote);
-    layout->addStretch();
-    connect(enabled, &QCheckBox::toggled, offer, &QWidget::setEnabled);
-    offer->setEnabled(enabled->isChecked());
     return page;
 }
 
@@ -1043,6 +1030,9 @@ QWidget *SettingsDialog::createWorkspaceBehaviorsPage()
 
 void SettingsDialog::reloadWorkspaces()
 {
+    if (m_workspaceVaultSettings) {
+        m_workspaceVaultSettings->reload();
+    }
     if (!m_workspaceSummary || !m_startupWorkspace) {
         return;
     }
@@ -1078,6 +1068,18 @@ void SettingsDialog::reloadWorkspaces()
         names.append({workspace.id, i18nc("@item:inlistbox workspace name and short label", "%1 (%2)", workspace.name, workspace.shortLabel)});
     }
     m_startupWorkspace->setWorkspaces(names);
+    if (m_activityAssociations) {
+        m_activityAssociations->setCatalog(catalog);
+    }
+    if (m_runnerWorkspaces) {
+        m_runnerWorkspaces->setItems(names);
+    }
+    if (m_desktopWorkspaces) {
+        m_desktopWorkspaces->setWorkspaces(names);
+    }
+    if (m_dropDownWorkspace) {
+        m_dropDownWorkspace->setWorkspaces(names);
+    }
 }
 
 void SettingsDialog::createSettingsBackup()
@@ -1312,14 +1314,13 @@ QWidget *SettingsDialog::createOpeningPage()
 QWidget *SettingsDialog::createTerminalPage()
 {
     auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("terminalSettingsPage"));
     auto *form = new QFormLayout(page);
     form->addRow(i18nc("@label:listbox", "Terminal placement:"),
                  comboBox(QStringLiteral("TerminalPlacement"),
                           {i18nc("@item:inlistbox", "Automatic (right for stacked panes)"),
                            i18nc("@item:inlistbox", "Below both panes"),
                            i18nc("@item:inlistbox", "Right of both panes")}));
-    form->addRow(i18nc("@label:listbox", "Terminal component:"),
-                 comboBox(QStringLiteral("EmbeddedTerminal"), {i18nc("@item:inlistbox", "Konsole"), i18nc("@item:inlistbox", "Kwi")}));
     form->addRow(checkBox(QStringLiteral("TerminalFollowActiveFolder"), i18nc("@option:check", "Follow the active pane's local folder")));
     auto *notice = new QLabel(i18nc("@info",
                                     "Following switches to a terminal session in each folder, creating one when needed. "
@@ -1333,6 +1334,7 @@ QWidget *SettingsDialog::createTerminalPage()
 QWidget *SettingsDialog::createSearchPage()
 {
     auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("searchSettingsPage"));
     auto *layout = new QVBoxLayout(page);
     auto *defaultsLabel = new QLabel(i18nc("@info",
                                            "The toolbar search field and the search panel start with these criteria. Criteria changed in an "
@@ -1758,6 +1760,7 @@ QWidget *SettingsDialog::createTransferQueuePage()
 QWidget *SettingsDialog::createEditorPage()
 {
     auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("editorSettingsPage"));
     auto *form = new QFormLayout(page);
     auto *opening = comboBox(QStringLiteral("EditorOpening"),
                              {i18nc("@item:inlistbox", "Side panel"),
@@ -3250,18 +3253,6 @@ QWidget *SettingsDialog::createPreviewsPage()
     form->addRow(QString(), checkBox(QStringLiteral("ShowPreviews"), i18nc("@option:check", "Show previews in new windows")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowRemotePreviews"), i18nc("@option:check", "Show previews in remote folders")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewMediaAutoplay"), i18nc("@option:check", "Automatically play audio and video previews")));
-    auto *mediaBackend = comboBox(QStringLiteral("MediaBackend"),
-                                  {i18nc("@item:inlistbox playback backend", "Qt Multimedia"), i18nc("@item:inlistbox playback backend", "mpv")});
-    if (!MediaBackend::mpvBuilt()) {
-        if (auto *model = qobject_cast<QStandardItemModel *>(mediaBackend->model())) {
-            model->item(Settings::EnumMediaBackend::Mpv)->setEnabled(false);
-            model->item(Settings::EnumMediaBackend::Mpv)->setToolTip(i18nc("@info:tooltip", "This build of Plasma Opus has no mpv support"));
-        }
-    }
-    mediaBackend->setToolTip(
-        i18nc("@info:tooltip",
-              "Plays audio and video in the preview panel and gallery. When OpenGL is unavailable, Qt Multimedia plays video instead of mpv."));
-    form->addRow(i18nc("@label:listbox", "Audio and video playback:"), mediaBackend);
     form->addRow(QString(), checkBox(QStringLiteral("PreviewFormatted"), i18nc("@option:check", "Show formatted HTML and Markdown by default")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewLineNumbers"), i18nc("@option:check", "Show line numbers in text previews")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewSyntaxHighlighting"), i18nc("@option:check", "Highlight syntax in text previews")));
@@ -3380,7 +3371,11 @@ QWidget *SettingsDialog::createTabAppearancePage()
 QWidget *SettingsDialog::createArchivesPage()
 {
     auto *page = new QWidget;
-    auto *form = new QFormLayout(page);
+    page->setObjectName(QStringLiteral("archivesPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *creation = new QGroupBox(i18nc("@title:group", "Creation"));
+    creation->setObjectName(QStringLiteral("archiveCreationGroup"));
+    auto *form = new QFormLayout(creation);
     form->addRow(i18nc("@label:listbox", "Default format:"),
                  comboBox(QStringLiteral("DefaultArchiveFormat"),
                           {i18nc("@item:inlistbox", "ZIP"),
@@ -3390,6 +3385,43 @@ QWidget *SettingsDialog::createArchivesPage()
                            i18nc("@item:inlistbox", "tar.zst"),
                            i18nc("@item:inlistbox", "7z")}));
     form->addRow({}, checkBox(QStringLiteral("ArchiveOtherPaneByDefault"), i18nc("@option:check", "Create archives in the other pane by default")));
+    auto *split = checkBox(QStringLiteral("ArchiveSplitByDefault"), i18nc("@option:check", "Split into volumes of"));
+    auto *volumeSize = new QSpinBox;
+    volumeSize->setObjectName(QStringLiteral("kcfg_ArchiveVolumeSizeMiB"));
+    volumeSize->setRange(1, 1048576);
+    volumeSize->setSuffix(i18nc("@item:valuesuffix mebibytes", " MiB"));
+    volumeSize->setToolTip(i18nc("@info:tooltip", "The volume size Compress offers, which you can change for each archive"));
+    volumeSize->setEnabled(Settings::archiveSplitByDefault());
+    connect(split, &QCheckBox::toggled, volumeSize, &QWidget::setEnabled);
+    auto *splitRow = new QHBoxLayout;
+    splitRow->addWidget(split);
+    splitRow->addWidget(volumeSize, 1);
+    form->addRow({}, splitRow);
+    auto *password = checkBox(QStringLiteral("ArchivePromptForPassword"), i18nc("@option:check", "Offer a password for ZIP archives"));
+    password->setToolTip(i18nc("@info:tooltip", "Shows the password fields in Compress; without them, ZIP archives are written unencrypted"));
+    form->addRow({}, password);
+
+    auto *status = new QLabel;
+    status->setObjectName(QStringLiteral("archiveCreationStatus"));
+    status->setWordWrap(true);
+    status->setTextFormat(Qt::PlainText);
+    const Ark::FormatSupport sevenZip = Ark::Backends::installed().support(QStringLiteral("application/x-7z-compressed"));
+    if (!Ark::isInstalled()) {
+        status->setText(i18nc("@info",
+                              "Compress writes 7z archives without a password. Ark isn't installed, so More Options in Ark… isn't available "
+                              "for encrypted 7z archives or other formats."));
+    } else if (sevenZip.write && sevenZip.encryption) {
+        status->setText(i18nc("@info",
+                              "Compress writes 7z archives without a password. Use More Options in Ark… for encrypted 7z archives, "
+                              "compression levels and other formats."));
+    } else {
+        status->setText(i18nc("@info",
+                              "Compress writes 7z archives without a password. Ark is installed, but can't write encrypted 7z archives; "
+                              "install 7-Zip for them."));
+    }
+    form->addRow(status);
+    layout->addWidget(creation);
+    layout->addStretch();
     return page;
 }
 
@@ -4316,6 +4348,47 @@ void SettingsDialog::updateSettings()
     for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
         toggle.write(toggle.check->isChecked());
     }
+    if (const auto associations = m_activityAssociations->associations(); associations != m_savedActivityAssociations) {
+        const KSharedConfigPtr config = KSharedConfig::openConfig();
+        ActivityAssociations::save(config->group(QLatin1String(ActivityAssociations::Group)), associations);
+        config->sync();
+        m_savedActivityAssociations = associations;
+    }
+    if (const auto assignments = m_desktopWorkspaces->assignments(); assignments != m_savedDesktopWorkspaces) {
+        const KSharedConfigPtr config = KSharedConfig::openConfig();
+        KConfigGroup group = config->group(QStringLiteral("KWinVirtualDesktops"));
+        KWinScript::writeDesktopWorkspaces(group, assignments);
+        config->sync();
+        m_savedDesktopWorkspaces = assignments;
+    }
+    // The workspace vaults are stored with their workspaces; a failure is reported in their group.
+    if (m_workspaceVaultSettings->hasChanges() && m_workspaceVaultSettings->save()) {
+        // KConfigDialog announces only changes to kcfg_ widgets, and the main window applies the vaults when it hears.
+        settingsChangedSlot();
+    }
+    if (DesktopTray *tray = desktopTray(); tray && m_globalShortcutKey->keySequence() != tray->globalShortcut()) {
+        // Before the main window applies the settings, so a shortcut turned on
+        // at the same time gets the chosen key.
+        tray->setGlobalShortcut(m_globalShortcutKey->keySequence());
+    }
+    if (m_writeDropDownShortcut && m_dropDownShortcut->keySequence() != m_savedDropDownShortcut) {
+        m_writeDropDownShortcut(m_dropDownShortcut->keySequence());
+        // Show the key KDE accepted, which is none when it is already taken.
+        m_savedDropDownShortcut = m_readDropDownShortcut();
+        m_dropDownShortcut->setKeySequence(m_savedDropDownShortcut);
+        m_refreshDropDownShortcut();
+    }
+    // Once the main window has registered or removed the global shortcut,
+    // show the key KDE accepted, which is none when it is already taken.
+    QMetaObject::invokeMethod(
+        this,
+        [this] {
+            if (const DesktopTray *tray = desktopTray()) {
+                m_globalShortcutKey->setKeySequence(tray->globalShortcut());
+            }
+            m_refreshGlobalShortcut();
+        },
+        Qt::QueuedConnection);
 }
 
 void SettingsDialog::updateWidgets()
@@ -4326,6 +4399,25 @@ void SettingsDialog::updateWidgets()
     for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
         toggle.check->setChecked(toggle.read());
     }
+    if (const DesktopTray *tray = desktopTray()) {
+        m_globalShortcutKey->setKeySequence(tray->globalShortcut());
+    }
+    if (m_readDropDownShortcut) {
+        m_savedDropDownShortcut = m_readDropDownShortcut();
+        m_dropDownShortcut->setKeySequence(m_savedDropDownShortcut);
+        m_refreshDropDownShortcut();
+    }
+    // Activity associations are user data like workspaces, so Restore Defaults leaves them alone.
+    {
+        const KSharedConfigPtr config = KSharedConfig::openConfig();
+        m_activityAssociations->setAssociations(ActivityAssociations::load(config->group(QLatin1String(ActivityAssociations::Group))));
+        m_savedActivityAssociations = m_activityAssociations->associations();
+        // Likewise the workspaces assigned to virtual desktops.
+        m_desktopWorkspaces->setAssignments(KWinScript::readDesktopWorkspaces(config->group(QStringLiteral("KWinVirtualDesktops"))));
+        m_savedDesktopWorkspaces = m_desktopWorkspaces->assignments();
+    }
+    // Workspace vaults are user data too.
+    m_workspaceVaultSettings->discard();
     // Libraries may have been added or removed from the Tags menu since the dialog was shown.
     reloadLibraries();
     // Window shortcuts may have changed since the dialog was shown.
@@ -4340,6 +4432,13 @@ void SettingsDialog::updateWidgetsDefault()
     for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
         toggle.check->setChecked(toggle.defaultValue);
     }
+    if (desktopTray()) {
+        m_globalShortcutKey->setKeySequence(DesktopTray::defaultGlobalShortcut());
+    }
+    if (m_writeDropDownShortcut) {
+        // The drop-down window has no shortcut until the user chooses one.
+        m_dropDownShortcut->clearKeySequence();
+    }
     QMetaObject::invokeMethod(
         this,
         [this] {
@@ -4350,7 +4449,11 @@ void SettingsDialog::updateWidgetsDefault()
 
 bool SettingsDialog::hasChanged()
 {
+    const DesktopTray *tray = desktopTray();
     return m_yaziResetPending || m_selectionFilters->rules() != m_savedSelectionFilters
+        || (tray && m_globalShortcutKey->keySequence() != tray->globalShortcut()) || m_activityAssociations->associations() != m_savedActivityAssociations
+        || m_desktopWorkspaces->assignments() != m_savedDesktopWorkspaces || m_workspaceVaultSettings->hasChanges()
+        || (m_writeDropDownShortcut && m_dropDownShortcut->keySequence() != m_savedDropDownShortcut)
         || std::any_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
                return toggle.check->isChecked() != toggle.read();
            });
@@ -4358,7 +4461,9 @@ bool SettingsDialog::hasChanged()
 
 bool SettingsDialog::isDefault()
 {
-    return m_selectionFilters->rules().isEmpty() && std::all_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
+    return m_selectionFilters->rules().isEmpty() && (!desktopTray() || m_globalShortcutKey->keySequence() == DesktopTray::defaultGlobalShortcut())
+        && (!m_writeDropDownShortcut || m_dropDownShortcut->keySequence().isEmpty())
+        && std::all_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
                return toggle.check->isChecked() == toggle.defaultValue;
            });
 }

@@ -2,6 +2,7 @@
 
 #include "plasmavaultmenu.h"
 
+#include "settings.h"
 #include "symbolicicon.h"
 
 #include <KLocalizedString>
@@ -43,21 +44,29 @@ void PlasmaVaultMenu::populate()
     }
     m_menu->clear();
     QString error;
-    const QList<PlasmaVaults::Vault> vaults = m_client->vaults(&error);
+    const QList<PlasmaVaults::Vault> all = m_client->vaults(&error);
     if (!error.isEmpty()) {
         QAction *unavailable = m_menu->addAction(SymbolicIcon::fromTheme(QStringLiteral("dialog-warning")), error);
         unavailable->setObjectName(QStringLiteral("vaultsUnavailable"));
         unavailable->setEnabled(false);
         return;
     }
+    const QList<PlasmaVaults::Vault> vaults = PlasmaVaults::shownVaults(all, Settings::plasmaVaultHidden());
+    const bool showState = Settings::plasmaVaultShowState();
     if (vaults.isEmpty()) {
-        QAction *none = m_menu->addAction(i18nc("@item:inmenu", "No Vaults"));
+        QAction *none = all.isEmpty()
+            ? m_menu->addAction(i18nc("@item:inmenu", "No Vaults"))
+            : m_menu->addAction(i18ncp("@item:inmenu", "%1 Vault Hidden in Preferences", "%1 Vaults Hidden in Preferences", all.size()));
         none->setObjectName(QStringLiteral("noVaults"));
         none->setEnabled(false);
     }
     for (const PlasmaVaults::Vault &vault : vaults) {
-        QMenu *submenu = m_menu->addMenu(SymbolicIcon::fromTheme(PlasmaVaults::iconName(vault)),
-                                         i18nc("@title:menu vault name and status", "%1 (%2)", vault.displayName(), PlasmaVaults::statusText(vault.status)));
+        // Without the state, open and closed vaults share a name and icon; problems are still reported.
+        const bool stateShown = showState || !PlasmaVaults::isLockState(vault.status);
+        QMenu *submenu =
+            m_menu->addMenu(SymbolicIcon::fromTheme(stateShown ? PlasmaVaults::iconName(vault) : QStringLiteral("folder-encrypted")),
+                            stateShown ? i18nc("@title:menu vault name and status", "%1 (%2)", vault.displayName(), PlasmaVaults::statusText(vault.status))
+                                       : vault.displayName());
         submenu->menuAction()->setObjectName(QStringLiteral("vault:") + vault.device);
         if (!vault.message.isEmpty()) {
             QAction *message = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("dialog-warning")), vault.message);
@@ -126,7 +135,9 @@ void PlasmaVaultMenu::closeVault(const PlasmaVaults::Vault &vault)
 void PlasmaVaultMenu::onVaultChanged(const PlasmaVaults::Vault &vault)
 {
     if (!m_pendingShow.contains(vault.device)) {
-        if (!vault.message.isEmpty()) {
+        // Vaults hidden in Preferences, or all of them with the menu, stay quiet unless opened from Plasma Opus.
+        const bool shown = Settings::plasmaVaultMenu() && !Settings::plasmaVaultHidden().contains(vault.device);
+        if (shown && !vault.message.isEmpty()) {
             Q_EMIT statusMessage(i18nc("@info:status vault name and Plasma Vault's message", "%1: %2", vault.displayName(), vault.message));
         }
         return;

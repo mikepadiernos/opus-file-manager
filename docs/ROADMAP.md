@@ -14,7 +14,7 @@ record the Max File Manager behaviour that informs its parity goals.
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. M15–M27 have since been merged into `main`; M28–M32 are
+> released after M14. M15–M28 have since been merged into `main`; M29–M32 are
 > planned. See [pending tasks](TODO.md) for blocked work and branch-specific
 > handoffs.
 
@@ -22,23 +22,24 @@ record the Max File Manager behaviour that informs its parity goals.
 
 Status reflects the milestones' parent issues on the
 [project board](https://github.com/users/mikepadiernos/projects/3): Merged
-groups have every feature checked and merged into `main`, and Planned groups are
-not yet complete. In the M27–M31 group, M27 is merged and its Plasma checks
-are recorded in [pending tasks](TODO.md); M28–M31 are planned.
+groups have every feature checked and merged into `main`, Development groups
+have a milestone in progress, and Planned groups have not started. In the
+M27–M31 group, M27 and M28 are merged and their Plasma checks are recorded in
+[pending tasks](TODO.md); M29–M31 are planned.
 
-| Milestones | Focus                                        | Status                                                                    | Jump to                         |
-| ---------- | -------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------- |
-| M01–M04    | Core dual pane and listing depth             | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M01](#m01-core-dual-pane)      |
-| M05–M08    | Preview, gallery and editor                  | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M05](#m05-preview-and-gallery) |
-| M09–M14    | Tools, interface customization, translations | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M09](#m09-tools)               |
-| M15–M16    | Workspaces and their settings                | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M15](#m15-workspaces)          |
-| M17–M18    | Themes and their settings                    | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M17](#m17-themes)              |
-| M19–M20    | Branding and its settings                    | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M19](#m19-branding)            |
-| M21–M22    | Advanced search and its settings             | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M21](#m21-advanced-search)     |
-| M23–M24    | Native tagging and its settings              | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M23](#m23-native-tagging)      |
-| M25–M26    | Yazi mode and its settings                   | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M25](#m25-yazi-mode)           |
-| M27–M31    | Integrations, Nextcloud and shortcuts        | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square) | [M27](#m27-integrations)        |
-| M32        | Refinements                                  | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square) | [M32](#m32-refinements)         |
+| Milestones | Focus                                        | Status                                                                            | Jump to                         |
+| ---------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------- |
+| M01–M04    | Core dual pane and listing depth             | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M01](#m01-core-dual-pane)      |
+| M05–M08    | Preview, gallery and editor                  | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M05](#m05-preview-and-gallery) |
+| M09–M14    | Tools, interface customization, translations | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M09](#m09-tools)               |
+| M15–M16    | Workspaces and their settings                | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M15](#m15-workspaces)          |
+| M17–M18    | Themes and their settings                    | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M17](#m17-themes)              |
+| M19–M20    | Branding and its settings                    | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M19](#m19-branding)            |
+| M21–M22    | Advanced search and its settings             | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M21](#m21-advanced-search)     |
+| M23–M24    | Native tagging and its settings              | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M23](#m23-native-tagging)      |
+| M25–M26    | Yazi mode and its settings                   | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M25](#m25-yazi-mode)           |
+| M27–M31    | Integrations, Nextcloud and shortcuts        | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square) | [M27](#m27-integrations)        |
+| M32        | Refinements                                  | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)         | [M32](#m32-refinements)         |
 
 ## Contents
 
@@ -1817,196 +1818,242 @@ Settings for M27 integrations, stored in KConfig.
 
 - **File manager**
 
-  - [ ] **Default:** show the current desktop file-manager association and offer
+  - [x] **Default:** show the current desktop file-manager association and offer
         an explicit action to set Plasma Opus as the user default; report
-        failures [#293]
-  - [ ] **System file chooser:** show whether Plasma Opus serves the XDG portal
+        failures. Plasma-session verification is a
+        [pending handoff](TODO.md#default-file-manager-on-plasma-293). [#293]
+  - [x] **System file chooser:** show whether Plasma Opus serves the XDG portal
         file chooser, with explicit actions to complete setup or restore the
-        previous chooser; report failures [#292]
-  - [ ] **System file chooser start folder:** when an application suggests no
+        previous chooser; report failures. Plasma-session verification is a
+        [pending handoff](TODO.md#file-chooser-settings-on-plasma-292). [#292]
+  - [x] **System file chooser start folder:** when an application suggests no
         folder, start in the home folder or in the folder of the last accepted
         choice. Remember the last folder per application where the portal
-        identifies it, in session state rather than settings. (Luciole) [#750]
+        identifies it, in session state rather than settings. (Luciole)
+        Plasma-session verification is a
+        [pending handoff](TODO.md#chooser-start-folder-on-plasma-750).
+        [#750]
 
 - **Plasma notifications**
 
-  - [ ] **Operations:** choose which Plasma Opus-owned operation events produce
-        notifications; use KDE's notification settings for shared controls
+  - [x] **Operations:** choose which Plasma Opus-owned operation events produce
+        notifications; use KDE's notification settings for shared controls.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#operation-notifications-on-plasma-392).
         [#392]
 
 - **Mount manager**
 
-  - [ ] **Display:** show only removable devices by default, hide pseudo, snap
+  - [x] **Display:** show only removable devices by default, hide pseudo, snap
         and other system file systems, and show the quick-mount menu on the
         toolbar [#705]
 
 - **KWin scripts**
 
-  - [ ] **Window management:** show whether the Plasma Opus KWin script is
+  - [x] **Window management:** show whether the Plasma Opus KWin script is
         installed and enabled, with explicit actions to install, update,
         disable or remove it; choose which behaviours it applies, such as
         workspace window restoration, tiling opened windows and following
-        virtual desktops, and open KWin's settings for shared window rules
+        virtual desktops, and open KWin's settings for shared window rules.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#kwin-script-settings-on-plasma-709).
         [#709]
-  - [ ] **Drop-down window:** enable it and choose its screen edge, width,
+  - [x] **Drop-down window:** enable it and choose its screen edge, width,
         height, screen, animation and trigger, and whether it hides when it
-        loses focus [#710]
+        loses focus. Plasma-session verification is a
+        [pending handoff](TODO.md#drop-down-settings-on-plasma-710).
+        [#710]
 
 - **Baloo**
 
-  - [ ] **Search:** choose whether to offer fuzzy ranking and live-search
+  - [x] **Search:** choose whether to offer fuzzy ranking and live-search
         fallback; reuse M10 and M22 settings and open KDE's shared indexing
-        controls rather than duplicating or silently changing them. [#443]
-  - [ ] **Categories:** choose which file-type categories appear in Places and
+        controls rather than duplicating or silently changing them.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#baloo-search-settings-on-plasma-443).
+        [#443]
+  - [x] **Categories:** choose which file-type categories appear in Places and
         their criteria, such as the large-file size [#660]
 
 - **Terminal**
 
-  - [ ] **Provider:** select Konsole, Yakuake or Kwi for separate sessions and
+  - [x] **Provider:** select Konsole, Yakuake or Kwi for separate sessions and
         Konsole or Kwi for embedded sessions, independently of M10 placement
         [#295]
 
 - **Editor**
 
-  - [ ] **Provider:** select the built-in editor or an available KWrite, Kate,
+  - [x] **Provider:** select the built-in editor or an available KWrite, Kate,
         Neovim, Rune, micro or nano integration, plus the session type for
         terminal editors [#320]
-  - [ ] **Markdown:** choose a local vault and the Markdown editing and preview
+  - [x] **Markdown:** choose a local vault and the Markdown editing and preview
         behaviour, retaining source and draft safeguards. [#577]
-  - [ ] **Workspace vault:** enable vault editing for a workspace and choose an
+  - [x] **Workspace vault:** enable vault editing for a workspace and choose an
         assigned local location. Configure available editing, preview,
         navigation, wiki-link, backlink, tag and relationship-view options.
         Preserve drafts and notes and report unavailable roots or features and
         incomplete indexing. See the
         [pending handoff](TODO.md#workspace-vault-editing-565). [#566]
-  - [ ] **Preview editing:** choose whether text previews offer editing,
+  - [x] **Preview editing:** choose whether text previews offer editing,
         whether double-clicking the preview starts editing, and whether to
         return to the preview after saving [#730]
 
 - **Office documents**
 
-  - [ ] **Provider:** choose an available office application for editing and use
-        installed preview providers where supported; report unavailable choices
+  - [x] **Provider:** choose an available office application for editing and use
+        installed preview providers where supported; report unavailable choices.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#office-settings-on-plasma-676).
         [#676]
 
 - **Ebooks and fonts**
 
-  - [ ] **Previews:** enable ebook, comic, help-file and font previews and set
+  - [x] **Previews:** enable ebook, comic, help-file and font previews and set
         the font sample text [#661]
 
 - **Media**
 
-  - [ ] **Backend:** choose Qt Multimedia or the optional embedded mpv backend
-        for preview and gallery playback. [#578]
+  - [x] **Backend:** choose Qt Multimedia or the optional embedded mpv backend
+        for preview and gallery playback. Plasma-session verification is a
+        [pending handoff](TODO.md#mpv-integration-563).
+        [#578]
 
 - **System tray**
 
-  - [ ] **Behaviour:** choose whether to minimize and close to the tray [#290]
+  - [x] **Behaviour:** choose whether to minimize and close to the tray.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#start-hidden-in-tray-on-plasma-290). [#290]
 
 - **Shortcuts**
 
-  - [ ] **Global:** enable or disable the integration's global shortcut and
-        choose its key combination through KDE facilities [#291]
+  - [x] **Global:** enable or disable the integration's global shortcut and
+        choose its key combination through KDE facilities. Plasma-session
+        verification is a
+        [pending handoff](TODO.md#global-shortcut-on-plasma-291). [#291]
 
 - **Remote connections**
 
-  - [ ] **Profiles:** manage SSH, SFTP, SMB, FTP or FTPS and WebDAV hosts,
+  - [x] **Profiles:** manage SSH, SFTP, SMB, FTP or FTPS and WebDAV hosts,
         ports, usernames and connection defaults; use KDE credential facilities
-        instead of storing credentials in KConfig or URLs [#297]
-  - [ ] **Discovery:** show or hide services discovered on the local network
+        instead of storing credentials in KConfig or URLs. Plasma-session
+        verification is a
+        [pending handoff](TODO.md#remote-connection-settings-on-plasma-297).
+        [#297]
+  - [x] **Discovery:** show or hide services discovered on the local network
         [#662]
 
 - **Cloud storage**
 
-  - [ ] **rclone:** enable the integration, choose which remotes to show and
-        whether to serve them over WebDAV or mount them [#663]
-  - [ ] **Remote drives:** choose the mount backend for each protocol from KIO
+  - [x] **rclone:** enable the integration, choose which remotes to show and
+        whether to serve them over WebDAV or mount them. Plasma-session
+        verification is a
+        [pending handoff](TODO.md#rclone-settings-on-plasma-663). [#663]
+  - [x] **Remote drives:** choose the mount backend for each protocol from KIO
         FUSE and installed alternatives, the mount folder, read-only by
         default, and whether to mount at login or workspace activation and
-        unmount on exit [#704]
-  - [ ] **Sync pairs:** manage two-way sync pairs and their mode, filters,
+        unmount on exit. Plasma-session verification is a
+        [pending handoff](TODO.md#remote-drive-settings-on-plasma-704). [#704]
+  - [x] **Sync pairs:** manage two-way sync pairs and their mode, filters,
         deletion handling and default conflict choice; choose whether to sync
         from login or on metered connections, and how often to check remotes
-        that do not report changes [#720]
-  - [ ] **Transfers and cache:** set the bandwidth limit, parallel transfers,
+        that do not report changes. Plasma-session verification is a
+        [pending handoff](TODO.md#cloud-sync-settings-on-plasma-720). [#720]
+  - [x] **Transfers and cache:** set the bandwidth limit, parallel transfers,
         cache size and offline retention for mounted remotes, and whether to
-        show the tray activity panel [#721]
+        show the tray activity panel. Plasma-session verification is a
+        [pending handoff](TODO.md#transfer-and-cache-settings-on-plasma-721).
+        [#721]
 
 - **LAN sharing**
 
-  - [ ] **Defaults:** protocol, TLS, network interfaces, port, timeout and
-        whether uploads are allowed [#664]
+  - [x] **Defaults:** protocol, TLS, network interfaces, port, timeout and
+        whether uploads are allowed. Plasma-session verification is a
+        [pending handoff](TODO.md#lan-sharing-settings-on-plasma-664). [#664]
 
 - **Online accounts**
 
-  - [ ] **Access:** opt in and choose which supported accounts to show in Plasma
+  - [x] **Access:** opt in and choose which supported accounts to show in Plasma
         Opus; manage accounts in KDE without deleting shared accounts when
-        removing them from Plasma Opus [#371]
+        removing them from Plasma Opus. Plasma-session verification is a
+        [pending handoff](TODO.md#online-account-settings-on-plasma-371).
+        [#371]
 
 - **Application packages**
 
-  - [ ] **Integration:** independently enable AppImage, Flatpak and Snap actions
+  - [x] **Integration:** independently enable AppImage, Flatpak and Snap actions
         and configure optional AppImage desktop integration [#296]
 
 - **Archives**
 
-  - [ ] **Creation:** default 7z or ZIP format, split size and whether to prompt
+  - [x] **Creation:** default 7z or ZIP format, split size and whether to prompt
         for encryption, extending M04 archive defaults [#665]
 
 - **rsync**
 
-  - [ ] **Backend:** enable the optional backend and choose safe sync defaults;
-        reuse M10 profiles and preserve preview and confirmation requirements
-        [#366]
+  - [x] **Backend:** enable the optional backend and choose safe sync defaults;
+        reuse M10 profiles and preserve preview and confirmation requirements.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#rsync-settings-on-plasma-366). [#366]
 
 - **Atuin**
 
-  - [ ] **History:** enable the history action and select a supported terminal
+  - [x] **History:** enable the history action and select a supported terminal
         session without changing Atuin's history or sync settings [#367]
 
 - **Plasma Activities**
 
-  - [ ] **Workspaces:** enable Activity associations; manage workspace mappings,
+  - [x] **Workspaces:** enable Activity associations; manage workspace mappings,
         Activity-specific default folders, feature selections and
         workspace-switch prompts without changing KDE's Activity settings. For
         each association, inherit workspace defaults or select all, individual
-        or no behaviours. [#391]
+        or no behaviours. Plasma-session verification is a
+        [pending handoff](TODO.md#activity-associations-on-plasma-391). [#391]
 
 - **Mail**
 
-  - [ ] **Client:** show the current default mail client and open Plasma's
+  - [x] **Client:** show the current default mail client and open Plasma's
         Default Applications settings to change it; enable or disable the
-        Send by Email action [#666]
-  - [ ] **Remote files:** choose whether Send by Email asks before preparing
+        Send by Email action. Plasma-session verification is a
+        [pending handoff](TODO.md#mail-client-settings-on-plasma-666).
+        [#666]
+  - [x] **Remote files:** choose whether Send by Email asks before preparing
         local copies of remote files, without allowing silent downloads [#667]
-  - [ ] **Mail file preview:** enable or disable `.eml` previews, within the
+  - [x] **Mail file preview:** enable or disable `.eml` previews, within the
         existing preview size limits [#668]
 
 - **KDE Connect**
 
-  - [ ] **Sharing:** enable the sharing action and choose whether to remember a
-        device without changing pairing or KDE Connect settings [#393]
+  - [x] **Sharing:** enable the sharing action and choose whether to remember a
+        device without changing pairing or KDE Connect settings.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#kde-connect-settings-on-plasma-393). [#393]
 
 - **KRunner**
 
-  - [ ] **Discovery:** enable the optional runner and choose which saved
-        workspaces and locations it can expose [#394]
+  - [x] **Discovery:** enable the optional runner and choose which saved
+        workspaces and locations it can expose. Plasma-session verification
+        is a [pending handoff](TODO.md#krunner-settings-on-plasma-394).
+        [#394]
 
 - **MCP**
 
-  - [ ] **Access:** configure server access (off, read or write), token and
+  - [x] **Access:** configure server access (off, read or write), token and
         audit log [#294]
 
 - **Password-gated folders**
 
-  - [ ] **Access:** manage protected local folders and their passwords, with a
+  - [x] **Access:** manage protected local folders and their passwords, with a
         clear warning that the gate applies only inside Plasma Opus [#403]
 
 - **Encryption**
 
-  - [ ] **Plasma Vault:** show or hide vaults and their lock state [#669]
-  - [ ] **Files:** enable GnuPG and AES Crypt actions and choose how output
-        files are named [#670]
+  - [x] **Plasma Vault:** show or hide vaults and their lock state.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#plasma-vault-settings-on-plasma-669). [#669]
+  - [x] **Files:** enable GnuPG and AES Crypt actions and choose how output
+        files are named. Plasma-session verification is a
+        [pending handoff](TODO.md#file-encryption-settings-on-plasma-670).
+        [#670]
 
 ### M29: Nextcloud integration
 

@@ -60,4 +60,6 @@ private:
     QPushButton *m_play = nullptr;
     QSlider *m_seek = nullptr;
     QToolButton *m_backend = nullptr;
+    /// The backend that the button shows, which the open file was last opened with.
+    bool m_showsMpv = false;
 };

@@ -103,10 +103,14 @@ struct Options {
     QString signer;
     /// Write ASCII-armoured `.asc` files instead of binary ones.
     bool armor = false;
+    /// Add `.pgp` instead of GnuPG's `.gpg` to binary encrypted files.
+    bool pgpSuffix = false;
+    /// Mark decrypted copies, as in `report (decrypted).pdf`, instead of restoring the name before encryption.
+    bool markDecrypted = false;
 };
 
 /// The name of the file @p operation writes for @p fileName, before avoiding existing files.
-QString outputName(Operation operation, const QString &fileName, bool armor = false);
+QString outputName(Operation operation, const QString &fileName, const Options &options = {});
 /// @p path, or a free name in the same folder when it exists.
 QString uniquePath(const QString &path);
 /**

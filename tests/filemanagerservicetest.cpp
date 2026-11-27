@@ -10,6 +10,7 @@
 #include <KSharedConfig>
 
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QDir>
@@ -147,6 +148,32 @@ private Q_SLOTS:
         const QDBusMessage reply = remote.call(QStringLiteral("ShowFolders"), QStringList({uri(QStringLiteral("two"))}), QString());
         QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
         QTRY_COMPARE(window.activePane()->url().adjusted(QUrl::StripTrailingSlash), QUrl::fromLocalFile(path(QStringLiteral("two"))));
+        bus.unregisterObject(FileManagerRequest::objectPath());
+    }
+
+    void claimsTheNameOnAPrivateBus()
+    {
+        // Claiming the name on the user's session would take requests from
+        // their file manager, so this runs only under dbus-run-session.
+        if (!qEnvironmentVariableIsSet("OPUSFM_PRIVATE_SESSION_BUS")) {
+            QSKIP("Runs only on a private session bus.");
+        }
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        QVERIFY(bus.isConnected());
+        QCOMPARE(FileManagerService::claimName(), FileManagerService::Claim::Unavailable);
+
+        QDBusConnection other = QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("other-file-manager"));
+        QVERIFY(other.registerService(FileManagerRequest::serviceName()));
+        MainWindow window;
+        auto *service = new FileManagerService(&window);
+        QVERIFY(!service->registerOnBus(true));
+        QCOMPARE(FileManagerService::claimName(), FileManagerService::Claim::OwnedElsewhere);
+
+        QVERIFY(other.unregisterService(FileManagerRequest::serviceName()));
+        QDBusConnection::disconnectFromBus(QStringLiteral("other-file-manager"));
+        QCOMPARE(FileManagerService::claimName(), FileManagerService::Claim::Claimed);
+        QCOMPARE(bus.interface()->serviceOwner(FileManagerRequest::serviceName()).value(), bus.baseService());
+        QVERIFY(bus.unregisterService(FileManagerRequest::serviceName()));
         bus.unregisterObject(FileManagerRequest::objectPath());
     }
 };

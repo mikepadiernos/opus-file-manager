@@ -2,8 +2,8 @@
 
 #include "appearancedefaults.h"
 #include "appidentity.h"
+#include "defaultfilemanager.h"
 #include "desktoptray.h"
-#include "filemanagerrequest.h"
 #include "filemanagerservice.h"
 #include "interfacelanguage.h"
 #include "localizednumbers.h"
@@ -83,27 +83,27 @@ int runPortalSetup(bool install)
     QTextStream out(stdout);
     QTextStream err(stderr);
     const auto paths = PortalSetup::Paths::fromEnvironment(QCoreApplication::applicationDirPath() + QStringLiteral("/opus-file-manager-portal"));
-    KConfigGroup backup = KSharedConfig::openStateConfig()->group(QStringLiteral("FileChooserPortal"));
-    if (install && !PortalSetup::portalServiceAvailable()) {
-        err << i18nc("@info:shell",
-                     "xdg-desktop-portal is not available on the session bus, so applications cannot use the Plasma Opus file chooser. "
-                     "Nothing was changed.")
-            << Qt::endl;
+    KConfigGroup backup = KSharedConfig::openStateConfig()->group(PortalSetup::backupGroupName());
+    const auto outcome =
+        PortalSetup::change(install ? PortalSetup::Change::Install : PortalSetup::Change::Uninstall,
+                            paths,
+                            backup,
+                            !install || PortalSetup::portalServiceAvailable(),
+                            [&out] {
+                                out << i18nc("@info:shell", "Restarting xdg-desktop-portal. File dialogs that are open in other applications may close.")
+                                    << Qt::endl;
+                                return PortalSetup::restartPortal();
+                            });
+    if (!outcome.error.isEmpty()) {
+        err << outcome.error << Qt::endl;
         return 1;
     }
-    if (!install && PortalSetup::state(paths) == PortalSetup::State::NotInstalled && !backup.exists()) {
+    if (!outcome.changed) {
         out << i18nc("@info:shell", "The Plasma Opus file chooser is not set up. Nothing was changed.") << Qt::endl;
         return 0;
     }
-    const QString error = install ? PortalSetup::install(paths, backup) : PortalSetup::uninstall(paths, backup);
-    if (!error.isEmpty()) {
-        err << error << Qt::endl;
-        return 1;
-    }
-    out << i18nc("@info:shell", "Restarting xdg-desktop-portal. File dialogs that are open in other applications may close.") << Qt::endl;
-    const QString restartError = PortalSetup::restartPortal();
-    if (!restartError.isEmpty()) {
-        err << restartError << Qt::endl << i18nc("@info:shell", "Log out and back in to apply the change.") << Qt::endl;
+    if (!outcome.restartError.isEmpty()) {
+        err << outcome.restartError << Qt::endl << i18nc("@info:shell", "Log out and back in to apply the change.") << Qt::endl;
         return 1;
     }
     if (install) {
@@ -170,13 +170,17 @@ int main(int argc, char **argv)
     const QCommandLineOption uninstallPortalOption(QStringLiteral("uninstall-portal"), i18n("Restore the previous XDG portal file chooser, then exit"));
     const QCommandLineOption backgroundSyncOption(QStringLiteral("background-sync"),
                                                   i18n("Start in the system tray without a window and synchronize cloud sync pairs"));
+    const QCommandLineOption backgroundMountOption(
+        QStringLiteral("background-mount"),
+        i18n("Start in the system tray without a window and mount the remote connections chosen to mount at startup"));
     parser.addOptions({resetAppearanceOption,
                        noWorkspaceAppearanceOption,
                        fileManagerServiceOption,
                        workspaceOption,
                        installPortalOption,
                        uninstallPortalOption,
-                       backgroundSyncOption});
+                       backgroundSyncOption,
+                       backgroundMountOption});
     parser.process(app);
     aboutData.processCommandLine(&parser);
 
@@ -246,7 +250,7 @@ int main(int argc, char **argv)
     // the request decides what to open, so the window waits for it.
     const bool serviceMode = parser.isSet(fileManagerServiceOption);
     auto *fileManager = new FileManagerService(window);
-    fileManager->registerOnBus(serviceMode || FileManagerRequest::shouldClaim(FileManagerService::defaultFolderHandler()));
+    fileManager->registerOnBus(serviceMode || DefaultFileManager::isPlasmaOpus(DefaultFileManager::folderHandler().desktopName));
     const auto showStartupMessage = [window, workspaceWarning, appearanceMessage] {
         if (!workspaceWarning.isEmpty()) {
             window->statusBar()->showMessage(workspaceWarning);
@@ -267,14 +271,18 @@ int main(int argc, char **argv)
                 QApplication::quit();
             }
         });
-    } else if (parser.isSet(backgroundSyncOption)) {
-        // Started at login for cloud sync: the window stays hidden until the
-        // tray icon or another launch shows it.
+    } else if (parser.isSet(backgroundSyncOption) || parser.isSet(backgroundMountOption)) {
+        // Started at login for cloud sync or remote drives: the window stays
+        // hidden until the tray icon or another launch shows it.
         window->desktopTray()->startInBackground();
     } else {
-        window->openUrls(urlsFromArguments(parser.positionalArguments(), QDir::currentPath()));
-        window->show();
-        StartupPresentation::presentIfEnabled(window);
+        const QStringList paths = parser.positionalArguments();
+        window->openUrls(urlsFromArguments(paths, QDir::currentPath()));
+        // Folders or a workspace asked for on the command line show the window.
+        if (!window->desktopTray()->startHidden(!paths.isEmpty() || parser.isSet(workspaceOption))) {
+            window->show();
+            StartupPresentation::presentIfEnabled(window);
+        }
         showStartupMessage();
         if (parser.isSet(workspaceOption)) {
             QTimer::singleShot(0, window, [window, id = parser.value(workspaceOption)] {
@@ -290,13 +298,14 @@ int main(int argc, char **argv)
         const QCommandLineOption fileManagerService(QStringLiteral("file-manager-service"));
         const QCommandLineOption workspace(QStringLiteral("workspace"), QString(), QStringLiteral("id"));
         const QCommandLineOption backgroundSync(QStringLiteral("background-sync"));
+        const QCommandLineOption backgroundMount(QStringLiteral("background-mount"));
         instanceParser.addOptions(
-            {resetAppearance, QCommandLineOption(QStringLiteral("no-workspace-appearance")), fileManagerService, workspace, backgroundSync});
+            {resetAppearance, QCommandLineOption(QStringLiteral("no-workspace-appearance")), fileManagerService, workspace, backgroundSync, backgroundMount});
         instanceParser.parse(arguments);
-        if (instanceParser.isSet(fileManagerService) || instanceParser.isSet(backgroundSync)) {
+        if (instanceParser.isSet(fileManagerService) || instanceParser.isSet(backgroundSync) || instanceParser.isSet(backgroundMount)) {
             // Another process was activated for a request this instance
-            // does not serve, or to start background synchronization, which
-            // this instance already runs.
+            // does not serve, or to start background synchronization or
+            // mounting, which this instance already runs.
             return;
         }
         if (instanceParser.isSet(resetAppearance)) {

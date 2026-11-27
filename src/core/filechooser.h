@@ -9,6 +9,7 @@
 #include <QUrl>
 #include <QVariantMap>
 
+class KConfigGroup;
 class QDBusArgument;
 
 /**
@@ -93,6 +94,10 @@ struct Request {
     QUrl currentFile;
     /// The names of the files SaveFiles saves.
     QStringList files;
+    /// The requesting application's ID, or an empty string when the portal cannot identify it.
+    QString appId;
+    /// The folder of the application's last accepted choice, used when the request suggests none.
+    QUrl lastFolder;
 };
 
 struct Result {
@@ -147,6 +152,32 @@ QList<QUrl> saveFilesTargets(const QUrl &folder, const QStringList &names);
 
 /// The initial folder of a request: the suggested folder, the saved file's folder, or an empty URL.
 QUrl initialFolder(const Request &request);
+
+/**
+ * The folder the chooser starts in: the initial folder, or else the last
+ * folder when it is a local folder that still exists, or else the home folder.
+ */
+QUrl startFolder(const Request &request);
+
+/**
+ * The folder of an accepted choice, to start in next time: the chosen folder
+ * of a folder request, or else the folder of the first chosen file.
+ * @returns a local folder, or an empty URL
+ */
+QUrl acceptedFolder(const Request &request, const Result &result);
+
+/// The group of the state configuration that keeps the folders of the last accepted choices.
+QString stateGroupName();
+
+/**
+ * The folder of the last accepted choice of the application @p appId,
+ * kept in @p group of the state configuration.
+ * @returns a local folder, or an empty URL
+ */
+QUrl lastFolder(const KConfigGroup &group, const QString &appId);
+
+/// Remembers @p folder as the application's last folder in @p group; an empty URL is ignored.
+void rememberFolder(KConfigGroup &group, const QString &appId, const QUrl &folder);
 
 /// The initial name of a SaveFile request: the suggested name or the saved file's name.
 QString initialName(const Request &request);

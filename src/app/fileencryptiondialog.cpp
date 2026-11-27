@@ -2,6 +2,7 @@
 
 #include "fileencryptiondialog.h"
 
+#include "settings.h"
 #include "symbolicicon.h"
 
 #include <KLocalizedString>
@@ -262,6 +263,7 @@ void FileEncryptionDialog::buildOptions(QWidget *options)
         m_armor = new QCheckBox(i18nc("@option:check", "Save as text (.asc) instead of binary"), options);
         m_armor->setObjectName(QStringLiteral("encryptionArmor"));
         m_armor->setToolTip(i18nc("@info:tooltip", "Text files can be pasted into emails and messages"));
+        m_armor->setChecked(Settings::encryptionArmor());
         layout->addRow(QString(), m_armor);
     }
 }
@@ -372,6 +374,8 @@ void FileEncryptionDialog::start()
     if (m_armor) {
         options.armor = m_armor->isChecked();
     }
+    options.pgpSuffix = Settings::encryptedSuffix() == Settings::EnumEncryptedSuffix::Pgp;
+    options.markDecrypted = Settings::decryptedNames() == Settings::EnumDecryptedNames::Marked;
     if (QWidget *optionsWidget = findChild<QWidget *>(QStringLiteral("encryptionOptions"))) {
         optionsWidget->setEnabled(false);
     }

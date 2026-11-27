@@ -57,7 +57,12 @@ Q_SIGNALS:
     void idle();
 
 private:
-    uint start(FileChooser::Mode mode, const QDBusObjectPath &handle, const QString &parentWindow, const QString &title, const QVariantMap &options);
+    uint start(FileChooser::Mode mode,
+               const QDBusObjectPath &handle,
+               const QString &appId,
+               const QString &parentWindow,
+               const QString &title,
+               const QVariantMap &options);
 
     int m_pending = 0;
 };

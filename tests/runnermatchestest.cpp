@@ -39,16 +39,35 @@ private Q_SLOTS:
     void offersOnlyWhatIsEnabled()
     {
         const QList<Favorite> favorites{{QUrl::fromLocalFile(m_dir.path()), QStringLiteral("Scratch")}};
-        QCOMPARE(targets(catalog(), favorites, {true, true}).size(), 3);
-        const QList<Target> workspacesOnly = targets(catalog(), favorites, {true, false});
+        QCOMPARE(targets(catalog(), favorites, {.workspaces = true, .favorites = true}).size(), 3);
+        const QList<Target> workspacesOnly = targets(catalog(), favorites, {.workspaces = true, .favorites = false});
         QCOMPARE(workspacesOnly.size(), 2);
         QVERIFY(std::all_of(workspacesOnly.cbegin(), workspacesOnly.cend(), [](const Target &target) {
             return target.kind == Kind::Workspace;
         }));
-        const QList<Target> favoritesOnly = targets(catalog(), favorites, {false, true});
+        const QList<Target> favoritesOnly = targets(catalog(), favorites, {.workspaces = false, .favorites = true});
         QCOMPARE(favoritesOnly.size(), 1);
         QCOMPARE(favoritesOnly.first().kind, Kind::Location);
-        QVERIFY(targets(catalog(), favorites, {false, false}).isEmpty());
+        QVERIFY(targets(catalog(), favorites, {.workspaces = false, .favorites = false}).isEmpty());
+        QVERIFY(targets(catalog(), favorites, {.enabled = false}).isEmpty());
+    }
+
+    void leavesOutHiddenWorkspacesAndFavorites()
+    {
+        const QUrl scratch = QUrl::fromLocalFile(m_dir.path());
+        const QUrl remote(QStringLiteral("sftp://user:secret@host/srv/data"));
+        const QList<Favorite> favorites{{scratch, QStringLiteral("Scratch")}, {remote, QStringLiteral("Data")}};
+        QVERIFY(!locationId(remote).contains(QStringLiteral("secret")));
+        QVERIFY(!locationId(remote).contains(QStringLiteral("host")));
+        QCOMPARE(targets(catalog(), favorites, {}).at(3).id, locationId(remote));
+
+        const QList<Target> shown =
+            targets(catalog(), favorites, {.hiddenWorkspaces = {QStringLiteral("w1"), QStringLiteral("gone")}, .hiddenFavorites = {locationId(scratch)}});
+        QCOMPARE(shown.size(), 2);
+        QCOMPARE(shown.at(0).workspaceId, QStringLiteral("w2"));
+        QCOMPARE(shown.at(1).url, remote);
+        QVERIFY(!resolve(shown, QStringLiteral("workspace:w1")));
+        QVERIFY(!resolve(shown, locationId(scratch)));
     }
 
     void ranksExactPrefixAndWordMatches()

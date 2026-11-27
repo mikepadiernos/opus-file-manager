@@ -4,11 +4,13 @@
 
 #include "draftstore.h"
 #include "notevault.h"
+#include "vaultsettings.h"
 
 #include <QWidget>
 
 #include <atomic>
 #include <memory>
+#include <optional>
 
 namespace KTextEditor
 {
@@ -22,6 +24,7 @@ class QHBoxLayout;
 class QListWidget;
 class QPushButton;
 class QStackedWidget;
+class QTabWidget;
 class QTextBrowser;
 class QTextEdit;
 class QTimer;
@@ -40,6 +43,21 @@ public:
         Right,
         Maximized,
         Window
+    };
+    /// The active workspace's vault.
+    struct WorkspaceVault {
+        /// The vault folder, or empty when the workspace has no vault or its folder can't be found.
+        QString root;
+        /// Why the workspace's vault folder can't be found, such as a removed location, or empty.
+        QString unavailable;
+        /// The workspace's own Markdown options, or empty to use the Editor settings.
+        std::optional<VaultSettings::Options> options;
+        /// Whether the workspace decides the vault, even one it can't find.
+        bool isActive() const
+        {
+            return !root.isEmpty() || !unavailable.isEmpty();
+        }
+        bool operator==(const WorkspaceVault &other) const = default;
     };
     explicit EditorPanel(QWidget *parent = nullptr, const QString &draftDirectory = {});
     ~EditorPanel() override;
@@ -66,9 +84,9 @@ public:
     void setEmbedded(bool embedded);
     KTextEditor::Document *document() const;
     /**
-     * Sets the folder of Markdown notes that wiki links resolve against,
-     * remembers it for later sessions and scans it in the background. An
-     * empty @p root closes the vault.
+     * Sets the folder of Markdown notes that wiki links resolve against as
+     * the EditorVaultFolder setting, which every editor panel uses, and scans
+     * it in the background. An empty @p root closes the vault.
      */
     void setVault(const QString &root);
     /// The vault in use: the workspace vault while one is set, or the panel's own.
@@ -81,6 +99,15 @@ public:
      */
     static void setWorkspaceVault(const QString &root);
     static QString workspaceVault();
+    /**
+     * Uses the active workspace's @p vault in every editor panel, as
+     * setWorkspaceVault() does. While the workspace's vault folder can't be
+     * found, the panels report why instead of using their own vault, and the
+     * workspace's options still apply. An inactive @p vault restores each
+     * panel's own vault and the Editor settings.
+     */
+    static void setWorkspaceVaultState(const WorkspaceVault &vault);
+    static WorkspaceVault workspaceVaultState();
     /// The last completed scan of the vault.
     const NoteVault::Index &vaultIndex() const;
 
@@ -100,6 +127,10 @@ private:
     void updateVisualControls();
     void refreshPreview();
     void rescanVault();
+    /// Applies the Markdown and vault settings: the preview dialect and the vault folder.
+    void applyMarkdownSettings();
+    /// The Markdown and vault options in effect.
+    VaultSettings::Options vaultOptions() const;
     /// Switches to the workspace vault or the panel's own, rescanning when it changes.
     void applyVault();
     void updateVaultPanel();
@@ -153,6 +184,8 @@ private:
     QWidget *m_vaultPanel = nullptr;
     QToolButton *m_vaultButton = nullptr;
     QLabel *m_vaultTitle = nullptr;
+    QTabWidget *m_vaultTabs = nullptr;
+    VaultSettings::Dialect m_appliedDialect = VaultSettings::Dialect::GitHub;
     QListWidget *m_backlinks = nullptr;
     QListWidget *m_outgoingLinks = nullptr;
     QTreeWidget *m_tags = nullptr;

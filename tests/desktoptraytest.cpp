@@ -4,6 +4,9 @@
 #include "settings.h"
 
 #include <KActionCollection>
+#include <KConfigGroup>
+#include <KGlobalAccel>
+#include <KSharedConfig>
 #include <KStatusNotifierItem>
 
 #include <QAction>
@@ -34,8 +37,8 @@ class DesktopTrayTest : public QObject
         }
     };
 
-    /// A shown window that deletes itself when it really closes.
-    static void makeWindow(Fixture &fixture, bool hostAvailable)
+    /// A window that deletes itself when it really closes, shown unless @p show is false.
+    static void makeWindow(Fixture &fixture, bool hostAvailable, bool show = true)
     {
         fixture.window = new QWidget;
         fixture.window->setAttribute(Qt::WA_DeleteOnClose);
@@ -46,7 +49,9 @@ class DesktopTrayTest : public QObject
         });
         fixture.tray->applySettings();
         fixture.window->resize(300, 200);
-        fixture.window->show();
+        if (show) {
+            fixture.window->show();
+        }
     }
 
     static void requestCloseFromWindowManager(QWidget *window)
@@ -64,6 +69,8 @@ private Q_SLOTS:
     {
         Settings::self()->setDefaults();
         QApplication::setQuitOnLastWindowClosed(true);
+        KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Tray"));
+        KSharedConfig::openStateConfig()->sync();
     }
 
     void registersTheGlobalShortcutAction()
@@ -75,6 +82,49 @@ private Q_SLOTS:
         QVERIFY(toggle);
         QCOMPARE(toggle, fixture.tray->toggleAction());
         QCOMPARE(toggle->text(), QStringLiteral("Show or Hide Plasma Opus"));
+        QVERIFY(fixture.tray->globalShortcutRegistered());
+        QVERIFY(KGlobalAccel::self()->hasShortcut(toggle));
+        QCOMPARE(KGlobalAccel::self()->defaultShortcut(toggle), QList<QKeySequence>{DesktopTray::defaultGlobalShortcut()});
+    }
+
+    void globalShortcutFollowsTheSetting()
+    {
+        Settings::setGlobalShortcut(false);
+        Fixture fixture;
+        makeWindow(fixture, true);
+        QAction *toggle = fixture.tray->toggleAction();
+        // The action stays for Configure Keyboard Shortcuts, but KDE does not know it.
+        QVERIFY(toggle);
+        QVERIFY(!fixture.tray->globalShortcutRegistered());
+        QVERIFY(!KGlobalAccel::self()->hasShortcut(toggle));
+        QCOMPARE(fixture.tray->globalShortcut(), DesktopTray::defaultGlobalShortcut());
+
+        Settings::setGlobalShortcut(true);
+        fixture.tray->applySettings();
+        QVERIFY(fixture.tray->globalShortcutRegistered());
+
+        // Turning it off keeps the key KDE had assigned for turning it on again.
+        const QKeySequence assigned = fixture.tray->globalShortcut();
+        Settings::setGlobalShortcut(false);
+        fixture.tray->applySettings();
+        QVERIFY(!KGlobalAccel::self()->hasShortcut(toggle));
+        QCOMPARE(fixture.tray->globalShortcut(), assigned);
+        const KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("Tray"));
+        QVERIFY(state.hasKey("DisabledGlobalShortcut"));
+
+        // A key chosen while it is off is kept until it is turned on.
+        const QKeySequence chosen(Qt::CTRL | Qt::ALT | Qt::Key_F12);
+        fixture.tray->setGlobalShortcut(chosen);
+        QVERIFY(!fixture.tray->globalShortcutRegistered());
+        QCOMPARE(fixture.tray->globalShortcut(), chosen);
+
+        Settings::setGlobalShortcut(true);
+        fixture.tray->applySettings();
+        QVERIFY(fixture.tray->globalShortcutRegistered());
+        QVERIFY(!state.hasKey("DisabledGlobalShortcut"));
+        if (DesktopTray::globalShortcutServiceAvailable()) {
+            QCOMPARE(fixture.tray->globalShortcut(), chosen);
+        }
     }
 
     void trayIconFollowsTheSetting()
@@ -222,6 +272,22 @@ private Q_SLOTS:
         QCOMPARE(cloudActivity.count(), 1);
     }
 
+    void trayMenuHidesCloudActivityWhenAsked()
+    {
+        Fixture fixture;
+        makeWindow(fixture, true);
+        QAction *cloudActivity = fixture.tray->contextMenu()->findChild<QAction *>(QStringLiteral("trayCloudActivity"));
+        QVERIFY(cloudActivity->isVisible());
+        Settings::setCloudActivityInTray(false);
+        fixture.tray->applySettings();
+        QVERIFY(!cloudActivity->isVisible());
+        QVERIFY(fixture.tray->contextMenu()->findChild<QAction *>(QStringLiteral("trayCloudSync"))->isVisible());
+        Settings::setCloudActivityInTray(true);
+        // The menu also follows the setting each time it opens.
+        Q_EMIT fixture.tray->contextMenu()->aboutToShow();
+        QVERIFY(cloudActivity->isVisible());
+    }
+
     void trayQuitCanBeCanceled()
     {
         Fixture fixture;
@@ -299,6 +365,51 @@ private Q_SLOTS:
         fixture.tray->setAttention({});
         QCOMPARE(item->status(), KStatusNotifierItem::Passive);
         QVERIFY(item->toolTipSubTitle().isEmpty());
+    }
+
+    void startsHiddenWhenTheSettingAsks()
+    {
+        Settings::setStartHiddenInTray(true);
+        Fixture fixture;
+        makeWindow(fixture, true, false);
+        // Folders or a workspace to open show the window.
+        QVERIFY(!fixture.tray->startHidden(true));
+        QVERIFY(QApplication::quitOnLastWindowClosed());
+
+        QVERIFY(fixture.tray->startHidden(false));
+        QVERIFY(!fixture.window->isVisible());
+        QVERIFY(!QApplication::quitOnLastWindowClosed());
+        auto *item = fixture.tray->findChild<KStatusNotifierItem *>();
+        QVERIFY(item);
+        QCOMPARE(item->status(), KStatusNotifierItem::Active);
+
+        fixture.tray->toggleWindow();
+        QVERIFY(fixture.window->isVisible());
+        QVERIFY(QApplication::quitOnLastWindowClosed());
+        QCOMPARE(item->status(), KStatusNotifierItem::Passive);
+    }
+
+    void startsShownWithoutTheSettingOrATray_data()
+    {
+        QTest::addColumn<bool>("setting");
+        QTest::addColumn<bool>("host");
+        QTest::addColumn<bool>("icon");
+        QTest::newRow("setting off") << false << true << true;
+        QTest::newRow("no tray host") << true << false << true;
+        QTest::newRow("no tray icon") << true << true << false;
+    }
+
+    void startsShownWithoutTheSettingOrATray()
+    {
+        QFETCH(bool, setting);
+        QFETCH(bool, host);
+        QFETCH(bool, icon);
+        Settings::setStartHiddenInTray(setting);
+        Settings::setShowTrayIcon(icon);
+        Fixture fixture;
+        makeWindow(fixture, host, false);
+        QVERIFY(!fixture.tray->startHidden(false));
+        QVERIFY(QApplication::quitOnLastWindowClosed());
     }
 };
 

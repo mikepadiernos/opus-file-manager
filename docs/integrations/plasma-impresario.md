@@ -69,8 +69,16 @@ action.
 
 > [!TIP]
 > **Implemented** as **File › Send by Email…**, also in the context menu.
+> **Preferences › Applications › Mail** shows the default mail client, opens
+> Plasma's Default Applications settings to change it, and turns the action
+> on or off ([#666](https://github.com/mikepadiernos/plasma-opus/issues/666)).
+> Its **Remote files** setting chooses whether Send by Email asks before
+> downloading private local copies of remote files or skips them; it never
+> downloads them without asking
+> ([#667](https://github.com/mikepadiernos/plasma-opus/issues/667)).
 > Its limits are recorded under
-> [Desktop integration](../CAVEATS.md#desktop-integration).
+> [Desktop integration](../CAVEATS.md#desktop-integration) and
+> [Integration settings](../CAVEATS.md#integration-settings).
 
 - Offer an explicit **Send by Email** action for selected files. Use KIO's
   `KEMailClientLauncherJob`, which starts the user's preferred `mailto:`
@@ -99,8 +107,11 @@ action.
 > [!TIP]
 > **Implemented:** files can be dragged from the **Send by Email** list into
 > any composer, including remote files once their private local copies are
-> ready. Its limits are recorded under
-> [Desktop integration](../CAVEATS.md#desktop-integration).
+> ready, unless **Preferences › Applications › Mail** is set to skip remote
+> files ([#667](https://github.com/mikepadiernos/plasma-opus/issues/667)).
+> Its limits are recorded under
+> [Desktop integration](../CAVEATS.md#desktop-integration) and
+> [Integration settings](../CAVEATS.md#integration-settings).
 
 - Plasma Opus drags already provide file URLs. Plasma Impresario attaches
   dropped local files, so local drags need verification rather than new
@@ -140,7 +151,13 @@ action.
 > [!TIP]
 > **Implemented:** local `.eml` files show their headers, plain-text body and
 > attachments in the preview panel; **Extract All**, **Extract Selected** and
-> **Open** act on the attachments only when asked.
+> **Open** act on the attachments only when asked. Clear **Preview mail files
+> (.eml) in the preview panel** under **Preferences › Applications › Mail** to
+> show them as plain text instead
+> ([#668](https://github.com/mikepadiernos/plasma-opus/issues/668)). Its
+> limits are recorded under
+> [Desktop integration](../CAVEATS.md#desktop-integration) and
+> [Integration settings](../CAVEATS.md#integration-settings).
 
 - Preview local `.eml` (`message/rfc822`) files in the preview panel as plain
   text: show headers, the plain-text body or a sanitized text rendering, and

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "atuin.h"
+#include "settings.h"
 
 #include <KLocalizedString>
 #include <KShell>
@@ -109,4 +110,27 @@ QString Atuin::unavailableReason()
 QString Atuin::searchInput(const QString &executable)
 {
     return QStringLiteral(" ") + KShell::quoteArg(executable) + QStringLiteral(" search --interactive\n");
+}
+
+Atuin::SessionMode Atuin::sessionMode()
+{
+    switch (Settings::atuinSession()) {
+    case Settings::EnumAtuinSession::NewWhenBusy:
+        return SessionMode::NewWhenBusy;
+    case Settings::EnumAtuinSession::New:
+        return SessionMode::New;
+    default:
+        return SessionMode::Current;
+    }
+}
+
+Atuin::Session Atuin::session(SessionMode mode, bool hasSession, bool sessionIsNew, bool busy)
+{
+    if (!hasSession) {
+        return mode == SessionMode::Current ? Session::Refuse : Session::New;
+    }
+    if (busy) {
+        return mode != SessionMode::Current && !sessionIsNew ? Session::New : Session::Refuse;
+    }
+    return mode == SessionMode::New && !sessionIsNew ? Session::New : Session::Current;
 }

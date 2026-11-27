@@ -29,8 +29,21 @@ public:
      */
     bool registerOnBus(bool claimName);
 
-    /// The desktop entry of the user's default folder handler, if any.
-    static QString defaultFolderHandler();
+    enum class Claim {
+        /// Plasma Opus owns the name.
+        Claimed,
+        /// Another application, such as another file manager, owns the name.
+        OwnedElsewhere,
+        /// The session bus or the exported service object is not available.
+        Unavailable,
+    };
+
+    /**
+     * Requests the well-known name for the service object this process has
+     * exported, without replacing its current owner, such as after Plasma
+     * Opus becomes the default file manager.
+     */
+    static Claim claimName();
 
 public Q_SLOTS:
     Q_SCRIPTABLE void ShowFolders(const QStringList &uriList, const QString &startUpId);

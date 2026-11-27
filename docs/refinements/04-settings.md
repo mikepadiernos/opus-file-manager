@@ -430,11 +430,25 @@ Settings
   features, layout and theme, with optional Activity associations and
   per-Activity choices once M27 and M28 provide them; keep KDE-owned accounts,
   credentials and desktop settings under KDE's control.
-- Until M28, the M27 integrations have interim tabs: **General › System
-  Tray** holds the tray icon and hiding choices, and **Workspaces ›
-  Activities** turns Activity associations and their offers on. Both move to
-  Integrations › KDE Plasma with M28; the associations themselves are edited
-  under **View › Activity Associations** until then.
+- Until M28, the M27 integrations had interim tabs: **General › System
+  Tray** held the tray icon and hiding choices, **Workspaces › Activities**
+  turned Activity associations and their offers on, while the associations
+  themselves were edited in a separate **View › Activity Associations**
+  dialog, and **General › Plasma Search** turned KRunner's workspaces and
+  Favorites on or off. The tray choices moved to **KDE Plasma › System
+  Tray** with M28
+  ([#290](https://github.com/mikepadiernos/plasma-opus/issues/290)), the
+  Activities tab moved to **KDE Plasma › Activities**, which now edits the
+  associations too; **View › Activity Associations** opens it
+  ([#391](https://github.com/mikepadiernos/plasma-opus/issues/391)), and
+  the Plasma Search tab moved to **KDE Plasma › KRunner**, which also turns
+  the results off and chooses each workspace and Favorite offered
+  ([#394](https://github.com/mikepadiernos/plasma-opus/issues/394)).
+  **Terminal component** moved from **Tools › Embedded Terminal** to
+  **Embedded terminal** under **Applications › Terminal**, beside the terminal
+  that **Open Terminal Here** opens; the panel's placement and folder
+  following stay under **Tools › Embedded Terminal**
+  ([#295](https://github.com/mikepadiernos/plasma-opus/issues/295)).
 - Integrations › KDE Plasma groups desktop-specific controls; provider choices
   shared with non-KDE applications remain separate. Password-gated folders are
   placed under Workspaces › Management but are an M28 feature; the gate applies

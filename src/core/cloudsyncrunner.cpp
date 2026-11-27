@@ -430,6 +430,29 @@ void Runner::planRun()
                 : i18ncp("@info:status", "Waiting for review: %1 file would be deleted", "Waiting for review: %1 files would be deleted", m_plan.deletions()));
         return;
     }
+    if (m_run == Run::Automatic && m_pair.conflictChoice != Resolution::Skip && !m_plan.conflicts.isEmpty()) {
+        // The pair's default choice resolves conflicts the user has not
+        // resolved; the rest wait for review.
+        QHash<QString, Resolution> resolutions = defaultResolutions(m_plan.conflicts, m_pair.conflictChoice);
+        if (!resolutions.isEmpty()) {
+            resolutions.insert(m_resolutions);
+            const Plan resolved = plan(m_local, m_remote, m_base, m_pair.mode, m_pair.mirrorDeletions, resolutions, m_conflictName);
+            if (CloudSync::needsReview(resolved, m_base)) {
+                // The review shows the plan without the default choice, so a
+                // confirmed run can compare it with the folders again.
+                finish(Report::Outcome::NeedsReview,
+                       i18ncp("@info:status",
+                              "Waiting for review: %1 file would be deleted",
+                              "Waiting for review: %1 files would be deleted",
+                              resolved.deletions()));
+                return;
+            }
+            m_resolutions = resolutions;
+            m_plan = resolved;
+            m_report.conflicts = m_plan.conflicts;
+            m_report.preview = previewItems(m_plan);
+        }
+    }
     checkSpace();
 }
 
@@ -860,6 +883,16 @@ void Runner::rcloneFinished(int exitCode, QProcess::ExitStatus status)
     finish(Report::Outcome::Succeeded);
 }
 
+std::optional<bool> CloudSync::isConnectionMetered()
+{
+    static const bool loaded = QNetworkInformation::loadBackendByFeatures(QNetworkInformation::Feature::Metered);
+    const QNetworkInformation *information = QNetworkInformation::instance();
+    if (!loaded || !information || !information->supports(QNetworkInformation::Feature::Metered)) {
+        return std::nullopt;
+    }
+    return information->isMetered();
+}
+
 Scheduler::Scheduler(KSharedConfig::Ptr config, QObject *parent)
     : QObject(parent)
     , m_config(std::move(config))
@@ -869,9 +902,7 @@ Scheduler::Scheduler(KSharedConfig::Ptr config, QObject *parent)
     m_timer->setInterval(std::chrono::minutes(1));
     connect(m_timer, &QTimer::timeout, this, &Scheduler::checkDue);
     m_meteredCheck = [] {
-        static const bool loaded = QNetworkInformation::loadBackendByFeatures(QNetworkInformation::Feature::Metered);
-        const QNetworkInformation *information = QNetworkInformation::instance();
-        return loaded && information && information->isMetered();
+        return isConnectionMetered().value_or(false);
     };
 }
 
@@ -1000,6 +1031,11 @@ void Scheduler::setRcloneOptions(const QStringList &options)
     m_rcloneOptions = options;
 }
 
+QStringList Scheduler::rcloneOptions() const
+{
+    return m_rcloneOptions;
+}
+
 bool Scheduler::pausesOnMeteredConnections() const
 {
     return m_config->group(QStringLiteral("CloudSync")).readEntry("PauseOnMeteredConnections", true);
@@ -1010,6 +1046,16 @@ void Scheduler::setPausesOnMeteredConnections(bool pause)
     KConfigGroup group = m_config->group(QStringLiteral("CloudSync"));
     group.writeEntry("PauseOnMeteredConnections", pause);
     group.sync();
+}
+
+int Scheduler::defaultIntervalMinutes() const
+{
+    return std::max(1, m_config->group(QStringLiteral("CloudSync")).readEntry("CheckIntervalMinutes", DefaultCheckIntervalMinutes));
+}
+
+int Scheduler::intervalMinutes(const Pair &pair) const
+{
+    return pair.useDefaultInterval ? defaultIntervalMinutes() : pair.intervalMinutes;
 }
 
 void Scheduler::setMeteredCheck(std::function<bool()> check)
@@ -1120,11 +1166,12 @@ void Scheduler::checkDue()
     const QDateTime now = QDateTime::currentDateTime();
     QStringList due;
     for (const Pair &pair : std::as_const(m_pairs)) {
-        if (pair.intervalMinutes <= 0 || isPaused(pair) || state(pair.id) != State::Idle || needsReview(pair.id)) {
+        const int interval = intervalMinutes(pair);
+        if (interval <= 0 || isPaused(pair) || state(pair.id) != State::Idle || needsReview(pair.id)) {
             continue;
         }
         const QDateTime last = m_lastRuns.value(pair.id);
-        if (!last.isValid() || last.secsTo(now) >= qint64(pair.intervalMinutes) * 60) {
+        if (!last.isValid() || last.secsTo(now) >= qint64(interval) * 60) {
             due.append(pair.id);
         }
     }

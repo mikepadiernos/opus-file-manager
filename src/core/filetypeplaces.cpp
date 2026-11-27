@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "filetypeplaces.h"
+#include "settings.h"
 
 #include <KLocalizedString>
 
@@ -259,7 +260,7 @@ QUrl FileTypePlaces::balooUrl(Category category)
 
 qint64 FileTypePlaces::largeFileSize()
 {
-    return qint64(100) * 1024 * 1024;
+    return qint64(Settings::largeFileSizeMiB()) * 1024 * 1024;
 }
 
 QString FileTypePlaces::liveQuery(Category category)
@@ -272,7 +273,8 @@ QString FileTypePlaces::liveQuery(Category category)
     case Category::Video:
         return QStringLiteral("type:video/*");
     case Category::LargeFiles:
-        return QStringLiteral("size>100M");
+        // SearchQuery reads M as MiB.
+        return QStringLiteral("size>%1M").arg(Settings::largeFileSizeMiB());
     default: {
         QStringList alternatives;
         for (const QString &extension : extensions(category)) {
@@ -281,4 +283,41 @@ QString FileTypePlaces::liveQuery(Category category)
         return alternatives.join(QStringLiteral(" OR "));
     }
     }
+}
+
+QList<FileTypePlaces::Category> FileTypePlaces::shownCategories()
+{
+    const QStringList hidden = Settings::fileTypeCategoriesHidden();
+    QList<Category> shown;
+    for (const Category category : categories()) {
+        if (!hidden.contains(id(category))) {
+            shown.append(category);
+        }
+    }
+    return shown;
+}
+
+QStringList FileTypePlaces::absentIds(const QList<Category> &present)
+{
+    QStringList absent;
+    for (const Category category : categories()) {
+        if (!present.contains(category)) {
+            absent.append(id(category));
+        }
+    }
+    return absent;
+}
+
+FileTypePlaces::PlaceChanges FileTypePlaces::placeChanges(const QStringList &hiddenIds, const QList<Category> &present)
+{
+    PlaceChanges changes;
+    for (const Category category : categories()) {
+        const bool hidden = hiddenIds.contains(id(category));
+        if (hidden && present.contains(category)) {
+            changes.remove.append(category);
+        } else if (!hidden && !present.contains(category)) {
+            changes.add.append(category);
+        }
+    }
+    return changes;
 }

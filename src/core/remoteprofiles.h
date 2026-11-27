@@ -47,6 +47,8 @@ struct Profile {
     Authentication authentication = Authentication::Password;
     /// A private key for SSH terminals; empty uses the SSH configuration and agent.
     QString identityFile;
+
+    bool operator==(const Profile &) const = default;
 };
 
 /// All protocols, in menu order.
@@ -60,8 +62,15 @@ int defaultPort(Protocol protocol);
 /// Whether the protocol also offers an SSH terminal.
 bool supportsSsh(Protocol protocol);
 
+/// Why @p user can't be a profile's user name, or an empty string when it can.
+QString userError(const QString &user);
 /// Why @p profile can't be used, or an empty string when it is valid.
 QString validationError(const Profile &profile);
+/**
+ * An unsaved profile that starts with the given defaults. Sign-in with an SSH
+ * key or agent applies only to SSH, and an invalid user name is left out.
+ */
+Profile newProfile(Protocol protocol, const QString &user, Authentication authentication);
 /// A warning about sending credentials unencrypted, or an empty string.
 QString securityWarning(const Profile &profile);
 /// The URL that opens @p profile in a pane. It never contains a password.

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "documentformats.h"
+#include "settings.h"
 
 #include <QFile>
 #include <QScopeGuard>
@@ -19,6 +20,11 @@ private Q_SLOTS:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
+    }
+
+    void init()
+    {
+        Settings::self()->setDefaults();
     }
 
     void classifiesFormats_data()
@@ -62,6 +68,45 @@ private Q_SLOTS:
         QVERIFY(DocumentFormats::missingViewerMessage(Kind::Office).contains(QStringLiteral("Calligra")));
         QVERIFY(DocumentFormats::missingViewerMessage(Kind::Pdf).contains(QStringLiteral("Okular")));
         QCOMPARE(DocumentFormats::missingViewerMessage(Kind::None), QStringLiteral("No document viewer is installed for this file type."));
+    }
+
+    void followsThePreviewSettings()
+    {
+        QVERIFY(DocumentFormats::previewEnabled(Kind::Office));
+        QVERIFY(DocumentFormats::previewEnabled(Kind::Pdf));
+        Settings::setOfficePreviews(false);
+        QVERIFY(!DocumentFormats::previewEnabled(Kind::Office));
+        QVERIFY(DocumentFormats::previewEnabled(Kind::Pdf));
+        QVERIFY(DocumentFormats::previewDisabledMessage(Kind::Office).contains(QStringLiteral("Preferences › Applications › Office")));
+        QVERIFY(DocumentFormats::previewDisabledMessage(Kind::Pdf).isEmpty());
+
+        // Ebooks and DjVu documents share a setting; comics, help files and fonts have their own.
+        const QList<std::pair<Kind, void (*)(bool)>> kinds{
+            {Kind::Ebook, &Settings::setEbookPreviews},
+            {Kind::DjVu, &Settings::setEbookPreviews},
+            {Kind::Comic, &Settings::setComicPreviews},
+            {Kind::HelpFile, &Settings::setHelpFilePreviews},
+            {Kind::Font, &Settings::setFontPreviews},
+        };
+        for (const auto &[kind, set] : kinds) {
+            QVERIFY(DocumentFormats::previewEnabled(kind));
+            QVERIFY(DocumentFormats::previewDisabledMessage(kind).contains(QStringLiteral("Preferences › Applications › Ebooks and Fonts")));
+            set(false);
+            QVERIFY(!DocumentFormats::previewEnabled(kind));
+            set(true);
+        }
+        Settings::setComicPreviews(false);
+        QVERIFY(DocumentFormats::previewEnabled(Kind::Ebook));
+        QVERIFY(DocumentFormats::previewEnabled(Kind::Font));
+    }
+
+    void usesTheSampleTextSetting()
+    {
+        QCOMPARE(DocumentFormats::sampleText(), DocumentFormats::defaultSampleText());
+        Settings::setFontSampleText(QStringLiteral("Sphinx of black quartz"));
+        QCOMPARE(DocumentFormats::sampleText(), QStringLiteral("Sphinx of black quartz"));
+        Settings::setFontSampleText(QString());
+        QCOMPARE(DocumentFormats::sampleText(), DocumentFormats::defaultSampleText());
     }
 
     void findsTheFontInstaller()

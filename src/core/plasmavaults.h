@@ -61,6 +61,13 @@ struct User {
 QString statusText(Status status);
 /// The theme icon name for a vault's state.
 QString iconName(const Vault &vault);
+/**
+ * Whether @p status says only whether a vault is open or closed, or is
+ * opening or closing, rather than reporting a problem.
+ */
+bool isLockState(Status status);
+/// The vaults whose encrypted data folder is not in @p hidden, in the same order.
+QList<Vault> shownVaults(const QList<Vault> &vaults, const QStringList &hidden);
 /// Whether @p path is @p mountPoint or inside it.
 bool contains(const QString &mountPoint, const QString &path);
 /**

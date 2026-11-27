@@ -58,6 +58,8 @@ Defaults read(const KConfigGroup &search)
     defaults.workspaceOnly = search.readEntry("WorkspaceSearchByDefault", true);
     defaults.pathFilter = search.readEntry("DefaultSearchPathFilter", QString());
     defaults.presentation = Presentation(choice(search, "DefaultSearchResultPresentation", presentationNames(), int(Presentation::FullPaths)));
+    defaults.offerRanking = search.readEntry("SearchOfferRanking", true);
+    defaults.offerLiveFallback = search.readEntry("SearchOfferLiveFallback", true);
     return defaults;
 }
 

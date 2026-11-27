@@ -5,7 +5,6 @@
 #include "filemanagerrequest.h"
 #include "mainwindow.h"
 
-#include <KApplicationTrader>
 #include <KLocalizedString>
 #include <KWindowSystem>
 
@@ -31,19 +30,22 @@ bool FileManagerService::registerOnBus(bool claimName)
     if (!bus.registerObject(FileManagerRequest::objectPath(), this, QDBusConnection::ExportScriptableSlots)) {
         return false;
     }
-    if (!claimName || !bus.interface()) {
-        return false;
+    return claimName && FileManagerService::claimName() == Claim::Claimed;
+}
+
+FileManagerService::Claim FileManagerService::claimName()
+{
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected() || !bus.interface() || !bus.objectRegisteredAt(FileManagerRequest::objectPath())) {
+        return Claim::Unavailable;
     }
     const QDBusReply<QDBusConnectionInterface::RegisterServiceReply> reply = bus.interface()->registerService(FileManagerRequest::serviceName(),
                                                                                                               QDBusConnectionInterface::DontQueueService,
                                                                                                               QDBusConnectionInterface::DontAllowReplacement);
-    return reply.isValid() && reply.value() == QDBusConnectionInterface::ServiceRegistered;
-}
-
-QString FileManagerService::defaultFolderHandler()
-{
-    const KService::Ptr service = KApplicationTrader::preferredService(QStringLiteral("inode/directory"));
-    return service ? service->desktopEntryName() : QString();
+    if (!reply.isValid()) {
+        return Claim::Unavailable;
+    }
+    return reply.value() == QDBusConnectionInterface::ServiceRegistered ? Claim::Claimed : Claim::OwnedElsewhere;
 }
 
 void FileManagerService::ShowFolders(const QStringList &uriList, const QString &startUpId)

@@ -6,6 +6,7 @@
 
 #include <QList>
 #include <QString>
+#include <QStringList>
 #include <QUrl>
 
 #include <optional>
@@ -47,12 +48,21 @@ struct Match {
 };
 
 struct Options {
+    /// Whether the runner offers anything at all.
+    bool enabled = true;
     bool workspaces = true;
     bool favorites = true;
+    /// The ids of the workspaces left out.
+    QStringList hiddenWorkspaces;
+    /// The target ids, as locationId() gives them, of the Favorites left out.
+    QStringList hiddenFavorites;
 };
 
 /// A Favorite: its URL and shown title.
 using Favorite = std::pair<QUrl, QString>;
+
+/// The target id of the Favorite at @p url. It never contains the URL.
+QString locationId(const QUrl &url);
 
 /// The targets the runner may offer.
 QList<Target> targets(const WorkspaceCatalog::Catalog &catalog, const QList<Favorite> &favorites, const Options &options);

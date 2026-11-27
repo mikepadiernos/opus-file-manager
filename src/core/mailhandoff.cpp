@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "mailhandoff.h"
+#include "settings.h"
 
 #include <KApplicationTrader>
 #include <KLocalizedString>
@@ -13,7 +14,12 @@
 
 namespace MailHandoff
 {
-Selection classify(const KFileItemList &items)
+RemoteFiles remoteFiles()
+{
+    return Settings::mailRemoteFiles() == Settings::EnumMailRemoteFiles::Skip ? RemoteFiles::Skip : RemoteFiles::AskToCopy;
+}
+
+Selection classify(const KFileItemList &items, RemoteFiles remote)
 {
     Selection selection;
     QSet<QString> seenFiles;
@@ -25,7 +31,11 @@ Selection classify(const KFileItemList &items)
                 selection.rejected.append({item.url(), Reason::Folder});
             } else if (!seenRemote.contains(item.url())) {
                 seenRemote.insert(item.url());
-                selection.remote.append(item.url());
+                if (remote == RemoteFiles::Skip) {
+                    selection.rejected.append({item.url(), Reason::Remote});
+                } else {
+                    selection.remote.append(item.url());
+                }
             }
             continue;
         }
@@ -60,6 +70,8 @@ QString reasonText(Reason reason)
         return i18nc("@info why an item cannot be attached", "You do not have permission to read it");
     case Reason::NotRegularFile:
         return i18nc("@info why an item cannot be attached", "Not a regular file");
+    case Reason::Remote:
+        return i18nc("@info why an item cannot be attached", "Remote file; local copies are turned off under Preferences › Applications › Mail");
     }
     return {};
 }

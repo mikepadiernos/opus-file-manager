@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "cloudsyncdialog.h"
+#include "settings.h"
 
 #include <KSharedConfig>
 #include <KUrlRequester>
@@ -18,6 +19,7 @@
 #include <QPlainTextEdit>
 #include <QPointer>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -183,6 +185,9 @@ private Q_SLOTS:
         Q_EMIT profiles->activated(1);
         dialog.findChild<QSpinBox *>(QStringLiteral("cloudSyncInterval"))->setValue(30);
         dialog.findChild<QCheckBox *>(QStringLiteral("cloudSyncPaused"))->setChecked(true);
+        auto *conflictChoice = dialog.findChild<QComboBox *>(QStringLiteral("cloudSyncConflictChoice"));
+        QCOMPARE(conflictChoice->currentData().toInt(), int(Resolution::Skip));
+        conflictChoice->setCurrentIndex(conflictChoice->findData(int(Resolution::KeepLocal)));
 
         const Pair edited = dialog.pair();
         QCOMPARE(edited.id, original.id);
@@ -191,11 +196,53 @@ private Q_SLOTS:
         QCOMPARE(edited.options.excludePatterns, QStringList{QStringLiteral("*.tmp")});
         QVERIFY(!edited.options.recursive);
         QCOMPARE(edited.intervalMinutes, 30);
+        QVERIFY(!edited.useDefaultInterval);
+        QVERIFY(edited.conflictChoice == Resolution::KeepLocal);
         QVERIFY(edited.paused);
 
         // Mirroring only applies to backups.
         mode->setCurrentIndex(mode->findData(int(Mode::Sync)));
         QVERIFY(!dialog.pair().mirrorDeletions);
+    }
+
+    void pairDialogUsesTheDefaultInterval()
+    {
+        m_config->group(QStringLiteral("CloudSync")).writeEntry("CheckIntervalMinutes", 5);
+        Pair original = makePair(QStringLiteral("local"), QStringLiteral("remote"));
+        original.intervalMinutes = 15;
+        original.useDefaultInterval = true;
+        original.conflictChoice = Resolution::KeepBoth;
+        CloudSyncPairDialog dialog(original, {}, m_config, nullptr);
+        dialog.setEngineLocations(emptyEngines());
+        QCOMPARE(dialog.pair(), original);
+        auto *useDefault = dialog.findChild<QCheckBox *>(QStringLiteral("cloudSyncDefaultInterval"));
+        auto *interval = dialog.findChild<QSpinBox *>(QStringLiteral("cloudSyncInterval"));
+        QVERIFY(useDefault && interval);
+        QVERIFY(useDefault->isChecked());
+        QVERIFY2(useDefault->text().contains(QStringLiteral("every 5 minutes")), qPrintable(useDefault->text()));
+        QVERIFY(!interval->isEnabled());
+        QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("cloudSyncConflictChoice"))->currentData().toInt(), int(Resolution::KeepBoth));
+
+        // A pair can have its own interval instead.
+        useDefault->setChecked(false);
+        QVERIFY(interval->isEnabled());
+        interval->setValue(0);
+        QVERIFY(!dialog.pair().useDefaultInterval);
+        QCOMPARE(dialog.pair().intervalMinutes, 0);
+    }
+
+    void reviewStartsFromThePairConflictChoice()
+    {
+        Pair pair = makePair(QStringLiteral("local"), QStringLiteral("remote"));
+        pair.conflictChoice = Resolution::KeepRemote;
+        Report report;
+        report.outcome = Report::Outcome::NeedsReview;
+        report.conflicts = {{QStringLiteral("doc.txt"), State{false, 4, 10}, State{false, 5, 20}},
+                            {QStringLiteral("both.txt"), State{false, 1, 10}, State{false, 2, 20}}};
+        CloudSyncReviewDialog dialog(pair, report);
+        QCOMPARE(dialog.resolutions(),
+                 (QHash<QString, Resolution>{{QStringLiteral("doc.txt"), Resolution::KeepRemote}, {QStringLiteral("both.txt"), Resolution::KeepRemote}}));
+        QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("cloudSyncResolveAll"))->currentData().toInt(), int(Resolution::KeepRemote));
     }
 
     void nestedPairIsExcludedFromTheOuterPair()
@@ -303,6 +350,10 @@ private Q_SLOTS:
         editor->setEngineLocations(emptyEngines());
         editor->findChild<KUrlRequester *>(QStringLiteral("cloudSyncLocal"))->setText(path(QStringLiteral("local")));
         editor->findChild<QLineEdit *>(QStringLiteral("cloudSyncRemote"))->setText(QUrl::fromLocalFile(path(QStringLiteral("remote"))).toString());
+        // New pairs use the default interval.
+        auto *useDefault = editor->findChild<QCheckBox *>(QStringLiteral("cloudSyncDefaultInterval"));
+        QVERIFY(useDefault->isChecked());
+        useDefault->setChecked(false);
         editor->findChild<QSpinBox *>(QStringLiteral("cloudSyncInterval"))->setValue(0);
         editor->accept();
         QCOMPARE(sched->pairs().size(), 1);
@@ -381,6 +432,11 @@ private Q_SLOTS:
     void startAtLoginWritesTheAutostartEntry()
     {
         QFile::remove(autostartPath());
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            QFile::remove(autostartPath());
+        });
         auto sched = scheduler();
         CloudSyncDialog dialog(sched.get(), m_config, nullptr);
         auto *startAtLogin = dialog.findChild<QCheckBox *>(QStringLiteral("cloudSyncStartAtLogin"));
@@ -388,13 +444,17 @@ private Q_SLOTS:
         startAtLogin->setChecked(true);
         QVERIFY(QFile::exists(autostartPath()));
         QVERIFY(startsAtLogin());
+        // The same setting is in Preferences › Remote and Cloud › Sync.
+        QVERIFY(Settings::cloudSyncAtLogin());
         startAtLogin->setChecked(false);
         QVERIFY(!QFile::exists(autostartPath()));
+        QVERIFY(!Settings::cloudSyncAtLogin());
 
         auto *metered = dialog.findChild<QCheckBox *>(QStringLiteral("cloudSyncMetered"));
         QVERIFY(metered->isChecked());
         metered->setChecked(false);
         QVERIFY(!sched->pausesOnMeteredConnections());
+        QVERIFY(!Settings::cloudSyncPauseOnMetered());
     }
 
 private:

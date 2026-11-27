@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "apppackages.h"
+#include "settings.h"
 
 #include <KConfig>
 #include <KConfigGroup>
@@ -171,15 +172,37 @@ Locations Locations::system()
             data + QStringLiteral("/opus-file-manager/appimage-icons")};
 }
 
+bool enabled(Kind kind)
+{
+    if (kind == Kind::AppImage) {
+        return Settings::appImageActions();
+    }
+    if (isFlatpak(kind)) {
+        return Settings::flatpakActions();
+    }
+    if (isSnap(kind)) {
+        return Settings::snapActions();
+    }
+    return false;
+}
+
+bool readsEmbeddedDetails(const Package &package)
+{
+    // Type 1 AppImages are ISO images without an extracting runtime.
+    return package.kind == Kind::AppImage && package.appImageType == 2 && Settings::appImageReadDetails();
+}
+
 bool isPackage(const QString &path, const QString &mimeType, const Locations &locations)
 {
     if (path.isEmpty()) {
         return false;
     }
-    if (kindForMimeType(mimeType) != Kind::None) {
-        return true;
+    const Kind kind = kindForMimeType(mimeType);
+    if (kind != Kind::None) {
+        return enabled(kind);
     }
-    return !flatpakApp(path, locations.userFlatpak).isEmpty() || !flatpakApp(path, locations.systemFlatpak).isEmpty() || !snapName(path, locations).isEmpty();
+    return (enabled(Kind::FlatpakApp) && (!flatpakApp(path, locations.userFlatpak).isEmpty() || !flatpakApp(path, locations.systemFlatpak).isEmpty()))
+        || (enabled(Kind::SnapApp) && !snapName(path, locations).isEmpty());
 }
 
 Package identify(const QString &path, const QString &mimeType, const Locations &locations)
@@ -293,9 +316,18 @@ QString kindName(Kind kind)
 
 QList<Action> actions(const Package &package)
 {
+    if (!enabled(package.kind)) {
+        return {};
+    }
     switch (package.kind) {
     case Kind::AppImage:
-        return {Action::Run, package.integrated ? Action::RemoveIntegration : Action::Integrate, Action::Update};
+        if (package.integrated) {
+            return {Action::Run, Action::RemoveIntegration, Action::Update};
+        }
+        if (!Settings::appImageMenuIntegration()) {
+            return {Action::Run, Action::Update};
+        }
+        return {Action::Run, Action::Integrate, Action::Update};
     case Kind::FlatpakBundle:
         return {Action::Install, Action::OpenInDiscover};
     case Kind::FlatpakRef:

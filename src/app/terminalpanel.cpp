@@ -94,7 +94,12 @@ TerminalPanel::TerminalPanel(QWidget *parent)
     auto *historyAction =
         m_panelMenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("view-history")), i18nc("@action", "Search Command History with Atuin"));
     historyAction->setObjectName(QStringLiteral("terminalPanelAtuinAction"));
-    connect(historyAction, &QAction::triggered, this, &TerminalPanel::searchHistory);
+    connect(historyAction, &QAction::triggered, this, [this] {
+        searchHistory();
+    });
+    connect(m_panelMenu, &QMenu::aboutToShow, this, [historyAction] {
+        historyAction->setVisible(Settings::atuinHistory());
+    });
     QMenu *components = m_panelMenu->addMenu(i18nc("@title:menu", "Terminal Component"));
     components->setObjectName(QStringLiteral("terminalComponentMenu"));
     components->setToolTipsVisible(true);
@@ -170,6 +175,11 @@ bool TerminalPanel::hasSessions() const
     return m_tabs->count() > 0;
 }
 
+int TerminalPanel::sessionCount() const
+{
+    return m_tabs->count();
+}
+
 TerminalProviders::Provider TerminalPanel::embeddedProvider()
 {
     return Settings::embeddedTerminal() == Settings::EnumEmbeddedTerminal::Kwi ? TerminalProviders::Provider::Kwi : TerminalProviders::Provider::Konsole;
@@ -200,8 +210,12 @@ void TerminalPanel::dismissStatus()
     m_statusRow->hide();
 }
 
-void TerminalPanel::searchHistory()
+void TerminalPanel::searchHistory(const QUrl &folder, bool sessionIsNew)
 {
+    if (!Settings::atuinHistory()) {
+        setStatus(i18nc("@info", "Searching command history with Atuin is turned off under Preferences › Applications › Terminal."));
+        return;
+    }
     const QString reason = Atuin::unavailableReason();
     if (!reason.isEmpty()) {
         setStatus(reason);
@@ -214,14 +228,49 @@ void TerminalPanel::searchHistory()
             break;
         }
     }
-    if (!current) {
+    // Whether the current session is busy is known only once its shell has started.
+    switch (Atuin::session(Atuin::sessionMode(), !current.isNull(), sessionIsNew, false)) {
+    case Atuin::Session::Refuse:
         setStatus(i18nc("@info", "Open a terminal session to search command history with Atuin."));
         return;
+    case Atuin::Session::New:
+        searchHistoryInNewSession(historySessionFolder(folder));
+        return;
+    case Atuin::Session::Current:
+        sendHistorySearch(current, 0, sessionIsNew, historySessionFolder(folder));
+        return;
     }
-    sendHistorySearch(current, 0);
 }
 
-void TerminalPanel::sendHistorySearch(const QPointer<KParts::ReadOnlyPart> &part, int attempt)
+QString TerminalPanel::historySessionFolder(const QUrl &folder) const
+{
+    const auto usable = [](const QString &path) {
+        return !path.isEmpty() && QFileInfo(path).isAbsolute() && QFileInfo(path).isDir() && !FolderGates::instance()->isLocked(QUrl::fromLocalFile(path));
+    };
+    if (folder.isLocalFile() && usable(folder.toLocalFile())) {
+        return QDir::cleanPath(folder.toLocalFile());
+    }
+    for (const auto &part : std::as_const(m_parts)) {
+        if (part && part->widget() == m_tabs->currentWidget()) {
+            auto *terminal = qobject_cast<TerminalInterface *>(part.data());
+            const QString workingDirectory = terminal ? terminal->currentWorkingDirectory() : QString();
+            if (usable(workingDirectory)) {
+                return QDir::cleanPath(workingDirectory);
+            }
+        }
+    }
+    return QDir::homePath();
+}
+
+void TerminalPanel::searchHistoryInNewSession(const QString &folder)
+{
+    KParts::ReadOnlyPart *part = openShell(folder);
+    if (part) {
+        sendHistorySearch(part, 0, true, folder);
+    }
+}
+
+void TerminalPanel::sendHistorySearch(const QPointer<KParts::ReadOnlyPart> &part, int attempt, bool sessionIsNew, const QString &folder)
 {
     auto *terminal = part ? qobject_cast<TerminalInterface *>(part.data()) : nullptr;
     if (!terminal) {
@@ -231,8 +280,8 @@ void TerminalPanel::sendHistorySearch(const QPointer<KParts::ReadOnlyPart> &part
     if (shell <= 0) {
         // A session that has just opened may not have started its shell yet.
         if (attempt < 30) {
-            QTimer::singleShot(100, this, [this, part, attempt] {
-                sendHistorySearch(part, attempt + 1);
+            QTimer::singleShot(100, this, [this, part, attempt, sessionIsNew, folder] {
+                sendHistorySearch(part, attempt + 1, sessionIsNew, folder);
             });
         } else {
             setStatus(i18nc("@info", "The terminal session has not started its shell, so Atuin's search was not opened."));
@@ -241,7 +290,12 @@ void TerminalPanel::sendHistorySearch(const QPointer<KParts::ReadOnlyPart> &part
     }
     // KonsolePart reports no foreground process while the shell itself is in the foreground.
     const int foreground = terminal->foregroundProcessId();
-    if (foreground > 0 && foreground != shell) {
+    const bool busy = foreground > 0 && foreground != shell;
+    if (Atuin::session(Atuin::sessionMode(), true, sessionIsNew, busy) == Atuin::Session::New) {
+        searchHistoryInNewSession(folder);
+        return;
+    }
+    if (busy) {
         const QString program = terminal->foregroundProcessName();
         setStatus(program.isEmpty()
                       ? i18nc("@info", "The terminal session is running a program. Finish it or open another session, then search command history again.")
@@ -386,18 +440,25 @@ void TerminalPanel::follow(const QUrl &folder)
             return;
         }
     }
-    const TerminalProviders::Provider provider = embeddedProvider();
-    KParts::ReadOnlyPart *part =
-        createSession(info.fileName().isEmpty() ? path : info.fileName(),
-                      i18nc("@info:tooltip %1 is a terminal application, %2 a folder", "%1 session started in %2", TerminalProviders::name(provider), path));
-    if (!part) {
+    if (!openShell(path)) {
         return;
     }
     setStatus(Settings::terminalFollowActiveFolder()
                   ? i18nc("@info", "Terminal sessions remain open until their tabs are closed.")
                   : i18nc("@info", "The terminal starts in the active folder. Pane navigation does not change its directory."),
               true);
-    qobject_cast<TerminalInterface *>(part)->showShellInDir(path);
+}
+
+KParts::ReadOnlyPart *TerminalPanel::openShell(const QString &path)
+{
+    const QFileInfo info(path);
+    KParts::ReadOnlyPart *part = createSession(
+        info.fileName().isEmpty() ? path : info.fileName(),
+        i18nc("@info:tooltip %1 is a terminal application, %2 a folder", "%1 session started in %2", TerminalProviders::name(embeddedProvider()), path));
+    if (part) {
+        qobject_cast<TerminalInterface *>(part)->showShellInDir(path);
+    }
+    return part;
 }
 
 bool TerminalPanel::openProgram(const QString &program, const QStringList &arguments, const QString &folder, const QString &title)

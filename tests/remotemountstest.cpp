@@ -100,10 +100,36 @@ private Q_SLOTS:
         options.backend = Backend::Sshfs;
         QCOMPARE(RemoteMounts::mountRoot(), m_runtime.filePath(QStringLiteral("opus-file-manager/mounts")));
         QCOMPARE(RemoteMounts::mountPoint(remote, options), QDir(RemoteMounts::mountRoot()).filePath(QStringLiteral("Work-Server")));
+        QCOMPARE(RemoteMounts::mountPoint(remote, options, QStringLiteral("/media/me/drives/")), QStringLiteral("/media/me/drives/Work-Server"));
         remote.name = QStringLiteral("..");
         QCOMPARE(QFileInfo(RemoteMounts::mountPoint(remote, options)).fileName(), QStringLiteral("_.."));
         options.location = QStringLiteral("/mnt/work/");
         QCOMPARE(RemoteMounts::mountPoint(remote, options), QStringLiteral("/mnt/work"));
+        // A folder of the connection's own wins over the folder for all mounts.
+        QCOMPARE(RemoteMounts::mountPoint(remote, options, QStringLiteral("/media/me/drives")), QStringLiteral("/mnt/work"));
+    }
+
+    void findsConnectionsCoveringLocations()
+    {
+        RemoteProfiles::Profile remote = profile(Protocol::Sftp);
+        remote.user = QStringLiteral("me");
+        remote.path = QStringLiteral("/srv/data");
+        QVERIFY(RemoteMounts::covers(remote, QUrl(QStringLiteral("sftp://example.org/srv/data/docs")), {}));
+        QVERIFY(RemoteMounts::covers(remote, QUrl(QStringLiteral("sftp://me@EXAMPLE.org/srv/data")), {}));
+        QVERIFY(!RemoteMounts::covers(remote, QUrl(QStringLiteral("sftp://other@example.org/srv/data")), {}));
+        QVERIFY(!RemoteMounts::covers(remote, QUrl(QStringLiteral("sftp://example.org/srv/database")), {}));
+        QVERIFY(!RemoteMounts::covers(remote, QUrl(QStringLiteral("sftp://example.org:2222/srv/data")), {}));
+        QVERIFY(!RemoteMounts::covers(remote, QUrl(QStringLiteral("smb://example.org/srv/data")), {}));
+        QVERIFY(RemoteMounts::covers(remote, QUrl::fromLocalFile(QStringLiteral("/mnt/server/docs")), QStringLiteral("/mnt/server")));
+        QVERIFY(RemoteMounts::covers(remote, QUrl::fromLocalFile(QStringLiteral("/mnt/server")), QStringLiteral("/mnt/server/")));
+        QVERIFY(!RemoteMounts::covers(remote, QUrl::fromLocalFile(QStringLiteral("/mnt/server2")), QStringLiteral("/mnt/server")));
+        // KIO FUSE mounts have no folder known in advance.
+        QVERIFY(!RemoteMounts::covers(remote, QUrl::fromLocalFile(QStringLiteral("/mnt/server")), {}));
+        // A connection to the login folder covers the whole server.
+        remote.path.clear();
+        QVERIFY(RemoteMounts::covers(remote, QUrl(QStringLiteral("sftp://example.org/var/www")), {}));
+        RemoteProfiles::Profile share = profile(Protocol::Smb);
+        QVERIFY(RemoteMounts::covers(share, QUrl(QStringLiteral("smb://example.org/share")), {}));
     }
 
     void buildsSshfsArguments()
@@ -135,6 +161,8 @@ private Q_SLOTS:
         plain.host = QStringLiteral("::1");
         QCOMPARE(RemoteMounts::sshfsTarget(plain), QStringLiteral("[::1]:"));
         const QStringList arguments = RemoteMounts::sshfsArguments(plain, QStringLiteral("/run/m"), false, false);
+        QCOMPARE(arguments.first(), QStringLiteral("-f"));
+        QCOMPARE(RemoteMounts::sshfsArguments(plain, QStringLiteral("/run/m"), false, false, false), arguments.mid(1));
         QVERIFY(!arguments.contains(QStringLiteral("ro")));
         QVERIFY(!arguments.contains(QStringLiteral("BatchMode=yes")));
         QVERIFY(!arguments.contains(QStringLiteral("-p")));
@@ -209,6 +237,39 @@ private Q_SLOTS:
         RemoteMounts::saveOptions(group, QStringLiteral("other"), options);
         RemoteMounts::pruneOptions(group, {remote.id});
         QCOMPARE(group.groupList(), QStringList{remote.id});
+    }
+
+    void appliesDefaultOptions()
+    {
+        RemoteMounts::Defaults defaults;
+        defaults.backends.insert(Protocol::Sftp, Backend::Sshfs);
+        // A backend that can't mount the protocol is ignored.
+        defaults.backends.insert(Protocol::Smb, Backend::Davfs2);
+        defaults.readOnly = true;
+        const RemoteMounts::Options sftp = RemoteMounts::defaultOptions(profile(Protocol::Sftp), defaults);
+        QCOMPARE(sftp.backend, Backend::Sshfs);
+        QVERIFY(sftp.readOnly);
+        QVERIFY(sftp.location.isEmpty());
+        QVERIFY(!sftp.atStartup);
+        // KIO FUSE can't mount read-only.
+        const RemoteMounts::Options smb = RemoteMounts::defaultOptions(profile(Protocol::Smb), defaults);
+        QCOMPARE(smb.backend, Backend::KioFuse);
+        QVERIFY(!smb.readOnly);
+        QCOMPARE(RemoteMounts::defaultOptions(profile(Protocol::Ftp), defaults).backend, Backend::KioFuse);
+        QCOMPARE(RemoteMounts::defaultOptions(profile(Protocol::Sftp), {}).backend, Backend::KioFuse);
+
+        QTemporaryDir dir;
+        KConfig config(dir.filePath(QStringLiteral("rc")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("RemoteMounts"));
+        const RemoteProfiles::Profile remote = profile(Protocol::Sftp);
+        const RemoteMounts::Options unsaved = RemoteMounts::loadOptions(group, remote, defaults);
+        QCOMPARE(unsaved.backend, Backend::Sshfs);
+        QVERIFY(unsaved.readOnly);
+        // Options saved for a connection win over the defaults.
+        RemoteMounts::saveOptions(group, remote.id, {});
+        const RemoteMounts::Options saved = RemoteMounts::loadOptions(group, remote, defaults);
+        QCOMPARE(saved.backend, Backend::KioFuse);
+        QVERIFY(!saved.readOnly);
     }
 
     void mountsThroughKioFuse()
@@ -387,6 +448,127 @@ private Q_SLOTS:
         QCOMPARE(unmounted.size(), 0);
     }
 
+    void usesTheMountFolder()
+    {
+        QTemporaryDir dir;
+        const QString folder = dir.filePath(QStringLiteral("drives"));
+        RemoteMountManager manager;
+        manager.setMountFolder(folder);
+        QCOMPARE(manager.mountFolder(), folder);
+        manager.setMountCheck([this](const QString &) {
+            return QFile::exists(m_arguments);
+        });
+        QSignalSpy mounted(&manager, &RemoteMountManager::mounted);
+        QSignalSpy unmounted(&manager, &RemoteMountManager::unmounted);
+        RemoteMounts::Options options;
+        options.backend = Backend::Sshfs;
+        const RemoteProfiles::Profile remote = profile(Protocol::Sftp);
+        manager.mount(remote, options);
+        QVERIFY(mounted.wait(5000));
+        QCOMPARE(mounted.first().at(1).toString(), QDir(folder).filePath(QStringLiteral("Server")));
+        QCOMPARE(readArguments().constLast(), QDir(folder).filePath(QStringLiteral("Server")));
+        manager.unmount(remote.id);
+        QVERIFY(unmounted.wait(5000));
+        QVERIFY(!QFileInfo::exists(QDir(folder).filePath(QStringLiteral("Server"))));
+        QVERIFY(QFileInfo(folder).isDir());
+    }
+
+    void keepsMountsAfterQuittingWhenAsked()
+    {
+        RemoteMountManager manager;
+        manager.setUnmountOnExit(false);
+        QVERIFY(!manager.unmountsOnExit());
+        manager.setMountCheck([this](const QString &) {
+            return QFile::exists(m_arguments);
+        });
+        QSignalSpy mounted(&manager, &RemoteMountManager::mounted);
+        RemoteMounts::Options options;
+        options.backend = Backend::Sshfs;
+        const RemoteProfiles::Profile remote = profile(Protocol::Sftp);
+        const QString path = RemoteMounts::mountPoint(remote, options);
+        manager.mount(remote, options);
+        QVERIFY(mounted.wait(5000));
+        QCOMPARE(mounted.first().at(1).toString(), path);
+        QVERIFY(manager.isMounted(remote.id));
+        QVERIFY(!readArguments().contains(QStringLiteral("-f")));
+        manager.stopAllNow();
+        QVERIFY(manager.mountedIds().isEmpty());
+        QVERIFY(QFile::exists(m_arguments));
+        QVERIFY(!QFile::exists(m_marker));
+        QVERIFY(QFileInfo(path).isDir());
+
+        // The next session takes the mount over and can unmount it with fusermount.
+        RemoteMountManager next;
+        next.setMountCheck([this](const QString &) {
+            return QFile::exists(m_arguments);
+        });
+        QVERIFY(next.isMountedAt(remote, options));
+        QVERIFY(!next.isMountedAt(remote, {}));
+        QSignalSpy adopted(&next, &RemoteMountManager::mounted);
+        QSignalSpy unmounted(&next, &RemoteMountManager::unmounted);
+        next.mount(remote, options);
+        QCOMPARE(adopted.size(), 1);
+        QVERIFY(next.isMounted(remote.id));
+        next.unmount(remote.id);
+        QVERIFY(unmounted.wait(5000));
+        QCOMPARE(readMarker(), (QStringList{QStringLiteral("fusermount3"), QStringLiteral("-u"), path}));
+        QVERIFY(!next.isMountedAt(remote, options));
+
+        // Mounts found in place are never unmounted at quit.
+        QFile::remove(m_marker);
+        QVERIFY(QFile(m_arguments).open(QIODevice::WriteOnly));
+        next.mount(remote, options);
+        QVERIFY(next.isMounted(remote.id));
+        next.stopAllNow();
+        QVERIFY(QFile::exists(m_arguments));
+        QVERIFY(!QFile::exists(m_marker));
+        QDir().rmdir(path);
+    }
+
+    void unmountsDetachedMountsWhenTurnedBackOn()
+    {
+        RemoteMountManager manager;
+        manager.setUnmountOnExit(false);
+        manager.setMountCheck([this](const QString &) {
+            return QFile::exists(m_arguments);
+        });
+        QSignalSpy mounted(&manager, &RemoteMountManager::mounted);
+        RemoteMounts::Options options;
+        options.backend = Backend::Sshfs;
+        const RemoteProfiles::Profile remote = profile(Protocol::Sftp);
+        const QString path = RemoteMounts::mountPoint(remote, options);
+        manager.mount(remote, options);
+        QVERIFY(mounted.wait(5000));
+        manager.setUnmountOnExit(true);
+        manager.stopAllNow();
+        QCOMPARE(readMarker(), (QStringList{QStringLiteral("fusermount3"), QStringLiteral("-u"), path}));
+        QVERIFY(!QFileInfo::exists(path));
+    }
+
+    void mountsAtLogin()
+    {
+        QFile::remove(RemoteMounts::autostartPath());
+        QVERIFY(!RemoteMounts::mountsAtLogin());
+        const QString entry =
+            QString::fromUtf8(RemoteMounts::autostartEntry(QStringLiteral("/usr/bin/opus-file-manager"), QStringLiteral("system-file-manager")));
+        QVERIFY(entry.contains(QStringLiteral("\nExec=/usr/bin/opus-file-manager --background-mount\n")));
+        QVERIFY(entry.contains(QStringLiteral("\nIcon=system-file-manager\n")));
+        QVERIFY(RemoteMounts::autostartPath().endsWith(QStringLiteral("-remote-drives.desktop")));
+
+        QString error;
+        QVERIFY(RemoteMounts::setMountAtLogin(true, QStringLiteral("/usr/bin/opus-file-manager"), QStringLiteral("system-file-manager"), &error));
+        QVERIFY(error.isEmpty());
+        QVERIFY(RemoteMounts::mountsAtLogin());
+        QFile file(RemoteMounts::autostartPath());
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(file.readAll()), entry);
+        file.close();
+        QVERIFY(RemoteMounts::setMountAtLogin(true, QStringLiteral("/usr/bin/opus-file-manager"), QStringLiteral("system-file-manager"), &error));
+        QVERIFY(RemoteMounts::setMountAtLogin(false, {}, {}, &error));
+        QVERIFY(!RemoteMounts::mountsAtLogin());
+        QVERIFY(RemoteMounts::setMountAtLogin(false, {}, {}, &error));
+    }
+
 private:
     static RemoteProfiles::Profile profile(Protocol protocol)
     {
@@ -407,13 +589,26 @@ private:
         return QString::fromLocal8Bit(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
     }
 
+    QStringList readMarker() const
+    {
+        QFile file(m_marker);
+        if (!file.open(QIODevice::ReadOnly)) {
+            return {};
+        }
+        return QString::fromLocal8Bit(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    }
+
     void writeFakeTools()
     {
         writeScript(QStringLiteral("sshfs"),
                     "if [ -n \"$FAKE_FAIL\" ]; then echo 'read: Connection reset by peer' >&2; exit 1; fi\n"
                     "printf '%s\\n' \"$@\" > \"$FAKE_ARGS\"\n"
+                    // Without -f, sshfs leaves a daemon running the mount and exits.
+                    "if [ \"$1\" != -f ]; then exit 0; fi\n"
                     "exec /bin/sleep 30\n");
-        writeScript(QStringLiteral("fusermount3"), "exit 0\n");
+        writeScript(QStringLiteral("fusermount3"),
+                    "{ echo fusermount3; printf '%s\\n' \"$@\"; } > \"$FAKE_MARKER\"\n"
+                    "rm -f \"$FAKE_ARGS\"\n");
         writeScript(QStringLiteral("mount.davfs"), "exit 0\n");
         writeScript(QStringLiteral("mount.cifs"), "exit 0\n");
         writeScript(QStringLiteral("mount"),
