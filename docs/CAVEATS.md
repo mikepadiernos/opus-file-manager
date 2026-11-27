@@ -1771,14 +1771,14 @@ The M27 desktop integrations have these limits
   ([#388](https://github.com/mikepadiernos/plasma-opus/issues/388))
 - **📌 System tray and global shortcut:** the tray icon is on by default;
   minimizing and closing to the tray are off until turned on under
-  **Settings › General › System Tray**. On Wayland, KWin
-  does not tell applications when they are minimized, so minimizing to the
-  tray works only on X11. KWin's focus-stealing prevention may keep a window
-  shown from the tray or the global shortcut behind the active window and
-  highlight it in the task manager instead. When another application already
-  uses Meta+Alt+O, the shortcut stays unassigned without a notice. A window
-  hidden in the tray keeps its tabs and running operations, but there is no
-  option to start hidden in the tray.
+  **Preferences › KDE Plasma › System Tray**. On Wayland, KWin does not tell
+  applications when they are minimized, so minimizing to the tray works only
+  on X11. KWin's focus-stealing prevention may keep a window shown from the
+  tray or the global shortcut behind the active window and highlight it in
+  the task manager instead. When another application already uses
+  Meta+Alt+O, the shortcut stays unassigned without a notice. A window
+  hidden in the tray keeps its tabs and running operations; for starting
+  hidden, see [Integration settings](#integration-settings).
   ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285))
 - **🧭 Plasma Activities:** associations are off by default and are only
   offered, in a message above the panes, when the current Activity changes;
@@ -2349,11 +2349,12 @@ The M27 desktop integrations have these limits
     **System Settings › Notifications**.
   - **System tray and global shortcut:** To hide the window instead of
     closing it, check **Hide the window in the system tray when it is
-    closed** under **Settings › General › System Tray**; on Wayland, prefer
-    this to hiding when minimized. Clear **Show an icon in the system tray**
-    there to remove the icon. If the shortcut does nothing, assign one to
-    **Show or Hide Plasma Opus** under **Settings › Configure Keyboard Shortcuts**, and keep the icon
-    always visible through the tray's **Configure System Tray…** entries.
+    closed** under **Preferences › KDE Plasma › System Tray**; on Wayland,
+    prefer this to hiding when minimized. Clear **Show an icon in the system
+    tray** there to remove the icon. If the shortcut does nothing, assign one
+    to **Show or Hide Plasma Opus** under **Settings › Configure Keyboard
+    Shortcuts**, and keep the icon always visible through the tray's
+    **Configure System Tray…** entries.
   - **Plasma Activities:** Turn associations on under **Settings ›
     Workspaces › Activities**, then choose each Activity's workspace,
     behaviours and folders under **View › Activity Associations**. To apply
@@ -2581,8 +2582,7 @@ The M27 desktop integrations have these limits
   - Watch `plasma-localerc` and offer a restart when Plasma's language list
     changes.
   - A job action that raises the dialog that started the operation.
-  - An M28 **System tray** setting for starting hidden, with a notice when
-    the global shortcut could not be assigned.
+  - A notice when the global shortcut could not be assigned.
   - Show only the current Activity's vaults, move tabs showing a vault away
     when it closes, and show or hide vaults in the M28 **Encryption**
     settings.
@@ -2765,6 +2765,18 @@ The M28 integration settings have these limits
   session, so opening the Plasma Opus entry and the reports are unverified
   there ([Plasma check](TODO.md#operation-notifications-on-plasma-392)).
   ([#392](https://github.com/mikepadiernos/plasma-opus/issues/392))
+- **📥 Start hidden in the tray:** **Start with the window hidden in the
+  system tray** under **Preferences › KDE Plasma › System Tray** applies only
+  when Plasma Opus starts without folders or a workspace to open, and only
+  when the tray icon is on and a tray can already show it; otherwise the
+  window is shown. At login, Plasma's tray may not be ready when Plasma Opus
+  starts, so the window can still appear then. The setting does not start
+  Plasma Opus at login; that is up to Plasma's Autostart settings. Starting
+  Plasma Opus again shows the hidden window. Minimizing to the tray still
+  works only on X11, which the tab notes on Wayland. The container has no
+  Plasma session, so starting hidden with Plasma's tray is unverified there
+  ([Plasma check](TODO.md#start-hidden-in-tray-on-plasma-290)).
+  ([#290](https://github.com/mikepadiernos/plasma-opus/issues/290))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -2789,6 +2801,12 @@ The M28 integration settings have these limits
     and follow them in their dialogs instead. Choose **Configure Plasma
     Notifications…** to change how Plasma shows the remaining reports, for
     example to keep finished operations out of the notification history.
+  - **Start hidden in the tray:** Check **Start with the window hidden in the
+    system tray** under **Preferences › KDE Plasma › System Tray** and add
+    Plasma Opus under **System Settings › Autostart** to have it wait in the
+    tray after login; choose its tray icon to show the window. Check **Hide
+    the window in the system tray when it is closed** there as well to keep
+    it running after closing the window.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -2803,6 +2821,9 @@ The M28 integration settings have these limits
     that switching options keeps the last folders.
   - Report automatic library refreshes to Plasma with their own setting,
     and show Plasma's notification options for Plasma Opus in the tab.
+  - Wait briefly for Plasma's tray to appear before showing the window at
+    login, and offer to start Plasma Opus at login from the **System Tray**
+    tab.
 
 ## Embedded terminal
 
