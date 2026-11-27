@@ -183,7 +183,12 @@ behaves like the rest of the desktop and follows the user's choices.
   `opus-file-manager --uninstall-portal`, or `./install.sh --uninstall`,
   restores the backup, or removes only the Plasma Opus entry when the file
   has changed since. Setup changes nothing when xdg-desktop-portal is not
-  running. The chooser shows Places, a breadcrumb, the folder in the Plasma
+  running. **Preferences › KDE Plasma › File Manager** shows whether Plasma
+  Opus serves the file chooser and offers **Set Up**, **Complete Setup** for
+  a partial setup and **Restore Previous Chooser**, which ask before
+  restarting xdg-desktop-portal and report failures
+  ([#292](https://github.com/mikepadiernos/plasma-opus/issues/292)). The
+  chooser shows Places, a breadcrumb, the folder in the Plasma
   Opus list, a name filter and the application's file-type filters and
   choices. It supports opening one or several files or a folder, saving with
   the selected filter's extension after confirming an overwrite, and saving
