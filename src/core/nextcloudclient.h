@@ -5,6 +5,7 @@
 #include "nextcloudaccount.h"
 #include "nextcloudassets.h"
 #include "nextcloudorganize.h"
+#include "nextcloudphotos.h"
 
 #include <KIO/AuthInfo>
 
@@ -248,6 +249,24 @@ public:
     int listTagged(const NextcloudAccounts::Account &account, const QString &tagId, int limit);
     /// Searches the user's files on the server. Returns the ID that assetsListed() reports.
     int search(const NextcloudAccounts::Account &account, const Nextcloud::SearchQuery &query);
+    /// Lists the user's Photos albums, shared albums or places. Returns the ID that photoCollectionsListed() reports.
+    int listPhotoCollections(const NextcloudAccounts::Account &account, Nextcloud::PhotoCollectionKind kind);
+    /// Lists the photos in @p collection with their capture dates and places. Returns the ID that photosListed() reports.
+    int listPhotos(const NextcloudAccounts::Account &account, const Nextcloud::PhotoCollection &collection);
+    /**
+     * Adds the file @p file to the album at the decoded server path
+     * @p albumPath by copying it into the album, which only references the
+     * file. Ask the user before calling this for a shared album.
+     */
+    void addToAlbum(const NextcloudAccounts::Account &account, const QUrl &file, const QString &albumPath);
+    /**
+     * Removes @p photo from its album. Only the album's entry is deleted,
+     * never the file; anything but a photo in an album is refused without a
+     * request. Ask the user before calling this.
+     */
+    void removeFromAlbum(const NextcloudAccounts::Account &account, const Nextcloud::Photo &photo);
+    /// Creates an album named @p name.
+    void createAlbum(const NextcloudAccounts::Account &account, const QString &name);
 
 Q_SIGNALS:
     void checked(const QString &accountId, const Nextcloud::Status &status);
@@ -268,6 +287,11 @@ Q_SIGNALS:
     void tagCreated(const QString &accountId, const Nextcloud::SystemTag &tag, const QString &error);
     /// The results of the listing or search that returned @p request.
     void assetsListed(int request, const Nextcloud::AssetResults &results);
+    void photoCollectionsListed(int request, const Nextcloud::PhotoCollectionListing &listing);
+    void photosListed(int request, const Nextcloud::PhotoListing &listing);
+    void photoAdded(const QUrl &file, const QString &albumPath, const QString &error);
+    void photoRemoved(const QString &entryPath, const QString &error);
+    void albumCreated(const QString &accountId, const QString &name, const QString &error);
 
 private:
     struct Check;
@@ -279,6 +303,7 @@ private:
     void prepare(KIO::Job *job, const QString &loginName, const QString &password);
     std::optional<QString> password(const NextcloudAccounts::Account &account) const;
     int listFiles(const NextcloudAccounts::Account &account, const QString &tagId, int limit);
+    void listPhotoCollectionsIn(const NextcloudAccounts::Account &account, Nextcloud::PhotoCollectionKind kind, int request, const QString &folder);
 
     Nextcloud::CredentialStore *m_store = nullptr;
     int m_pollInterval = 2000;
