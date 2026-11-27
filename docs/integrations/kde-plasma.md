@@ -113,21 +113,24 @@ behaves like the rest of the desktop and follows the user's choices.
   its menu also opens the home folder or the transfer queue, and quits.
   The **Show or Hide Plasma Opus** global shortcut, Meta+Alt+O by default,
   brings the window to the front, or hides it when it is already in front.
-  Change or remove it under **Settings › Configure Keyboard Shortcuts** or in
-  System Settings; KDE leaves it unassigned when another application already
-  uses the default. The window hides to the tray only while a tray can show
-  the icon. While hidden, the icon moves out of the hidden section until the
-  window is shown again. Minimizing or closing to the tray is off by default;
-  turn either on, or remove the icon, under **Preferences › KDE Plasma ›
-  System Tray**. Closing to the tray applies only to the window's close
-  button; **File › Quit** and the tray menu's **Quit** still quit. **Start
-  with the window hidden in the system tray** there starts Plasma Opus with
-  only its tray icon when it opens no folders or workspace and a tray can
-  already show the icon; otherwise the window is shown as usual.
+  Turn it off, or choose its key combination, under **Preferences › KDE
+  Plasma › Shortcuts**, which also says when no key is assigned or KDE's
+  global shortcut service is not running; Plasma's Shortcuts settings can
+  change it too while it is on. KDE leaves it unassigned when another
+  application already uses the default. The window hides to the tray only
+  while a tray can show the icon. While hidden, the icon moves out of the
+  hidden section until the window is shown again. Minimizing or closing to
+  the tray is off by default; turn either on, or remove the icon, under
+  **Preferences › KDE Plasma › System Tray**. Closing to the tray applies
+  only to the window's close button; **File › Quit** and the tray menu's
+  **Quit** still quit. **Start with the window hidden in the system tray**
+  there starts Plasma Opus with only its tray icon when it opens no folders
+  or workspace and a tray can already show the icon; otherwise the window is
+  shown as usual.
   ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285),
-  [#290](https://github.com/mikepadiernos/plasma-opus/issues/290); shortcut
-  settings in [M28](../ROADMAP.md#m28-integration-settings) and
-  [M31](../ROADMAP.md#m31-keyboard-shortcut-settings))
+  [#290](https://github.com/mikepadiernos/plasma-opus/issues/290),
+  [#291](https://github.com/mikepadiernos/plasma-opus/issues/291); more
+  shortcut settings in [M31](../ROADMAP.md#m31-keyboard-shortcut-settings))
 - **Plasma Activities:** each Activity can name a workspace and a default
   folder for each pane under **View › Activity Associations**, once
   associations are turned on under **Settings › Workspaces › Activities**.
