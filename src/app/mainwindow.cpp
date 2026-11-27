@@ -2012,6 +2012,8 @@ void MainWindow::compress()
                           static_cast<ArchiveWriter::Format>(Settings::defaultArchiveFormat()),
                           Settings::archiveOtherPaneByDefault(),
                           Ark::isInstalled());
+    dialog.setVolumeDefaults(Settings::archiveSplitByDefault(), Settings::archiveVolumeSizeMiB());
+    dialog.setPasswordOffered(Settings::archivePromptForPassword());
     const int result = dialog.exec();
     if (result == CompressDialog::UseArk) {
         launchArk(Ark::compressArguments(sources));

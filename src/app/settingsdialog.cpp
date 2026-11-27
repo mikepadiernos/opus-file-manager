@@ -4,6 +4,7 @@
 
 #include "activityassociationseditor.h"
 #include "appearancedefaults.h"
+#include "ark.h"
 #include "batchrenamedialog.h"
 #include "colorschemes.h"
 #include "customcommanddialog.h"
@@ -3356,7 +3357,11 @@ QWidget *SettingsDialog::createTabAppearancePage()
 QWidget *SettingsDialog::createArchivesPage()
 {
     auto *page = new QWidget;
-    auto *form = new QFormLayout(page);
+    page->setObjectName(QStringLiteral("archivesPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *creation = new QGroupBox(i18nc("@title:group", "Creation"));
+    creation->setObjectName(QStringLiteral("archiveCreationGroup"));
+    auto *form = new QFormLayout(creation);
     form->addRow(i18nc("@label:listbox", "Default format:"),
                  comboBox(QStringLiteral("DefaultArchiveFormat"),
                           {i18nc("@item:inlistbox", "ZIP"),
@@ -3366,6 +3371,43 @@ QWidget *SettingsDialog::createArchivesPage()
                            i18nc("@item:inlistbox", "tar.zst"),
                            i18nc("@item:inlistbox", "7z")}));
     form->addRow({}, checkBox(QStringLiteral("ArchiveOtherPaneByDefault"), i18nc("@option:check", "Create archives in the other pane by default")));
+    auto *split = checkBox(QStringLiteral("ArchiveSplitByDefault"), i18nc("@option:check", "Split into volumes of"));
+    auto *volumeSize = new QSpinBox;
+    volumeSize->setObjectName(QStringLiteral("kcfg_ArchiveVolumeSizeMiB"));
+    volumeSize->setRange(1, 1048576);
+    volumeSize->setSuffix(i18nc("@item:valuesuffix mebibytes", " MiB"));
+    volumeSize->setToolTip(i18nc("@info:tooltip", "The volume size Compress offers, which you can change for each archive"));
+    volumeSize->setEnabled(Settings::archiveSplitByDefault());
+    connect(split, &QCheckBox::toggled, volumeSize, &QWidget::setEnabled);
+    auto *splitRow = new QHBoxLayout;
+    splitRow->addWidget(split);
+    splitRow->addWidget(volumeSize, 1);
+    form->addRow({}, splitRow);
+    auto *password = checkBox(QStringLiteral("ArchivePromptForPassword"), i18nc("@option:check", "Offer a password for ZIP archives"));
+    password->setToolTip(i18nc("@info:tooltip", "Shows the password fields in Compress; without them, ZIP archives are written unencrypted"));
+    form->addRow({}, password);
+
+    auto *status = new QLabel;
+    status->setObjectName(QStringLiteral("archiveCreationStatus"));
+    status->setWordWrap(true);
+    status->setTextFormat(Qt::PlainText);
+    const Ark::FormatSupport sevenZip = Ark::Backends::installed().support(QStringLiteral("application/x-7z-compressed"));
+    if (!Ark::isInstalled()) {
+        status->setText(i18nc("@info",
+                              "Compress writes 7z archives without a password. Ark isn't installed, so More Options in Ark… isn't available "
+                              "for encrypted 7z archives or other formats."));
+    } else if (sevenZip.write && sevenZip.encryption) {
+        status->setText(i18nc("@info",
+                              "Compress writes 7z archives without a password. Use More Options in Ark… for encrypted 7z archives, "
+                              "compression levels and other formats."));
+    } else {
+        status->setText(i18nc("@info",
+                              "Compress writes 7z archives without a password. Ark is installed, but can't write encrypted 7z archives; "
+                              "install 7-Zip for them."));
+    }
+    form->addRow(status);
+    layout->addWidget(creation);
+    layout->addStretch();
     return page;
 }
 

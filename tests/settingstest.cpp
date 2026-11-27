@@ -55,6 +55,7 @@
 #include <QFile>
 #include <QFrame>
 #include <QGraphicsOpacityEffect>
+#include <QGroupBox>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLayout>
@@ -1778,12 +1779,25 @@ private Q_SLOTS:
         dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_DefaultSelectionMarkers"))->setChecked(true);
         dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_DefaultSelectionMode"))->setChecked(true);
         dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultArchiveFormat"))->setCurrentIndex(static_cast<int>(ArchiveWriter::Format::TarXz));
+        auto *archivesPage = dialog.findChild<QWidget *>(QStringLiteral("archivesPage"));
+        QVERIFY(archivesPage);
+        QVERIFY(archivesPage->findChild<QGroupBox *>(QStringLiteral("archiveCreationGroup")));
+        QVERIFY(archivesPage->findChild<QLabel *>(QStringLiteral("archiveCreationStatus"))->text().contains(QStringLiteral("Ark")));
+        auto *volumeSize = archivesPage->findChild<QSpinBox *>(QStringLiteral("kcfg_ArchiveVolumeSizeMiB"));
+        QVERIFY(volumeSize && !volumeSize->isEnabled());
+        archivesPage->findChild<QCheckBox *>(QStringLiteral("kcfg_ArchiveSplitByDefault"))->setChecked(true);
+        QVERIFY(volumeSize->isEnabled());
+        volumeSize->setValue(700);
+        archivesPage->findChild<QCheckBox *>(QStringLiteral("kcfg_ArchivePromptForPassword"))->setChecked(false);
         dialog.button(QDialogButtonBox::Apply)->click();
 
         QVERIFY(!Settings::favoritesVisible());
         QCOMPARE(Settings::panelPosition(), Settings::EnumPanelPosition::right);
         QCOMPARE(Settings::defaultArchiveFormat(), static_cast<int>(ArchiveWriter::Format::TarXz));
         QVERIFY(Settings::archiveOtherPaneByDefault());
+        QVERIFY(Settings::archiveSplitByDefault());
+        QCOMPARE(Settings::archiveVolumeSizeMiB(), 700);
+        QVERIFY(!Settings::archivePromptForPassword());
         QVERIFY(!Settings::showTabColors());
         auto *tree = qobject_cast<QTreeView *>(window.activePane()->view()->currentView());
         QVERIFY(tree);
@@ -1822,6 +1836,10 @@ private Q_SLOTS:
         QCOMPARE(Settings::panelPosition(), Settings::EnumPanelPosition::left);
         QCOMPARE(Settings::defaultArchiveFormat(), static_cast<int>(ArchiveWriter::Format::Zip));
         QVERIFY(!Settings::archiveOtherPaneByDefault());
+        QVERIFY(!Settings::archiveSplitByDefault());
+        QCOMPARE(Settings::archiveVolumeSizeMiB(), 100);
+        QVERIFY(Settings::archivePromptForPassword());
+        QVERIFY(!volumeSize->isEnabled());
         QVERIFY(Settings::showTabColors());
         QVERIFY(tree->itemsExpandable());
         QVERIFY(!window.activePane()->view()->selectionMarkersVisible());

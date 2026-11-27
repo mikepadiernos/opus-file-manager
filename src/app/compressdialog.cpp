@@ -91,6 +91,7 @@ CompressDialog::CompressDialog(const QString &defaultName,
     nameRow->addWidget(m_name, 1);
     nameRow->addWidget(m_suffix);
     auto *form = new QFormLayout(this);
+    m_form = form;
     form->addRow(i18nc("@label:textbox", "Archive name:"), nameRow);
     form->addRow(i18nc("@label:listbox", "Format:"), m_format);
     form->addRow(i18nc("@label:textbox", "Password (ZIP only):"), m_password);
@@ -141,6 +142,23 @@ QString CompressDialog::password() const
 qint64 CompressDialog::volumeSize() const
 {
     return m_split->isChecked() ? qint64(m_volumeSize->value()) * 1024 * 1024 : 0;
+}
+
+void CompressDialog::setVolumeDefaults(bool split, int volumeSizeMiB)
+{
+    m_volumeSize->setValue(volumeSizeMiB);
+    m_split->setChecked(split);
+    m_volumeSize->setEnabled(split);
+}
+
+void CompressDialog::setPasswordOffered(bool offered)
+{
+    if (!offered) {
+        m_password->clear();
+        m_passwordConfirmation->clear();
+    }
+    m_form->setRowVisible(m_password, offered);
+    m_form->setRowVisible(m_passwordConfirmation, offered);
 }
 
 void CompressDialog::updateState()

@@ -9,6 +9,7 @@
 class QCheckBox;
 class QComboBox;
 class QDialogButtonBox;
+class QFormLayout;
 class QLabel;
 class QLineEdit;
 class QPushButton;
@@ -50,6 +51,11 @@ public:
     /// The size of each volume in bytes, or 0 to keep a single archive.
     qint64 volumeSize() const;
 
+    /// Offers splitting into volumes of @p volumeSizeMiB mebibytes, checked when @p split is true.
+    void setVolumeDefaults(bool split, int volumeSizeMiB);
+    /// Shows or hides the ZIP password fields; hidden fields leave the archive unencrypted.
+    void setPasswordOffered(bool offered);
+
 private:
     /// Shows the extension for the format and enables OK only for a usable name.
     void updateState();
@@ -64,4 +70,5 @@ private:
     QComboBox *m_location = nullptr;
     QDialogButtonBox *m_buttons = nullptr;
     QPushButton *m_ark = nullptr;
+    QFormLayout *m_form = nullptr;
 };
