@@ -198,6 +198,17 @@ ecm_add_test(foldergateuitest.cpp
     GUI
 )
 
+ecm_add_test(fileencryptiontest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test
+    NAME_PREFIX "opusfm-"
+)
+
+ecm_add_test(fileencryptiondialogtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
 ecm_add_test(plasmavaultstest.cpp
     LINK_LIBRARIES opusfm_core Qt6::DBus Qt6::Test
     NAME_PREFIX "opusfm-"
