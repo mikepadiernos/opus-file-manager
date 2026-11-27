@@ -97,6 +97,8 @@ add_library(opusfm_core STATIC
     mailhandoff.h
     mailmessage.cpp
     mailmessage.h
+    mcpsettings.cpp
+    mcpsettings.h
     kwinscript.cpp
     kwinscript.h
     mediabackend.cpp

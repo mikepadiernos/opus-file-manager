@@ -8,6 +8,7 @@
 #include "appidentity.h"
 #include "foldergates.h"
 #include "mcpserver.h"
+#include "mcpsettings.h"
 #include "opusfm_version.h"
 #include "settings.h"
 
@@ -44,6 +45,33 @@ McpServer::Access accessFromSettings()
         return McpServer::Access::Read;
     }
 }
+
+/// Reads the settings and password-protected folders again, so changes in Preferences apply to the next message.
+McpServer::Options currentOptions(bool readOnly)
+{
+    Settings::self()->load();
+    McpServer::Options options;
+    options.access = accessFromSettings();
+    if (readOnly && options.access == McpServer::Access::Write) {
+        options.access = McpServer::Access::Read;
+    }
+    options.folders = Settings::mcpFolders();
+    if (Settings::mcpAuditLog()) {
+        options.auditLogPath = McpSettings::auditLogPath();
+    }
+    options.version = QStringLiteral(OPUSFM_VERSION_STRING);
+    options.protectedFolders = FolderGates(Settings::self()->sharedConfig()).folders();
+    if (!fileManagerExecutable().isEmpty()) {
+        options.openFolder = [](const QString &folder) {
+            const QString program = fileManagerExecutable();
+            if (program.isEmpty() || !QProcess::startDetached(program, {folder})) {
+                return QStringLiteral("Plasma Opus could not be started.");
+            }
+            return QString();
+        };
+    }
+    return options;
+}
 }
 
 int main(int argc, char **argv)
@@ -61,31 +89,12 @@ int main(int argc, char **argv)
     parser.addOption(readOnly);
     parser.process(app);
 
-    McpServer::Options options;
-    options.access = accessFromSettings();
-    if (parser.isSet(readOnly) && options.access == McpServer::Access::Write) {
-        options.access = McpServer::Access::Read;
-    }
-    options.folders = Settings::mcpFolders();
-    if (Settings::mcpAuditLog()) {
-        options.auditLogPath = QStandardPaths::writableLocation(QStandardPaths::StateLocation) + QStringLiteral("/mcp-audit.log");
-    }
-    options.version = QStringLiteral(OPUSFM_VERSION_STRING);
-    options.protectedFolders = FolderGates::instance()->folders();
-    if (!fileManagerExecutable().isEmpty()) {
-        options.openFolder = [](const QString &folder) {
-            const QString program = fileManagerExecutable();
-            if (program.isEmpty() || !QProcess::startDetached(program, {folder})) {
-                return QStringLiteral("Plasma Opus could not be started.");
-            }
-            return QString();
-        };
-    }
-
-    McpServer server(options);
+    const bool readOnlyClient = parser.isSet(readOnly);
     std::ios::sync_with_stdio(false);
     std::string line;
     while (std::getline(std::cin, line)) {
+        // The server keeps no state between messages, so each one is answered with the current settings.
+        McpServer server(currentOptions(readOnlyClient));
         const QByteArray answer = server.handleLine(QByteArray::fromStdString(line));
         if (!answer.isEmpty()) {
             std::cout << answer.toStdString() << '\n' << std::flush;
