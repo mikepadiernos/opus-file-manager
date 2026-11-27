@@ -4,7 +4,9 @@
 #include "defaultfilemanager.h"
 #include "filechooser.h"
 #include "mainwindow.h"
+#include "operationjob.h"
 #include "portalsetup.h"
+#include "settings.h"
 #include "settingsdialog.h"
 
 #include <KConfig>
@@ -12,17 +14,21 @@
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
 #include <KMessageWidget>
+#include <KPluginMetaData>
 #include <KService>
 #include <KSharedConfig>
 #include <KSycoca>
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QLabel>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTest>
@@ -143,6 +149,7 @@ private Q_SLOTS:
         KSharedConfig::openStateConfig()->deleteGroup(FileChooser::stateGroupName());
         KSharedConfig::openStateConfig()->sync();
         qputenv("XDG_CURRENT_DESKTOP", "KDE");
+        Settings::self()->setDefaults();
     }
 
     void fileManagerTabIsOnTheKdePlasmaPage()
@@ -364,6 +371,44 @@ private Q_SLOTS:
         SettingsDialog dialog(placesOf(window), &window);
         setPortalHooks(dialog, true);
         QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("fileChooserPortalStatus"))->text().contains(QStringLiteral("not a Plasma session")));
+    }
+
+    void notificationsTabChoosesTheReportedOperations()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("notificationsIntegrationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(page)), QStringLiteral("Notifications"));
+        QCOMPARE(tabs->tabText(0), QStringLiteral("File Manager"));
+
+        auto *checksums = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_NotifyChecksums"));
+        QVERIFY(checksums->isChecked());
+        QVERIFY(OperationJob::reports(OperationJob::Kind::Checksums));
+        checksums->setChecked(false);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::notifyChecksums());
+        QVERIFY(!OperationJob::reports(OperationJob::Kind::Checksums));
+        QVERIFY(OperationJob::reports(OperationJob::Kind::FolderSync));
+    }
+
+    void reportsMissingNotificationSettings()
+    {
+        if (KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), QStringLiteral("kcm_notifications")).isValid()) {
+            QSKIP("Plasma's Notifications settings are installed on this system.");
+        }
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        dialog.findChild<QPushButton *>(QStringLiteral("openNotificationSettings"))->click();
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("notificationsMessage"));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QVERIFY(message->text().contains(QStringLiteral("Notifications settings are not installed")));
     }
 };
 

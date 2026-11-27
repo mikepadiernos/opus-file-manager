@@ -383,7 +383,10 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createMetadataEditorPage(), i18nc("@title:tab", "Metadata Editor")}},
                   i18nc("@title:group", "Tools"),
                   QStringLiteral("utilities-terminal"));
-    addTabbedPage({{createFileManagerIntegrationPage(), i18nc("@title:tab", "File Manager")}}, i18nc("@title:group", "KDE Plasma"), QStringLiteral("plasma"));
+    addTabbedPage({{createFileManagerIntegrationPage(), i18nc("@title:tab", "File Manager")},
+                   {createNotificationsIntegrationPage(), i18nc("@title:tab", "Notifications")}},
+                  i18nc("@title:group", "KDE Plasma"),
+                  QStringLiteral("plasma"));
     applySidebarStyle();
     connect(this, &KConfigDialog::settingsChanged, this, [this] {
         applySidebarStyle();

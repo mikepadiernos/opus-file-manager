@@ -278,6 +278,8 @@ private:
     QWidget *createFileManagerIntegrationPage();
     QGroupBox *createDefaultFileManagerGroup();
     QGroupBox *createFileChooserGroup();
+    /// The KDE Plasma › Notifications tab: which operations report to Plasma.
+    QWidget *createNotificationsIntegrationPage();
     void createSettingsBackup();
     void restoreSettingsBackup();
     void exportWorkspaceProfiles();

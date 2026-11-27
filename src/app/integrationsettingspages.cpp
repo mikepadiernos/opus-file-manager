@@ -19,6 +19,7 @@
 #include <KSharedConfig>
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QGroupBox>
@@ -96,14 +97,20 @@ void report(KMessageWidget *message, KMessageWidget::MessageType type, const QSt
 }
 
 /// Opens the System Settings module @p module, reporting on @p message when it cannot.
-void openSettingsModule(const QString &module, const QString &missing, KMessageWidget *message)
+/// @p args are passed to the module, as with kcmshell6 --args.
+void openSettingsModule(const QString &module, const QString &missing, KMessageWidget *message, const QString &args = {})
 {
     if (!KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), module).isValid()) {
         report(message, KMessageWidget::Error, missing);
         return;
     }
+    QStringList arguments{module};
+    if (!args.isEmpty()) {
+        arguments << QStringLiteral("--args") << args;
+    }
     const QString kcmshell = QStandardPaths::findExecutable(QStringLiteral("kcmshell6"));
-    auto *job = kcmshell.isEmpty() ? new KIO::CommandLauncherJob(QStringLiteral("systemsettings"), {module}) : new KIO::CommandLauncherJob(kcmshell, {module});
+    auto *job =
+        kcmshell.isEmpty() ? new KIO::CommandLauncherJob(QStringLiteral("systemsettings"), arguments) : new KIO::CommandLauncherJob(kcmshell, arguments);
     QObject::connect(job, &KJob::result, message, [message](KJob *job) {
         if (job->error()) {
             report(message, KMessageWidget::Error, i18nc("@info %1 is an error message", "Could not open System Settings: %1", job->errorString()));
@@ -165,6 +172,7 @@ KConfigGroup portalBackup()
 }
 }
 
+using SettingsWidgets::checkBox;
 using SettingsWidgets::comboBox;
 
 QWidget *SettingsDialog::createFileManagerIntegrationPage()
@@ -438,4 +446,57 @@ void SettingsDialog::setPortalSetupHooks(std::function<bool()> available, std::f
     if (auto *group = findChild<QGroupBox *>(QStringLiteral("fileChooserGroup"))) {
         static_cast<StatusGroup *>(group)->refresh();
     }
+}
+
+QWidget *SettingsDialog::createNotificationsIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("notificationsIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *operations = new QGroupBox(i18nc("@title:group", "Operations"));
+    operations->setObjectName(QStringLiteral("operationNotificationsGroup"));
+    auto *operationsLayout = new QVBoxLayout(operations);
+    auto *intro = new QLabel(i18nc("@info", "Report the progress and result of these operations to Plasma, which shows them in its notifications:"));
+    intro->setWordWrap(true);
+    operationsLayout->addWidget(intro);
+    operationsLayout->addWidget(checkBox(QStringLiteral("NotifyChecksums"), i18nc("@option:check", "Creating and verifying checksum files")));
+    operationsLayout->addWidget(checkBox(QStringLiteral("NotifyFolderSync"), i18nc("@option:check", "Synchronizing folders")));
+    operationsLayout->addWidget(checkBox(QStringLiteral("NotifyDuplicateFinder"), i18nc("@option:check", "Finding duplicate files")));
+    operationsLayout->addWidget(checkBox(QStringLiteral("NotifyFileSplit"), i18nc("@option:check", "Splitting and combining files")));
+    operationsLayout->addWidget(checkBox(QStringLiteral("NotifyBatchRename"), i18nc("@option:check", "Renaming items in a batch")));
+    operationsLayout->addWidget(checkBox(QStringLiteral("NotifyImageConversion"), i18nc("@option:check", "Converting images in a batch")));
+    operationsLayout->addWidget(checkBox(QStringLiteral("NotifyLibraryRefresh"), i18nc("@option:check", "Refreshing tag libraries from the Tagging settings")));
+    auto *operationsNote = new QLabel(i18nc("@info",
+                                            "A change applies to operations started afterwards. Each operation's window still shows its progress "
+                                            "and errors. Copying, moving and deleting files report to Plasma as in other KDE applications, so only "
+                                            "Plasma's settings change them."));
+    operationsNote->setWordWrap(true);
+    operationsLayout->addWidget(operationsNote);
+    layout->addWidget(operations);
+
+    auto *plasma = new QGroupBox(i18nc("@title:group", "Plasma Notifications"));
+    plasma->setObjectName(QStringLiteral("plasmaNotificationsGroup"));
+    auto *plasmaLayout = new QVBoxLayout(plasma);
+    auto *plasmaNote = new QLabel(i18nc("@info",
+                                        "Plasma decides how reports appear, such as whether a finished operation shows a notification, how "
+                                        "long notifications stay and when Do Not Disturb hides them. Change these in System Settings."));
+    plasmaNote->setWordWrap(true);
+    auto *configure = actionButton(QStringLiteral("openNotificationSettings"), i18nc("@action:button", "Configure Plasma Notifications…"));
+    configure->setIcon(QIcon::fromTheme(QStringLiteral("preferences-desktop-notification-bell")));
+    configure->setToolTip(i18nc("@info:tooltip", "Open Plasma's notification settings for Plasma Opus in System Settings"));
+    auto *message = messageWidget(QStringLiteral("notificationsMessage"));
+    plasmaLayout->addWidget(plasmaNote);
+    plasmaLayout->addLayout(buttonRow({configure}));
+    plasmaLayout->addWidget(message);
+    layout->addWidget(plasma);
+    layout->addStretch();
+
+    connect(configure, &QPushButton::clicked, page, [message] {
+        openSettingsModule(QStringLiteral("kcm_notifications"),
+                           i18nc("@info", "Plasma's Notifications settings are not installed."),
+                           message,
+                           QStringLiteral("--desktop-entry=") + AppIdentity::desktopFileName());
+    });
+    return page;
 }

@@ -1342,6 +1342,15 @@ private Q_SLOTS:
         }
         QCOMPARE(tabOf(QStringLiteral("ActivityAssociations")), QStringLiteral("Activities"));
         QCOMPARE(tabOf(QStringLiteral("FileChooserStartFolder")), QStringLiteral("File Manager"));
+        for (const QString &entry : {QStringLiteral("NotifyChecksums"),
+                                     QStringLiteral("NotifyFolderSync"),
+                                     QStringLiteral("NotifyDuplicateFinder"),
+                                     QStringLiteral("NotifyFileSplit"),
+                                     QStringLiteral("NotifyBatchRename"),
+                                     QStringLiteral("NotifyImageConversion"),
+                                     QStringLiteral("NotifyLibraryRefresh")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Notifications"));
+        }
         QCOMPARE(tabOf(QStringLiteral("RunnerWorkspaces")), QStringLiteral("Plasma Search"));
         QCOMPARE(tabOf(QStringLiteral("RunnerFavorites")), QStringLiteral("Plasma Search"));
         QCOMPARE(tabOf(QStringLiteral("OfferActivityAssociation")), QStringLiteral("Activities"));
