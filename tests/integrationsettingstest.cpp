@@ -2813,6 +2813,50 @@ private Q_SLOTS:
         QCOMPARE(profile.authentication, RemoteProfiles::Authentication::Password);
         manager->close();
     }
+
+    void discoverySettingShowsOrHidesTheNetwork()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *shown = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RemoteShowNetwork"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("remoteConnectionsDiscoveryStatus"));
+        QVERIFY(shown && status);
+        QCOMPARE(tabTitleOf(shown), QStringLiteral("Connections"));
+        QVERIFY(shown->isChecked());
+        const QUrl url = RemoteProfiles::networkUrl();
+        if (url.isEmpty()) {
+            QVERIFY2(status->text().contains(QStringLiteral("kio-extras")), qPrintable(status->text()));
+        } else {
+            QVERIFY2(status->text().contains(url.toDisplayString()), qPrintable(status->text()));
+        }
+
+        QAction *network = window.actionCollection()->action(QStringLiteral("network_locations"));
+        auto *remote = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("remote_connections")));
+        QVERIFY(network->isVisible());
+        Q_EMIT remote->menu()->aboutToShow();
+        QVERIFY(remote->menu()->actions().contains(network));
+
+        shown->setChecked(false);
+        QVERIFY2(status->text().contains(QStringLiteral("hidden")), qPrintable(status->text()));
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::remoteShowNetwork());
+        QVERIFY(!network->isVisible());
+        Q_EMIT remote->menu()->aboutToShow();
+        QVERIFY(!remote->menu()->actions().contains(network));
+        // Manage Remote Connections… stays.
+        QVERIFY(remote->menu()->actions().contains(window.actionCollection()->action(QStringLiteral("manage_remote_connections"))));
+
+        shown->setChecked(true);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(network->isVisible());
+        Q_EMIT remote->menu()->aboutToShow();
+        QVERIFY(remote->menu()->actions().contains(network));
+    }
 };
 
 QTEST_MAIN(IntegrationSettingsTest)

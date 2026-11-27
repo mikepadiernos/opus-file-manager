@@ -404,6 +404,8 @@ private:
     QGroupBox *createRemoteProfilesGroup(RemoteProfilesEditor *editor);
     /// The Defaults for New Connections group of the Connections tab, which @p editor's new connections start with.
     QGroupBox *createRemoteDefaultsGroup(RemoteProfilesEditor *editor);
+    /// The Local Network group of the Connections tab, which shows or hides Go › Network.
+    QGroupBox *createRemoteDiscoveryGroup();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

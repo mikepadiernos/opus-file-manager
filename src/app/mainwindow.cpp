@@ -6365,9 +6365,11 @@ void MainWindow::populateRemoteConnections()
         problem->setEnabled(false);
     }
     m_remoteConnectionsMenu->addSeparator();
-    QAction *network = actionCollection()->action(QStringLiteral("network_locations"));
-    network->setEnabled(!RemoteProfiles::networkUrl().isEmpty());
-    m_remoteConnectionsMenu->addAction(network);
+    if (Settings::remoteShowNetwork()) {
+        QAction *network = actionCollection()->action(QStringLiteral("network_locations"));
+        network->setEnabled(!RemoteProfiles::networkUrl().isEmpty());
+        m_remoteConnectionsMenu->addAction(network);
+    }
     m_remoteConnectionsMenu->addAction(actionCollection()->action(QStringLiteral("manage_remote_connections")));
 }
 
@@ -8127,6 +8129,8 @@ void MainWindow::applySettings()
     actionCollection()->action(QStringLiteral("kdeconnect_send"))->setVisible(Settings::kdeConnectSharing());
     actionCollection()->action(QStringLiteral("send_by_email"))->setVisible(Settings::sendByEmail());
     actionCollection()->action(QStringLiteral("online_accounts"))->setVisible(Settings::onlineAccountsEnabled());
+    // Hiding it also turns off its shortcut.
+    actionCollection()->action(QStringLiteral("network_locations"))->setVisible(Settings::remoteShowNetwork());
     QAction *terminalHistory = actionCollection()->action(QStringLiteral("search_terminal_history"));
     terminalHistory->setVisible(Settings::atuinHistory());
     terminalHistory->setEnabled(Settings::atuinHistory());

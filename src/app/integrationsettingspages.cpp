@@ -2457,6 +2457,7 @@ QWidget *SettingsDialog::createRemoteConnectionsIntegrationPage()
     auto *editor = new RemoteProfilesEditor(KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles")));
     layout->addWidget(createRemoteProfilesGroup(editor), 1);
     layout->addWidget(createRemoteDefaultsGroup(editor));
+    layout->addWidget(createRemoteDiscoveryGroup());
     return page;
 }
 
@@ -2562,5 +2563,40 @@ QGroupBox *SettingsDialog::createRemoteDefaultsGroup(RemoteProfilesEditor *edito
     // Defaults and Reset may update the widgets without their signals.
     connect(this, &KConfigDialog::widgetModified, group, update);
     editor->setNewProfileDefaults(RemoteProfilesEditor::defaultsFromSettings());
+    return group;
+}
+
+QGroupBox *SettingsDialog::createRemoteDiscoveryGroup()
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Local Network"));
+    group->setObjectName(QStringLiteral("remoteConnectionsDiscoveryGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *shown = checkBox(QStringLiteral("RemoteShowNetwork"), i18nc("@option:check", "Show the shares and services discovered on the local network"));
+    shown->setToolTip(i18nc("@info:tooltip", "Offers Network in the Go menu and in Go › Remote Connections"));
+    layout->addWidget(shown);
+    auto *status = statusLabel(QStringLiteral("remoteConnectionsDiscoveryStatus"));
+    layout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "The Network place in the Remote section of the Places panel is shared with Dolphin: hide it, or the whole "
+                                  "section under Preferences › Interface › Panels."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+
+    const auto refresh = [shown, status] {
+        if (!shown->isChecked()) {
+            status->setText(i18nc("@info", "Go › Network is hidden, together with its shortcut."));
+            return;
+        }
+        const QUrl url = RemoteProfiles::networkUrl();
+        status->setText(url.isEmpty() ? i18nc("@info", "No KIO worker lists the local network, so Go › Network is unavailable. Install kio-extras.")
+                                      : i18nc("@info %1 is a location such as network:/",
+                                              "Go › Network opens %1, which lists the shares and services that computers on the local "
+                                              "network announce.",
+                                              url.toDisplayString()));
+    };
+    // A worker may have been installed while the page was hidden.
+    group->refresh = refresh;
+    connect(shown, &QCheckBox::toggled, group, refresh);
+    refresh();
     return group;
 }

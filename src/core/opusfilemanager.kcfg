@@ -1823,5 +1823,9 @@
       </choices>
       <default>Password</default>
     </entry>
+    <entry name="RemoteShowNetwork" type="Bool">
+      <label>Offer Go › Network, which lists the shares and services discovered on the local network</label>
+      <default>true</default>
+    </entry>
   </group>
 </kcfg>
