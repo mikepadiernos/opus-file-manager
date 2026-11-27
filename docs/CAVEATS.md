@@ -3103,6 +3103,25 @@ The M28 integration settings have these limits
   viewers and opening File Associations are verified there only by their
   absence ([Plasma check](TODO.md#office-settings-on-plasma-676)).
   ([#676](https://github.com/mikepadiernos/plasma-opus/issues/676))
+- **🔤 Ebook and font settings:** The checkboxes under **Preferences ›
+  Applications › Ebooks and Fonts** turn previews of ebooks and DjVu
+  documents, comic books, help files and fonts on or off after **Apply** or
+  **OK**; ebooks and DjVu documents share one checkbox. A format that is off
+  shows a message in the preview panel instead, and remote files of that
+  format are then not downloaded. The tab lists the viewer component that
+  previews each kind, checking a few representative types, but can't
+  choose it: the preview uses the one that **File Associations** ranks
+  first, which **File Associations…** opens. **Sample text** is the text
+  every font preview shows, and leaving it empty shows the translated
+  default. Editing the text in a font preview changes the setting at once,
+  also in an open Preferences window unless it was edited there as well, in
+  which case **Apply** keeps the Preferences text. Sample text remembered by
+  an earlier version becomes the setting the first time a font is
+  previewed, unless one is already set. The tab reports when `kfontinst` is
+  missing, checking `PATH` each time it is shown. The container has no
+  viewer components or `kfontinst`, so the listed viewers are verified there
+  only by their absence; they are found as in the **Office** tab.
+  ([#661](https://github.com/mikepadiernos/plasma-opus/issues/661))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3247,6 +3266,11 @@ The M28 integration settings have these limits
     for previews, raise its viewer under **File Associations…** if another
     one is listed first, and turn previews off on slow or metered network
     folders.
+  - **Ebook and font settings:** Install Okular if **Preferences ›
+    Applications › Ebooks and Fonts** says no viewer is installed, and turn
+    off previews of formats you only read in Okular or that sit on slow or
+    metered network folders. Set a sample text in your language, or with the
+    characters you need to compare, there or in any font preview.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3315,6 +3339,9 @@ The M28 integration settings have these limits
   - Choose the office application for each kind of document, find Flatpak
     office applications, and choose the preview's viewer component in the
     **Office** tab rather than in File Associations.
+  - Choose the viewer component for each kind of document in the **Ebooks
+    and Fonts** tab, turn DjVu previews on or off apart from ebooks, and
+    offer sample texts for other writing systems.
 
 ## Embedded terminal
 
