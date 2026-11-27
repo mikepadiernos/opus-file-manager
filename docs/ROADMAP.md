@@ -14,31 +14,34 @@ record the Max File Manager behaviour that informs its parity goals.
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. M15–M27 have since been merged into `main`; M28–M32 are
-> planned. See [pending tasks](TODO.md) for blocked work and branch-specific
+> released after M14. M15–M27 have since been merged into `main`. M28 is in
+> development on `feature/M28-integration-settings`, and M29–M32 are planned.
+> See [pending tasks](TODO.md) for blocked work and branch-specific
 > handoffs.
 
 ## At a glance
 
 Status reflects the milestones' parent issues on the
 [project board](https://github.com/users/mikepadiernos/projects/3): Merged
-groups have every feature checked and merged into `main`, and Planned groups are
-not yet complete. In the M27–M31 group, M27 is merged and its Plasma checks
-are recorded in [pending tasks](TODO.md); M28–M31 are planned.
+groups have every feature checked and merged into `main`, Development groups
+have a milestone in progress, and Planned groups have not started. In the
+M27–M31 group, M27 is merged and its Plasma checks are recorded in
+[pending tasks](TODO.md). M28 is in development, and its checked features are
+completed on its branch. M29–M31 are planned.
 
-| Milestones | Focus                                        | Status                                                                    | Jump to                         |
-| ---------- | -------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------- |
-| M01–M04    | Core dual pane and listing depth             | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M01](#m01-core-dual-pane)      |
-| M05–M08    | Preview, gallery and editor                  | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M05](#m05-preview-and-gallery) |
-| M09–M14    | Tools, interface customization, translations | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M09](#m09-tools)               |
-| M15–M16    | Workspaces and their settings                | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M15](#m15-workspaces)          |
-| M17–M18    | Themes and their settings                    | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M17](#m17-themes)              |
-| M19–M20    | Branding and its settings                    | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M19](#m19-branding)            |
-| M21–M22    | Advanced search and its settings             | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M21](#m21-advanced-search)     |
-| M23–M24    | Native tagging and its settings              | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M23](#m23-native-tagging)      |
-| M25–M26    | Yazi mode and its settings                   | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M25](#m25-yazi-mode)           |
-| M27–M31    | Integrations, Nextcloud and shortcuts        | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square) | [M27](#m27-integrations)        |
-| M32        | Refinements                                  | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square) | [M32](#m32-refinements)         |
+| Milestones | Focus                                        | Status                                                                            | Jump to                         |
+| ---------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------- |
+| M01–M04    | Core dual pane and listing depth             | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M01](#m01-core-dual-pane)      |
+| M05–M08    | Preview, gallery and editor                  | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M05](#m05-preview-and-gallery) |
+| M09–M14    | Tools, interface customization, translations | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M09](#m09-tools)               |
+| M15–M16    | Workspaces and their settings                | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M15](#m15-workspaces)          |
+| M17–M18    | Themes and their settings                    | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M17](#m17-themes)              |
+| M19–M20    | Branding and its settings                    | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M19](#m19-branding)            |
+| M21–M22    | Advanced search and its settings             | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M21](#m21-advanced-search)     |
+| M23–M24    | Native tagging and its settings              | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M23](#m23-native-tagging)      |
+| M25–M26    | Yazi mode and its settings                   | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M25](#m25-yazi-mode)           |
+| M27–M31    | Integrations, Nextcloud and shortcuts        | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square) | [M27](#m27-integrations)        |
+| M32        | Refinements                                  | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)         | [M32](#m32-refinements)         |
 
 ## Contents
 
