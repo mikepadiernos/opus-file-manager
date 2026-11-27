@@ -96,7 +96,10 @@ bool isDocumentMime(const QString &mimeType)
     return DocumentFormats::usesDocumentViewer(mimeType);
 }
 
-/// The document formats that are previewed, one bit per kind, so that changing them loads the preview again.
+/// The bit of formatPreviews() for mail file previews, above the document format kinds.
+constexpr quint32 MailPreviewBit = 1U << 31;
+
+/// The document formats and mail files that are previewed, one bit per kind, so that changing them loads the preview again.
 quint32 formatPreviews()
 {
     using DocumentFormats::Kind;
@@ -105,6 +108,9 @@ quint32 formatPreviews()
         if (DocumentFormats::previewEnabled(kind)) {
             enabled |= 1U << static_cast<int>(kind);
         }
+    }
+    if (Settings::mailPreviews()) {
+        enabled |= MailPreviewBit;
     }
     return enabled;
 }
@@ -835,7 +841,8 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
         showFont(m_url, m_url, mimeType);
         return;
     }
-    if (isMailMime(mimeType)) {
+    // With mail previews off, a message shows as plain text like other text files.
+    if (isMailMime(mimeType) && Settings::mailPreviews()) {
         showMail(m_url);
         return;
     }

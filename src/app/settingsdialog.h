@@ -395,6 +395,8 @@ private:
     QGroupBox *createMailClientGroup();
     /// The Remote Files group of the Mail tab: whether Send by Email asks before preparing local copies of remote files or skips them.
     QGroupBox *createMailRemoteFilesGroup();
+    /// The Mail File Preview group of the Mail tab: whether the preview panel shows mail files as messages.
+    QGroupBox *createMailPreviewGroup();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

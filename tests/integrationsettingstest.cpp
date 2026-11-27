@@ -65,9 +65,11 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScopeGuard>
 #include <QSpinBox>
+#include <QStackedWidget>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QTabWidget>
@@ -2589,6 +2591,51 @@ private Q_SLOTS:
         QCOMPARE(items->count(), 1);
         QVERIFY(!(items->item(0)->flags() & Qt::ItemIsEnabled));
         QVERIFY(items->item(0)->text().contains(QStringLiteral("Preferences › Applications › Mail")));
+    }
+
+    void mailTabTurnsMailPreviewsOff()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        const QString message = folder.filePath(QStringLiteral("notes.eml"));
+        write(message, QStringLiteral("From: Ada <ada@example.org>\r\nSubject: Notes\r\n\r\nHello Grace\r\n"));
+
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        window.actionCollection()->action(QStringLiteral("show_preview_panel"))->trigger();
+        view->selectUrls({QUrl::fromLocalFile(message)});
+        auto *panel = window.findChild<QWidget *>(QStringLiteral("previewPanel"));
+        auto *content = panel->findChild<QStackedWidget *>();
+        QVERIFY(content);
+        QTRY_VERIFY(content->currentWidget() && content->currentWidget()->objectName() == QLatin1String("previewMail"));
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *group = dialog.findChild<QGroupBox *>(QStringLiteral("mailPreviewGroup"));
+        QVERIFY(group);
+        QCOMPARE(tabTitleOf(group), QStringLiteral("Mail"));
+        auto *enabled = group->findChild<QCheckBox *>(QStringLiteral("kcfg_MailPreviews"));
+        auto *status = group->findChild<QLabel *>(QStringLiteral("mailPreviewStatus"));
+        QVERIFY(enabled && enabled->isChecked() && status);
+        QVERIFY2(status->text().startsWith(QStringLiteral("Local mail files up to 64 MiB")), qPrintable(status->text()));
+        QVERIFY(status->text().contains(QStringLiteral("Preferences › Interface › Previews")));
+
+        // Turning previews off shows the message as plain text.
+        enabled->setChecked(false);
+        QVERIFY2(status->text().startsWith(QStringLiteral("Mail files show as plain text")), qPrintable(status->text()));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::mailPreviews());
+        QTRY_VERIFY(content->currentWidget() && content->currentWidget()->objectName() == QLatin1String("previewText"));
+        auto *text = qobject_cast<QPlainTextEdit *>(content->currentWidget());
+        QVERIFY(text);
+        QVERIFY2(text->toPlainText().startsWith(QStringLiteral("From: Ada")), qPrintable(text->toPlainText()));
     }
 
     void reportsMissingDefaultApplicationsSettings()

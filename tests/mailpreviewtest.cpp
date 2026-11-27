@@ -3,6 +3,7 @@
 #include "mailpreview.h"
 #include "mailmessage.h"
 #include "previewpanel.h"
+#include "settings.h"
 
 #include <KFileItem>
 
@@ -12,6 +13,7 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QPlainTextEdit>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStackedWidget>
 #include <QStandardPaths>
@@ -101,6 +103,32 @@ private Q_SLOTS:
         QCOMPARE(extract->text(), QStringLiteral("Extract All"));
         attachments->item(0)->setSelected(true);
         QCOMPARE(extract->text(), QStringLiteral("Extract Selected"));
+    }
+
+    void showsMailFilesAsTextWhenMailPreviewsAreOff()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+        });
+        const QString path = m_folder.filePath(QStringLiteral("text.eml"));
+        QVERIFY(writeFile(path, MessageData));
+        const KFileItem item(QUrl::fromLocalFile(path));
+
+        PreviewPanel panel;
+        auto *content = panel.findChild<QStackedWidget *>();
+        QVERIFY(content);
+        Settings::setMailPreviews(false);
+        panel.setItems({item});
+        QTRY_VERIFY(content->currentWidget() && content->currentWidget()->objectName() == QLatin1String("previewText"));
+        QVERIFY(!panel.findChild<MailPreview *>());
+        auto *text = qobject_cast<QPlainTextEdit *>(content->currentWidget());
+        QVERIFY(text);
+        QVERIFY2(text->toPlainText().startsWith(QStringLiteral("From: Ada")), qPrintable(text->toPlainText()));
+
+        // Turning them on again previews the same selection as a message.
+        Settings::setMailPreviews(true);
+        panel.setItems({item});
+        QTRY_VERIFY(content->currentWidget() && content->currentWidget()->objectName() == QLatin1String("previewMail"));
     }
 
     void extractsAttachmentsBesideTheMessage()

@@ -20,6 +20,7 @@
 #include "kwinintegration.h"
 #include "kwinscript.h"
 #include "mailhandoff.h"
+#include "mailmessage.h"
 #include "mediabackend.h"
 #include "officeapps.h"
 #include "onlineaccounts.h"
@@ -2321,6 +2322,7 @@ QWidget *SettingsDialog::createMailIntegrationPage()
     layout->addWidget(client);
     auto *remote = createMailRemoteFilesGroup();
     layout->addWidget(remote);
+    layout->addWidget(createMailPreviewGroup());
     layout->addStretch();
     // Remote files only matter while Send by Email is offered.
     auto *enabled = client->findChild<QCheckBox *>(QStringLiteral("kcfg_SendByEmail"));
@@ -2410,6 +2412,34 @@ QGroupBox *SettingsDialog::createMailRemoteFilesGroup()
     };
     group->refresh = refresh;
     connect(choice, &QComboBox::currentIndexChanged, group, refresh);
+    refresh();
+    return group;
+}
+
+QGroupBox *SettingsDialog::createMailPreviewGroup()
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Mail File Preview"));
+    group->setObjectName(QStringLiteral("mailPreviewGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *enabled = checkBox(QStringLiteral("MailPreviews"), i18nc("@option:check", "Preview mail files (.eml) in the preview panel"));
+    enabled->setToolTip(i18nc("@info:tooltip", "Show a mail file's headers, text and attachments in the preview panel instead of its raw text"));
+    layout->addWidget(enabled);
+    auto *status = statusLabel(QStringLiteral("mailPreviewStatus"));
+    layout->addWidget(status);
+
+    const auto refresh = [enabled, status] {
+        const QString size = QLocale().formattedDataSize(MailMessage::FileLimit, 0, QLocale::DataSizeIecFormat);
+        status->setText(enabled->isChecked() ? i18nc("@info %1 is a file size",
+                                                     "Local mail files up to %1 show their headers, text and attachments; remote content is never loaded. The "
+                                                     "text is cut at Maximum text in preview panel under Preferences › Interface › Previews. Remote mail "
+                                                     "files show as plain text.",
+                                                     size)
+                                             : i18nc("@info",
+                                                     "Mail files show as plain text, like other text files, up to Maximum text in preview panel under "
+                                                     "Preferences › Interface › Previews."));
+    };
+    group->refresh = refresh;
+    connect(enabled, &QCheckBox::toggled, group, refresh);
     refresh();
     return group;
 }
