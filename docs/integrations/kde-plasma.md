@@ -300,6 +300,15 @@ behaves like the rest of the desktop and follows the user's choices.
   own. See [Indexed metadata and ranking](../CAVEATS.md#search).
   ([#442](https://github.com/mikepadiernos/plasma-opus/issues/442))
 
+- **Baloo queries:** Indexed searches pass required content terms and
+  alternatives, folder, image, audio and video types and modification dates
+  to Baloo, so it returns fewer files for Plasma Opus to check. Searches
+  limited in depth or to workspace locations ask Baloo about each location
+  and fall back to the whole index for a location it hasn't indexed. Baloo
+  6.32 and later search metadata through its metadata scope. See
+  [Indexed search](../CAVEATS.md#search).
+  ([#733](https://github.com/mikepadiernos/plasma-opus/issues/733))
+
 - **File-type categories in Places:** Places lists **Documents**, **Images**,
   **Audio**, **Videos**, **Archives**, **Ebooks**, **Application Packages**
   and **Large Files** under **Search For**, beside any entries KDE already
@@ -535,11 +544,9 @@ them.
 
 ### M27.03 Search and indexing
 
-- **Baloo queries and shared searches:** Run indexed searches inside Baloo
-  instead of filtering broad results in Plasma Opus, and offer to share saved
-  searches with Dolphin and file dialogs as KDE search places.
-  ([#733](https://github.com/mikepadiernos/plasma-opus/issues/733),
-  [#734](https://github.com/mikepadiernos/plasma-opus/issues/734))
+- **Shared searches:** Offer to share saved searches with Dolphin and file
+  dialogs as KDE search places.
+  ([#734](https://github.com/mikepadiernos/plasma-opus/issues/734))
 
 ### M27.07 Access control and automation
 
