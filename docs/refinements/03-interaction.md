@@ -43,6 +43,8 @@ M32.03 asks to:
 - smooth small workflows such as selection after deleting, moving dropped
   items into a new folder, tab detaching and partial folder sizes, and add an
   operations panel, archive extraction checks and an evaluation of redo;
+- compare images side by side and hand documents to an external viewer at
+  the previewed page;
 - add subtle, optional animations and focused interaction tests.
 
 ## Proposal
@@ -123,7 +125,15 @@ relying on colour, animation or a pointing device alone.
    [#745](https://github.com/mikepadiernos/plasma-opus/issues/745),
    [#746](https://github.com/mikepadiernos/plasma-opus/issues/746),
    [#747](https://github.com/mikepadiernos/plasma-opus/issues/747))
-10. Add focused interaction regressions for menu actions, layouts, navigation,
+10. Add document and image refinements adapted from
+    [Lektra](../philosophy/inspirations.md#lektra--document-viewer-and-keyboard-control):
+    compare two images side by side in the gallery with linked zoom and pan,
+    and open the previewed document in an external viewer at its current page
+    or two documents side by side. Use the page only where the preview
+    provider reports it, and launch Lektra only as a separate application.
+    ([#763](https://github.com/mikepadiernos/plasma-opus/issues/763),
+    [#764](https://github.com/mikepadiernos/plasma-opus/issues/764))
+11. Add focused interaction regressions for menu actions, layouts, navigation,
     responsiveness, errors and preserved customizations. Coordinate broader
     walkthroughs and accessibility coverage with [testing](06-testing.md).
     ([#468](https://github.com/mikepadiernos/plasma-opus/issues/468))
@@ -135,6 +145,8 @@ relying on colour, animation or a pointing device alone.
 - Which transitions are useful enough to animate?
 - Can a custom redo layer stay reliable alongside KIO's undo history and
   remote locations?
+- Which preview providers can report the current page, and which external
+  viewers accept a page or a side-by-side layout on the command line?
 
 ---
 
