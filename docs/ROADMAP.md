@@ -1779,7 +1779,7 @@ for some features are recorded in [pending tasks](TODO.md).
         [companion workflows](integrations/plasma-impresario.md#compose-with-selected-files).
         Plasma-session verification is a
         [pending handoff](TODO.md#send-by-email-on-plasma-656). [#656]
-  - [ ] Mail attachments: verify dragging local files into Plasma Impresario's
+  - [x] Mail attachments: verify dragging local files into Plasma Impresario's
         composer and offer private local copies for remote items. Recognize
         its private attachment drag format and explain that the attachment
         must be saved from the mail client instead of saving the reference as
