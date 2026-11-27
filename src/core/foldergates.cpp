@@ -3,6 +3,7 @@
 #include "foldergates.h"
 
 #include <KConfigGroup>
+#include <KFileItem>
 #include <KLocalizedString>
 
 #include <QCryptographicHash>
@@ -229,6 +230,20 @@ bool FolderGates::touchesLocked(const QUrl &url) const
     return isLocked(url) || !lockedWithin(url).isEmpty();
 }
 
+bool FolderGates::hidesItem(const KFileItem &item) const
+{
+    if (!hasLocked() || item.isNull()) {
+        return false;
+    }
+    const QUrl target = item.targetUrl();
+    return hidesContents(item.url()) || (target != item.url() && hidesContents(target));
+}
+
+bool FolderGates::isLockedGateItem(const KFileItem &item) const
+{
+    return hasLocked() && item.isDir() && isGateLocked(gateAt(item.url()));
+}
+
 QString FolderGates::gateAt(const QUrl &url) const
 {
     if (m_gates.isEmpty()) {
@@ -265,7 +280,7 @@ QString FolderGates::protect(const QString &folder, const QString &password)
     return {};
 }
 
-QString FolderGates::errorForVerifier(const QString &folder, const QString &password) const
+QString FolderGates::checkPassword(const QString &folder, const QString &password) const
 {
     if (!m_gates.contains(folder)) {
         return i18nc("@info:status password-gated folders", "This folder is not protected with a password.");
@@ -283,7 +298,7 @@ QString FolderGates::errorForVerifier(const QString &folder, const QString &pass
 
 QString FolderGates::changePassword(const QString &folder, const QString &oldPassword, const QString &newPassword)
 {
-    QString error = errorForVerifier(folder, oldPassword);
+    QString error = checkPassword(folder, oldPassword);
     if (!error.isEmpty()) {
         return error;
     }
@@ -303,7 +318,7 @@ QString FolderGates::changePassword(const QString &folder, const QString &oldPas
 
 QString FolderGates::removeProtection(const QString &folder, const QString &password)
 {
-    QString error = errorForVerifier(folder, password);
+    QString error = checkPassword(folder, password);
     if (!error.isEmpty()) {
         return error;
     }
@@ -348,7 +363,7 @@ void FolderGates::lockAll()
 
 void FolderGates::relocate(const QString &from, const QString &to)
 {
-    const QString source = QDir::cleanPath(from);
+    const QString source = canonicalPath(from);
     const QString destination = canonicalPath(to);
     if (source.isEmpty() || destination.isEmpty() || source == destination) {
         return;

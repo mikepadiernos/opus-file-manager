@@ -10,6 +10,7 @@
 #include <QString>
 #include <QStringList>
 
+class KFileItem;
 class QUrl;
 
 /**
@@ -67,6 +68,10 @@ public:
     QStringList lockedWithin(const QUrl &url) const;
     /// Whether @p url is a locked gate, inside one or contains one.
     bool touchesLocked(const QUrl &url) const;
+    /// Whether views hide @p item, by its URL or target URL, because it lies inside a locked gate.
+    bool hidesItem(const KFileItem &item) const;
+    /// Whether @p item is a locked gate, which views show with a lock instead of a preview.
+    bool isLockedGateItem(const KFileItem &item) const;
     /// The canonical local path of a gate at @p url, or an empty string.
     QString gateAt(const QUrl &url) const;
 
@@ -76,13 +81,15 @@ public:
     QString changePassword(const QString &folder, const QString &oldPassword, const QString &newPassword);
     /// Removes a gate after checking its password; returns an error message or an empty string.
     QString removeProtection(const QString &folder, const QString &password);
+    /// Checks a gate's password without unlocking it; returns an error message or an empty string.
+    QString checkPassword(const QString &folder, const QString &password) const;
     /// Unlocks a gate when @p password matches.
     Check unlock(const QString &folder, const QString &password);
     /// Locks a gate again.
     void lock(const QString &folder);
     /// Locks every gate.
     void lockAll();
-    /// Moves the gates at or below @p from to @p to, such as after a rename or move in Plasma Opus.
+    /// Moves the gates at or below @p from to @p to, such as after a rename or move in Plasma Opus; @p from may no longer exist.
     void relocate(const QString &from, const QString &to);
 
     /// Sets the PBKDF2 iteration count for new verifiers; for tests.
@@ -107,7 +114,6 @@ Q_SIGNALS:
 
 private:
     QString resolve(const QUrl &url) const;
-    QString errorForVerifier(const QString &folder, const QString &password) const;
     void load();
     QString save();
 
