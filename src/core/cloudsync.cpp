@@ -1287,6 +1287,11 @@ bool CloudSync::startsAtLogin()
     return QFile::exists(autostartPath());
 }
 
+QString CloudSync::execArgument(const QString &argument)
+{
+    return escapeExec(argument);
+}
+
 bool CloudSync::setStartAtLogin(bool enabled, const QString &program, const QString &iconName, QString *error)
 {
     const QString path = autostartPath();

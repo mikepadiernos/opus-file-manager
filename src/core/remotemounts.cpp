@@ -2,7 +2,10 @@
 
 #include "remotemounts.h"
 
+#include "appidentity.h"
+#include "cloudsync.h"
 #include "rclone.h"
+#include "settings.h"
 
 #include <KLocalizedString>
 
@@ -17,6 +20,7 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QSaveFile>
 #include <QStandardPaths>
 #include <QTimer>
 
@@ -254,12 +258,32 @@ QString RemoteMounts::mountRoot()
     return QDir(QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation)).filePath(QStringLiteral("opus-file-manager/mounts"));
 }
 
-QString RemoteMounts::mountPoint(const RemoteProfiles::Profile &profile, const Options &options)
+QString RemoteMounts::mountPoint(const RemoteProfiles::Profile &profile, const Options &options, const QString &folder)
 {
     if (!options.location.isEmpty()) {
         return QDir::cleanPath(options.location);
     }
-    return QDir(mountRoot()).filePath(folderName(profile.name));
+    return QDir(folder.isEmpty() ? mountRoot() : QDir::cleanPath(folder)).filePath(folderName(profile.name));
+}
+
+bool RemoteMounts::covers(const RemoteProfiles::Profile &profile, const QUrl &location, const QString &mountPoint)
+{
+    const auto inside = [](const QString &path, const QString &folder) {
+        return folder == QLatin1String("/") || path == folder || path.startsWith(folder + QLatin1Char('/'));
+    };
+    if (location.isLocalFile()) {
+        return !mountPoint.isEmpty() && inside(QDir::cleanPath(location.toLocalFile()), QDir::cleanPath(mountPoint));
+    }
+    const QUrl remote = RemoteProfiles::url(profile);
+    if (location.scheme().compare(remote.scheme(), Qt::CaseInsensitive) != 0 || location.host().compare(remote.host(), Qt::CaseInsensitive) != 0
+        || location.port() != remote.port()) {
+        return false;
+    }
+    if (!location.userName().isEmpty() && location.userName() != remote.userName()) {
+        return false;
+    }
+    // An empty path opens the login folder of SFTP and FTP accounts; such a connection is taken to cover the whole server.
+    return remote.path().isEmpty() || inside(location.path().isEmpty() ? QStringLiteral("/") : QDir::cleanPath(location.path()), remote.path());
 }
 
 QString RemoteMounts::sshfsTarget(const RemoteProfiles::Profile &profile)
@@ -277,10 +301,14 @@ QString RemoteMounts::sshfsTarget(const RemoteProfiles::Profile &profile)
     return target;
 }
 
-QStringList RemoteMounts::sshfsArguments(const RemoteProfiles::Profile &profile, const QString &mountPoint, bool readOnly, bool batchMode)
+QStringList RemoteMounts::sshfsArguments(const RemoteProfiles::Profile &profile, const QString &mountPoint, bool readOnly, bool batchMode, bool foreground)
 {
-    // Stay in the foreground so Plasma Opus can stop the mount it started.
-    QStringList arguments{QStringLiteral("-f"), QStringLiteral("-o"), QStringLiteral("reconnect,ServerAliveInterval=15,ServerAliveCountMax=3")};
+    // In the foreground Plasma Opus can stop the mount it started by stopping sshfs.
+    QStringList arguments;
+    if (foreground) {
+        arguments << QStringLiteral("-f");
+    }
+    arguments << QStringLiteral("-o") << QStringLiteral("reconnect,ServerAliveInterval=15,ServerAliveCountMax=3");
     if (readOnly) {
         arguments << QStringLiteral("-o") << QStringLiteral("ro");
     }
@@ -413,14 +441,44 @@ QString RemoteMounts::fstabError(const QList<FstabEntry> &entries, Backend backe
                  target);
 }
 
-RemoteMounts::Options RemoteMounts::loadOptions(const KConfigGroup &group, const RemoteProfiles::Profile &profile)
+RemoteMounts::Options RemoteMounts::defaultOptions(const RemoteProfiles::Profile &profile, const Defaults &defaults)
 {
     Options options;
     const QList<Backend> available = backends(profile.protocol);
-    options.backend = available.first();
+    const Backend preferred = defaults.backends.value(profile.protocol, available.first());
+    options.backend = available.contains(preferred) ? preferred : available.first();
+    // KIO FUSE can't mount read-only, so it ignores the default.
+    options.readOnly = defaults.readOnly && options.backend != Backend::KioFuse;
+    return options;
+}
+
+RemoteMounts::Defaults RemoteMounts::defaultsFromSettings()
+{
+    Defaults defaults;
+    if (Settings::remoteDriveSftpBackend() == Settings::EnumRemoteDriveSftpBackend::Sshfs) {
+        defaults.backends.insert(RemoteProfiles::Protocol::Sftp, Backend::Sshfs);
+    }
+    if (Settings::remoteDriveWebDavBackend() == Settings::EnumRemoteDriveWebDavBackend::Davfs2) {
+        defaults.backends.insert(RemoteProfiles::Protocol::WebDav, Backend::Davfs2);
+        defaults.backends.insert(RemoteProfiles::Protocol::WebDavs, Backend::Davfs2);
+    }
+    if (Settings::remoteDriveSmbBackend() == Settings::EnumRemoteDriveSmbBackend::Cifs) {
+        defaults.backends.insert(RemoteProfiles::Protocol::Smb, Backend::Cifs);
+    }
+    defaults.readOnly = Settings::remoteDriveReadOnly();
+    const QUrl folder = Settings::remoteDriveMountFolder();
+    defaults.folder = folder.isLocalFile() ? folder.toLocalFile() : QString();
+    return defaults;
+}
+
+RemoteMounts::Options RemoteMounts::loadOptions(const KConfigGroup &group, const RemoteProfiles::Profile &profile, const Defaults &defaults)
+{
+    Options options = defaultOptions(profile, defaults);
+    const QList<Backend> available = backends(profile.protocol);
     if (profile.id.isEmpty() || !group.hasGroup(profile.id)) {
         return options;
     }
+    options.backend = available.first();
     const KConfigGroup entry = group.group(profile.id);
     Backend backend = options.backend;
     if (backendFromKey(entry.readEntry("Backend", QString()), &backend) && available.contains(backend)) {
@@ -463,6 +521,58 @@ bool RemoteMounts::isStale(const QString &path)
     return ::stat(QFile::encodeName(path).constData(), &info) != 0 && errno == ENOTCONN;
 }
 
+QString RemoteMounts::autostartPath()
+{
+    return QDir(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation))
+        .filePath(QStringLiteral("autostart/%1-remote-drives.desktop").arg(AppIdentity::desktopFileName()));
+}
+
+QByteArray RemoteMounts::autostartEntry(const QString &program, const QString &iconName)
+{
+    QString entry;
+    entry += QStringLiteral("[Desktop Entry]\n");
+    entry += QStringLiteral("Type=Application\n");
+    entry += QStringLiteral("Name=") + i18nc("@title autostart entry", "%1 Remote Drives", AppIdentity::displayName()) + QLatin1Char('\n');
+    entry += QStringLiteral("Comment=") + i18nc("@info autostart entry", "Mounts saved remote connections in the background") + QLatin1Char('\n');
+    entry += QStringLiteral("Exec=") + CloudSync::execArgument(program) + QStringLiteral(" --background-mount\n");
+    entry += QStringLiteral("Icon=") + iconName + QLatin1Char('\n');
+    entry += QStringLiteral("NoDisplay=true\n");
+    entry += QStringLiteral("X-KDE-autostart-phase=2\n");
+    return entry.toUtf8();
+}
+
+bool RemoteMounts::mountsAtLogin()
+{
+    return QFile::exists(autostartPath());
+}
+
+bool RemoteMounts::setMountAtLogin(bool enabled, const QString &program, const QString &iconName, QString *error)
+{
+    const QString path = autostartPath();
+    if (!enabled) {
+        if (QFile::exists(path) && !QFile::remove(path)) {
+            if (error) {
+                *error = i18nc("@info", "%1 could not be removed.", path);
+            }
+            return false;
+        }
+        return true;
+    }
+    const QByteArray entry = autostartEntry(program, iconName);
+    QFile current(path);
+    if (current.open(QIODevice::ReadOnly) && current.readAll() == entry) {
+        return true;
+    }
+    QSaveFile file(path);
+    if (!QDir().mkpath(QFileInfo(path).absolutePath()) || !file.open(QIODevice::WriteOnly) || file.write(entry) < 0 || !file.commit()) {
+        if (error) {
+            *error = i18nc("@info", "%1 could not be written.", path);
+        }
+        return false;
+    }
+    return true;
+}
+
 RemoteMountManager::RemoteMountManager(QObject *parent)
     : QObject(parent)
     , m_check(Rclone::isMountPoint)
@@ -497,6 +607,26 @@ void RemoteMountManager::setFstabPath(const QString &path)
 void RemoteMountManager::setTimeout(int milliseconds)
 {
     m_timeout = milliseconds;
+}
+
+void RemoteMountManager::setMountFolder(const QString &folder)
+{
+    m_folder = folder;
+}
+
+QString RemoteMountManager::mountFolder() const
+{
+    return m_folder;
+}
+
+void RemoteMountManager::setUnmountOnExit(bool unmount)
+{
+    m_unmountOnExit = unmount;
+}
+
+bool RemoteMountManager::unmountsOnExit() const
+{
+    return m_unmountOnExit;
 }
 
 void RemoteMountManager::mount(const RemoteProfiles::Profile &profile, const RemoteMounts::Options &options)
@@ -545,7 +675,7 @@ void RemoteMountManager::mount(const RemoteProfiles::Profile &profile, const Rem
         return;
     }
 
-    const QString path = RemoteMounts::mountPoint(profile, options);
+    const QString path = RemoteMounts::mountPoint(profile, options, m_folder);
     if (m_check(path)) {
         if (RemoteMounts::isStale(path)) {
             Q_EMIT failed(
@@ -553,7 +683,11 @@ void RemoteMountManager::mount(const RemoteProfiles::Profile &profile, const Rem
                 i18nc("@info %1 is a folder", "%1 is a stale mount whose connection has gone. Unmount it with fusermount3 -u, then try again.", path));
             return;
         }
-        // Mounted by another window or an earlier session; open it without taking ownership.
+        // Mounted by another window or an earlier session; it can be unmounted here but is left in place at quit.
+        mount.path = path;
+        mount.ready = true;
+        mount.adopted = true;
+        m_mounts.insert(id, mount);
         Q_EMIT mounted(id, path);
         return;
     }
@@ -580,6 +714,8 @@ void RemoteMountManager::mount(const RemoteProfiles::Profile &profile, const Rem
     mount.path = path;
     mount.ownsFolder = ownFolder;
     if (options.backend == RemoteMounts::Backend::Sshfs) {
+        // sshfs keeps mounts after quitting only when it runs on its own.
+        mount.detached = !m_unmountOnExit;
         startSshfs(id, profile, options, mount);
     } else {
         startFstabMount(id, mount);
@@ -592,7 +728,9 @@ QString RemoteMountManager::prepareFolder(const QString &path, bool ownFolder)
         if (!QDir().mkpath(path)) {
             return i18nc("@info %1 is a folder", "Could not create a folder to mount on: %1", path);
         }
-        QFile::setPermissions(RemoteMounts::mountRoot(), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+        if (m_folder.isEmpty()) {
+            QFile::setPermissions(RemoteMounts::mountRoot(), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+        }
     } else if (!QFileInfo(path).isDir()) {
         return i18nc("@info %1 is a folder", "The folder to mount on doesn't exist: %1", path);
     }
@@ -624,12 +762,20 @@ void RemoteMountManager::startSshfs(const QString &id, const RemoteProfiles::Pro
             it->errors = it->errors.right(maxErrorBytes);
         }
     });
-    connect(mount.process, &QProcess::finished, this, [this, id](int exitCode) {
+    connect(mount.process, &QProcess::finished, this, [this, id](int exitCode, QProcess::ExitStatus status) {
         auto it = m_mounts.find(id);
         if (it == m_mounts.end()) {
             return;
         }
         it->errors.append(it->process->readAllStandardError());
+        if (it->detached && !it->ready && !it->stopping && status == QProcess::NormalExit && exitCode == 0 && m_check(it->path)) {
+            // sshfs left a daemon running the mount, which fusermount unmounts.
+            it->poll->stop();
+            std::exchange(it->process, nullptr)->deleteLater();
+            it->ready = true;
+            Q_EMIT mounted(id, it->path);
+            return;
+        }
         const QString detail = Rclone::lastError(it->errors);
         finish(id,
                it->ready || it->stopping ? QString()
@@ -646,7 +792,7 @@ void RemoteMountManager::startSshfs(const QString &id, const RemoteProfiles::Pro
     QTimer *timer = mount.poll;
     m_mounts.insert(id, mount);
     process->start(RemoteMounts::findExecutable(QStringLiteral("sshfs")),
-                   RemoteMounts::sshfsArguments(profile, mount.path, options.readOnly, askPass.isEmpty()));
+                   RemoteMounts::sshfsArguments(profile, mount.path, options.readOnly, askPass.isEmpty(), !mount.detached));
     if (m_mounts.contains(id)) {
         timer->start();
     }
@@ -692,7 +838,8 @@ void RemoteMountManager::poll(const QString &id)
     if (it == m_mounts.end() || it->ready) {
         return;
     }
-    if (m_check(it->path)) {
+    // A detached sshfs is mounted once it exits successfully.
+    if (!it->detached && m_check(it->path)) {
         it->ready = true;
         it->poll->stop();
         Q_EMIT mounted(id, it->path);
@@ -762,8 +909,20 @@ void RemoteMountManager::unmount(const QString &id)
         return;
     }
     case RemoteMounts::Backend::Sshfs: {
+        if (!it->process) {
+            // A detached or adopted sshfs mount has no process here to stop.
+            const QString fusermount = RemoteMounts::findFusermount();
+            if (fusermount.isEmpty()) {
+                Q_EMIT failed(id, i18nc("@info", "fusermount, which unmounts sshfs, is not installed. Install the fuse3 package."));
+                return;
+            }
+            runUnmount(id, fusermount, {QStringLiteral("-u"), it->path});
+            return;
+        }
         it->stopping = true;
-        it->poll->stop();
+        if (it->poll) {
+            it->poll->stop();
+        }
         QProcess *process = it->process;
         // sshfs unmounts cleanly on SIGTERM; kill it if it doesn't exit.
         process->terminate();
@@ -787,6 +946,11 @@ void RemoteMountManager::unmount(const QString &id)
 }
 
 void RemoteMountManager::unmountFstab(const QString &id)
+{
+    runUnmount(id, RemoteMounts::findExecutable(QStringLiteral("umount")), {m_mounts.value(id).path});
+}
+
+void RemoteMountManager::runUnmount(const QString &id, const QString &program, const QStringList &arguments)
 {
     auto it = m_mounts.find(id);
     it->stopping = true;
@@ -813,7 +977,7 @@ void RemoteMountManager::unmountFstab(const QString &id)
                           ? i18nc("@info %1 is a folder", "%1 is busy. Close the files and folders open on it, then unmount it again.", it->path)
                           : i18nc("@info %1 is a folder, %2 the error", "Could not unmount %1: %2", it->path, detail));
     });
-    connect(process, &QProcess::errorOccurred, this, [this, id, process](QProcess::ProcessError error) {
+    connect(process, &QProcess::errorOccurred, this, [this, id, process, program](QProcess::ProcessError error) {
         auto it = m_mounts.find(id);
         if (error != QProcess::FailedToStart || it == m_mounts.end()) {
             return;
@@ -821,9 +985,35 @@ void RemoteMountManager::unmountFstab(const QString &id)
         process->deleteLater();
         it->process = nullptr;
         it->stopping = false;
-        Q_EMIT failed(id, i18nc("@info %1 is the error", "Could not start umount: %1", process->errorString()));
+        Q_EMIT failed(id,
+                      i18nc("@info %1 is a command, %2 the error",
+                            "Could not start %1: %2",
+                            program.isEmpty() ? QStringLiteral("umount") : QFileInfo(program).fileName(),
+                            process->errorString()));
     });
-    process->start(RemoteMounts::findExecutable(QStringLiteral("umount")), {it->path});
+    process->start(program, arguments);
+}
+
+void RemoteMountManager::unmountNow(const Mount &mount)
+{
+    QString program;
+    QStringList arguments{mount.path};
+    if (mount.backend == RemoteMounts::Backend::Sshfs) {
+        program = RemoteMounts::findFusermount();
+        arguments.prepend(QStringLiteral("-u"));
+    } else if (isFstabBackend(mount.backend)) {
+        program = RemoteMounts::findExecutable(QStringLiteral("umount"));
+    }
+    if (program.isEmpty()) {
+        return;
+    }
+    QProcess process;
+    process.setStandardInputFile(QProcess::nullDevice());
+    process.start(program, arguments);
+    if (!process.waitForFinished(stopTimeout)) {
+        process.kill();
+        process.waitForFinished(1000);
+    }
 }
 
 void RemoteMountManager::stopAllNow()
@@ -835,20 +1025,20 @@ void RemoteMountManager::stopAllNow()
             mount.process->disconnect(this);
             stopProcess(mount.process);
         }
-        if (isFstabBackend(mount.backend) && mount.ready) {
-            QProcess umount;
-            umount.setStandardInputFile(QProcess::nullDevice());
-            umount.start(RemoteMounts::findExecutable(QStringLiteral("umount")), {mount.path});
-            if (!umount.waitForFinished(stopTimeout)) {
-                umount.kill();
-                umount.waitForFinished(1000);
-            }
+        // Stopping a foreground sshfs unmounts it; other mounts run without a process here.
+        const bool foreground = mount.backend == RemoteMounts::Backend::Sshfs && !mount.detached && !mount.adopted;
+        // Adopted mounts always stay, and the others stay when unmounting on exit is off.
+        const bool left = !foreground && mount.ready && (mount.adopted || !m_unmountOnExit);
+        if (!foreground && mount.ready && !left && mount.backend != RemoteMounts::Backend::KioFuse) {
+            unmountNow(mount);
         }
         delete mount.poll;
         delete mount.process;
         mount.poll = nullptr;
         mount.process = nullptr;
-        releaseFolder(mount);
+        if (!left) {
+            releaseFolder(mount);
+        }
     }
     m_mounts.clear();
 }
@@ -857,6 +1047,15 @@ bool RemoteMountManager::isMounted(const QString &id) const
 {
     const auto it = m_mounts.constFind(id);
     return it != m_mounts.cend() && it->ready && !it->stopping;
+}
+
+bool RemoteMountManager::isMountedAt(const RemoteProfiles::Profile &profile, const RemoteMounts::Options &options) const
+{
+    if (options.backend == RemoteMounts::Backend::KioFuse) {
+        return false;
+    }
+    const QString path = RemoteMounts::mountPoint(profile, options, m_folder);
+    return m_check(path) && !RemoteMounts::isStale(path);
 }
 
 bool RemoteMountManager::isStarting(const QString &id) const

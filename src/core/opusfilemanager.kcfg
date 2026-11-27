@@ -1846,4 +1846,49 @@
       <default>Mount</default>
     </entry>
   </group>
+  <group name="RemoteDrives">
+    <entry name="RemoteDriveSftpBackend" type="Enum">
+      <label>How SFTP connections without mount options of their own are mounted: with KIO FUSE or sshfs</label>
+      <choices>
+        <choice name="KioFuse" value="kio-fuse"/>
+        <choice name="Sshfs" value="sshfs"/>
+      </choices>
+      <default>KioFuse</default>
+    </entry>
+    <entry name="RemoteDriveWebDavBackend" type="Enum">
+      <label>How WebDAV connections without mount options of their own are mounted: with KIO FUSE or davfs2</label>
+      <choices>
+        <choice name="KioFuse" value="kio-fuse"/>
+        <choice name="Davfs2" value="davfs2"/>
+      </choices>
+      <default>KioFuse</default>
+    </entry>
+    <entry name="RemoteDriveSmbBackend" type="Enum">
+      <label>How SMB connections without mount options of their own are mounted: with KIO FUSE or the kernel CIFS client</label>
+      <choices>
+        <choice name="KioFuse" value="kio-fuse"/>
+        <choice name="Cifs" value="cifs"/>
+      </choices>
+      <default>KioFuse</default>
+    </entry>
+    <entry name="RemoteDriveMountFolder" type="Url">
+      <label>The folder holding the mounts of connections without a folder of their own; empty for a private folder in the runtime directory</label>
+    </entry>
+    <entry name="RemoteDriveReadOnly" type="Bool">
+      <label>Whether connections without mount options of their own are mounted read-only, with the backends that can</label>
+      <default>false</default>
+    </entry>
+    <entry name="RemoteDriveMountAtLogin" type="Bool">
+      <label>Whether Plasma Opus starts in the system tray at login to mount the connections chosen to mount when it starts</label>
+      <default>false</default>
+    </entry>
+    <entry name="RemoteDriveMountOnWorkspace" type="Bool">
+      <label>Whether activating a workspace mounts the saved connections holding the locations assigned to it</label>
+      <default>false</default>
+    </entry>
+    <entry name="RemoteDriveUnmountOnExit" type="Bool">
+      <label>Whether sshfs, davfs2 and CIFS mounts started by Plasma Opus are unmounted when it quits</label>
+      <default>true</default>
+    </entry>
+  </group>
 </kcfg>

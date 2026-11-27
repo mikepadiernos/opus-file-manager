@@ -322,6 +322,8 @@ bool rcloneNeedsResync(const QByteArray &output);
 QString autostartPath();
 /// The autostart entry that starts @p program in the background.
 QByteArray autostartEntry(const QString &program, const QString &iconName);
+/// Quotes @p argument for the Exec key of a desktop entry.
+QString execArgument(const QString &argument);
 bool startsAtLogin();
 bool setStartAtLogin(bool enabled, const QString &program, const QString &iconName, QString *error = nullptr);
 }
