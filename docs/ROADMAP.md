@@ -1828,7 +1828,10 @@ Settings for M27 integrations, stored in KConfig.
   - [ ] **System file chooser start folder:** when an application suggests no
         folder, start in the home folder or in the folder of the last accepted
         choice. Remember the last folder per application where the portal
-        identifies it, in session state rather than settings. (Luciole) [#750]
+        identifies it, in session state rather than settings. (Luciole)
+        Plasma-session verification is a
+        [pending handoff](TODO.md#chooser-start-folder-on-plasma-750).
+        [#750]
 
 - **Plasma notifications**
 
