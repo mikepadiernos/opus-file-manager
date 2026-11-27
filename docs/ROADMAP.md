@@ -2103,7 +2103,7 @@ considered Calendar, Maps, Deck and Notes workflows.
       Real-server verification is a
       [pending handoff](TODO.md#nextcloud-shares-on-a-real-server-591).
       [#591]
-- [ ] Open configured local sync folders and the existing desktop client,
+- [x] Open configured local sync folders and the existing desktop client,
       showing available status and distinguishing remote, local, offline and
       unknown state. Never start a second sync engine or change the client's
       configuration. Plasma verification is a
