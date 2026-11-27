@@ -2106,7 +2106,9 @@ considered Calendar, Maps, Deck and Notes workflows.
 - [ ] Open configured local sync folders and the existing desktop client,
       showing available status and distinguishing remote, local, offline and
       unknown state. Never start a second sync engine or change the client's
-      configuration. [#592]
+      configuration. Plasma verification is a
+      [pending handoff](TODO.md#nextcloud-desktop-client-on-plasma-592).
+      [#592]
 
 ### M30: Nextcloud settings
 
