@@ -420,10 +420,14 @@ behaves like the rest of the desktop and follows the user's choices.
   Yakuake first when it isn't running, and the status bar notes that its
   window may need its shortcut. Providers that aren't installed are disabled
   with a tooltip saying so, and remote or missing folders are reported
-  without starting anything. **Open Terminal Here** still uses KDE's default
-  terminal. The embedded terminal panel's menu gains **Terminal Component**,
-  which chooses the Konsole or Kwi component for new sessions; open sessions
-  keep theirs, and a missing component is reported instead of replaced. See
+  without starting anything. The embedded terminal panel's menu gains
+  **Terminal Component**, which chooses the Konsole or Kwi component for new
+  sessions; open sessions keep theirs, and a missing component is reported
+  instead of replaced. Choose the terminal that **Open Terminal Here** opens,
+  KDE's default terminal unless changed, and the embedded terminal's component
+  under **Preferences › Applications › Terminal**, which marks the terminals
+  that aren't installed
+  ([#295](https://github.com/mikepadiernos/plasma-opus/issues/295)). See
   [Terminal providers](../CAVEATS.md#desktop-integration) and
   [Embedded terminal](../CAVEATS.md#embedded-terminal).
   ([#289](https://github.com/mikepadiernos/plasma-opus/issues/289))

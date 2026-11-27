@@ -444,6 +444,11 @@ Settings
   the Plasma Search tab moved to **KDE Plasma › KRunner**, which also turns
   the results off and chooses each workspace and Favorite offered
   ([#394](https://github.com/mikepadiernos/plasma-opus/issues/394)).
+  **Terminal component** moved from **Tools › Embedded Terminal** to
+  **Embedded terminal** under **Applications › Terminal**, beside the terminal
+  that **Open Terminal Here** opens; the panel's placement and folder
+  following stay under **Tools › Embedded Terminal**
+  ([#295](https://github.com/mikepadiernos/plasma-opus/issues/295)).
 - Integrations › KDE Plasma groups desktop-specific controls; provider choices
   shared with non-KDE applications remain separate. Password-gated folders are
   placed under Workspaces › Management but are an M28 feature; the gate applies
