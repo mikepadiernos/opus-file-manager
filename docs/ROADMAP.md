@@ -1871,7 +1871,7 @@ Settings for M27 integrations, stored in KConfig.
         Plasma-session verification is a
         [pending handoff](TODO.md#baloo-search-settings-on-plasma-443).
         [#443]
-  - [ ] **Categories:** choose which file-type categories appear in Places and
+  - [x] **Categories:** choose which file-type categories appear in Places and
         their criteria, such as the large-file size [#660]
 
 - **Terminal**
