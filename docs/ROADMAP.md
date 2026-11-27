@@ -2080,6 +2080,8 @@ considered Calendar, Maps, Deck and Notes workflows.
       [#365]
 - [ ] Preview supported remote digital assets and inspect available server
       metadata, respecting existing preview limits and remote-download policy.
+      Real-server verification is a
+      [pending handoff](TODO.md#nextcloud-previews-on-a-real-server-589).
       [#589]
 - [ ] Search and organize assets using supported server metadata, tags and
       favorites. Keep server tags distinct from native local tags; identify
