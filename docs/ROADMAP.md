@@ -1768,7 +1768,7 @@ for some features are recorded in [pending tasks](TODO.md).
 
 - **M27.09: Plasma Impresario and mail**
 
-  - [ ] Send selected files by email: offer an explicit action that opens the
+  - [x] Send selected files by email: offer an explicit action that opens the
         user's preferred mail client, such as
         [Plasma Impresario](https://github.com/mikepadiernos/plasma-impresario),
         through KIO's `KEMailClientLauncherJob` or the XDG Email portal when
@@ -1784,7 +1784,9 @@ for some features are recorded in [pending tasks](TODO.md).
         its private attachment drag format and explain that the attachment
         must be saved from the mail client instead of saving the reference as
         a file; accept real file content or URLs through the existing KIO drop
-        and conflict handling when provided. Never contact a mail server. [#657]
+        and conflict handling when provided. Never contact a mail server.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#mail-attachments-on-plasma-657). [#657]
   - [ ] Mail file preview: show local `.eml` (`message/rfc822`) headers,
         plain-text body and attachment list in the preview panel without
         loading remote content, running scripts or decrypting messages. Offer
