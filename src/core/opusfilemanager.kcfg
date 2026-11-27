@@ -442,6 +442,19 @@
       </choices>
       <default>SystemDefault</default>
     </entry>
+    <entry name="AtuinHistory" type="Bool">
+      <label>Offer the Search Command History with Atuin action</label>
+      <default>true</default>
+    </entry>
+    <entry name="AtuinSession" type="Enum">
+      <label>Embedded terminal session that Atuin's history search opens in</label>
+      <choices>
+        <choice name="Current"/>
+        <choice name="NewWhenBusy"/>
+        <choice name="New"/>
+      </choices>
+      <default>Current</default>
+    </entry>
   </group>
   <group name="Search">
     <entry name="DefaultSearchScope" type="Enum">
