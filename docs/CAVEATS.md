@@ -1952,7 +1952,9 @@ The M27 desktop integrations have these limits
   shell history unless leading spaces are ignored. Plasma Opus can't tell
   whether Yakuake's window is shown, so it doesn't open or close it, and
   waits 15 seconds for a Yakuake it started. A running Kwi decides how a
-  second request opens. The choice isn't remembered between uses.
+  second request opens. **Open Terminal With** doesn't remember its choice;
+  **Open Terminal Here** opens the terminal chosen under **Preferences ›
+  Applications › Terminal**.
   ([#289](https://github.com/mikepadiernos/plasma-opus/issues/289))
 
 - **📝 Editor integrations:** **Edit With** only lists KWrite, Kate, Neovim,
@@ -2435,11 +2437,12 @@ The M27 desktop integrations have these limits
     set **Large files are over** there, or search with `size>` or `type:` in
     the search panel.
   - **Terminal providers:** Install the terminal from your distribution so
-    its command is in `PATH`, or keep using **Open Terminal Here**, which
-    follows the terminal chosen under **System Settings › Default
-    Applications**. After opening a Yakuake session, press Yakuake's shortcut,
-    F12 by default, if its window is hidden, and check the folder before
-    running commands. To keep the `cd` out of shell history, set
+    its command is in `PATH`, or keep **Default Terminal** chosen for **Open
+    Terminal Here** under **Preferences › Applications › Terminal** to follow
+    the terminal chosen under **System Settings › Default Applications**.
+    After opening a Yakuake session, press Yakuake's shortcut, F12 by
+    default, if its window is hidden, and check the folder before running
+    commands. To keep the `cd` out of shell history, set
     `HISTCONTROL=ignorespace` in Bash, or `setopt HIST_IGNORE_SPACE` in Zsh.
   - **Editor integrations:** Install the editor from your distribution so
     its command is in `PATH`, and install the Konsole component for terminal
@@ -2653,10 +2656,9 @@ The M27 desktop integrations have these limits
   - Retranslate the file-type category titles when the language changes,
     hide the entries from file dialogs, and confirm live results by content
     as Baloo does.
-  - The M28 terminal **Provider** settings to choose the provider for **Open
-    Terminal Here**, find Flatpak terminals, show Yakuake's window through a
-    dedicated D-Bus call when it offers one, and open a selected folder
-    rather than the pane's folder from its context menu.
+  - Find Flatpak terminals, show Yakuake's window through a dedicated D-Bus
+    call when it offers one, and open a selected folder rather than the
+    pane's folder from its context menu.
   - The M28 editor settings to choose a default editor, open terminal
     editors in a separate terminal, find Flatpak editors and add other
     editors.
@@ -2961,6 +2963,20 @@ The M28 integration settings have these limits
   applies to the next **Large Files** search; the other categories have no
   criteria to set, and their file types are fixed.
   ([#660](https://github.com/mikepadiernos/plasma-opus/issues/660))
+- **🐚 Terminal provider settings:** **Separate terminal** under
+  **Preferences › Applications › Terminal** chooses what **Open Terminal
+  Here** opens, on the toolbar and in the folder context menus, after
+  **Apply** or **OK**. **Tools › Open Terminal With** still offers every
+  terminal, and running an executable in a terminal still uses KDE's default
+  terminal. The tab marks the terminals that aren't installed, checking
+  `PATH` and the installed components each time it is shown, so a terminal
+  installed only as a Flatpak shows as not installed. A chosen terminal that
+  is later removed is reported by **Open Terminal Here** instead of replaced
+  by another, and Yakuake opens with the same limits as from **Open Terminal
+  With**. **Embedded terminal** moved here from **Tools › Embedded
+  Terminal**, where the panel's placement and folder following remain, and
+  like the panel menu's **Terminal Component** applies to new sessions only.
+  ([#295](https://github.com/mikepadiernos/plasma-opus/issues/295))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3056,6 +3072,13 @@ The M28 integration settings have these limits
     over** to list only the biggest files, such as disk images and videos,
     when freeing space, and search with `size>` in the search panel for a
     one-off size.
+  - **Terminal provider settings:** Choose the terminal you use most as
+    **Separate terminal** under **Preferences › Applications › Terminal**,
+    for example Yakuake for a drop-down terminal, or keep **Default
+    Terminal** to follow **System Settings › Default Applications**. Pick one
+    the tab doesn't mark as not installed, and use **Tools › Open Terminal
+    With** for a one-off choice. Choose **Embedded terminal** there as well,
+    then open a new session in the terminal panel.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3104,6 +3127,9 @@ The M28 integration settings have these limits
   - Restore a category at its earlier position in Places, treat Places'
     **Hide** action like clearing the category, and offer criteria for the
     other categories, such as extra file extensions or a modification date.
+  - Fall back to KDE's default terminal when the chosen one is removed, use
+    the separate terminal for executables run in a terminal as well, and
+    follow terminals installed or removed while the **Terminal** tab is open.
 
 ## Embedded terminal
 
@@ -3111,8 +3137,9 @@ The embedded terminal requires the Konsole or Kwi terminal component and has
 these limits
 ([#321](https://github.com/mikepadiernos/plasma-opus/issues/321)):
 
-- **Terminal component:** **Terminal Component** in the panel's menu applies
-  to new sessions; open sessions keep the component they started with. When
+- **Terminal component:** **Terminal Component** in the panel's menu, like
+  **Embedded terminal** under **Preferences › Applications › Terminal**,
+  applies to new sessions; open sessions keep the component they started with. When
   the chosen component isn't installed, the panel says so instead of loading
   the other. Kwi's component doesn't report its blur setting, so the panel
   isn't blurred behind it.
@@ -3143,7 +3170,8 @@ these limits
 - **Recommendation:** Install the Konsole terminal component for embedded
   sessions; on Arch Linux it is supplied by the `konsole` package. To use Kwi
   instead, install it and choose **Kwi** under the panel menu's **Terminal
-  Component**, then open a new session. For remote
+  Component** or **Preferences › Applications › Terminal**, then open a new
+  session. For remote
   locations, connect using a suitable terminal tool or use a separate terminal
   configured for that service. Check the terminal working directory before
   running commands, close unneeded session tabs, and finish or safely stop
