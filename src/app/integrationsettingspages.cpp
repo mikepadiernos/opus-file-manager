@@ -26,6 +26,8 @@
 #include "terminalproviders.h"
 #include "traypolicy.h"
 #include "vaultsettings.h"
+#include "workspacelocations.h"
+#include "workspacevaultsettings.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
@@ -1624,6 +1626,7 @@ QWidget *SettingsDialog::createEditorIntegrationPage()
     auto *layout = new QVBoxLayout(page);
     layout->addWidget(createEditorProviderGroup());
     layout->addWidget(createEditorMarkdownGroup());
+    layout->addWidget(createEditorWorkspaceVaultGroup());
     layout->addStretch();
     return page;
 }
@@ -1780,6 +1783,20 @@ QGroupBox *SettingsDialog::createEditorMarkdownGroup()
     refresh();
     connect(builtIn, &QPushButton::clicked, this, &SettingsDialog::showBuiltInEditorSettings);
     return group;
+}
+
+QGroupBox *SettingsDialog::createEditorWorkspaceVaultGroup()
+{
+    // The main window's saved locations, which follow its Favorites and Places as they change.
+    WorkspaceLocations *locations = parentWidget() ? parentWidget()->findChild<WorkspaceLocations *>(QString(), Qt::FindDirectChildrenOnly) : nullptr;
+    if (!locations && m_places) {
+        auto *favorites = new FavoritesModel(KSharedConfig::openConfig()->group(QStringLiteral("Favorites")), this);
+        locations = new WorkspaceLocations(favorites, m_places, this);
+    }
+    m_workspaceVaultSettings = new WorkspaceVaultSettings(locations);
+    connect(m_workspaceVaultSettings, &WorkspaceVaultSettings::changed, this, &SettingsDialog::updateButtons);
+    connect(m_workspaceVaultSettings, &WorkspaceVaultSettings::manageWorkspacesRequested, this, &SettingsDialog::manageWorkspacesRequested);
+    return m_workspaceVaultSettings;
 }
 
 void SettingsDialog::showBuiltInEditorSettings()

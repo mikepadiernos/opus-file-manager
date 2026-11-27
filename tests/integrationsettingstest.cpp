@@ -25,6 +25,7 @@
 #include "settingsdialog.h"
 #include "settingswidgets.h"
 #include "terminalproviders.h"
+#include "workspacecatalog.h"
 
 #include <KActionCollection>
 #include <KActionMenu>
@@ -1997,6 +1998,96 @@ private Q_SLOTS:
         auto *builtIn = dialog.findChild<QWidget *>(QStringLiteral("editorSettingsPage"));
         QTRY_VERIFY(builtIn->isVisible());
         QVERIFY(builtIn->isAncestorOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_EditorMarkdownMode"))));
+    }
+
+    void editorTabSetsTheWorkspaceVault()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const QString vault = QFileInfo(folder.path()).canonicalFilePath() + QStringLiteral("/vault");
+        QVERIFY(QDir().mkpath(vault));
+        for (const QString &name : {QStringLiteral("Home.md"), QStringLiteral("Ideas.md")}) {
+            QFile note(vault + QLatin1Char('/') + name);
+            QVERIFY(note.open(QIODevice::WriteOnly));
+            note.write("[[Home]] #idea\n");
+        }
+        const QUrl url = QUrl::fromLocalFile(vault);
+        const QString locationId = WorkspaceCatalog::locationId(url);
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup workspaces = config->group(QStringLiteral("Workspaces"));
+        config->group(QStringLiteral("Favorites")).deleteGroup();
+        workspaces.deleteGroup();
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Notes"), QStringLiteral("N"), error));
+        const QString id = catalog.workspaces.first().id;
+        QVERIFY(WorkspaceCatalog::assignLocation(catalog, locationId, id, error));
+        QVERIFY(WorkspaceCatalog::setVault(catalog, id, locationId, error));
+        QVERIFY(WorkspaceCatalog::activate(catalog, id, error));
+        QVERIFY2(WorkspaceCatalog::save(workspaces, catalog, error), qPrintable(error));
+        QVERIFY(config->sync());
+        const auto restore = qScopeGuard([config] {
+            config->reparseConfiguration();
+            config->group(QStringLiteral("Favorites")).deleteGroup();
+            config->group(QStringLiteral("Workspaces")).deleteGroup();
+            config->sync();
+        });
+
+        MainWindow window;
+        QVERIFY(window.favorites()->add(url));
+        QTRY_COMPARE(EditorPanel::workspaceVault(), vault);
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *group = dialog.findChild<QGroupBox *>(QStringLiteral("editorWorkspaceVaultGroup"));
+        QVERIFY(group);
+        QCOMPARE(tabTitleOf(group), QStringLiteral("Editor"));
+        auto *workspace = group->findChild<QComboBox *>(QStringLiteral("editorWorkspaceVaultWorkspace"));
+        auto *location = group->findChild<QComboBox *>(QStringLiteral("editorWorkspaceVaultLocation"));
+        auto *enabled = group->findChild<QCheckBox *>(QStringLiteral("editorWorkspaceVaultEnabled"));
+        auto *ownOptions = group->findChild<QCheckBox *>(QStringLiteral("editorWorkspaceVaultOwnOptions"));
+        auto *tags = group->findChild<QCheckBox *>(QStringLiteral("editorWorkspaceVaultTags"));
+        auto *status = group->findChild<QLabel *>(QStringLiteral("editorWorkspaceVaultStatus"));
+        QVERIFY(workspace && location && enabled && ownOptions && tags && status);
+        QCOMPARE(workspace->currentData().toString(), id);
+        QCOMPARE(location->currentData().toString(), locationId);
+        QVERIFY(enabled->isChecked());
+        QVERIFY(!ownOptions->isChecked());
+        QTRY_VERIFY2(status->text().contains(QStringLiteral("has 2 Markdown notes")), qPrintable(status->text()));
+        const auto apply = [&dialog] {
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        };
+        const auto stored = [&config, &error] {
+            config->reparseConfiguration();
+            WorkspaceCatalog::Catalog current;
+            WorkspaceCatalog::load(config->group(QStringLiteral("Workspaces")), current, error);
+            return current.workspaces.value(0);
+        };
+
+        // Turning the vault off keeps its location for later.
+        enabled->setChecked(false);
+        QVERIFY2(status->text().contains(QStringLiteral("turned off")), qPrintable(status->text()));
+        apply();
+        QVERIFY(!stored().vaultEnabled);
+        QCOMPARE(stored().vaultLocationId, locationId);
+        QVERIFY(!EditorPanel::workspaceVaultState().isActive());
+
+        // The workspace's own options reach the editor.
+        enabled->setChecked(true);
+        ownOptions->setChecked(true);
+        QVERIFY(tags->isEnabled());
+        tags->setChecked(false);
+        apply();
+        QVERIFY(stored().vaultEnabled);
+        QVERIFY(stored().vaultOptions && !stored().vaultOptions->tags);
+        QCOMPARE(EditorPanel::workspaceVault(), vault);
+        QVERIFY(EditorPanel::workspaceVaultState().options && !EditorPanel::workspaceVaultState().options->tags);
+
+        // A removed location is reported, and the workspace keeps it as its vault.
+        QVERIFY(window.favorites()->remove(url));
+        QTRY_VERIFY2(status->text().contains(QStringLiteral("no longer in Favorites")), qPrintable(status->text()));
+        QCOMPARE(location->currentData().toString(), locationId);
+        QVERIFY(!dialog.button(QDialogButtonBox::Apply)->isEnabled());
     }
 };
 

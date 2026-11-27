@@ -6,6 +6,9 @@
 
 #include <KBookmark>
 #include <KFilePlacesModel>
+#include <KLocalizedString>
+
+#include <algorithm>
 
 WorkspaceLocations::WorkspaceLocations(FavoritesModel *favorites, KFilePlacesModel *places, QObject *parent)
     : QObject(parent)
@@ -90,4 +93,27 @@ bool WorkspaceLocations::isVisible(const QUrl &url, const WorkspaceCatalog::Cata
     }
     const QString owner = catalog.locationAssignments.value(id);
     return owner.isEmpty() || owner == workspaceId;
+}
+
+QString WorkspaceLocations::vaultFolder(const QString &locationId, QString *unavailable) const
+{
+    QString reason;
+    QString folder;
+    const QList<Location> saved = locations();
+    const auto location = std::find_if(saved.cbegin(), saved.cend(), [&locationId](const Location &entry) {
+        return entry.id == locationId;
+    });
+    if (location == saved.cend()) {
+        reason = i18nc("@info", "The workspace vault's saved location is no longer in Favorites or Places.");
+    } else if (location->ambiguous) {
+        reason = i18nc("@info %1 is a location name", "Several saved locations match the workspace vault %1, so it can't be told apart.", location->title);
+    } else if (!location->url.isLocalFile()) {
+        reason = i18nc("@info %1 is a location name", "The workspace vault %1 isn't a local folder.", location->title);
+    } else {
+        folder = location->url.toLocalFile();
+    }
+    if (unavailable) {
+        *unavailable = reason;
+    }
+    return folder;
 }

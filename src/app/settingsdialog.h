@@ -38,6 +38,7 @@ class RuleListEditor;
 class StartupWorkspaceCombo;
 class TagFieldManagerWidget;
 class WorkspaceCombo;
+class WorkspaceVaultSettings;
 class YaziColumnRatiosEditor;
 
 namespace LibraryConfirmations
@@ -362,6 +363,8 @@ private:
     QGroupBox *createEditorProviderGroup();
     /// The Markdown group of the Editor tab: the vault folder and how the built-in editor previews and links Markdown notes.
     QGroupBox *createEditorMarkdownGroup();
+    /// The Workspace vault group of the Editor tab: each workspace's vault location and its own Markdown options.
+    QGroupBox *createEditorWorkspaceVaultGroup();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
@@ -396,6 +399,7 @@ private:
     QMap<QString, QString> m_savedDesktopWorkspaces;
     std::function<bool()> m_confirmKWinRemoval;
     WorkspaceCombo *m_dropDownWorkspace = nullptr;
+    WorkspaceVaultSettings *m_workspaceVaultSettings = nullptr;
     KKeySequenceWidget *m_dropDownShortcut = nullptr;
     /// The drop-down window's global shortcut when it was last loaded or assigned, to tell whether the dialog changed it.
     QKeySequence m_savedDropDownShortcut;

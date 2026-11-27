@@ -67,7 +67,7 @@ QString cleanVaultRoot(const QString &root)
 }
 
 // Only one main window shows editors, so the active workspace's vault applies process-wide.
-QString s_workspaceVault;
+EditorPanel::WorkspaceVault s_workspaceVault;
 QList<EditorPanel *> s_editorPanels;
 }
 
@@ -643,24 +643,39 @@ void EditorPanel::setVault(const QString &root)
 
 void EditorPanel::setWorkspaceVault(const QString &root)
 {
-    const QString clean = cleanVaultRoot(root);
+    setWorkspaceVaultState({root, {}, std::nullopt});
+}
+
+QString EditorPanel::workspaceVault()
+{
+    return s_workspaceVault.root;
+}
+
+void EditorPanel::setWorkspaceVaultState(const WorkspaceVault &vault)
+{
+    WorkspaceVault clean = vault;
+    clean.root = cleanVaultRoot(vault.root);
+    if (!clean.isActive()) {
+        clean = {};
+    }
     if (clean == s_workspaceVault) {
         return;
     }
     s_workspaceVault = clean;
     for (EditorPanel *panel : std::as_const(s_editorPanels)) {
-        panel->applyVault();
+        // The workspace's options may change the dialect as well as the vault.
+        panel->applyMarkdownSettings();
     }
 }
 
-QString EditorPanel::workspaceVault()
+EditorPanel::WorkspaceVault EditorPanel::workspaceVaultState()
 {
     return s_workspaceVault;
 }
 
 void EditorPanel::applyVault()
 {
-    const QString root = s_workspaceVault.isEmpty() ? m_ownVaultRoot : s_workspaceVault;
+    const QString root = s_workspaceVault.isActive() ? s_workspaceVault.root : m_ownVaultRoot;
     if (root == m_vaultRoot) {
         updateVaultPanel();
         return;
@@ -682,6 +697,9 @@ const NoteVault::Index &EditorPanel::vaultIndex() const
 
 VaultSettings::Options EditorPanel::vaultOptions() const
 {
+    if (s_workspaceVault.isActive() && s_workspaceVault.options) {
+        return *s_workspaceVault.options;
+    }
     return VaultSettings::general();
 }
 
@@ -806,16 +824,22 @@ void EditorPanel::openWikiLink(const QUrl &url)
 void EditorPanel::updateVaultPanel()
 {
     const bool hasVault = !m_vaultRoot.isEmpty();
-    const bool workspace = !s_workspaceVault.isEmpty();
-    m_vaultPanel->setVisible(hasVault);
+    const bool workspace = s_workspaceVault.isActive();
+    // A workspace vault that can't be found stays in view to say why.
+    m_vaultPanel->setVisible(hasVault || workspace);
     m_vaultRescan->setEnabled(hasVault);
     // The workspace decides the vault while it has one; the panel's own choice returns afterwards.
     m_vaultChoose->setEnabled(!workspace);
     m_vaultClose->setEnabled(hasVault && !workspace);
     m_vaultButton->setToolTip(workspace ? i18nc("@info:tooltip", "The active workspace uses %1 as the vault for wiki links, backlinks and tags", m_vaultRoot)
                                         : i18nc("@info:tooltip", "Choose a folder of Markdown notes for wiki links, backlinks and tags"));
-    m_vaultTitle->setText(workspace ? i18nc("@info %1 is a folder name", "Workspace vault: %1", QFileInfo(m_vaultRoot).fileName())
-                                    : i18nc("@info %1 is a folder name", "Vault: %1", QFileInfo(m_vaultRoot).fileName()));
+    if (workspace && !hasVault) {
+        m_vaultButton->setToolTip(i18nc("@info:tooltip", "The active workspace's vault folder can't be found"));
+        m_vaultTitle->setText(i18nc("@info", "Workspace vault unavailable"));
+    } else {
+        m_vaultTitle->setText(workspace ? i18nc("@info %1 is a folder name", "Workspace vault: %1", QFileInfo(m_vaultRoot).fileName())
+                                        : i18nc("@info %1 is a folder name", "Vault: %1", QFileInfo(m_vaultRoot).fileName()));
+    }
     m_vaultTitle->setToolTip(m_vaultRoot);
     m_backlinks->clear();
     m_outgoingLinks->clear();
@@ -824,13 +848,19 @@ void EditorPanel::updateVaultPanel()
     m_vaultTabs->setTabVisible(m_vaultTabs->indexOf(m_backlinks), options.backlinks);
     m_vaultTabs->setTabVisible(m_vaultTabs->indexOf(m_outgoingLinks), options.links);
     m_vaultTabs->setTabVisible(m_vaultTabs->indexOf(m_tags), options.tags);
-    m_vaultTabs->setVisible(options.backlinks || options.links || options.tags);
+    m_vaultTabs->setVisible(hasVault && (options.backlinks || options.links || options.tags));
     if (!hasVault) {
-        m_vaultStatus->clear();
+        if (workspace) {
+            m_vaultStatus->setText(s_workspaceVault.unavailable);
+        } else {
+            m_vaultStatus->clear();
+        }
         return;
     }
     if (m_vaultIndex.root.isEmpty()) {
-        m_vaultStatus->setText(m_vaultScanning ? i18nc("@info", "Scanning the vault…") : i18nc("@info", "The vault folder %1 can't be read.", m_vaultRoot));
+        const QString reason = VaultSettings::unavailableReason(m_vaultRoot);
+        m_vaultStatus->setText(m_vaultScanning ? i18nc("@info", "Scanning the vault…")
+                                               : (reason.isEmpty() ? i18nc("@info", "The vault folder %1 can't be read.", m_vaultRoot) : reason));
         return;
     }
     const QString note = currentNotePath();

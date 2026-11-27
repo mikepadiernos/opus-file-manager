@@ -358,8 +358,8 @@ private:
     void reloadWorkspaceCatalog();
     /// Applies current workspace visibility to the navigation panels.
     void refreshWorkspaceLocations();
-    /// The local folder of the active workspace's editor vault, or empty.
-    QString workspaceVaultRoot() const;
+    /// The active workspace's editor vault: its local folder, or why it can't be found, and its options.
+    EditorPanel::WorkspaceVault workspaceVault() const;
     /// Watches the workspace configuration for changes from other windows.
     void watchWorkspaceCatalog();
     bool captureWorkspaceLayout(WorkspaceCatalog::Layout &layout, QString &error) const;

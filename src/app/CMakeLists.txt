@@ -199,6 +199,8 @@ add_library(opusfm_app STATIC
     workspaceappearanceeditor.h
     workspacelocations.cpp
     workspacelocations.h
+    workspacevaultsettings.cpp
+    workspacevaultsettings.h
     yazicolumns.cpp
     yazicolumns.h
     yazikeys.cpp

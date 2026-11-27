@@ -35,6 +35,7 @@
 #include "themeprofiles.h"
 #include "windoweffects.h"
 #include "workspacecatalog.h"
+#include "workspacevaultsettings.h"
 #include "yazimode.h"
 
 #include <KActionCollection>
@@ -1011,6 +1012,9 @@ QWidget *SettingsDialog::createWorkspaceBehaviorsPage()
 
 void SettingsDialog::reloadWorkspaces()
 {
+    if (m_workspaceVaultSettings) {
+        m_workspaceVaultSettings->reload();
+    }
     if (!m_workspaceSummary || !m_startupWorkspace) {
         return;
     }
@@ -4310,6 +4314,11 @@ void SettingsDialog::updateSettings()
         config->sync();
         m_savedDesktopWorkspaces = assignments;
     }
+    // The workspace vaults are stored with their workspaces; a failure is reported in their group.
+    if (m_workspaceVaultSettings->hasChanges() && m_workspaceVaultSettings->save()) {
+        // KConfigDialog announces only changes to kcfg_ widgets, and the main window applies the vaults when it hears.
+        settingsChangedSlot();
+    }
     if (DesktopTray *tray = desktopTray(); tray && m_globalShortcutKey->keySequence() != tray->globalShortcut()) {
         // Before the main window applies the settings, so a shortcut turned on
         // at the same time gets the chosen key.
@@ -4360,6 +4369,8 @@ void SettingsDialog::updateWidgets()
         m_desktopWorkspaces->setAssignments(KWinScript::readDesktopWorkspaces(config->group(QStringLiteral("KWinVirtualDesktops"))));
         m_savedDesktopWorkspaces = m_desktopWorkspaces->assignments();
     }
+    // Workspace vaults are user data too.
+    m_workspaceVaultSettings->discard();
     // Libraries may have been added or removed from the Tags menu since the dialog was shown.
     reloadLibraries();
     // Window shortcuts may have changed since the dialog was shown.
@@ -4394,7 +4405,7 @@ bool SettingsDialog::hasChanged()
     const DesktopTray *tray = desktopTray();
     return m_yaziResetPending || m_selectionFilters->rules() != m_savedSelectionFilters
         || (tray && m_globalShortcutKey->keySequence() != tray->globalShortcut()) || m_activityAssociations->associations() != m_savedActivityAssociations
-        || m_desktopWorkspaces->assignments() != m_savedDesktopWorkspaces
+        || m_desktopWorkspaces->assignments() != m_savedDesktopWorkspaces || m_workspaceVaultSettings->hasChanges()
         || (m_writeDropDownShortcut && m_dropDownShortcut->keySequence() != m_savedDropDownShortcut)
         || std::any_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
                return toggle.check->isChecked() != toggle.read();

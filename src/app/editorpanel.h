@@ -10,6 +10,7 @@
 
 #include <atomic>
 #include <memory>
+#include <optional>
 
 namespace KTextEditor
 {
@@ -42,6 +43,21 @@ public:
         Right,
         Maximized,
         Window
+    };
+    /// The active workspace's vault.
+    struct WorkspaceVault {
+        /// The vault folder, or empty when the workspace has no vault or its folder can't be found.
+        QString root;
+        /// Why the workspace's vault folder can't be found, such as a removed location, or empty.
+        QString unavailable;
+        /// The workspace's own Markdown options, or empty to use the Editor settings.
+        std::optional<VaultSettings::Options> options;
+        /// Whether the workspace decides the vault, even one it can't find.
+        bool isActive() const
+        {
+            return !root.isEmpty() || !unavailable.isEmpty();
+        }
+        bool operator==(const WorkspaceVault &other) const = default;
     };
     explicit EditorPanel(QWidget *parent = nullptr, const QString &draftDirectory = {});
     ~EditorPanel() override;
@@ -83,6 +99,15 @@ public:
      */
     static void setWorkspaceVault(const QString &root);
     static QString workspaceVault();
+    /**
+     * Uses the active workspace's @p vault in every editor panel, as
+     * setWorkspaceVault() does. While the workspace's vault folder can't be
+     * found, the panels report why instead of using their own vault, and the
+     * workspace's options still apply. An inactive @p vault restores each
+     * panel's own vault and the Editor settings.
+     */
+    static void setWorkspaceVaultState(const WorkspaceVault &vault);
+    static WorkspaceVault workspaceVaultState();
     /// The last completed scan of the vault.
     const NoteVault::Index &vaultIndex() const;
 

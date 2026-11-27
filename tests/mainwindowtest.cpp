@@ -1158,10 +1158,33 @@ private Q_SLOTS:
             QTRY_COMPARE(EditorPanel::workspaceVault(), QDir::cleanPath(m_a.toLocalFile()));
             QVERIFY(window.favorites()->remove(m_a));
             QTRY_VERIFY(EditorPanel::workspaceVault().isEmpty());
+            // The workspace still decides the vault and says why it can't be used.
+            QVERIFY2(EditorPanel::workspaceVaultState().unavailable.contains(QStringLiteral("no longer in Favorites")),
+                     qPrintable(EditorPanel::workspaceVaultState().unavailable));
             QVERIFY(window.favorites()->add(m_a));
             QTRY_VERIFY(!EditorPanel::workspaceVault().isEmpty());
+            QVERIFY(EditorPanel::workspaceVaultState().unavailable.isEmpty());
+
+            // Preferences › Applications › Editor turns the vault off, or gives it its own options.
+            const auto saveVault = [&](bool enabled, const std::optional<VaultSettings::Options> &options) {
+                config->reparseConfiguration();
+                WorkspaceCatalog::Catalog edited;
+                QString problem;
+                QVERIFY(WorkspaceCatalog::load(workspaces, edited, problem));
+                QVERIFY(WorkspaceCatalog::setVaultOptions(edited, id, enabled, options, problem));
+                QVERIFY(WorkspaceCatalog::save(workspaces, edited, problem));
+                window.applySettings();
+            };
+            saveVault(false, std::nullopt);
+            QVERIFY(!EditorPanel::workspaceVaultState().isActive());
+            VaultSettings::Options options;
+            options.wikiLinks = false;
+            saveVault(true, options);
+            QCOMPARE(EditorPanel::workspaceVault(), QDir::cleanPath(m_a.toLocalFile()));
+            QVERIFY(EditorPanel::workspaceVaultState().options == std::optional(options));
         }
         QVERIFY(EditorPanel::workspaceVault().isEmpty());
+        QVERIFY(!EditorPanel::workspaceVaultState().isActive());
     }
 
     void switchesAndRestoresWorkspaceLocationVisibility()

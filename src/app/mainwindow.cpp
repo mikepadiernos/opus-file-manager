@@ -1271,24 +1271,22 @@ void MainWindow::refreshWorkspaceLocations()
         const bool workspaceVisible = m_workspaceLocations->isVisible(m_placesModel->url(index), m_workspaceCatalog, m_currentWorkspaceId);
         m_placesView->setRowHidden(row, !nativeVisible || !workspaceVisible);
     }
-    EditorPanel::setWorkspaceVault(workspaceVaultRoot());
+    EditorPanel::setWorkspaceVaultState(workspaceVault());
     scheduleWorkspaceSelectorRefresh();
 }
 
-QString MainWindow::workspaceVaultRoot() const
+EditorPanel::WorkspaceVault MainWindow::workspaceVault() const
 {
     const auto workspace = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [this](const auto &entry) {
         return entry.id == m_currentWorkspaceId;
     });
-    if (workspace == m_workspaceCatalog.workspaces.cend() || workspace->vaultLocationId.isEmpty()) {
+    if (workspace == m_workspaceCatalog.workspaces.cend() || workspace->vaultLocationId.isEmpty() || !workspace->vaultEnabled) {
         return {};
     }
-    for (const auto &location : m_workspaceLocations->locations()) {
-        if (location.id == workspace->vaultLocationId && !location.ambiguous && location.url.isLocalFile()) {
-            return location.url.toLocalFile();
-        }
-    }
-    return {};
+    EditorPanel::WorkspaceVault vault;
+    vault.root = m_workspaceLocations->vaultFolder(workspace->vaultLocationId, &vault.unavailable);
+    vault.options = workspace->vaultOptions;
+    return vault;
 }
 
 void MainWindow::watchWorkspaceCatalog()
@@ -8169,6 +8167,15 @@ void MainWindow::applySettings()
         m_terminalPanel->start(activePane()->url());
     }
     m_searchPanel->searchWidget()->applyDefaults();
+    // Preferences › Applications › Editor may have changed the workspace vaults.
+    if (!m_workspaceConfig->isDirty()) {
+        m_workspaceConfig->reparseConfiguration();
+        WorkspaceCatalog::Catalog stored;
+        QString workspaceError;
+        if (WorkspaceCatalog::load(m_workspaceConfig->group(QStringLiteral("Workspaces")), stored, workspaceError) && stored != m_workspaceCatalog) {
+            reloadWorkspaceCatalog();
+        }
+    }
     // Including the editors that previews open.
     for (EditorPanel *editor : findChildren<EditorPanel *>()) {
         editor->applySettings();
