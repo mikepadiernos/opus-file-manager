@@ -17,8 +17,8 @@ planned for [M27](../ROADMAP.md#m27-integrations) and
 > [!NOTE]
 > **Implemented:** the KDE foundations under
 > [Existing foundations](#existing-foundations), from merged milestones
-> M01–M26, and the M27.01 integrations listed there, from default
-> file-manager registration to the KWin script and drop-down window.
+> M01–M26, and the M27 integrations listed there, from default file-manager
+> registration to cloud sync and cloud activity.
 > **Planned:** everything under [Planned features](#planned-features). The
 > [roadmap](../ROADMAP.md) is authoritative for status.
 
@@ -515,6 +515,18 @@ behaves like the rest of the desktop and follows the user's choices.
   needs review. Pairs store no passwords. See
   [Cloud sync](../CAVEATS.md#desktop-integration).
   ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718))
+- **Cloud activity:** **File › Cloud Activity…** and the tray menu's
+  **Cloud Activity…** open one window for cloud sync pairs and rclone mounts.
+  It lists each connection with its state, free space and pending uploads,
+  and each transfer with its speed and remaining time, above a speed graph
+  and a list of errors. **Pause All** pauses queued transfers and background
+  sync runs until **Resume All**; mounted remotes keep uploading. rclone
+  bandwidth, parallel transfer and cache size limits apply to mounts and
+  sync runs. Unmounting a remote or quitting Plasma Opus waits for pending
+  uploads, with **Continue Without Waiting** and **Cancel**. Connections can
+  be exported and imported without passwords; imported pairs start paused.
+  See [Cloud activity](../CAVEATS.md#desktop-integration).
+  ([#719](https://github.com/mikepadiernos/plasma-opus/issues/719))
 
 ## Planned features
 
@@ -528,12 +540,6 @@ them.
   searches with Dolphin and file dialogs as KDE search places.
   ([#733](https://github.com/mikepadiernos/plasma-opus/issues/733),
   [#734](https://github.com/mikepadiernos/plasma-opus/issues/734))
-
-### M27.06 Accounts, remote access and synchronization
-
-- **Cloud activity:** Show transfers, quota, pending uploads and cache limits
-  for cloud sync pairs and rclone mounts.
-  ([#719](https://github.com/mikepadiernos/plasma-opus/issues/719))
 
 ### M27.07 Access control and automation
 
