@@ -581,15 +581,22 @@ behaves like the rest of the desktop and follows the user's choices.
   access to: Google Drive through
   [kio-gdrive](https://apps.kde.org/kio_gdrive/), and Nextcloud and
   ownCloud storage through KIO's WebDAV worker. Each folder opens in the
-  active pane or the other pane. Accounts without file storage are listed but
-  disabled, as are turned-off accounts and services, accounts without a
-  server address and folders whose KIO worker isn't installed; the tooltip
-  explains why and names what to install. **Manage Online Accounts…** opens
+  active pane or the other pane. Turned-off accounts and services, accounts
+  without a server address and folders whose KIO worker isn't installed are
+  disabled; the tooltip explains why and names what to install. Accounts
+  without file storage aren't listed. **Manage Online Accounts…** opens
   the System Settings page to add, remove or sign in to accounts. The menu
   rereads the accounts each time it opens, so removed accounts disappear.
   Plasma Opus only reads account names, services and server addresses; it
   never reads or stores tokens or passwords, which stay with KDE's providers
   and KIO, and KIO reports denied access and expired sign-ins in the pane.
+  Plasma Opus reads the accounts, and offers the menu and the accounts menu
+  of cloud sync pairs, only after checking **Show the folders of KDE Online
+  Accounts in Plasma Opus** under **Preferences › KDE Plasma › Online
+  Accounts**, where you also choose the accounts to show; clearing an
+  account only hides it in Plasma Opus, and **Manage Online Accounts…**
+  there opens KDE's settings
+  ([#371](https://github.com/mikepadiernos/plasma-opus/issues/371)).
   See [KDE Online Accounts](../CAVEATS.md#desktop-integration).
   ([#370](https://github.com/mikepadiernos/plasma-opus/issues/370))
 - **rsync backend:** **File › Compare and Synchronize Folders…** offers
