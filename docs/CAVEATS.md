@@ -114,7 +114,8 @@ tracked in its own issue:
   for the whole archive and its parts, and creates the parts with owner-only
   permissions. An archive smaller than the volume size stays a single file. If
   splitting fails, the parts written so far are removed and the whole archive
-  is kept. ([#732][issue-732])
+  is kept. Whether to split by default, and the volume size, are set under
+  **Preferences › Archives › Defaults**. ([#732][issue-732])
 
   - **Recommendation:** Keep the parts together and open the first with 7-Zip,
     or join them with **File › Combine Files**, naming the result after the
@@ -3158,6 +3159,21 @@ The M28 integration settings have these limits
   shown. In the container it is verified with the tools missing or
   simulated.
   ([#296](https://github.com/mikepadiernos/plasma-opus/issues/296))
+- **🗜️ Archive settings:** The **Creation** group under **Preferences ›
+  Archives › Defaults**, an existing page rather than a new **Applications**
+  tab, sets only what the **Compress** dialog starts with; each archive can
+  still be changed there. The settings apply from the next **Compress** after
+  **Apply** or **OK**. The volume size, from 1 MiB, applies only when
+  splitting is checked, here or in the dialog, and split archives keep the
+  limits of [Split archives](#archives). Clearing **Offer a password for ZIP
+  archives** hides the password fields, so ZIP archives are written
+  unencrypted; there is no setting to require a password, and 7z archives
+  are always written without one. The settings don't apply to **More Options
+  in Ark…** or **File › Add to Archive…**, which use Ark's own options. The
+  group reports whether Ark is installed and can write encrypted 7z archives,
+  checking when Preferences opens. The container has no Ark, so only the
+  missing-Ark report is verified there.
+  ([#665](https://github.com/mikepadiernos/plasma-opus/issues/665))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3318,6 +3334,12 @@ The M28 integration settings have these limits
     the rest. Clear **Read the AppImage's own name, icon and categories**
     before adding AppImages you haven't run yet, and add them again with it
     checked once you trust them.
+  - **Archive settings:** Set the format and volume size you use most under
+    **Preferences › Archives › Defaults**, such as 7z in volumes that fit your
+    storage or upload limit, and change them in **Compress** for a one-off
+    archive. Keep **Offer a password for ZIP archives** checked unless you
+    never encrypt archives, and use **More Options in Ark…** for encrypted 7z
+    archives when the group says Ark can write them.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3396,6 +3418,9 @@ The M28 integration settings have these limits
     the added entries from the **Packages** tab, and turn off the Flatpak
     and Snap entries of the **Application Packages** category in Places with
     their actions.
+  - Offer encrypted 7z archives in **Compress** itself, remember the last
+    format, volume size and location as an option, and offer common volume
+    sizes, such as the largest file a FAT32 drive holds.
 
 ## Embedded terminal
 
