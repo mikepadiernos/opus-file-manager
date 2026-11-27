@@ -42,6 +42,10 @@ namespace CloudSync
 {
 class Scheduler;
 }
+namespace NextcloudDesktop
+{
+class StatusQuery;
+}
 class KdeConnectClient;
 class PlasmaVaultMenu;
 class VaultClient;
@@ -216,6 +220,17 @@ public:
     QList<NextcloudAccounts::Account> nextcloudAccounts(QString *error = nullptr) const;
     /// Fills the Nextcloud menu with each Nextcloud account.
     void populateNextcloud();
+    /**
+     * Fills the Go › Nextcloud › Desktop Client submenu with the folders the
+     * Nextcloud desktop client synchronizes, asking the client for their
+     * status when @p refresh is set. The submenu is hidden when the client is
+     * neither installed nor configured.
+     */
+    void populateNextcloudDesktop(bool refresh);
+    /// Replaces where the Nextcloud desktop client's configuration and local socket are looked for.
+    void setNextcloudDesktopLocations(const QString &configuration, const QString &socket);
+    /// Shows the Nextcloud desktop client, starting it when it isn't running.
+    void openNextcloudDesktopClient();
     /// Shows the dialog that adds, checks and removes Nextcloud accounts.
     void showNextcloudAccounts();
     /// Opens the files of @p account in the active pane, or in the other pane when @p otherPane is set.
@@ -684,6 +699,16 @@ private:
     /// Whether m_nextcloudAccounts has been read.
     bool m_nextcloudAccountsLoaded = false;
     NextcloudClient *m_nextcloudClient = nullptr;
+    /// The Go › Nextcloud › Desktop Client submenu, created when the client is first found.
+    QPointer<QMenu> m_nextcloudDesktopMenu;
+    NextcloudDesktop::StatusQuery *m_nextcloudDesktopQuery = nullptr;
+    /// The desktop client's configuration and socket; empty strings use the client's own.
+    QString m_nextcloudDesktopConfiguration;
+    QString m_nextcloudDesktopSocket;
+    /// The desktop client's last reported folder status, and whether it was running then.
+    QHash<QString, QString> m_nextcloudDesktopStatuses;
+    bool m_nextcloudDesktopChecked = false;
+    bool m_nextcloudDesktopRunning = false;
     /// The server permissions of the Nextcloud folders shown in the panes, by folder.
     QHash<QString, Nextcloud::FolderPermissions> m_nextcloudPermissions;
     /// The folders whose permissions are being read.

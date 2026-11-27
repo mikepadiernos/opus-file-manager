@@ -7,6 +7,7 @@
 #include <KLocalizedString>
 
 #include <QAction>
+#include <QFileInfo>
 #include <QMenu>
 
 namespace
@@ -159,5 +160,145 @@ QMenu *addItemMenu(QMenu *menu, std::optional<bool> favorite, QObject *context, 
         shares->setToolTip(i18nc("@info:tooltip", "Share with a public link, a user or a group, and change or revoke the item's shares"));
     }
     return submenu;
+}
+
+void populateDesktopClient(QMenu *menu,
+                           const DesktopClient &client,
+                           const QList<NextcloudAccounts::Account> &accounts,
+                           bool otherPaneAvailable,
+                           QObject *context,
+                           const DesktopHandlers &handlers)
+{
+    using namespace NextcloudDesktop;
+    // clear() leaves submenus behind, and the menu is filled again whenever the status changes.
+    const QList<QMenu *> folderMenus = menu->findChildren<QMenu *>(QString(), Qt::FindDirectChildrenOnly);
+    menu->clear();
+    qDeleteAll(folderMenus);
+    menu->setToolTipsVisible(true);
+    QAction *open =
+        menu->addAction(SymbolicIcon::fromTheme(QStringLiteral("folder-sync")), i18nc("@action:inmenu", "Open Desktop Client"), context, handlers.openClient);
+    open->setObjectName(QStringLiteral("nextcloudOpenDesktopClient"));
+    open->setEnabled(client.installed && handlers.openClient);
+    open->setToolTip(client.installed ? i18nc("@info:tooltip", "Show the Nextcloud desktop client, which synchronizes these folders")
+                                      : i18nc("@info:tooltip", "The Nextcloud desktop client isn't installed."));
+
+    QAction *status = nullptr;
+    if (!client.statusChecked) {
+        status = menu->addAction(i18nc("@info:status", "Checking synchronization status…"));
+    } else if (!client.running) {
+        status = menu->addAction(SymbolicIcon::fromTheme(QStringLiteral("state-offline")), i18nc("@info:status", "Desktop client not running"));
+        status->setToolTip(i18nc("@info:tooltip", "Synchronization status is unavailable, and changes aren't synchronized until the desktop client starts."));
+    }
+    if (status) {
+        status->setObjectName(QStringLiteral("nextcloudDesktopStatus"));
+        status->setEnabled(false);
+    }
+    if (!client.configuration.error.isEmpty()) {
+        QAction *problem = menu->addAction(SymbolicIcon::fromTheme(QStringLiteral("dialog-warning")), menuText(client.configuration.error));
+        problem->setEnabled(false);
+    }
+    menu->addSeparator();
+    if (client.configuration.folders.isEmpty()) {
+        QAction *none = menu->addAction(i18nc("@action:inmenu", "No synchronized folders"));
+        none->setEnabled(false);
+        none->setToolTip(i18nc("@info:tooltip", "Add folders to synchronize in the Nextcloud desktop client."));
+    }
+    for (const Folder &folder : client.configuration.folders) {
+        const bool exists = QFileInfo(folder.localPath).isDir();
+        const auto reported = client.statuses.constFind(folder.localPath);
+        const FolderState state =
+            folderState(folder, exists, client.running, reported == client.statuses.cend() ? std::nullopt : std::optional<QString>(*reported));
+        QString name = QFileInfo(folder.localPath).fileName();
+        if (name.isEmpty()) {
+            name = folder.localPath;
+        }
+        // While the status is being checked, nothing is claimed about the folder.
+        QString title = name;
+        if (client.statusChecked) {
+            title = state.sync == Sync::Unknown || state.sync == Sync::NotSynchronized
+                ? i18nc("@action:inmenu %1 is a folder name, %2 where its files are", "%1 (%2)", name, availabilityText(state.availability))
+                : i18nc("@action:inmenu %1 is a folder name, %2 where its files are, %3 its sync status",
+                        "%1 (%2, %3)",
+                        name,
+                        availabilityText(state.availability),
+                        syncText(state.sync));
+        }
+        QString icon = QStringLiteral("folder-sync");
+        if (client.statusChecked) {
+            switch (state.sync) {
+            case Sync::UpToDate:
+                icon = QStringLiteral("state-ok");
+                break;
+            case Sync::Syncing:
+                icon = QStringLiteral("state-sync");
+                break;
+            case Sync::Warning:
+                icon = QStringLiteral("state-warning");
+                break;
+            case Sync::Error:
+                icon = QStringLiteral("state-error");
+                break;
+            case Sync::Unknown:
+            case Sync::NotSynchronized:
+                icon = state.availability == Availability::Offline ? QStringLiteral("state-offline") : QStringLiteral("state-information");
+                break;
+            }
+        }
+        QMenu *submenu = menu->addMenu(SymbolicIcon::fromTheme(icon), menuText(title));
+        submenu->setObjectName(QStringLiteral("nextcloudDesktopFolder-%1-%2").arg(folder.accountId, folder.id));
+        submenu->setToolTipsVisible(true);
+        const std::optional<NextcloudAccounts::Account> account = accountFor(folder, accounts);
+        QStringList tooltip{folder.localPath};
+        if (!folder.server.isEmpty()) {
+            QString server = folder.server.toDisplayString();
+            if (!folder.user.isEmpty()) {
+                server = i18nc("@info:tooltip %1 is a user, %2 a server", "%1 on %2", folder.user, server);
+            }
+            tooltip.append(i18nc("@info:tooltip %1 is a folder on the server, %2 the account",
+                                 "Synchronized with %1 of %2",
+                                 folder.targetPath.isEmpty() ? QStringLiteral("/") : folder.targetPath,
+                                 server));
+        }
+        tooltip.append(client.statusChecked ? state.description : i18nc("@info:tooltip", "Checking the desktop client's status…"));
+        submenu->menuAction()->setToolTip(tooltip.join(QLatin1Char('\n')));
+
+        QAction *openFolder = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("document-open-folder")),
+                                                 i18nc("@action:inmenu", "Open"),
+                                                 context,
+                                                 [handler = handlers.openFolder, path = folder.localPath] {
+                                                     handler(path, false);
+                                                 });
+        openFolder->setObjectName(QStringLiteral("nextcloudDesktopOpen"));
+        openFolder->setEnabled(exists && handlers.openFolder);
+        openFolder->setToolTip(exists ? i18nc("@info:tooltip", "Open the folder on this computer")
+                                      : i18nc("@info:tooltip", "The folder isn't on this computer."));
+        QAction *other = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("view-split-left-right")),
+                                            i18nc("@action:inmenu", "Open in Other Pane"),
+                                            context,
+                                            [handler = handlers.openFolder, path = folder.localPath] {
+                                                handler(path, true);
+                                            });
+        other->setObjectName(QStringLiteral("nextcloudDesktopOpenOther"));
+        other->setEnabled(exists && otherPaneAvailable && handlers.openFolder);
+        if (folder.server.isEmpty()) {
+            continue;
+        }
+        QAction *server = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("folder-cloud")), i18nc("@action:inmenu", "Open on Server"));
+        server->setObjectName(QStringLiteral("nextcloudDesktopOpenServer"));
+        if (account && handlers.openServerFolder) {
+            const QUrl url = serverFolder(*account, folder);
+            QObject::connect(server, &QAction::triggered, context, [handler = handlers.openServerFolder, url] {
+                handler(url);
+            });
+            server->setToolTip(
+                i18nc("@info:tooltip %1 is an account", "Browse the folder on the server with the Nextcloud account %1", NextcloudAccounts::title(*account)));
+        } else {
+            server->setEnabled(false);
+            server->setToolTip(i18nc("@info:tooltip %1 is a user, %2 a server",
+                                     "Sign in as %1 to %2 with Manage Nextcloud Accounts to browse the folder on the server.",
+                                     folder.user,
+                                     folder.server.toDisplayString()));
+        }
+    }
 }
 }

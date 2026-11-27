@@ -3,7 +3,9 @@
 #pragma once
 
 #include "nextcloudaccount.h"
+#include "nextclouddesktop.h"
 
+#include <QHash>
 #include <QList>
 #include <QString>
 
@@ -70,4 +72,42 @@ void populate(QMenu *menu,
  * @return the submenu
  */
 QMenu *addItemMenu(QMenu *menu, std::optional<bool> favorite, QObject *context, const ItemHandlers &handlers);
+
+/// What the Desktop Client submenu knows about the Nextcloud desktop client.
+struct DesktopClient {
+    /// Whether the client is installed, so that it can be opened.
+    bool installed = false;
+    /// The folders its configuration lists, and why it couldn't be read.
+    NextcloudDesktop::Configuration configuration;
+    /// Whether the client has been asked for the folders' status yet.
+    bool statusChecked = false;
+    /// Whether the client's socket answered.
+    bool running = false;
+    /// The status the client reported, by folder.
+    QHash<QString, QString> statuses;
+};
+
+/// What the Desktop Client submenu does.
+struct DesktopHandlers {
+    /// Opens the synchronized folder @p localPath in the active pane, or in
+    /// the other pane when @p otherPane is true.
+    std::function<void(const QString &localPath, bool otherPane)> openFolder;
+    /// Opens @p url, a folder on a Nextcloud server, in the active pane.
+    std::function<void(const QUrl &url)> openServerFolder;
+    /// Opens the desktop client.
+    std::function<void()> openClient;
+};
+
+/**
+ * Replaces the contents of @p menu with an entry that opens the desktop client
+ * and a submenu per folder it synchronizes, showing whether its files are
+ * local, remote, offline or of unknown state. Folders of an account in
+ * @p accounts can also be opened on the server.
+ */
+void populateDesktopClient(QMenu *menu,
+                           const DesktopClient &client,
+                           const QList<NextcloudAccounts::Account> &accounts,
+                           bool otherPaneAvailable,
+                           QObject *context,
+                           const DesktopHandlers &handlers);
 }

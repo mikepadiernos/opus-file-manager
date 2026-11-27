@@ -70,6 +70,7 @@
 #include "mountmanagerdialog.h"
 #include "nextcloudaccountsdialog.h"
 #include "nextcloudassetsdialog.h"
+#include "nextclouddesktop.h"
 #include "nextcloudmenu.h"
 #include "nextcloudphotosdialog.h"
 #include "nextcloudsharesdialog.h"
@@ -131,6 +132,7 @@
 #include <KGlobalAccel>
 #include <KGuiItem>
 #include <KHamburgerMenu>
+#include <KIO/ApplicationLauncherJob>
 #include <KIO/AuthInfo>
 #include <KIO/CommandLauncherJob>
 #include <KIO/CopyJob>
@@ -139,6 +141,7 @@
 #include <KIO/FileSystemFreeSpaceJob>
 #include <KIO/FileUndoManager>
 #include <KIO/Global>
+#include <KIO/JobUiDelegateFactory>
 #include <KIO/ListJob>
 #include <KIO/MkdirJob>
 #include <KIO/PreviewJob>
@@ -151,6 +154,7 @@
 #include <KPropertiesDialog>
 #include <KProtocolInfo>
 #include <KSelectAction>
+#include <KService>
 #include <KSharedConfig>
 #include <KStandardAction>
 #include <KTerminalLauncherJob>
@@ -6474,6 +6478,123 @@ void MainWindow::populateNextcloud()
                                        [this](const NextcloudAccounts::Account &account) {
                                            showNextcloudShares(account);
                                        }});
+    populateNextcloudDesktop(true);
+}
+
+namespace
+{
+/// The Nextcloud desktop client's application, by the names its packages give it.
+KService::Ptr nextcloudDesktopService()
+{
+    for (const QString &name : {QStringLiteral("com.nextcloud.desktopclient.nextcloud"), QStringLiteral("nextcloud"), QStringLiteral("Nextcloud")}) {
+        if (KService::Ptr service = KService::serviceByDesktopName(name)) {
+            return service;
+        }
+    }
+    return {};
+}
+}
+
+void MainWindow::setNextcloudDesktopLocations(const QString &configuration, const QString &socket)
+{
+    m_nextcloudDesktopConfiguration = configuration;
+    m_nextcloudDesktopSocket = socket;
+    delete m_nextcloudDesktopQuery;
+    m_nextcloudDesktopQuery = nullptr;
+    m_nextcloudDesktopStatuses.clear();
+    m_nextcloudDesktopChecked = false;
+    m_nextcloudDesktopRunning = false;
+}
+
+void MainWindow::populateNextcloudDesktop(bool refresh)
+{
+    NextcloudMenu::DesktopClient client;
+    client.configuration = NextcloudDesktop::readConfiguration(m_nextcloudDesktopConfiguration.isEmpty() ? NextcloudDesktop::defaultConfigurationPath()
+                                                                                                         : m_nextcloudDesktopConfiguration);
+    client.installed = nextcloudDesktopService();
+    // Without the client, the submenu stays out of the way.
+    if (!client.configuration.exists && !client.installed) {
+        if (m_nextcloudDesktopMenu) {
+            m_nextcloudMenu->removeAction(m_nextcloudDesktopMenu->menuAction());
+        }
+        return;
+    }
+    if (!m_nextcloudDesktopMenu) {
+        m_nextcloudDesktopMenu = new QMenu(i18nc("@title:menu", "Desktop Client"), m_nextcloudMenu);
+        m_nextcloudDesktopMenu->setObjectName(QStringLiteral("nextcloudDesktopClient"));
+        m_nextcloudDesktopMenu->setIcon(SymbolicIcon::fromTheme(QStringLiteral("folder-sync")));
+        m_nextcloudDesktopMenu->menuAction()->setToolTip(
+            i18nc("@info:tooltip", "Open the folders the Nextcloud desktop client synchronizes and see their status"));
+    }
+    if (refresh) {
+        if (!m_nextcloudDesktopQuery) {
+            m_nextcloudDesktopQuery =
+                new NextcloudDesktop::StatusQuery(m_nextcloudDesktopSocket.isEmpty() ? NextcloudDesktop::defaultSocketPath() : m_nextcloudDesktopSocket, this);
+            connect(m_nextcloudDesktopQuery, &NextcloudDesktop::StatusQuery::finished, this, [this](bool running, const QHash<QString, QString> &statuses) {
+                m_nextcloudDesktopChecked = true;
+                m_nextcloudDesktopRunning = running;
+                m_nextcloudDesktopStatuses = statuses;
+                populateNextcloudDesktop(false);
+            });
+        }
+        if (!m_nextcloudDesktopQuery->isRunning()) {
+            QStringList paths;
+            for (const NextcloudDesktop::Folder &folder : std::as_const(client.configuration.folders)) {
+                paths.append(folder.localPath);
+            }
+            m_nextcloudDesktopQuery->start(paths);
+        }
+    }
+    client.statusChecked = m_nextcloudDesktopChecked;
+    client.running = m_nextcloudDesktopRunning;
+    client.statuses = m_nextcloudDesktopStatuses;
+    if (!m_nextcloudAccountsLoaded) {
+        m_nextcloudAccounts = nextcloudAccounts();
+        m_nextcloudAccountsLoaded = true;
+    }
+    NextcloudMenu::populateDesktopClient(m_nextcloudDesktopMenu,
+                                         client,
+                                         m_nextcloudAccounts,
+                                         isDualLayout() && !inactivePane()->isHidden(),
+                                         this,
+                                         NextcloudMenu::DesktopHandlers{[this](const QString &path, bool otherPane) {
+                                                                            const QUrl url = QUrl::fromLocalFile(path);
+                                                                            if (otherPane && isDualLayout() && !inactivePane()->isHidden()) {
+                                                                                inactivePane()->setUrl(url);
+                                                                                return;
+                                                                            }
+                                                                            activePane()->setUrl(url);
+                                                                        },
+                                                                        [this](const QUrl &url) {
+                                                                            const QString unavailable =
+                                                                                RemoteProfiles::unavailableReason(RemoteProfiles::Protocol::WebDavs);
+                                                                            if (!unavailable.isEmpty()) {
+                                                                                showStatusMessage(unavailable);
+                                                                                return;
+                                                                            }
+                                                                            activePane()->setUrl(url);
+                                                                        },
+                                                                        [this] {
+                                                                            openNextcloudDesktopClient();
+                                                                        }});
+    QAction *submenu = m_nextcloudDesktopMenu->menuAction();
+    if (!m_nextcloudMenu->actions().contains(submenu)) {
+        QAction *manage = actionCollection()->action(QStringLiteral("manage_nextcloud_accounts"));
+        m_nextcloudMenu->insertAction(m_nextcloudMenu->actions().contains(manage) ? manage : nullptr, submenu);
+    }
+}
+
+void MainWindow::openNextcloudDesktopClient()
+{
+    const KService::Ptr service = nextcloudDesktopService();
+    if (!service) {
+        showStatusMessage(i18nc("@info:status", "The Nextcloud desktop client isn't installed."));
+        return;
+    }
+    // The client runs once per user: starting it again shows the running client.
+    auto *job = new KIO::ApplicationLauncherJob(service, this);
+    job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, this));
+    job->start();
 }
 
 void MainWindow::showNextcloudAccounts()
