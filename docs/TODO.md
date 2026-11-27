@@ -16,50 +16,58 @@ state and the steps to resume.
 
 ## Contents
 
-Board statuses were last confirmed on 2026-11-26.
+Board statuses were last confirmed on 2026-11-27.
 
-| Handoff                                                                     | Milestone                                                                      | Issues         | Board status                                                                                                                                      |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [mpv integration](#mpv-integration-563)                                     | [M27](ROADMAP.md#m27-integrations)                                             | [#563]         | ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square)                                                                         |
-| [Markdown editor and backlinks](#markdown-editor-and-backlinks-564)         | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                     |
-| [Workspace vault editing](#workspace-vault-editing-565)                     | [M27](ROADMAP.md#m27-integrations), [M28](ROADMAP.md#m28-integration-settings) | [#565], [#566] | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square) ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square) |
-| [System file chooser on Plasma](#system-file-chooser-on-plasma-286)         | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                     |
-| [Mount manager on Plasma](#mount-manager-on-plasma-703)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                     |
-| [KWin script on Plasma](#kwin-script-on-plasma-707-708)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#707], [#708] | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                     |
-| [Administrator mode on Plasma](#administrator-mode-on-plasma-288)           | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                     |
-| [Plasma Vault on Plasma](#plasma-vault-on-plasma-654)                       | [M27](ROADMAP.md#m27-integrations)                                             | [#654]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                     |
-| [File encryption on Plasma](#file-encryption-on-plasma-655)                 | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                     |
-| [Send by Email on Plasma](#send-by-email-on-plasma-656)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#656]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                     |
-| [Mail attachments on Plasma](#mail-attachments-on-plasma-657)               | [M27](ROADMAP.md#m27-integrations)                                             | [#657]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                     |
-| [Mail file preview on Plasma](#mail-file-preview-on-plasma-658)             | [M27](ROADMAP.md#m27-integrations)                                             | [#658]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                     |
-| [Shared Activity context on Plasma](#shared-activity-context-on-plasma-659) | [M27](ROADMAP.md#m27-integrations)                                             | [#659]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                     |
+| Handoff                                                                     | Milestone                                                                      | Issues         | Board status                                                                                                                                            |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [mpv integration](#mpv-integration-563)                                     | [M27](ROADMAP.md#m27-integrations)                                             | [#563], [#578] | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square) ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square)       |
+| [Markdown editor and backlinks](#markdown-editor-and-backlinks-564)         | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
+| [Workspace vault editing](#workspace-vault-editing-565)                     | [M27](ROADMAP.md#m27-integrations), [M28](ROADMAP.md#m28-integration-settings) | [#565], [#566] | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square) ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square) |
+| [System file chooser on Plasma](#system-file-chooser-on-plasma-286)         | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
+| [Mount manager on Plasma](#mount-manager-on-plasma-703)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
+| [KWin script on Plasma](#kwin-script-on-plasma-707-708)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#707], [#708] | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
+| [Administrator mode on Plasma](#administrator-mode-on-plasma-288)           | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
+| [Plasma Vault on Plasma](#plasma-vault-on-plasma-654)                       | [M27](ROADMAP.md#m27-integrations)                                             | [#654]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
+| [File encryption on Plasma](#file-encryption-on-plasma-655)                 | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
+| [Send by Email on Plasma](#send-by-email-on-plasma-656)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#656]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
+| [Mail attachments on Plasma](#mail-attachments-on-plasma-657)               | [M27](ROADMAP.md#m27-integrations)                                             | [#657]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
+| [Mail file preview on Plasma](#mail-file-preview-on-plasma-658)             | [M27](ROADMAP.md#m27-integrations)                                             | [#658]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
+| [Shared Activity context on Plasma](#shared-activity-context-on-plasma-659) | [M27](ROADMAP.md#m27-integrations)                                             | [#659]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
 
 ## mpv integration (#563)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#563]
-  (Backlog).
-- **Blocker:** Embedded playback has no verified rendering approach. KDE's
-  MpvQt uses Qt Quick's OpenGL renderer, changes the process numeric locale and
-  can terminate the application when mpv initialization fails.
-- **Confirmed state:** `main` has the partial work, merged from
-  `feature/M27-integrations`: an external **Open with mpv** context-menu action
-  for local audio and video selections, with explicit errors for remote
-  locations, a missing executable or launch failure. Embedded playback is not
-  implemented.
+  (Review); its M28 setting is [#578] (Backlog).
+- **Resolved blocker:** Fedora 44 packages `mpv-devel`, and embedded playback
+  uses libmpv's OpenGL render API in a `QOpenGLWidget` rather than KDE's
+  MpvQt, so there is no Qt Quick and no process-wide numeric locale change
+  unless libmpv refuses to start without it. Initialization failures return
+  errors instead of terminating, and builds without libmpv or Qt OpenGL
+  Widgets keep Qt Multimedia only.
+- **Confirmed state:** `feature/M27-integrations` adds `src/core/mediabackend.cpp`
+  and `src/core/mpvplayer.cpp` for backend choice and libmpv playback,
+  `src/app/mpvvideowidget.cpp` for drawing video, the backend button in the
+  preview and gallery playback controls, and **Audio and video playback**
+  under **Preferences › Interface › Previews**. When mpv can't start or draw,
+  Qt Multimedia plays the file with a notice. `mediabackendtest`,
+  `mpvplayertest` and `mediaviewtest` cover backend choice, audio playback,
+  seeking, end of file, errors and fallback. The development container has
+  no OpenGL, so video through mpv is untested there. See
+  [Embedded mpv playback](CAVEATS.md#desktop-integration).
 
 **Steps to resume:**
 
-1. Continue on `feature/M27-integrations` when M27 starts.
-2. Before selecting an implementation, verify a safe libmpv rendering and
-   lifecycle approach for Wayland and X11, including failure handling and
-   builds without the optional library. If it uses MpvQt, follow the
-   [Qt Quick embedding rules](qt-quick.md#embedding-rules): host it in a
-   `QQuickWidget`, keep Qt Multimedia as the fallback, and contain the numeric
-   locale change.
-3. Implement backend selection, audio and video controls, preview and gallery
-   behaviour, and cleanup.
-4. Test autoplay, seeking, errors, remote temporary-file lifetime, and repeated
-   open and close before moving the issue to Review.
+1. On Plasma under Wayland and under X11, choose mpv with the backend button
+   and play a video in the preview panel and the gallery; check the picture,
+   seeking, pause and end of file.
+2. Repeat with software OpenGL, for example
+   `LIBGL_ALWAYS_SOFTWARE=1 opus-file-manager`, and confirm video plays or
+   falls back to Qt Multimedia with a notice.
+3. Open and close many videos quickly, switch backends during playback, and
+   close the window while a video plays; confirm there are no crashes, stale
+   frames or leftover `mpv` threads.
+4. Preview remote audio and video and confirm the temporary download is
+   removed when the preview changes.
 
 ## Markdown editor and backlinks (#564)
 
@@ -92,7 +100,7 @@ Board statuses were last confirmed on 2026-11-26.
 ## Workspace vault editing (#565)
 
 - **Milestone and issues:** [M27](ROADMAP.md#m27-integrations), [#565]
-  (Review); its settings belong to
+  (Completed); its settings belong to
   [M28](ROADMAP.md#m28-integration-settings), [#566] (Backlog).
 - **Resolved blocker:** The built-in Markdown and backlinks feature, [#564],
   is Completed, and workspace profiles and location assignments ([#200] and
@@ -426,6 +434,7 @@ Board statuses were last confirmed on 2026-11-26.
 [#564]: https://github.com/mikepadiernos/plasma-opus/issues/564
 [#565]: https://github.com/mikepadiernos/plasma-opus/issues/565
 [#566]: https://github.com/mikepadiernos/plasma-opus/issues/566
+[#578]: https://github.com/mikepadiernos/plasma-opus/issues/578
 [#654]: https://github.com/mikepadiernos/plasma-opus/issues/654
 [#655]: https://github.com/mikepadiernos/plasma-opus/issues/655
 [#656]: https://github.com/mikepadiernos/plasma-opus/issues/656
