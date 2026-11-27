@@ -2221,12 +2221,13 @@ The M27 desktop integrations have these limits
 - **📧 Send by Email:** **File › Send by Email…** opens a new message in
   the default mail client, chosen in System Settings › Default
   Applications, and never sends it. **Preferences › Applications › Mail**
-  names the client and turns the action off
-  ([Mail client settings](#integration-settings)). Folders and missing,
-  unreadable or special files are listed and skipped. A remote file is
-  attached only after you allow a private local copy, which is downloaded
-  into a temporary folder that only you can read and kept until Plasma Opus
-  quits, because the mail client may read it later. Most clients receive the
+  names the client, turns the action off and can skip remote files
+  ([Mail client and remote file settings](#integration-settings)). Folders
+  and missing, unreadable or special files are listed and skipped. Unless
+  remote files are skipped, a remote file is attached only after you allow
+  a private local copy, which is downloaded into a temporary folder that
+  only you can read and kept until Plasma Opus quits, because the mail
+  client may read it later. Most clients receive the
   files as `attach` parameters in a `mailto:` URL, and Thunderbird through
   its own command line; whether they are attached is up to the client, so
   Plasma Opus reports that the composer opened, not what it attached. A
@@ -2242,7 +2243,8 @@ The M27 desktop integrations have these limits
   ([#656](https://github.com/mikepadiernos/plasma-opus/issues/656))
 - **📎 Mail attachments:** Local files in the **Send by Email** list can be
   dragged into any composer. A remote file can be dragged only after its
-  private local copy is downloaded; ticking the consent box starts the
+  private local copy is downloaded, and not at all while **Preferences ›
+  Applications › Mail** skips remote files; ticking the consent box starts the
   download, and unticking it stops the download or removes the copies.
   Copies that are attached or dragged out are kept until Plasma Opus quits,
   because Plasma Opus can't tell when the mail client has finished reading
@@ -2624,10 +2626,8 @@ The M27 desktop integrations have these limits
     checked encryption, pass AES Crypt passwords through a pipe where the
     tool allows it, and the M28 **Encryption** settings to choose the
     default key and the text format.
-  - Offer to compress a selected folder and attach the archive, ask the
-    XDG Email portal for its response to report cancelled requests, and the
-    M28 **Mail** setting to choose when to prepare local copies
-    ([#667](https://github.com/mikepadiernos/plasma-opus/issues/667)).
+  - Offer to compress a selected folder and attach the archive, and ask the
+    XDG Email portal for its response to report cancelled requests.
   - Extract mail attachments into a chosen folder, preview remote `.eml`
     files through a size-limited download, show inline images only on
     request, and the M28 **Mail file preview** setting.
@@ -3193,6 +3193,17 @@ The M28 integration settings have these limits
   Default Applications only by its absence
   ([Plasma check](TODO.md#mail-client-settings-on-plasma-666)).
   ([#666](https://github.com/mikepadiernos/plasma-opus/issues/666))
+- **📤 Remote mail file settings:** **Remote files** in the **Remote Files**
+  group under **Preferences › Applications › Mail** chooses whether **Send by
+  Email** asks before downloading private local copies of remote files, such as
+  files on network locations or inside archives, or skips them. Asking is the
+  default and happens each time, in the **Send by Email** window; no choice
+  downloads copies without asking. Skipped files are listed with the reason and
+  can't be dragged into a composer either. Files on a network share mounted into
+  a local folder count as local files. The setting applies to **Send by Email**
+  windows opened after **Apply** or **OK**, and the group is disabled while
+  **Offer Send by Email for selected files** is cleared.
+  ([#667](https://github.com/mikepadiernos/plasma-opus/issues/667))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3364,6 +3375,10 @@ The M28 integration settings have these limits
     attachments, such as KMail or Thunderbird, with **Configure Default
     Applications…**. Clear **Offer Send by Email for selected files** if you
     attach files from your mail client instead.
+  - **Remote mail file settings:** Keep **Ask before downloading private local
+    copies** to attach remote files when you need them, and choose **Send only
+    local files and skip remote files** if Send by Email should never download
+    anything; then copy the remote files you need into a local folder first.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3447,6 +3462,8 @@ The M28 integration settings have these limits
     sizes, such as the largest file a FAT32 drive holds.
   - Follow a mail client chosen in System Settings while the **Mail** tab is
     open, and list there which installed mail clients accept attachments.
+  - Show the size of remote files before downloading copies, set a size limit
+    for them, and remember the consent for trusted locations.
 
 ## Embedded terminal
 
