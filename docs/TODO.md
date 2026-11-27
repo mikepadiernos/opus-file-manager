@@ -55,6 +55,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [rsync settings on Plasma](#rsync-settings-on-plasma-366)                           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#366]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 | [Transfer and cache settings on Plasma](#transfer-and-cache-settings-on-plasma-721) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#721]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 | [LAN sharing settings on Plasma](#lan-sharing-settings-on-plasma-664)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#664]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
+| [Plasma Vault settings on Plasma](#plasma-vault-settings-on-plasma-669)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#669]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 
 ## mpv integration (#563)
 
@@ -1236,6 +1237,41 @@ Board statuses were last confirmed on 2026-11-27.
    differences in [CAVEATS](CAVEATS.md#integration-settings), then remove this
    entry.
 
+## Plasma Vault settings on Plasma (#669)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#669]
+  (Development).
+- **Blocker:** The development container has no Plasma Vault, no kded6
+  module for it and no CryFS, gocryptfs or EncFS, so the settings are tested
+  with a fake vault client only.
+- **Confirmed state:** `SettingsDialog::createPlasmaVaultGroup()` in
+  `src/app/integrationsettingspages.cpp` adds the **Plasma Vault** group of
+  the **Encryption** tab, which stores the `PlasmaVault` group's
+  `PlasmaVaultMenu`, `PlasmaVaultHidden` and `PlasmaVaultShowState`.
+  `MainWindow::applySettings()` shows or hides **Go › Plasma Vaults**, and
+  `PlasmaVaultMenu::populate()` in `src/app/plasmavaultmenu.cpp` leaves out
+  hidden vaults through `PlasmaVaults::shownVaults()` and their state through
+  `PlasmaVaults::isLockState()`. `plasmavaultstest`, `plasmavaultmenutest`
+  and `integrationsettingstest` pass in the container. See
+  [Plasma Vault settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, with Plasma Vault and two vaults, open **Preferences ›
+   Security › Encryption** and check that both vaults are listed with their
+   state, then open one from the system tray applet and check that the list
+   follows.
+2. Clear one vault, choose **Apply** and check that **Go › Plasma Vaults**
+   leaves it out, and that a wrong password entered for it in the applet
+   shows no message in the Plasma Opus status bar.
+3. Clear **Show whether each vault is open or closed beside its name and in
+   its icon** and check the menu's names and icons.
+4. Clear **Offer Plasma Vault's encrypted vaults in Go › Plasma Vaults**,
+   check that the menu and any shortcut assigned to it are gone, and that
+   `dbus-monitor` shows no `availableDevices` call when Preferences opens.
+   Record any differences in [CAVEATS](CAVEATS.md#integration-settings), then
+   remove this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1266,6 +1302,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#663]: https://github.com/mikepadiernos/plasma-opus/issues/663
 [#664]: https://github.com/mikepadiernos/plasma-opus/issues/664
 [#666]: https://github.com/mikepadiernos/plasma-opus/issues/666
+[#669]: https://github.com/mikepadiernos/plasma-opus/issues/669
 [#676]: https://github.com/mikepadiernos/plasma-opus/issues/676
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
 [#704]: https://github.com/mikepadiernos/plasma-opus/issues/704
