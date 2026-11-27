@@ -121,7 +121,8 @@ preview. Both behaviours can be changed in Preferences.
   permissions, see server previews and metadata, search, favourite and tag on
   the server, open Photos albums and places sorted by capture date, manage
   links and shares with confirmation, and find the desktop client's folders
-  with their sync status under **Go › Nextcloud**.
+  with their sync status under **Go › Nextcloud**, configured under
+  **Preferences › Remote and Cloud › Nextcloud**.
 - **Remote and secure access:** named SSH, SFTP, WebDAV, SMB and FTP
   connections, rclone and KDE Online Accounts, temporary LAN sharing,
   administrator mode, Plasma Vault, file encryption and password-gated
