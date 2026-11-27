@@ -2289,6 +2289,23 @@ The M27 desktop integrations have these limits
   Markdown** dialects parse as those specifications do, but raw HTML,
   footnotes and math are shown as text, so it is not a complete CommonMark
   renderer. ([#564](https://github.com/mikepadiernos/plasma-opus/issues/564))
+- **🏷️ Workspace vaults and tags:** **Use as Editor Vault** in **Workspaces**
+  makes one of a workspace's assigned locations the vault of every editor while
+  that workspace is active; the editor's own choice is kept and returns when the
+  workspace has no vault or is left. Only one vault applies at a time, shared by
+  all windows of a Plasma Opus process, and only local folders that resolve to a
+  single saved location qualify, so remote locations and ambiguous saved names
+  can't be chosen. While the workspace's vault applies, **Vault › Choose Vault
+  Folder** and **Vault › Close Vault** are disabled. The **Links** and **Tags**
+  tabs read the open note's text when it is opened, saved or the vault is
+  rescanned, while the other notes listed under a tag come from the last scan.
+  Tags are inline `#tag` or nested `#area/topic` words outside code, and `tags:`
+  or `tag:` in YAML front matter; tags that are only digits are ignored and case
+  is not significant. Tags can't be renamed or searched across the vault, and
+  there is no graph view. Vault options arrive with the M28 **Editor ›
+  Workspace vault** setting
+  ([#566](https://github.com/mikepadiernos/plasma-opus/issues/566)).
+  ([#565](https://github.com/mikepadiernos/plasma-opus/issues/565))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2521,6 +2538,11 @@ The M27 desktop integrations have these limits
     after changing notes in another application. Split vaults with more
     than 10,000 notes, and convert notes that aren't UTF-8. Use Obsidian or
     another Markdown application to view embeds, headings and HTML.
+  - **Workspace vaults and tags:** Keep notes in a local folder and assign
+    it to the workspace before choosing **Use as Editor Vault**; for notes
+    on a server, sync them to a local folder first. Save a note, or choose
+    **Vault › Rescan Vault**, to refresh its links and tags. Use Obsidian or
+    another Markdown application to rename tags or browse a graph.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2554,6 +2576,8 @@ The M27 desktop integrations have these limits
     preview, create a missing note from its link, refresh backlinks while
     typing and watch the vault for changes, and an M28 setting for the
     vault's note limit.
+  - Refresh links and tags while typing, rename a tag across the vault,
+    search notes by tag, a graph view, and a vault per window.
   - Report files opened through **Open With** and from previews, exclude
     chosen folders from reporting, and an M28 **Plasma Activities** page
     option to report only while associations are on.
