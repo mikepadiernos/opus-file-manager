@@ -14,12 +14,6 @@ namespace
 const QString WorkspacePrefix = QStringLiteral("workspace:");
 const QString LocationPrefix = QStringLiteral("location:");
 
-QString locationId(const QUrl &url)
-{
-    const QByteArray hash = QCryptographicHash::hash(url.toString(QUrl::FullyEncoded).toUtf8(), QCryptographicHash::Sha256).toHex();
-    return LocationPrefix + QString::fromLatin1(hash.left(24));
-}
-
 /// How well @p text matches @p query, or nothing.
 std::optional<std::pair<int, double>> score(const QString &text, const QString &query)
 {
@@ -38,12 +32,21 @@ std::optional<std::pair<int, double>> score(const QString &text, const QString &
 }
 }
 
+QString locationId(const QUrl &url)
+{
+    const QByteArray hash = QCryptographicHash::hash(url.toString(QUrl::FullyEncoded).toUtf8(), QCryptographicHash::Sha256).toHex();
+    return LocationPrefix + QString::fromLatin1(hash.left(24));
+}
+
 QList<Target> targets(const WorkspaceCatalog::Catalog &catalog, const QList<Favorite> &favorites, const Options &options)
 {
     QList<Target> result;
+    if (!options.enabled) {
+        return result;
+    }
     if (options.workspaces) {
         for (const WorkspaceCatalog::Workspace &workspace : catalog.workspaces) {
-            if (workspace.id.isEmpty() || workspace.name.isEmpty()) {
+            if (workspace.id.isEmpty() || workspace.name.isEmpty() || options.hiddenWorkspaces.contains(workspace.id)) {
                 continue;
             }
             result.append({Kind::Workspace, WorkspacePrefix + workspace.id, workspace.name, workspace.id, {}});
@@ -51,10 +54,11 @@ QList<Target> targets(const WorkspaceCatalog::Catalog &catalog, const QList<Favo
     }
     if (options.favorites) {
         for (const auto &[url, title] : favorites) {
-            if (!url.isValid() || title.isEmpty()) {
+            const QString id = locationId(url);
+            if (!url.isValid() || title.isEmpty() || options.hiddenFavorites.contains(id)) {
                 continue;
             }
-            result.append({Kind::Location, locationId(url), title, {}, url});
+            result.append({Kind::Location, id, title, {}, url});
         }
     }
     return result;

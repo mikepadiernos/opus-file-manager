@@ -680,6 +680,10 @@
     </entry>
   </group>
   <group name="KRunner">
+    <entry name="RunnerEnabled" type="Bool">
+      <label>Offer saved workspaces and Favorites in KRunner and Plasma Search</label>
+      <default>true</default>
+    </entry>
     <entry name="RunnerWorkspaces" type="Bool">
       <label>Offer saved workspaces in KRunner and Plasma Search</label>
       <default>true</default>
@@ -687,6 +691,14 @@
     <entry name="RunnerFavorites" type="Bool">
       <label>Offer Favorites in KRunner and Plasma Search</label>
       <default>true</default>
+    </entry>
+    <entry name="RunnerHiddenWorkspaces" type="StringList">
+      <label>The ids of the saved workspaces that KRunner does not offer</label>
+      <default></default>
+    </entry>
+    <entry name="RunnerHiddenFavorites" type="StringList">
+      <label>The KRunner ids of the Favorites that KRunner does not offer, which never contain their URLs</label>
+      <default></default>
     </entry>
   </group>
   <group name="Editor">
