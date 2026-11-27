@@ -1776,9 +1776,9 @@ The M27 desktop integrations have these limits
   on X11. KWin's focus-stealing prevention may keep a window shown from the
   tray or the global shortcut behind the active window and highlight it in
   the task manager instead. When another application already uses
-  Meta+Alt+O, the shortcut stays unassigned without a notice. A window
-  hidden in the tray keeps its tabs and running operations; for starting
-  hidden, see [Integration settings](#integration-settings).
+  Meta+Alt+O, the shortcut stays unassigned. A window hidden in the tray
+  keeps its tabs and running operations; for starting hidden and the
+  shortcut settings, see [Integration settings](#integration-settings).
   ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285))
 - **🧭 Plasma Activities:** associations are off by default and are only
   offered, in a message above the panes, when the current Activity changes;
@@ -2351,10 +2351,10 @@ The M27 desktop integrations have these limits
     closing it, check **Hide the window in the system tray when it is
     closed** under **Preferences › KDE Plasma › System Tray**; on Wayland,
     prefer this to hiding when minimized. Clear **Show an icon in the system
-    tray** there to remove the icon. If the shortcut does nothing, assign one
-    to **Show or Hide Plasma Opus** under **Settings › Configure Keyboard
-    Shortcuts**, and keep the icon always visible through the tray's
-    **Configure System Tray…** entries.
+    tray** there to remove the icon. If the shortcut does nothing, choose a
+    key combination under **Preferences › KDE Plasma › Shortcuts**, and keep
+    the icon always visible through the tray's **Configure System Tray…**
+    entries.
   - **Plasma Activities:** Turn associations on under **Settings ›
     Workspaces › Activities**, then choose each Activity's workspace,
     behaviours and folders under **View › Activity Associations**. To apply
@@ -2582,7 +2582,6 @@ The M27 desktop integrations have these limits
   - Watch `plasma-localerc` and offer a restart when Plasma's language list
     changes.
   - A job action that raises the dialog that started the operation.
-  - A notice when the global shortcut could not be assigned.
   - Show only the current Activity's vaults, move tabs showing a vault away
     when it closes, and show or hide vaults in the M28 **Encryption**
     settings.
@@ -2777,6 +2776,21 @@ The M28 integration settings have these limits
   Plasma session, so starting hidden with Plasma's tray is unverified there
   ([Plasma check](TODO.md#start-hidden-in-tray-on-plasma-290)).
   ([#290](https://github.com/mikepadiernos/plasma-opus/issues/290))
+- **⌨️ Global shortcut:** **Show or hide Plasma Opus with a global
+  shortcut** under **Preferences › KDE Plasma › Shortcuts** registers the
+  shortcut with KDE's global shortcut service, KGlobalAccel, only while it
+  is checked. Clearing it removes the shortcut from Plasma's Shortcuts
+  settings; Plasma Opus keeps the key and assigns it again when the
+  shortcut is turned back on. A key chosen in the tab replaces the one in
+  Plasma's settings. KDE leaves a key unassigned when another application
+  already uses it, unless you agree to take it over when choosing it; the
+  tab then says that no key is assigned. Without KDE's global shortcut
+  service, as outside Plasma, the shortcut does nothing and the tab says
+  so. The tab checks the chosen key only against other global and standard
+  shortcuts, not against Plasma Opus's own window shortcuts. The container
+  has no global shortcut service
+  ([Plasma check](TODO.md#global-shortcut-on-plasma-291)).
+  ([#291](https://github.com/mikepadiernos/plasma-opus/issues/291))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -2807,6 +2821,10 @@ The M28 integration settings have these limits
     tray after login; choose its tray icon to show the window. Check **Hide
     the window in the system tray when it is closed** there as well to keep
     it running after closing the window.
+  - **Global shortcut:** Choose the key combination under **Preferences ›
+    KDE Plasma › Shortcuts**, and pick another one when the tab says no key
+    is assigned. Clear **Show or hide Plasma Opus with a global shortcut**
+    there if the key is needed elsewhere, and use the tray icon instead.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -2824,6 +2842,9 @@ The M28 integration settings have these limits
   - Wait briefly for Plasma's tray to appear before showing the window at
     login, and offer to start Plasma Opus at login from the **System Tray**
     tab.
+  - Name the application that already uses a key when KDE leaves the
+    shortcut unassigned, and check the chosen key against Plasma Opus's own
+    window shortcuts.
 
 ## Embedded terminal
 
