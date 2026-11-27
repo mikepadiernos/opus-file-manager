@@ -2250,6 +2250,22 @@ The M27 desktop integrations have these limits
   has no registered applications or mail client, so opening awaits
   [verification on Plasma](TODO.md#mail-file-preview-on-plasma-658).
   ([#658](https://github.com/mikepadiernos/plasma-opus/issues/658))
+- **🪢 Shared Activity context:** Plasma Activities is the only context
+  Plasma Opus shares with Plasma Impresario. Each application follows
+  Activity changes with its own associations, and Plasma Opus never reads or
+  changes Plasma Impresario's workspaces, accounts or mail. Visited folders
+  and opened files are reported to the current Activity, so Plasma lists
+  them in its recent files and locations and other applications can offer
+  them. Reporting is on by default and covers local folders and network
+  locations such as SFTP and SMB, without passwords. Temporary files, open
+  CryFS, gocryptfs, EncFS, securefs and eCryptfs folders, searches, the trash
+  and administrator locations are never reported. Plasma Activities decides
+  what it keeps, so blocking Plasma Opus or clearing history happens in
+  System Settings. Plasma Impresario's account-to-workspace associations
+  aren't released yet, and the container used for development has no
+  Activities service, so both await
+  [verification on Plasma](TODO.md#shared-activity-context-on-plasma-659).
+  ([#659](https://github.com/mikepadiernos/plasma-opus/issues/659))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2471,6 +2487,12 @@ The M27 desktop integrations have these limits
     your mail client. Copy a remote `.eml` file into a local folder to
     preview it, and use **Extract Selected** rather than **Open** to keep an
     attachment, because opened copies are removed when the window closes.
+  - **Shared Activity context:** To keep a location out of Plasma's
+    history, turn off **Report visited folders and opened files to Plasma
+    Activities** under **Settings › Workspaces › Activities**, or choose
+    what Plasma remembers, and clear it, under **System Settings › Recent
+    Files**. Keep private files in a Plasma Vault, whose open folders are
+    never reported.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2500,6 +2522,9 @@ The M27 desktop integrations have these limits
   - Extract mail attachments into a chosen folder, preview remote `.eml`
     files through a size-limited download, show inline images only on
     request, and the M28 **Mail file preview** setting.
+  - Report files opened through **Open With** and from previews, exclude
+    chosen folders from reporting, and an M28 **Plasma Activities** page
+    option to report only while associations are on.
   - Reuse an open tab showing an Activity's default folder instead of
     opening another, and offer the current Activity's association at start
     as an option.
