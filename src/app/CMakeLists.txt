@@ -53,6 +53,8 @@ add_library(opusfm_app STATIC
     embeddedmetadatasettings.h
     filediffdialog.cpp
     filediffdialog.h
+    fileencryptiondialog.cpp
+    fileencryptiondialog.h
     filemanagerservice.cpp
     filemanagerservice.h
     filesplitdialog.cpp

@@ -38,6 +38,7 @@
 #include "executables.h"
 #include "favoritesmodel.h"
 #include "filediffdialog.h"
+#include "fileencryptiondialog.h"
 #include "filemanagerrequest.h"
 #include "fileoperations.h"
 #include "filesplitdialog.h"
@@ -2946,6 +2947,72 @@ void MainWindow::setupActions()
     QAction *combineFiles = actions->addAction(QStringLiteral("combine_files"), this, &MainWindow::combineFiles);
     combineFiles->setText(i18nc("@action", "Combine Files…"));
 
+    auto *encryption = new KActionMenu(SymbolicIcon::fromTheme(QStringLiteral("document-encrypt")), i18nc("@action", "Encryption"), this);
+    encryption->setToolTip(i18nc("@info:tooltip", "Encrypt, decrypt, sign or verify the selected files"));
+    encryption->setPopupMode(QToolButton::InstantPopup);
+    actions->addAction(QStringLiteral("encryption"), encryption);
+    QMenu *encryptionMenu = encryption->menu();
+    encryptionMenu->setToolTipsVisible(true);
+    const auto addEncryptionAction = [this, actions, encryptionMenu](const QString &name, const QString &text, const QString &icon, auto slot) {
+        QAction *action = actions->addAction(name, this, slot);
+        action->setText(text);
+        action->setIcon(SymbolicIcon::fromTheme(icon));
+        encryptionMenu->addAction(action);
+        return action;
+    };
+    const auto runOperation = [this](FileEncryption::Operation operation) {
+        return [this, operation] {
+            encryptSelection(operation);
+        };
+    };
+    addEncryptionAction(QStringLiteral("encrypt_files"),
+                        i18nc("@action", "Encrypt…"),
+                        QStringLiteral("document-encrypt"),
+                        runOperation(FileEncryption::Operation::Encrypt));
+    addEncryptionAction(QStringLiteral("decrypt_files"),
+                        i18nc("@action", "Decrypt"),
+                        QStringLiteral("document-decrypt"),
+                        runOperation(FileEncryption::Operation::Decrypt));
+    addEncryptionAction(QStringLiteral("sign_files"),
+                        i18nc("@action", "Sign…"),
+                        QStringLiteral("document-sign"),
+                        runOperation(FileEncryption::Operation::Sign));
+    addEncryptionAction(QStringLiteral("verify_signatures"),
+                        i18nc("@action", "Verify Signature"),
+                        QStringLiteral("document-edit-verify"),
+                        runOperation(FileEncryption::Operation::Verify));
+    encryptionMenu->addSeparator();
+    addEncryptionAction(QStringLiteral("aes_encrypt_files"),
+                        i18nc("@action", "Encrypt with AES Crypt…"),
+                        QStringLiteral("document-encrypt"),
+                        runOperation(FileEncryption::Operation::AesEncrypt));
+    addEncryptionAction(QStringLiteral("aes_decrypt_files"),
+                        i18nc("@action", "Decrypt with AES Crypt…"),
+                        QStringLiteral("document-decrypt"),
+                        runOperation(FileEncryption::Operation::AesDecrypt));
+    encryptionMenu->addSeparator();
+    addEncryptionAction(QStringLiteral("kleopatra_encrypt_sign"),
+                        i18nc("@action", "Sign and Encrypt with Kleopatra…"),
+                        QStringLiteral("document-edit-sign-encrypt"),
+                        [this] {
+                            openSelectionInKleopatra(false);
+                        })
+        ->setToolTip(i18nc("@info:tooltip", "Open Kleopatra's own sign and encrypt dialog for the selected files"));
+    addEncryptionAction(QStringLiteral("kleopatra_decrypt_verify"),
+                        i18nc("@action", "Decrypt and Verify with Kleopatra…"),
+                        QStringLiteral("document-edit-decrypt-verify"),
+                        [this] {
+                            openSelectionInKleopatra(true);
+                        })
+        ->setToolTip(i18nc("@info:tooltip", "Open Kleopatra's own decrypt and verify dialog for the selected files"));
+    connect(encryptionMenu, &QMenu::aboutToShow, this, &MainWindow::updateEncryptionActions);
+    // The menu disables actions that do not suit the selection; shortcuts check the selection themselves.
+    connect(encryptionMenu, &QMenu::aboutToHide, this, [encryptionMenu] {
+        for (QAction *action : encryptionMenu->actions()) {
+            action->setEnabled(true);
+        }
+    });
+
     QAction *terminal = actions->addAction(QStringLiteral("open_terminal"), this, &MainWindow::openTerminal);
     terminal->setText(i18nc("@action", "Open Terminal Here"));
     terminal->setIcon(QIcon::fromTheme(QStringLiteral("utilities-terminal")));
@@ -4344,6 +4411,9 @@ void MainWindow::updateActions()
     actions->action(QStringLiteral("edit_metadata"))->setEnabled(localFiles && selected.size() == 1);
     actions->action(QStringLiteral("split_file"))->setEnabled(localFiles && selected.size() == 1);
     actions->action(QStringLiteral("combine_files"))->setEnabled(localFiles);
+    actions->action(QStringLiteral("encryption"))->setEnabled(hasSelection && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
+                                                                  return item.url().isLocalFile() && !item.isDir();
+                                                              }));
     actions->action(QStringLiteral("compare_files"))->setEnabled(!comparisonFiles(activePane(), inactivePane(), isDualLayout()).isEmpty());
     const bool hasMedia = std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
         if (item.isDir() || !item.url().isLocalFile()) {
@@ -4483,6 +4553,7 @@ void MainWindow::updateFolderGateActions()
         QStringLiteral("share_on_network"),
         QStringLiteral("split_file"),
         QStringLiteral("combine_files"),
+        QStringLiteral("encryption"),
         QStringLiteral("compare_files"),
         QStringLiteral("open_gallery"),
         QStringLiteral("calculate_folder_sizes"),
@@ -5501,6 +5572,9 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
         } else {
             menu.addAction(actions->action(QStringLiteral("protect_folder")));
         }
+    }
+    if (actions->action(QStringLiteral("encryption"))->isEnabled()) {
+        menu.addAction(actions->action(QStringLiteral("encryption")));
     }
     if (singleFolder) {
         menu.addAction(actions->action(QStringLiteral("content_chart")));
@@ -6533,6 +6607,144 @@ void MainWindow::combineFiles()
     auto *dialog = new FileSplitDialog(FileSplitDialog::Mode::Combine, paths, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
+}
+
+void MainWindow::encryptSelection(FileEncryption::Operation operation)
+{
+    using FileEncryption::Kind;
+    using FileEncryption::Operation;
+    QStringList paths;
+    for (const KFileItem &item : activePane()->view()->selectedItems()) {
+        if (!item.url().isLocalFile() || item.isDir()) {
+            continue;
+        }
+        const QString path = item.url().toLocalFile();
+        const Kind kind = operation == Operation::Decrypt || operation == Operation::AesDecrypt ? FileEncryption::identifyFile(path) : Kind::None;
+        QString signature;
+        QString data;
+        if ((operation == Operation::Decrypt && kind != Kind::Encrypted && kind != Kind::Signed)
+            || (operation == Operation::AesDecrypt && kind != Kind::AesCrypt)
+            || (operation == Operation::Verify && !FileEncryption::verificationFiles(path, &signature, &data))) {
+            continue;
+        }
+        paths.append(path);
+    }
+    if (paths.isEmpty()) {
+        switch (operation) {
+        case Operation::Decrypt:
+            showStatusMessage(i18nc("@info:status", "Select files encrypted or signed with OpenPGP, such as .gpg or .asc files."));
+            break;
+        case Operation::AesDecrypt:
+            showStatusMessage(i18nc("@info:status", "Select AES Crypt files, which end in .aes."));
+            break;
+        case Operation::Verify:
+            showStatusMessage(i18nc("@info:status", "Select a signed file, a .sig or .asc signature, or a file with its signature beside it."));
+            break;
+        default:
+            showStatusMessage(i18nc("@info:status", "Select local files."));
+            break;
+        }
+        return;
+    }
+    auto *dialog = new FileEncryptionDialog(operation, paths, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::openSelectionInKleopatra(bool decrypt)
+{
+    using FileEncryption::Kind;
+    const QString kleopatra = FileEncryption::findExecutable(FileEncryption::Tool::Kleopatra);
+    if (kleopatra.isEmpty()) {
+        showStatusMessage(FileEncryption::missingText(FileEncryption::Tool::Kleopatra));
+        return;
+    }
+    QStringList paths;
+    for (const KFileItem &item : activePane()->view()->selectedItems()) {
+        if (!item.url().isLocalFile() || item.isDir()) {
+            continue;
+        }
+        QString path = item.url().toLocalFile();
+        if (decrypt) {
+            const Kind kind = FileEncryption::identifyFile(path);
+            QString signature;
+            QString data;
+            if (kind != Kind::Encrypted && kind != Kind::Signed && kind != Kind::Signature) {
+                // Kleopatra finds the signed data from a detached signature, not the other way round.
+                if (!FileEncryption::verificationFiles(path, &signature, &data)) {
+                    continue;
+                }
+                path = signature;
+            }
+        }
+        if (!paths.contains(path)) {
+            paths.append(path);
+        }
+    }
+    if (paths.isEmpty()) {
+        showStatusMessage(decrypt ? i18nc("@info:status", "Select files encrypted or signed with OpenPGP, or their signatures.")
+                                  : i18nc("@info:status", "Select local files."));
+        return;
+    }
+    auto *job = new KIO::CommandLauncherJob(kleopatra, FileEncryption::kleopatraArguments(decrypt, paths), this);
+    job->setDesktopName(QStringLiteral("org.kde.kleopatra"));
+    connect(job, &KJob::result, this, [this](KJob *job) {
+        if (job->error()) {
+            showStatusMessage(i18nc("@info:status", "Could not open Kleopatra: %1", job->errorString()));
+        }
+    });
+    job->start();
+}
+
+void MainWindow::updateEncryptionActions()
+{
+    using FileEncryption::Kind;
+    using FileEncryption::Tool;
+    KActionCollection *actions = actionCollection();
+    const KFileItemList items = activePane()->view()->selectedItems();
+    const bool localFiles = !items.isEmpty() && std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+        return item.url().isLocalFile() && !item.isDir();
+    });
+    bool openPgp = false;
+    bool aesFile = false;
+    bool verifiable = false;
+    if (localFiles) {
+        for (const KFileItem &item : items) {
+            const QString path = item.url().toLocalFile();
+            const Kind kind = FileEncryption::identifyFile(path);
+            openPgp = openPgp || kind == Kind::Encrypted || kind == Kind::Signed;
+            aesFile = aesFile || kind == Kind::AesCrypt;
+            QString signature;
+            QString data;
+            verifiable = verifiable || FileEncryption::verificationFiles(path, &signature, &data);
+        }
+    }
+    const bool gnupg = !FileEncryption::findExecutable(Tool::GnuPG).isEmpty();
+    const bool aesCrypt = !FileEncryption::findExecutable(Tool::AesCrypt).isEmpty();
+    const bool kleopatra = !FileEncryption::findExecutable(Tool::Kleopatra).isEmpty();
+    const auto set = [actions](const char *name, bool enabled, const QString &tooltip) {
+        QAction *action = actions->action(QLatin1String(name));
+        action->setEnabled(enabled);
+        action->setToolTip(tooltip);
+    };
+    const QString noGnupg = gnupg ? QString() : FileEncryption::missingText(Tool::GnuPG);
+    set("encrypt_files",
+        localFiles && gnupg,
+        gnupg ? i18nc("@info:tooltip", "Encrypt copies of the selected files for chosen keys or with a password") : noGnupg);
+    set("decrypt_files", localFiles && gnupg && openPgp, gnupg ? i18nc("@info:tooltip", "Decrypt copies of the selected OpenPGP files") : noGnupg);
+    set("sign_files", localFiles && gnupg, gnupg ? i18nc("@info:tooltip", "Save a separate signature for each selected file") : noGnupg);
+    set("verify_signatures",
+        localFiles && gnupg && verifiable,
+        gnupg ? i18nc("@info:tooltip", "Check signed files, or files with a .sig or .asc signature beside them") : noGnupg);
+    const QString noAesCrypt = aesCrypt ? QString() : FileEncryption::missingText(Tool::AesCrypt);
+    set("aes_encrypt_files",
+        localFiles && aesCrypt,
+        aesCrypt ? i18nc("@info:tooltip", "Encrypt copies of the selected files with a password, as .aes files") : noAesCrypt);
+    set("aes_decrypt_files", localFiles && aesCrypt && aesFile, aesCrypt ? i18nc("@info:tooltip", "Decrypt copies of the selected .aes files") : noAesCrypt);
+    actions->action(QStringLiteral("kleopatra_encrypt_sign"))->setVisible(kleopatra);
+    actions->action(QStringLiteral("kleopatra_encrypt_sign"))->setEnabled(localFiles);
+    actions->action(QStringLiteral("kleopatra_decrypt_verify"))->setVisible(kleopatra);
+    actions->action(QStringLiteral("kleopatra_decrypt_verify"))->setEnabled(localFiles && (openPgp || verifiable));
 }
 
 void MainWindow::compareFoldersFiltered()

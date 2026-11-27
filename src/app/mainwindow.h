@@ -7,6 +7,7 @@
 #include "editorpanel.h"
 #include "editorproviders.h"
 #include "edittools.h"
+#include "fileencryption.h"
 #include "metadataeditdialog.h"
 #include "officeapps.h"
 #include "previewpanel.h"
@@ -476,6 +477,12 @@ private:
     void updateTabBarPlacement();
     void splitFile();
     void combineFiles();
+    /// Opens the encryption dialog for the selected files that @p operation applies to.
+    void encryptSelection(FileEncryption::Operation operation);
+    /// Hands the selected files to Kleopatra's sign-and-encrypt or decrypt-and-verify action.
+    void openSelectionInKleopatra(bool decrypt);
+    /// Enables the Encryption menu's entries for the selection and the installed tools.
+    void updateEncryptionActions();
     void setupEditor();
     void setEditorPlacement(EditorPanel::Placement placement);
     void setPreviewPlacement(PreviewPanel::Placement placement);

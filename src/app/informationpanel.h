@@ -40,6 +40,7 @@ private:
     QToolButton *m_panelOptions = nullptr;
     QLabel *m_tags = nullptr;
     QLabel *m_libraryFields = nullptr;
+    QLabel *m_encryption = nullptr;
     KFileItem m_item;
     QStringList m_fields;
     QHash<QString, QLabel *> m_values;
