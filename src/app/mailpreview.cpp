@@ -8,6 +8,8 @@
 #include "symbolicicon.h"
 
 #include <KIO/Global>
+#include <KIO/JobUiDelegateFactory>
+#include <KIO/OpenUrlJob>
 #include <KJob>
 #include <KLocalizedString>
 
@@ -67,7 +69,7 @@ QLabel *plainLabel(const QString &text, QWidget *parent)
 
 /// Decodes the attachments again from the file, so a message that changed
 /// after it was previewed is reported instead of extracting the wrong data.
-Extraction writeAttachments(const QString &path, const QList<int> &indexes, const QStringList &names, const QString &folder)
+Extraction writeAttachments(const QString &path, const QList<int> &indexes, const QStringList &names, const QString &folder, bool readOnly)
 {
     Extraction result;
     QFile file(path);
@@ -86,6 +88,10 @@ Extraction writeAttachments(const QString &path, const QList<int> &indexes, cons
         if (!out.open(QIODevice::WriteOnly | QIODevice::NewOnly) || out.write(*content) != content->size() || !out.flush()) {
             result.error = out.errorString();
             return result;
+        }
+        out.close();
+        if (readOnly) {
+            out.setPermissions(QFileDevice::ReadOwner);
         }
         result.files.append(QUrl::fromLocalFile(out.fileName()));
     }
@@ -131,6 +137,13 @@ MailPreview::MailPreview(QWidget *parent)
     m_extract->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     m_extract->setToolTip(i18nc("@info:tooltip", "Save copies of the attachments in the folder that holds the message"));
     attachmentsHeader->addWidget(m_extract);
+    m_open = new QToolButton(this);
+    m_open->setObjectName(QStringLiteral("mailPreviewOpen"));
+    m_open->setIcon(SymbolicIcon::fromTheme(QStringLiteral("document-open")));
+    m_open->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_open->setText(i18nc("@action:button", "Open"));
+    m_open->setToolTip(i18nc("@info:tooltip", "Open a read-only copy of the selected attachment with its application"));
+    attachmentsHeader->addWidget(m_open);
     layout->addLayout(attachmentsHeader);
 
     m_attachments = new QListWidget(this);
@@ -158,8 +171,19 @@ MailPreview::MailPreview(QWidget *parent)
         std::sort(rows.begin(), rows.end());
         extract(rows);
     });
+    connect(m_open, &QToolButton::clicked, this, [this] {
+        const auto selected = m_attachments->selectedItems();
+        if (selected.size() == 1) {
+            openAttachment(m_attachments->row(selected.first()));
+        }
+    });
+    connect(m_attachments, &QListWidget::itemActivated, this, [this](QListWidgetItem *item) {
+        openAttachment(m_attachments->row(item));
+    });
     clear();
 }
+
+MailPreview::~MailPreview() = default;
 
 void MailPreview::open(const MailMessage::Message &message, const QUrl &source)
 {
@@ -225,6 +249,7 @@ void MailPreview::clear()
 {
     ++m_generation;
     m_extracting = false;
+    m_opening = false;
     m_source = {};
     while (m_headers->rowCount() > 0) {
         m_headers->removeRow(0);
@@ -251,6 +276,8 @@ void MailPreview::updateExtract()
     m_extract->setText(selected ? i18nc("@action:button", "Extract Selected") : i18nc("@action:button", "Extract All"));
     m_extract->setVisible(!m_attachmentInfo.isEmpty());
     m_extract->setEnabled(!m_extracting && !m_attachmentInfo.isEmpty() && m_source.isLocalFile());
+    m_open->setVisible(!m_attachmentInfo.isEmpty());
+    m_open->setEnabled(!m_opening && m_attachments->selectedItems().size() == 1 && m_source.isLocalFile());
 }
 
 void MailPreview::extract(const QList<int> &rows)
@@ -316,7 +343,73 @@ void MailPreview::extract(const QList<int> &rows)
             }
         });
     });
-    watcher->setFuture(QtConcurrent::run(writeAttachments, m_source.toLocalFile(), indexes, names, staging->path()));
+    watcher->setFuture(QtConcurrent::run(writeAttachments, m_source.toLocalFile(), indexes, names, staging->path(), false));
+}
+
+void MailPreview::setOpener(Opener opener)
+{
+    m_opener = std::move(opener);
+}
+
+void MailPreview::openAttachment(int row)
+{
+    if (m_opening || !m_source.isLocalFile() || row < 0 || row >= m_attachmentInfo.size()) {
+        return;
+    }
+    if (!m_openCopies) {
+        auto copies = std::make_unique<QTemporaryDir>(QDir::tempPath() + QStringLiteral("/opus-file-manager-attachments-XXXXXX"));
+        if (!copies->isValid()) {
+            m_status->setText(i18nc("@info %1 is an error", "Could not open the attachment: %1", copies->errorString()));
+            m_status->show();
+            Q_EMIT openFinished(m_status->text());
+            return;
+        }
+        m_openCopies = std::move(copies);
+    }
+    // Each copy gets its own folder, so attachments with the same name never collide.
+    const QString folder = m_openCopies->filePath(QString::number(++m_openCount));
+    if (!QDir().mkpath(folder)) {
+        m_status->setText(i18nc("@info", "Could not open the attachment: the temporary folder could not be created."));
+        m_status->show();
+        Q_EMIT openFinished(m_status->text());
+        return;
+    }
+    m_opening = true;
+    updateExtract();
+
+    const quint64 generation = m_generation;
+    auto *watcher = new QFutureWatcher<Extraction>(this);
+    connect(watcher, &QFutureWatcher<Extraction>::finished, this, [this, watcher, generation] {
+        const Extraction result = watcher->result();
+        watcher->deleteLater();
+        if (generation != m_generation) {
+            return;
+        }
+        m_opening = false;
+        updateExtract();
+        if (!result.error.isEmpty() || result.files.isEmpty()) {
+            const QString error = i18nc("@info %1 is an error", "Could not open the attachment: %1", result.error);
+            m_status->setText(error);
+            m_status->show();
+            Q_EMIT openFinished(error);
+            return;
+        }
+        m_status->clear();
+        m_status->hide();
+        if (m_opener) {
+            m_opener(result.files.first());
+        } else {
+            // The type is detected from the copy itself rather than trusted from
+            // the message, and programs in attachments are never run.
+            auto *job = new KIO::OpenUrlJob(result.files.first());
+            job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, window()));
+            job->setRunExecutables(false);
+            job->start();
+        }
+        Q_EMIT openFinished(QString());
+    });
+    watcher->setFuture(
+        QtConcurrent::run(writeAttachments, m_source.toLocalFile(), QList<int>{row}, QStringList{m_attachmentInfo.at(row).fileName}, folder, true));
 }
 
 void MailPreview::finishExtraction(const QString &status, const QString &error)
