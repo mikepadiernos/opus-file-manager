@@ -14,7 +14,7 @@ record the Max File Manager behaviour that informs its parity goals.
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. M15–M26 have since been merged into `main`; M27–M32 are
+> released after M14. M15–M27 have since been merged into `main`; M28–M32 are
 > planned. See [pending tasks](TODO.md) for blocked work and branch-specific
 > handoffs.
 
@@ -23,8 +23,8 @@ record the Max File Manager behaviour that informs its parity goals.
 Status reflects the milestones' parent issues on the
 [project board](https://github.com/users/mikepadiernos/projects/3): Merged
 groups have every feature checked and merged into `main`, and Planned groups are
-not yet complete. M27 already has one checked feature (default file manager
-registration) and partial work recorded in [pending tasks](TODO.md).
+not yet complete. In the M27–M31 group, M27 is merged and its Plasma checks
+are recorded in [pending tasks](TODO.md); M28–M31 are planned.
 
 | Milestones | Focus                                        | Status                                                                    | Jump to                         |
 | ---------- | -------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------- |
