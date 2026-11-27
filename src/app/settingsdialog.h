@@ -383,6 +383,12 @@ private:
     QGroupBox *createEbookPreviewGroup();
     /// The Fonts group of the Ebooks and Fonts tab: whether the preview panel shows fonts, and their sample text.
     QGroupBox *createFontPreviewGroup();
+    /// The Applications › Packages tab.
+    QWidget *createPackagesIntegrationPage();
+    /// The Actions group of the Packages tab: which package families Application Package offers actions for, and the tools they need.
+    QGroupBox *createPackageActionsGroup();
+    /// The AppImage Menu Entries group of the Packages tab: whether and how AppImages are added to the application menu.
+    QGroupBox *createAppImageIntegrationGroup(QCheckBox *appImages);
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

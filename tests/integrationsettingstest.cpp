@@ -4,6 +4,7 @@
 #include "activityassociationseditor.h"
 #include "activitycontroller.h"
 #include "appidentity.h"
+#include "apppackages.h"
 #include "atuin.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
@@ -2380,6 +2381,87 @@ private Q_SLOTS:
         apply();
         QVERIFY(!Settings::fontPreviews());
         QCOMPARE(Settings::fontSampleText(), QStringLiteral("Pack my box"));
+    }
+
+    void packagesTabTurnsOnPackageActions()
+    {
+        QTemporaryDir bin;
+        QVERIFY(bin.isValid());
+        const QString applications = AppPackages::Locations::system().applications;
+        const QString entry = applications + QStringLiteral("/appimagekit_0123-myapp.desktop");
+        const QByteArray path = qgetenv("PATH");
+        const auto restore = qScopeGuard([&path, &entry] {
+            qputenv("PATH", path);
+            QFile::remove(entry);
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        // Only flatpak is installed.
+        QFile flatpak(bin.filePath(QStringLiteral("flatpak")));
+        QVERIFY(flatpak.open(QIODevice::WriteOnly));
+        flatpak.write("#!/bin/sh\n");
+        flatpak.close();
+        flatpak.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+        qputenv("PATH", bin.path().toLocal8Bit());
+        QFile::remove(entry);
+
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *actions = dialog.findChild<QGroupBox *>(QStringLiteral("packageActionsGroup"));
+        auto *menu = dialog.findChild<QGroupBox *>(QStringLiteral("appImageIntegrationGroup"));
+        QVERIFY(actions && menu);
+        QCOMPARE(tabTitleOf(actions), QStringLiteral("Packages"));
+        QVERIFY(dialog.findChild<QWidget *>(QStringLiteral("packagesIntegrationPage"))->isAncestorOf(menu));
+        const auto apply = [&dialog] {
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        };
+
+        auto *appImages = actions->findChild<QCheckBox *>(QStringLiteral("kcfg_AppImageActions"));
+        auto *flatpaks = actions->findChild<QCheckBox *>(QStringLiteral("kcfg_FlatpakActions"));
+        auto *snaps = actions->findChild<QCheckBox *>(QStringLiteral("kcfg_SnapActions"));
+        auto *tools = actions->findChild<QLabel *>(QStringLiteral("packageToolsStatus"));
+        QVERIFY(appImages && flatpaks && snaps && tools);
+        QVERIFY(appImages->isChecked() && flatpaks->isChecked() && snaps->isChecked());
+        QVERIFY2(tools->text().contains(QStringLiteral("appimageupdatetool, which is not installed")), qPrintable(tools->text()));
+        QVERIFY2(tools->text().contains(QStringLiteral("Flatpak: uses flatpak.")), qPrintable(tools->text()));
+        QVERIFY2(tools->text().contains(QStringLiteral("Snap: snap is not installed")), qPrintable(tools->text()));
+        QVERIFY2(tools->text().contains(QStringLiteral("Discover is not installed")), qPrintable(tools->text()));
+
+        snaps->setChecked(false);
+        QVERIFY2(tools->text().contains(QStringLiteral("Snap: actions are off.")), qPrintable(tools->text()));
+        apply();
+        QVERIFY(!Settings::snapActions());
+        QVERIFY(!AppPackages::isPackage(QStringLiteral("/tmp/hello_42.snap"), QStringLiteral("application/vnd.snap")));
+        QVERIFY(AppPackages::isPackage(QStringLiteral("/tmp/MyApp.AppImage"), QStringLiteral("application/vnd.appimage")));
+
+        auto *integration = menu->findChild<QCheckBox *>(QStringLiteral("kcfg_AppImageMenuIntegration"));
+        auto *details = menu->findChild<QCheckBox *>(QStringLiteral("kcfg_AppImageReadDetails"));
+        auto *status = menu->findChild<QLabel *>(QStringLiteral("appImageIntegrationStatus"));
+        QVERIFY(integration && details && status);
+        QCOMPARE(status->text(), QStringLiteral("No AppImages are in the application menu."));
+        QDir().mkpath(applications);
+        QFile desktop(entry);
+        QVERIFY(desktop.open(QIODevice::WriteOnly));
+        desktop.close();
+        details->setChecked(false);
+        integration->setChecked(false);
+        QVERIFY(!details->isEnabled());
+        QVERIFY2(status->text().startsWith(QStringLiteral("1 AppImage is in the application menu.")), qPrintable(status->text()));
+        apply();
+        QVERIFY(!Settings::appImageMenuIntegration());
+        QVERIFY(!Settings::appImageReadDetails());
+        AppPackages::Package package;
+        package.kind = AppPackages::Kind::AppImage;
+        QCOMPARE(AppPackages::actions(package), (QList<AppPackages::Action>{AppPackages::Action::Run, AppPackages::Action::Update}));
+
+        appImages->setChecked(false);
+        QVERIFY(!integration->isEnabled());
+        QVERIFY(!details->isEnabled());
+        QVERIFY(tools->text().contains(QStringLiteral("AppImages: actions are off.")));
+        apply();
+        QVERIFY(!AppPackages::isPackage(QStringLiteral("/tmp/MyApp.AppImage"), QStringLiteral("application/vnd.appimage")));
+        QVERIFY(AppPackages::actions(package).isEmpty());
     }
 };
 

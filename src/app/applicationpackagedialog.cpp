@@ -2,6 +2,7 @@
 
 #include "applicationpackagedialog.h"
 #include "packagetools.h"
+#include "settings.h"
 
 #include <KGuiItem>
 #include <KLocalizedString>
@@ -151,6 +152,12 @@ ApplicationPackageDialog::ApplicationPackageDialog(const QString &path,
 
     reload();
     loadDetails(0);
+    // Preferences › Applications › Packages may turn actions on or off while the dialog is open.
+    connect(Settings::self(), &Settings::configChanged, this, [this] {
+        if (!m_busy) {
+            reload();
+        }
+    });
 }
 
 ApplicationPackageDialog::~ApplicationPackageDialog() = default;
@@ -222,6 +229,14 @@ void ApplicationPackageDialog::reload()
 
     const QList<Action> actions = AppPackages::actions(m_package);
     m_systemWide->setVisible(isFlatpak(m_package.kind) && actions.contains(Action::Install));
+    const QString actionsOff = i18nc("@info", "Actions for this type of package are off in Preferences › Applications › Packages.");
+    if (m_package.isValid() && !AppPackages::enabled(m_package.kind)) {
+        m_message->setMessageType(KMessageWidget::Information);
+        m_message->setText(actionsOff);
+        m_message->show();
+    } else if (m_message->text() == actionsOff) {
+        m_message->hide();
+    }
     rebuildActions();
 }
 
@@ -418,7 +433,8 @@ void ApplicationPackageDialog::trigger(Action action)
         m_message->animatedShow();
         return;
     }
-    if (m_package.kind == Kind::AppImage && (action == Action::Run || (action == Action::Integrate && m_package.appImageType == 2)) && !ensureExecutable()) {
+    if (m_package.kind == Kind::AppImage && (action == Action::Run || (action == Action::Integrate && AppPackages::readsEmbeddedDetails(m_package)))
+        && !ensureExecutable()) {
         return;
     }
     if (!confirm(action)) {
@@ -466,7 +482,7 @@ void ApplicationPackageDialog::integrate(int step)
 {
     if (step == 0) {
         m_extractFolder = std::make_unique<QTemporaryDir>();
-        if (m_package.appImageType != 2 || !m_extractFolder->isValid()) {
+        if (!AppPackages::readsEmbeddedDetails(m_package) || !m_extractFolder->isValid()) {
             finishIntegration();
             return;
         }
@@ -498,7 +514,8 @@ void ApplicationPackageDialog::finishIntegration()
 {
     QString desktopFile;
     QString icon;
-    if (m_extractFolder && m_extractFolder->isValid()) {
+    const bool read = AppPackages::readsEmbeddedDetails(m_package);
+    if (read && m_extractFolder && m_extractFolder->isValid()) {
         const QString root = m_extractFolder->filePath(QStringLiteral("squashfs-root"));
         const QStringList topLevel = QDir(root).entryList({QStringLiteral("*.desktop")}, QDir::Files, QDir::Name);
         if (!topLevel.isEmpty()) {
@@ -520,7 +537,7 @@ void ApplicationPackageDialog::finishIntegration()
     const QString error = AppPackages::writeIntegration(m_path, desktopFile, icon, m_locations);
     m_extractFolder.reset();
     finishChange(Action::Integrate, error.isEmpty(), error);
-    if (error.isEmpty() && m_package.appImageType == 2 && desktopFile.isEmpty()) {
+    if (error.isEmpty() && read && desktopFile.isEmpty()) {
         m_message->setMessageType(KMessageWidget::Information);
         m_message->setText(i18nc("@info", "The AppImage's name and icon could not be read, so the file name and a generic icon are used."));
         m_message->animatedShow();

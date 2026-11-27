@@ -5,6 +5,7 @@
 #include "activityassociationseditor.h"
 #include "activitycontroller.h"
 #include "appidentity.h"
+#include "apppackages.h"
 #include "atuin.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
@@ -2192,5 +2193,119 @@ QGroupBox *SettingsDialog::createFontPreviewGroup()
         }
         *saved = text;
     });
+    return group;
+}
+
+QWidget *SettingsDialog::createPackagesIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("packagesIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *actions = createPackageActionsGroup();
+    layout->addWidget(actions);
+    layout->addWidget(createAppImageIntegrationGroup(actions->findChild<QCheckBox *>(QStringLiteral("kcfg_AppImageActions"))));
+    layout->addStretch();
+    return page;
+}
+
+QGroupBox *SettingsDialog::createPackageActionsGroup()
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Actions"));
+    group->setObjectName(QStringLiteral("packageActionsGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *appImages = checkBox(QStringLiteral("AppImageActions"), i18nc("@option:check", "AppImages"));
+    appImages->setToolTip(i18nc("@info:tooltip", "Run AppImages, add them to the application menu and update them"));
+    layout->addWidget(appImages);
+    auto *flatpak = checkBox(QStringLiteral("FlatpakActions"), i18nc("@option:check", "Flatpak"));
+    flatpak->setToolTip(i18nc("@info:tooltip",
+                              "Install Flatpak bundles, references and repositories, and run, update or uninstall the application whose "
+                              "installed folder is selected"));
+    layout->addWidget(flatpak);
+    auto *snap = checkBox(QStringLiteral("SnapActions"), i18nc("@option:check", "Snap"));
+    snap->setToolTip(i18nc("@info:tooltip", "Install snap files, and run, refresh or remove the snap whose installed folder is selected"));
+    layout->addWidget(snap);
+    auto *status = statusLabel(QStringLiteral("packageToolsStatus"));
+    layout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Application Package… in the context menu offers actions only for the package types turned on here. "
+                                  "Other packages open like any other file. Changes always ask first, and run the package tools without "
+                                  "their own questions."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+
+    // Reports which package tools are installed for the package types turned on.
+    const auto refresh = [appImages, flatpak, snap, status] {
+        const auto installed = [](const char *program) {
+            return !QStandardPaths::findExecutable(QString::fromLatin1(program)).isEmpty();
+        };
+        QStringList lines;
+        if (!appImages->isChecked()) {
+            lines.append(i18nc("@info", "AppImages: actions are off."));
+        } else if (!installed("appimageupdatetool")) {
+            lines.append(i18nc("@info", "AppImages: Update needs AppImageUpdate's appimageupdatetool, which is not installed."));
+        } else {
+            lines.append(i18nc("@info", "AppImages: Update uses appimageupdatetool."));
+        }
+        if (!flatpak->isChecked()) {
+            lines.append(i18nc("@info", "Flatpak: actions are off."));
+        } else if (!installed("flatpak")) {
+            lines.append(i18nc("@info", "Flatpak: flatpak is not installed, so packages can't be installed, run, updated or uninstalled."));
+        } else {
+            lines.append(i18nc("@info", "Flatpak: uses flatpak."));
+        }
+        if (!snap->isChecked()) {
+            lines.append(i18nc("@info", "Snap: actions are off."));
+        } else if (!installed("snap")) {
+            lines.append(i18nc("@info", "Snap: snap is not installed, so snaps can't be installed, run, refreshed or removed."));
+        } else {
+            lines.append(i18nc("@info", "Snap: uses snap."));
+        }
+        if ((flatpak->isChecked() || snap->isChecked()) && !installed("plasma-discover")) {
+            lines.append(i18nc("@info", "Discover is not installed, so Open in Discover is unavailable."));
+        }
+        status->setText(lines.join(QLatin1Char('\n')));
+    };
+    group->refresh = refresh;
+    for (QCheckBox *check : {appImages, flatpak, snap}) {
+        connect(check, &QCheckBox::toggled, group, refresh);
+    }
+    refresh();
+    return group;
+}
+
+QGroupBox *SettingsDialog::createAppImageIntegrationGroup(QCheckBox *appImages)
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "AppImage Menu Entries"));
+    group->setObjectName(QStringLiteral("appImageIntegrationGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *integration = checkBox(QStringLiteral("AppImageMenuIntegration"), i18nc("@option:check", "Offer to add AppImages to the application menu"));
+    integration->setToolTip(i18nc("@info:tooltip", "Add to Application Menu writes a menu entry that runs the AppImage where it is"));
+    layout->addWidget(integration);
+    auto *details = checkBox(QStringLiteral("AppImageReadDetails"), i18nc("@option:check", "Read the AppImage's own name, icon and categories"));
+    details->setToolTip(i18nc("@info:tooltip",
+                              "Reading them runs the AppImage's runtime to extract its desktop file and icon, and marks the AppImage "
+                              "executable first. Otherwise the entry uses the file name and a generic icon."));
+    layout->addWidget(details);
+    auto *status = statusLabel(QStringLiteral("appImageIntegrationStatus"));
+    layout->addWidget(status);
+
+    const auto refresh = [appImages, integration, details, status] {
+        integration->setEnabled(appImages->isChecked());
+        details->setEnabled(appImages->isChecked() && integration->isChecked());
+        const QDir applications(AppPackages::Locations::system().applications);
+        const qsizetype entries = applications.entryList({QStringLiteral("appimagekit_*.desktop")}, QDir::Files).size();
+        QString text = entries == 0
+            ? i18nc("@info", "No AppImages are in the application menu.")
+            : i18ncp("@info", "%1 AppImage is in the application menu.", "%1 AppImages are in the application menu.", static_cast<int>(entries));
+        if (entries > 0) {
+            text += QLatin1Char(' ') + i18nc("@info", "Remove from Application Menu in Application Package removes an entry, even when adding them is off.");
+        }
+        status->setText(text);
+    };
+    group->refresh = refresh;
+    for (QCheckBox *check : {appImages, integration}) {
+        connect(check, &QCheckBox::toggled, group, refresh);
+    }
+    refresh();
     return group;
 }

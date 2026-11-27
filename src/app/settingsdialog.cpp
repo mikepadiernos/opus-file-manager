@@ -402,7 +402,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createEditorIntegrationPage(), i18nc("@title:tab", "Editor")},
                    {createOfficeIntegrationPage(), i18nc("@title:tab", "Office")},
                    {createMediaIntegrationPage(), i18nc("@title:tab", "Media")},
-                   {createEbookFontIntegrationPage(), i18nc("@title:tab", "Ebooks and Fonts")}},
+                   {createEbookFontIntegrationPage(), i18nc("@title:tab", "Ebooks and Fonts")},
+                   {createPackagesIntegrationPage(), i18nc("@title:tab", "Packages")}},
                   i18nc("@title:group", "Applications"),
                   QStringLiteral("applications-other"));
     // The Activities, KRunner and KWin tabs offer the workspaces too.

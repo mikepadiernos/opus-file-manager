@@ -2,6 +2,7 @@
 
 #include "applicationpackagedialog.h"
 #include "packagetools.h"
+#include "settings.h"
 
 #include <KDesktopFile>
 #include <KMessageWidget>
@@ -11,6 +12,7 @@
 #include <QFile>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -106,6 +108,7 @@ private Q_SLOTS:
 
     void init()
     {
+        Settings::self()->setDefaults();
         for (const QString &entry : QDir(m_dir.path()).entryList(QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden)) {
             const QString path = m_dir.filePath(entry);
             QFileInfo(path).isDir() ? QDir(path).removeRecursively() : QFile::remove(path);
@@ -312,6 +315,71 @@ private Q_SLOTS:
         QCOMPARE(m_questions, QStringList{QStringLiteral("Add to Application Menu")});
         QCOMPARE(integrationFiles(appImage, m_locations).size(), 1);
         QCOMPARE(KDesktopFile(integrationFiles(appImage, m_locations).first()).readIcon(), QStringLiteral("application-x-executable"));
+    }
+
+    void followsThePackageSettings()
+    {
+        const QString appImage = m_dir.filePath(QStringLiteral("MyApp.AppImage"));
+        writeFile(appImage,
+                  QByteArray("\x7f"
+                             "ELF\x02\x01\x01\x00"
+                             "AI\x02",
+                             11));
+        QFile::setPermissions(appImage, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+        FakeTools tools;
+
+        // Without reading its details, a type 2 AppImage is neither run nor marked executable.
+        Settings::setAppImageReadDetails(false);
+        {
+            ApplicationPackageDialog dialog(appImage, QStringLiteral("application/vnd.appimage"), &tools, m_locations);
+            dialog.setConfirmation(confirmation());
+            dialog.trigger(Action::Integrate);
+            QCOMPARE(m_questions, QStringList{QStringLiteral("Add to Application Menu")});
+            QVERIFY(tools.runs.isEmpty());
+            QVERIFY(!QFileInfo(appImage).isExecutable());
+            QVERIFY2(messageText(dialog).contains(QStringLiteral("Added MyApp")), qPrintable(messageText(dialog)));
+            QCOMPARE(KDesktopFile(integrationFiles(appImage, m_locations).first()).readIcon(), QStringLiteral("application-x-executable"));
+        }
+
+        // Without menu integration, an existing entry can still be removed.
+        Settings::setAppImageMenuIntegration(false);
+        {
+            ApplicationPackageDialog dialog(appImage, QStringLiteral("application/vnd.appimage"), &tools, m_locations);
+            dialog.setConfirmation(confirmation());
+            QVERIFY(button(dialog, QStringLiteral("packageRun")));
+            QVERIFY(button(dialog, QStringLiteral("packageRemoveIntegration")));
+            dialog.trigger(Action::RemoveIntegration);
+            QVERIFY(integrationFiles(appImage, m_locations).isEmpty());
+            QTRY_VERIFY(!button(dialog, QStringLiteral("packageRemoveIntegration")));
+            QVERIFY(!button(dialog, QStringLiteral("packageIntegrate")));
+            dialog.trigger(Action::Integrate);
+            QVERIFY(integrationFiles(appImage, m_locations).isEmpty());
+        }
+
+        // A package type that is off is described without actions.
+        Settings::setFlatpakActions(false);
+        const QString ref = m_dir.filePath(QStringLiteral("kate.flatpakref"));
+        writeFile(ref, "[Flatpak Ref]\nName=org.kde.kate\nTitle=Kate\n");
+        ApplicationPackageDialog dialog(ref, QStringLiteral("application/vnd.flatpak.ref"), &tools, m_locations);
+        dialog.setConfirmation(confirmation());
+        QCOMPARE(dialog.package().name, QStringLiteral("Kate"));
+        QVERIFY(dialog.findChildren<QPushButton *>(QStringLiteral("packageInstall")).isEmpty());
+        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("packageSystemWide"))->isHidden());
+        QVERIFY(messageText(dialog).contains(QStringLiteral("Preferences › Applications › Packages")));
+        m_questions.clear();
+        dialog.trigger(Action::Install);
+        QVERIFY(m_questions.isEmpty());
+
+        // Turning them on again in Preferences offers them in the open dialog.
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        Settings::setFlatpakActions(true);
+        Settings::self()->save();
+        QTRY_VERIFY(button(dialog, QStringLiteral("packageInstall")));
+        QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("packageSystemWide"))->isHidden());
+        QVERIFY(dialog.findChild<KMessageWidget *>()->isHidden());
     }
 };
 
