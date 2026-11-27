@@ -2072,7 +2072,7 @@ considered Calendar, Maps, Deck and Notes workflows.
       Real-server verification is a
       [pending handoff](TODO.md#nextcloud-accounts-on-a-real-server-588).
       [#588]
-- [ ] Browse Nextcloud files in either pane and reuse supported KIO operations,
+- [x] Browse Nextcloud files in either pane and reuse supported KIO operations,
       confirmations, cancellation and error reporting. Respect server
       permissions and report unsupported operations and partial failures.
       Real-server verification is a
