@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "terminallauncher.h"
+#include "cloudactivity.h"
+#include "cloudactivitydialog.h"
 #include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
@@ -20,12 +22,15 @@
 #include <QFileInfo>
 #include <QLabel>
 #include <QMenu>
+#include <QPushButton>
 #include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
+#include <QTreeWidget>
 #include <QUrl>
 
 using TerminalProviders::Provider;
@@ -475,12 +480,60 @@ private Q_SLOTS:
         QVERIFY(entries.first()->isChecked());
         QCOMPARE(entries.size(), 3);
         QVERIFY(entries.at(1)->isSeparator());
+        // The mount uses Plasma Opus's cache, so pending uploads can be found.
+        QFile arguments(output);
+        QVERIFY(arguments.open(QIODevice::ReadOnly));
+        const QStringList mountArguments = QString::fromLocal8Bit(arguments.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        const qsizetype cacheDir = mountArguments.indexOf(QStringLiteral("--cache-dir"));
+        QVERIFY(cacheDir >= 0);
+        QCOMPARE(mountArguments.value(cacheDir + 1), CloudActivity::rcloneCacheDir());
+        QVERIFY(mountArguments.contains(QStringLiteral("--transfers")));
+
+        // Unmounting waits for files still uploading, and canceling keeps the mount.
+        const QString metadata = CloudActivity::rcloneCacheDir() + QStringLiteral("/vfsMeta/work docs/report.odt");
+        QVERIFY(QDir().mkpath(QFileInfo(metadata).absolutePath()));
+        const auto removeMetadata = qScopeGuard([] {
+            QDir(CloudActivity::rcloneCacheDir() + QStringLiteral("/vfsMeta")).removeRecursively();
+        });
+        QFile pending(metadata);
+        QVERIFY(pending.open(QIODevice::WriteOnly));
+        pending.write(R"({"Size":10,"Dirty":true})");
+        pending.close();
+        bool waited = false;
+        auto *timer = new QTimer(&window);
+        timer->setInterval(20);
+        connect(timer, &QTimer::timeout, timer, [timer, &waited] {
+            auto *dialog = qobject_cast<CloudUploadWaitDialog *>(QApplication::activeModalWidget());
+            if (!dialog) {
+                return;
+            }
+            timer->stop();
+            waited = true;
+            dialog->findChild<QPushButton *>(QStringLiteral("cloudUploadCancel"))->click();
+        });
+        timer->start();
+        entries.at(2)->trigger();
+        QVERIFY(waited);
+        QVERIFY(window.rcloneMounts()->isMounted(QStringLiteral("work docs")));
+        QCOMPARE(window.activePane()->url(), QUrl::fromLocalFile(path));
+        QVERIFY(pending.remove());
 
         QSignalSpy unmounted(window.rcloneMounts(), &RcloneMounts::unmounted);
         entries.at(2)->trigger();
         QCOMPARE(window.activePane()->url(), QUrl::fromLocalFile(QDir::homePath()));
         QVERIFY(unmounted.wait(5000));
         QVERIFY(window.rcloneMounts()->mountedRemotes().isEmpty());
+
+        // Mount failures are listed in Cloud Activity.
+        Q_EMIT window.rcloneMounts()->failed(QStringLiteral("work docs"), QStringLiteral("remote unreachable"));
+        QCOMPARE(window.cloudActivity()->events().last().source, QStringLiteral("work docs"));
+        QCOMPARE(window.cloudActivity()->events().last().message, QStringLiteral("remote unreachable"));
+        window.actionCollection()->action(QStringLiteral("cloud_activity"))->trigger();
+        auto *activity = window.findChild<CloudActivityDialog *>();
+        QVERIFY(activity);
+        QVERIFY(activity->isVisible());
+        QCOMPARE(activity->findChild<QTreeWidget *>(QStringLiteral("cloudActivityErrors"))->topLevelItem(0)->text(2), QStringLiteral("remote unreachable"));
+        activity->close();
     }
 
     void remoteConnectionsMountAsFolders()

@@ -84,7 +84,7 @@ private Q_SLOTS:
         QVERIFY(fixture.tray->trayIconShown());
         QMenu *menu = fixture.tray->contextMenu();
         QVERIFY(menu);
-        for (const char *name : {"trayShowHide", "trayOpenHome", "trayTransfers", "trayCloudSync"}) {
+        for (const char *name : {"trayShowHide", "trayOpenHome", "trayTransfers", "trayCloudSync", "trayCloudActivity"}) {
             QVERIFY2(menu->findChild<QAction *>(QLatin1String(name)), name);
         }
 
@@ -217,6 +217,36 @@ private Q_SLOTS:
         QSignalSpy cloudSync(fixture.tray, &DesktopTray::cloudSyncRequested);
         fixture.tray->contextMenu()->findChild<QAction *>(QStringLiteral("trayCloudSync"))->trigger();
         QCOMPARE(cloudSync.count(), 1);
+        QSignalSpy cloudActivity(fixture.tray, &DesktopTray::cloudActivityRequested);
+        fixture.tray->contextMenu()->findChild<QAction *>(QStringLiteral("trayCloudActivity"))->trigger();
+        QCOMPARE(cloudActivity.count(), 1);
+    }
+
+    void trayQuitCanBeCanceled()
+    {
+        Fixture fixture;
+        makeWindow(fixture, true);
+        int checks = 0;
+        fixture.tray->setQuitCheck([&checks] {
+            ++checks;
+            return false;
+        });
+        QAction *quit = nullptr;
+        // The item adds its standard Quit action when the menu is about to show.
+        Q_EMIT fixture.tray->contextMenu()->aboutToShow();
+        const auto menuActions = fixture.tray->contextMenu()->actions();
+        for (QAction *action : menuActions) {
+            if (action->text().remove(QLatin1Char('&')) == QLatin1String("Quit")) {
+                quit = action;
+            }
+        }
+        QVERIFY(quit);
+        QSignalSpy aboutToQuit(QCoreApplication::instance(), &QCoreApplication::aboutToQuit);
+        quit->trigger();
+        QTRY_COMPARE(checks, 1);
+        QTest::qWait(50);
+        QCOMPARE(aboutToQuit.count(), 0);
+        QVERIFY(fixture.window->isVisible());
     }
 
     void backgroundStartKeepsTheTrayIconWithoutAWindow()

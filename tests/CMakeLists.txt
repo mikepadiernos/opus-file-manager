@@ -90,6 +90,7 @@ ecm_add_tests(
     batchrenametest.cpp
     batchrenamepresetstest.cpp
     checksumstest.cpp
+    cloudactivitytest.cpp
     cloudsynctest.cpp
     cloudsyncrunnertest.cpp
     customcommandstest.cpp
@@ -226,6 +227,12 @@ ecm_add_test(metadataeditdialogtest.cpp
 )
 
 ecm_add_test(foldersyncdialogtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(cloudactivitydialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI
