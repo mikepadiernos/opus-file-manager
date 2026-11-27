@@ -2002,7 +2002,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Mail**
 
-  - [ ] **Client:** show the current default mail client and open Plasma's
+  - [x] **Client:** show the current default mail client and open Plasma's
         Default Applications settings to change it; enable or disable the
         Send by Email action. Plasma-session verification is a
         [pending handoff](TODO.md#mail-client-settings-on-plasma-666).
