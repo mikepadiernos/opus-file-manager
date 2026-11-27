@@ -97,6 +97,8 @@ add_library(opusfm_core STATIC
     mailmessage.h
     kwinscript.cpp
     kwinscript.h
+    mediabackend.cpp
+    mediabackend.h
     mounttable.cpp
     mounttable.h
     librarymoves.cpp
@@ -248,6 +250,12 @@ target_include_directories(opusfm_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAK
 if(KF6Baloo_FOUND)
     target_compile_definitions(opusfm_core PUBLIC OPUSFM_HAVE_BALOO)
     target_link_libraries(opusfm_core PUBLIC KF6::Baloo)
+endif()
+
+if(OPUSFM_HAVE_MPV)
+    target_sources(opusfm_core PRIVATE mpvplayer.cpp mpvplayer.h)
+    target_compile_definitions(opusfm_core PUBLIC OPUSFM_HAVE_MPV)
+    target_link_libraries(opusfm_core PUBLIC PkgConfig::MPV)
 endif()
 
 if(AccountsQt6_FOUND)

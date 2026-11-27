@@ -392,6 +392,11 @@
       <default>Right</default>
     </entry>
     <entry name="PreviewMediaAutoplay" type="Bool"><default>false</default></entry>
+    <entry name="MediaBackend" type="Enum">
+      <label>Playback backend for audio and video in the preview panel and gallery</label>
+      <choices><choice name="QtMultimedia"/><choice name="Mpv"/></choices>
+      <default>QtMultimedia</default>
+    </entry>
     <entry name="PreviewFormatted" type="Bool"><default>true</default></entry>
     <entry name="PreviewLineNumbers" type="Bool"><default>true</default></entry>
     <entry name="PreviewSyntaxHighlighting" type="Bool"><default>true</default></entry>

@@ -115,6 +115,7 @@ ecm_add_tests(
     lansharetest.cpp
     mailhandofftest.cpp
     mailmessagetest.cpp
+    mediabackendtest.cpp
     onlineaccountstest.cpp
     kwinscripttest.cpp
     mounttabletest.cpp
@@ -377,6 +378,13 @@ ecm_add_test(mailpreviewtest.cpp
     NAME_PREFIX "opusfm-"
     GUI
 )
+
+if(OPUSFM_HAVE_MPV)
+    ecm_add_test(mpvplayertest.cpp
+        LINK_LIBRARIES opusfm_core Qt6::Test
+        NAME_PREFIX "opusfm-"
+    )
+endif()
 
 ecm_add_test(remotepreviewtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test Qt6::Network
