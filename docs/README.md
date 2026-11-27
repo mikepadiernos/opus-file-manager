@@ -116,7 +116,7 @@ adapts the reference to KDE; use the roadmap for implementation status.
 
 | Document                                       | What it covers                                                                  |
 | ---------------------------------------------- | ------------------------------------------------------------------------------- |
-| [Development guide](development.md)            | Building, testing, dev container, conventions and project workflow              |
+| [Development guide](development.md)            | Building, testing, dev container, mise tasks, conventions and workflow          |
 | [Project instructions](../CLAUDE.md)           | Authoritative conventions, project workflow, branches and issue handling        |
 | [Release notes template](releases/TEMPLATE.md) | Starting point for GitHub release notes                                         |
 | [Rust prototype](rust-prototype.md)            | M21 query-parser pilot, M23 tagging evaluation and criteria for later Rust work |

@@ -156,8 +156,8 @@ to print the build and optional feature packages; it does not install them.
 
 > [!TIP]
 > To build for development, run the tests, use the headless dev container on
-> other hosts such as macOS, or contribute, see the
-> [development guide](docs/development.md). It also describes the project
+> other hosts such as macOS, run the optional mise tasks or contribute, see
+> the [development guide](docs/development.md). It also describes the project
 > workflow from issue to merge.
 
 ### Arguments
