@@ -96,6 +96,12 @@ action.
 
 ### Drag and drop into a draft
 
+> [!TIP]
+> **Implemented:** files can be dragged from the **Send by Email** list into
+> any composer, including remote files once their private local copies are
+> ready. Its limits are recorded under
+> [Desktop integration](../CAVEATS.md#desktop-integration).
+
 - Plasma Opus drags already provide file URLs. Plasma Impresario attaches
   dropped local files, so local drags need verification rather than new
   Plasma Opus code.
@@ -104,6 +110,11 @@ action.
   send files, and do not expose credentials embedded in remote URLs.
 
 ### Save received attachments into a pane
+
+> [!TIP]
+> **Implemented:** a dropped Plasma Impresario attachment reference is
+> refused with a status-bar explanation, and dropped file content with a
+> suggested filename is saved through KIO.
 
 - Dropping a Plasma Impresario attachment on a Plasma Opus pane currently
   delivers only its private IMAP reference. KIO's drop handling would offer to
