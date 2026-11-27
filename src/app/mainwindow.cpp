@@ -15,6 +15,8 @@
 #include "archivewriter.h"
 #include "batchrenamedialog.h"
 #include "checksumdialog.h"
+#include "cloudactivity.h"
+#include "cloudactivitydialog.h"
 #include "cloudsyncdialog.h"
 #include "cloudsyncrunner.h"
 #include "colorschemes.h"
@@ -541,6 +543,24 @@ MainWindow::MainWindow(QWidget *parent)
         connect(application, &QCoreApplication::aboutToQuit, m_cloudSync, &CloudSync::Scheduler::stop);
     }
     m_cloudSync->start();
+    m_cloudActivity = new CloudActivity::Monitor(this);
+    m_cloudActivity->setTransferQueue(FileOperations::transferQueue());
+    m_cloudActivity->setScheduler(m_cloudSync);
+    applyCloudLimits(CloudActivity::loadLimits(KSharedConfig::openConfig()->group(QStringLiteral("CloudActivity"))));
+    connect(m_desktopTray, &DesktopTray::cloudActivityRequested, this, &MainWindow::showCloudActivity);
+    m_desktopTray->setQuitCheck([this] {
+        return waitForCloudUploads(i18nc("@info", "Plasma Opus is still uploading files. Quitting now stops the uploads."), {}, true);
+    });
+    // Files written before an earlier session ended upload only when their remote is mounted again.
+    if (const QStringList pending = CloudActivity::remotesWithPendingUploads(CloudActivity::rcloneCacheDir()); !pending.isEmpty()) {
+        const QString text = i18ncp("@info:status %2 is a list of remotes",
+                                    "Files written to %2 have not been uploaded yet. Mount the remote to upload them.",
+                                    "Files written to %2 have not been uploaded yet. Mount the remotes to upload them.",
+                                    pending.size(),
+                                    QLocale().createSeparatedList(pending));
+        showStatusMessage(text);
+        m_cloudActivity->addEvent(i18nc("@info source of an event", "Cloud Storage"), text);
+    }
     m_kwin = new KWinIntegration(std::make_unique<SystemKWinBackend>(), KSharedConfig::openConfig(), KSharedConfig::openStateConfig(), this);
     m_diskImages = std::make_unique<SystemDiskImageBackend>();
     m_packageTools = new SystemPackageTools(this);
@@ -2887,6 +2907,10 @@ void MainWindow::setupActions()
     cloudSync->setText(i18nc("@action", "Cloud Sync…"));
     cloudSync->setIcon(QIcon::fromTheme(QStringLiteral("folder-cloud")));
     cloudSync->setToolTip(i18nc("@info:tooltip", "Keep local folders synchronized with cloud and network folders"));
+    QAction *cloudActivity = actions->addAction(QStringLiteral("cloud_activity"), this, &MainWindow::showCloudActivity);
+    cloudActivity->setText(i18nc("@action", "Cloud Activity…"));
+    cloudActivity->setIcon(QIcon::fromTheme(QStringLiteral("network-transmit-receive")));
+    cloudActivity->setToolTip(i18nc("@info:tooltip", "Show cloud connections, transfers, speeds and recent errors"));
     QAction *createChecksum = actions->addAction(QStringLiteral("create_checksum"), this, &MainWindow::createChecksumFile);
     createChecksum->setText(i18nc("@action", "Create SHA-256 Checksum File…"));
     QAction *verifyChecksum = actions->addAction(QStringLiteral("verify_checksum"), this, &MainWindow::verifyChecksumFile);
@@ -4073,6 +4097,9 @@ bool MainWindow::queryClose()
             dialog->reject();
             return false;
         }
+    }
+    if (!waitForCloudUploads(i18nc("@info", "Plasma Opus is still uploading files. Closing now stops the uploads."), {}, true)) {
+        return false;
     }
     if (m_editorDock && !m_editorDock->isHidden()) {
         savePanelDockSize(m_editorDock, QStringLiteral("EditorDock"));
@@ -5915,6 +5942,12 @@ RcloneMounts *MainWindow::rcloneMounts()
         return m_rcloneMounts;
     }
     m_rcloneMounts = new RcloneMounts(this);
+    m_rcloneMounts->setMountOptions(
+        CloudActivity::rcloneMountOptions(CloudActivity::loadLimits(KSharedConfig::openConfig()->group(QStringLiteral("CloudActivity"))),
+                                          CloudActivity::rcloneCacheDir()));
+    if (m_cloudActivityDialog) {
+        m_cloudActivityDialog->setRcloneMounts(m_rcloneMounts);
+    }
     connect(m_rcloneMounts, &RcloneMounts::remotesListed, this, [this](const QList<Rclone::Remote> &remotes, const QString &error) {
         m_rcloneRemotes = remotes;
         m_rcloneError = error;
@@ -5931,6 +5964,7 @@ RcloneMounts *MainWindow::rcloneMounts()
         activePane()->setUrl(QUrl::fromLocalFile(path));
     });
     connect(m_rcloneMounts, &RcloneMounts::failed, this, [this](const QString &remote, const QString &error) {
+        m_cloudActivity->addEvent(remote, error);
         if (remote != m_openAfterRcloneMount) {
             showStatusMessage(i18nc("@info:status %1 is an rclone remote, %2 the error", "Could not mount %1: %2", remote, error));
             return;
@@ -6003,6 +6037,11 @@ void MainWindow::openRcloneRemote(const QString &remote)
 
 void MainWindow::unmountRcloneRemote(const QString &remote)
 {
+    if (!waitForCloudUploads(i18nc("@info %1 is an rclone remote", "Files written to %1 are still uploading. Unmounting now stops the uploads.", remote),
+                             {remote},
+                             false)) {
+        return;
+    }
     const QString path = Rclone::mountPoint(remote);
     for (Pane *pane : {activePane(), inactivePane()}) {
         const QUrl url = pane->url();
@@ -6046,6 +6085,9 @@ RemoteMountManager *MainWindow::remoteMounts()
         return m_remoteMounts;
     }
     m_remoteMounts = new RemoteMountManager(this);
+    if (m_cloudActivityDialog) {
+        m_cloudActivityDialog->setRemoteMounts(m_remoteMounts);
+    }
     connect(m_remoteMounts, &RemoteMountManager::mounted, this, [this](const QString &id, const QString &path) {
         const QString name = m_remoteMountNames.value(id);
         const QUrl url = QUrl::fromLocalFile(path);
@@ -6070,6 +6112,7 @@ RemoteMountManager *MainWindow::remoteMounts()
     });
     connect(m_remoteMounts, &RemoteMountManager::failed, this, [this](const QString &id, const QString &error) {
         const QString name = m_remoteMountNames.value(id);
+        m_cloudActivity->addEvent(name.isEmpty() ? id : name, error);
         if (id != m_openAfterRemoteMount) {
             showStatusMessage(i18nc("@info:status %1 is a saved connection, %2 the error", "Could not mount %1: %2", name, error));
             return;
@@ -7293,6 +7336,61 @@ void MainWindow::showCloudSync()
         m_cloudSyncDialog->setAttribute(Qt::WA_DeleteOnClose);
     }
     DesktopTray::bringToFront(m_cloudSyncDialog);
+}
+
+CloudActivity::Monitor *MainWindow::cloudActivity() const
+{
+    return m_cloudActivity;
+}
+
+void MainWindow::showCloudActivity()
+{
+    if (!m_cloudActivityDialog) {
+        CloudActivityDialog::Sources sources;
+        sources.monitor = m_cloudActivity;
+        sources.queue = FileOperations::transferQueue();
+        sources.scheduler = m_cloudSync;
+        sources.rclone = m_rcloneMounts;
+        sources.remoteMounts = m_remoteMounts;
+        sources.config = KSharedConfig::openConfig();
+        sources.cacheDir = CloudActivity::rcloneCacheDir();
+        m_cloudActivityDialog = new CloudActivityDialog(sources, this);
+        m_cloudActivityDialog->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_cloudActivityDialog, &CloudActivityDialog::limitsChanged, this, &MainWindow::applyCloudLimits);
+    }
+    DesktopTray::bringToFront(m_cloudActivityDialog);
+}
+
+void MainWindow::applyCloudLimits(const CloudActivity::Limits &limits)
+{
+    m_cloudSync->setRcloneOptions(CloudActivity::rcloneTransferOptions(limits));
+    if (m_rcloneMounts) {
+        m_rcloneMounts->setMountOptions(CloudActivity::rcloneMountOptions(limits, CloudActivity::rcloneCacheDir()));
+    }
+}
+
+bool MainWindow::waitForCloudUploads(const QString &text, const QStringList &remotes, bool syncRuns)
+{
+    const QString cacheDir = CloudActivity::rcloneCacheDir();
+    QPointer<MainWindow> self(this);
+    const auto status = [self, remotes, syncRuns, cacheDir] {
+        CloudActivity::UploadStatus status;
+        if (!self) {
+            return status;
+        }
+        // rclone uploads only while a remote is mounted.
+        const QStringList checked = !remotes.isEmpty() ? remotes : (self->m_rcloneMounts ? self->m_rcloneMounts->mountedRemotes() : QStringList());
+        for (const QString &remote : checked) {
+            const CloudActivity::PendingUploads pending = CloudActivity::pendingUploads(cacheDir, remote);
+            status.uploads.files += pending.files;
+            status.uploads.bytes += pending.bytes;
+        }
+        if (syncRuns) {
+            status.syncRuns = self->m_cloudSync->activeRuns();
+        }
+        return status;
+    };
+    return CloudUploadWaitDialog::wait(this, text, status);
 }
 
 KWinIntegration *MainWindow::kwinIntegration() const

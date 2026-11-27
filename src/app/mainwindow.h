@@ -27,7 +27,13 @@
 #include <memory>
 
 class ActivityController;
+class CloudActivityDialog;
 class CloudSyncDialog;
+namespace CloudActivity
+{
+class Monitor;
+struct Limits;
+}
 namespace CloudSync
 {
 class Scheduler;
@@ -152,6 +158,18 @@ public:
     CloudSync::Scheduler *cloudSync() const;
     /// Opens the Cloud Sync dialog, or raises it when it is open.
     void showCloudSync();
+    /// Keeps transfer speeds and recent errors for the Cloud Activity window.
+    CloudActivity::Monitor *cloudActivity() const;
+    /// Opens the Cloud Activity window, or raises it when it is open.
+    void showCloudActivity();
+    /// Applies rclone transfer limits to sync runs and later mounts.
+    void applyCloudLimits(const CloudActivity::Limits &limits);
+    /**
+     * Waits for files written to @p remotes, or to every mounted rclone remote
+     * when it is empty, to upload, and for cloud sync runs when @p syncRuns is
+     * set. Returns false when the user cancels.
+     */
+    bool waitForCloudUploads(const QString &text, const QStringList &remotes, bool syncRuns);
 
     /// The KDE Connect daemon the Send to Device action uses, created when first needed.
     KdeConnectClient *kdeConnectClient();
@@ -543,6 +561,8 @@ private:
     DesktopTray *m_desktopTray = nullptr;
     CloudSync::Scheduler *m_cloudSync = nullptr;
     QPointer<CloudSyncDialog> m_cloudSyncDialog;
+    CloudActivity::Monitor *m_cloudActivity = nullptr;
+    QPointer<CloudActivityDialog> m_cloudActivityDialog;
     ActivityController *m_activityController = nullptr;
     KdeConnectClient *m_kdeConnect = nullptr;
     MountBackend *m_mountBackend = nullptr;

@@ -58,6 +58,9 @@ public:
     /// Asks for attention in the tray with @p message, or stops asking when
     /// it is empty.
     void setAttention(const QString &message);
+    /// Sets what the tray's Quit action asks before quitting; quitting is
+    /// canceled when @p check returns false.
+    void setQuitCheck(std::function<bool()> check);
 
     bool eventFilter(QObject *watched, QEvent *event) override;
 
@@ -65,6 +68,7 @@ Q_SIGNALS:
     void openRequested(const QUrl &url);
     void transfersRequested();
     void cloudSyncRequested();
+    void cloudActivityRequested();
 
 private:
     void createItem();
@@ -77,6 +81,7 @@ private:
     QPointer<KStatusNotifierItem> m_item;
     QPointer<QAction> m_showHideAction;
     std::function<bool()> m_hostProbe;
+    std::function<bool()> m_quitCheck;
     bool m_hiddenToTray = false;
     /// Whether the tray icon is shown for background synchronization.
     bool m_forced = false;

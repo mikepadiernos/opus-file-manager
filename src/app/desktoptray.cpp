@@ -166,6 +166,11 @@ void DesktopTray::setAttention(const QString &message)
     updateStatus();
 }
 
+void DesktopTray::setQuitCheck(std::function<bool()> check)
+{
+    m_quitCheck = std::move(check);
+}
+
 bool DesktopTray::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched != m_window) {
@@ -253,9 +258,24 @@ void DesktopTray::createItem()
         }
         Q_EMIT cloudSyncRequested();
     });
+    QAction *cloudActivity = menu->addAction(SymbolicIcon::fromTheme(QStringLiteral("network-transmit-receive")), i18nc("@action:inmenu", "Cloud Activity…"));
+    cloudActivity->setObjectName(QStringLiteral("trayCloudActivity"));
+    connect(cloudActivity, &QAction::triggered, this, [this] {
+        if (m_window) {
+            bringToFront(m_window);
+        }
+        Q_EMIT cloudActivityRequested();
+    });
     connect(menu, &QMenu::aboutToShow, this, &DesktopTray::updateMenu);
     m_item->setContextMenu(menu);
     updateMenu();
+    // The tray's Quit action quits without closing the window, so pending
+    // uploads are checked here.
+    connect(m_item, &KStatusNotifierItem::quitRequested, this, [this] {
+        if (m_quitCheck && !m_quitCheck()) {
+            m_item->abortQuit();
+        }
+    });
 
     // Clicking the icon shows or hides the window regardless of focus, which
     // the tray itself may have taken.

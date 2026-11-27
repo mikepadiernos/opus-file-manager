@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="69" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="70" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -50,6 +50,7 @@
       <Action name="compare_pane_folders"/>
       <Action name="compare_folders_filtered"/>
       <Action name="cloud_sync"/>
+      <Action name="cloud_activity"/>
       <Action name="create_checksum"/>
       <Action name="verify_checksum"/>
       <Action name="split_file"/>
