@@ -525,9 +525,16 @@ behaves like the rest of the desktop and follows the user's choices.
   afterwards. Beside **Backlinks**, the **Links** tab lists the open note's
   wiki links with whether each resolves, and the **Tags** tab lists its
   inline `#tags` and front matter `tags:` with the other notes that share
-  them; activating an entry opens the note. See
-  [Workspace vaults and tags](../CAVEATS.md#desktop-integration).
-  ([#565](https://github.com/mikepadiernos/plasma-opus/issues/565))
+  them; activating an entry opens the note. Under **Preferences ›
+  Applications › Editor**, **Workspace Vault** turns each workspace's vault
+  on or off, chooses its location and can give it its own Markdown mode,
+  preview dialect, preview, wiki link and vault panel options, kept with the
+  workspace; it reports a vault location that can't be found and how many
+  notes the vault has. See
+  [Workspace vaults and tags](../CAVEATS.md#desktop-integration) and
+  [Workspace vault settings](../CAVEATS.md#integration-settings).
+  ([#565](https://github.com/mikepadiernos/plasma-opus/issues/565),
+  [#566](https://github.com/mikepadiernos/plasma-opus/issues/566))
 - **Embedded mpv playback:** When Plasma Opus is built with libmpv, the
   preview panel and gallery can play audio and video through an embedded
   [mpv](https://mpv.io/) player instead of Qt Multimedia. Choose it with the
