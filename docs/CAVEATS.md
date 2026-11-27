@@ -1854,9 +1854,8 @@ The M27 desktop integrations have these limits
   only when it allows users or they are FUSE mounts; `/` can never be
   unmounted. autofs and systemd automount points show as not mounted until
   they are first accessed. Pseudo, snap, container and portal file systems
-  are hidden, with no option to show them. **Show only removable devices** is
-  off by default until the planned
-  [M28 setting](ROADMAP.md#m28-integration-settings). Plasma's and UDisks2's
+  are hidden unless shown under **Preferences › KDE Plasma › Mount Manager**,
+  and are then listed but never mounted or unmounted. Plasma's and UDisks2's
   authorization prompts have been verified in a headless container only, not
   yet on a Plasma session.
   ([#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
@@ -2632,9 +2631,8 @@ The M27 desktop integrations have these limits
   - A version check that warns before setup on xdg-desktop-portal older
     than 1.21.0, previews and indexed search in the chooser, and returning
     remote files through a local copy.
-  - Watch mount changes instead of polling, refresh sizes periodically,
-    power off USB drives after unmounting, and the M28 **Mount manager**
-    display settings, including an option to show system file systems.
+  - Watch mount changes instead of polling, refresh sizes periodically, and
+    power off USB drives after unmounting.
   - Mount disk images through UDisks2 directly, without blocking the window
     and with its actual error messages, and show images outside the home
     folder in Places once mounted.
@@ -2866,6 +2864,27 @@ The M28 integration settings have these limits
   Accounts page are unverified there
   ([Plasma check](TODO.md#online-account-settings-on-plasma-371)).
   ([#371](https://github.com/mikepadiernos/plasma-opus/issues/371))
+- **🔌 Mount manager display:** **Show only removable devices** under
+  **Preferences › KDE Plasma › Mount Manager** is on by default and sets how
+  the Mount Manager's own checkbox starts each time it opens; changing that
+  checkbox no longer lasts beyond the dialog. It also limits **Go › Mount
+  Points**, which then shows **No removable devices** when none is listed;
+  the Mount Manager remains the way to reach fixed disks, fstab entries and
+  network mounts. A device counts as removable when Solid reports its drive
+  as removable or hot-pluggable, so file systems that Solid does not manage,
+  such as network and FUSE mounts, never do. Clearing **Hide pseudo, snap
+  and other system file systems** lists the kernel, memory, automount, snap,
+  container and document portal mounts that Plasma Opus recognizes, with a
+  tooltip saying so; Plasma Opus never mounts or unmounts them, and an
+  automount shows its `autofs` entry in place of the file system mounted below
+  it. **Show the Mount Points menu on the main toolbar** adds or removes the
+  toolbar entry, as the toolbar editor does, and puts it back after **Preview**,
+  or before **Search** when **Preview** is not on the toolbar; it needs the main
+  window, and Go › Mount Points stays in the menu either way. The settings apply
+  from the next time the menu or dialog opens after **Apply** or **OK**. The
+  container has no removable devices, so the filter is verified there with test
+  devices only.
+  ([#705](https://github.com/mikepadiernos/plasma-opus/issues/705))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -2926,6 +2945,13 @@ The M28 integration settings have these limits
     shared screen. Use **Manage Online Accounts…** to add accounts or sign in
     again, and remove an account there, not in Plasma Opus, to remove it from
     every application.
+  - **Mount manager display:** Keep **Show only removable devices** checked
+    under **Preferences › KDE Plasma › Mount Manager** for a short **Go ›
+    Mount Points** menu of USB drives and discs, and use **File › Mount
+    Manager…** for other disks. Clear **Hide pseudo, snap and other system
+    file systems** only to check what is mounted where, and clear **Show the
+    Mount Points menu on the main toolbar** if you reach devices from the
+    Places panel instead.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -2958,6 +2984,10 @@ The M28 integration settings have these limits
   - Follow account changes while the **Online Accounts** tab is open, forget
     the cleared ids of removed accounts, and choose individual services of
     an account, such as only its Drive.
+  - Remember the Mount Manager's removable-only choice as an option,
+    recognize system file systems that Plasma Opus does not know yet from
+    their mount flags, and list network mounts with removable devices as an
+    option.
 
 ## Embedded terminal
 
