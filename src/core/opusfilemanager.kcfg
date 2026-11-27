@@ -711,6 +711,20 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="KWinScript">
+    <entry name="KWinRestoreWindows" key="RestoreWindows" type="Bool">
+      <label>Let the KWin script restore the main window's screen, size, tile and virtual desktops when a workspace is applied</label>
+      <default>true</default>
+    </entry>
+    <entry name="KWinTileCompanions" key="TileCompanions" type="Bool">
+      <label>Let the KWin script place detached Plasma Opus windows beside the main window</label>
+      <default>false</default>
+    </entry>
+    <entry name="KWinFollowDesktops" key="FollowDesktops" type="Bool">
+      <label>Apply the workspace assigned to a virtual desktop when it becomes current</label>
+      <default>false</default>
+    </entry>
+  </group>
   <group name="OnlineAccounts">
     <entry name="OnlineAccountsEnabled" type="Bool">
       <label>Show the folders of KDE Online Accounts in Plasma Opus</label>

@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "kwinscript.h"
+#include "settings.h"
 
 #include <KConfig>
 #include <KConfigGroup>
 #include <QDir>
 #include <QFile>
 #include <QJsonDocument>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -78,6 +80,33 @@ private Q_SLOTS:
         dropDown.workspaceId = QStringLiteral("ws");
         writeDropDown(group, dropDown);
         QCOMPARE(readDropDown(group), dropDown);
+    }
+
+    void settingsMatchTheScriptOptions()
+    {
+        Settings *settings = Settings::self();
+        const auto reset = qScopeGuard([settings] {
+            settings->setDefaults();
+            settings->save();
+        });
+        settings->setDefaults();
+        settings->save();
+        const KConfigGroup group = settings->config()->group(QStringLiteral("KWinScript"));
+        QCOMPARE(readOptions(group), Options());
+
+        settings->setKWinRestoreWindows(false);
+        settings->setKWinTileCompanions(true);
+        settings->setKWinFollowDesktops(true);
+        settings->save();
+        QCOMPARE(readOptions(group), (Options{.restoreWindows = false, .tileCompanions = true, .followDesktops = true}));
+
+        // The script's own writes are what the settings read back.
+        KConfigGroup written = settings->config()->group(QStringLiteral("KWinScript"));
+        writeOptions(written, Options());
+        settings->load();
+        QVERIFY(settings->kWinRestoreWindows());
+        QVERIFY(!settings->kWinTileCompanions());
+        QVERIFY(!settings->kWinFollowDesktops());
     }
 
     void dropDownClampsSizesAndUnknownEdges()
