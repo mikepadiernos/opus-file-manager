@@ -2645,9 +2645,8 @@ allow PORT/tcp`, removing the ufw rule afterwards. For paired phones, KDE
   - Show only the current Activity's vaults, and move tabs showing a vault
     away when it closes.
   - Encrypt folders through an archive, offer to remove originals after a
-    checked encryption, pass AES Crypt passwords through a pipe where the
-    tool allows it, and the M28 **Encryption** settings to choose the
-    default key and the text format.
+    checked encryption, and pass AES Crypt passwords through a pipe where the
+    tool allows it.
   - Offer to compress a selected folder and attach the archive, and ask the
     XDG Email portal for its response to report cancelled requests.
   - Extract mail attachments into a chosen folder, preview remote `.eml`
@@ -3439,6 +3438,23 @@ The M28 integration settings have these limits
   the real service awaits
   [verification on Plasma](TODO.md#plasma-vault-settings-on-plasma-669).
   ([#669](https://github.com/mikepadiernos/plasma-opus/issues/669))
+- **🗝️ File encryption settings:** the **Files** group under **Preferences ›
+  Security › Encryption** hides actions, not tools: GnuPG, Kleopatra and
+  `aescrypt` stay installed, the information panel still names encrypted and
+  signed files, and service menus that other applications add to the context
+  menu are hidden separately under **Preferences › Context Menu › Service
+  Menus**. The GnuPG setting also covers Kleopatra's two actions. The text
+  format only chooses how GnuPG's **Encrypt** and **Sign** windows open, and
+  windows already open keep their choice. The `.pgp` suffix applies only to
+  binary files that Plasma Opus encrypts with GnuPG: text files end in `.asc`,
+  signatures in `.sig` or `.asc` and AES Crypt files in `.aes`, and
+  Kleopatra's own windows follow Kleopatra's settings. The decrypted mark is
+  translated with the interface language and goes before the extension that
+  the shared MIME database knows, such as `.tar.gz`, or else the last one, and
+  a name that is taken still gets a number. The development container has no
+  Kleopatra or `aescrypt`, so both await
+  [verification on Plasma](TODO.md#file-encryption-settings-on-plasma-670).
+  ([#670](https://github.com/mikepadiernos/plasma-opus/issues/670))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3693,6 +3709,12 @@ The M28 integration settings have these limits
     off the state while sharing your screen. Clear **Offer Plasma
     Vault's encrypted vaults in Go › Plasma Vaults** if you don't use Plasma
     Vault.
+  - **File encryption settings:** Clear **Offer AES Crypt's encrypt and
+    decrypt actions in File › Encryption** unless you exchange `.aes` files,
+    and keep the GnuPG actions to check signatures. Choose **Marked as
+    decrypted** when you decrypt files beside others you keep, so decrypted
+    copies are easy to find and delete, and choose `.pgp` only when the people
+    you send files to expect it.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3817,6 +3839,8 @@ The M28 integration settings have these limits
     remove the protection of a missing folder, and set an idle auto-lock there.
   - Close or open a vault from Preferences, forget cleared vaults that Plasma
     Vault no longer has, and leave out vaults of other Activities.
+  - Choose the default keys to encrypt for and sign with, decrypt into a
+    chosen folder, and follow Kleopatra's own file name settings.
 
 ## Embedded terminal
 
