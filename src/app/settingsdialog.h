@@ -360,6 +360,8 @@ private:
     QWidget *createEditorIntegrationPage();
     /// The Provider group of the Editor tab: the editor that Edit opens text files in, and where terminal editors run.
     QGroupBox *createEditorProviderGroup();
+    /// The Markdown group of the Editor tab: the vault folder and how the built-in editor previews and links Markdown notes.
+    QGroupBox *createEditorMarkdownGroup();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

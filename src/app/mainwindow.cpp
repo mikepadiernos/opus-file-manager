@@ -8169,8 +8169,9 @@ void MainWindow::applySettings()
         m_terminalPanel->start(activePane()->url());
     }
     m_searchPanel->searchWidget()->applyDefaults();
-    if (m_editor) {
-        m_editor->applySettings();
+    // Including the editors that previews open.
+    for (EditorPanel *editor : findChildren<EditorPanel *>()) {
+        editor->applySettings();
     }
     const bool sizeDefaultsChanged =
         m_automaticLocalSizeDefault != Settings::automaticLocalFolderSizes() || m_automaticRemoteSizeDefault != Settings::automaticRemoteFolderSizes();

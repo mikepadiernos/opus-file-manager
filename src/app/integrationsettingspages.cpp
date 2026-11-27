@@ -25,6 +25,7 @@
 #include "symbolicicon.h"
 #include "terminalproviders.h"
 #include "traypolicy.h"
+#include "vaultsettings.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
@@ -39,11 +40,13 @@
 #include <KService>
 #include <KSharedConfig>
 #include <KToolBar>
+#include <KUrlRequester>
 #include <KXmlGuiWindow>
 
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDir>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QGridLayout>
@@ -1620,6 +1623,7 @@ QWidget *SettingsDialog::createEditorIntegrationPage()
     page->setObjectName(QStringLiteral("editorIntegrationPage"));
     auto *layout = new QVBoxLayout(page);
     layout->addWidget(createEditorProviderGroup());
+    layout->addWidget(createEditorMarkdownGroup());
     layout->addStretch();
     return page;
 }
@@ -1706,6 +1710,73 @@ QGroupBox *SettingsDialog::createEditorProviderGroup()
     group->refresh = refresh;
     connect(provider, &QComboBox::currentIndexChanged, group, refresh);
     connect(session, &QComboBox::currentIndexChanged, group, refresh);
+    refresh();
+    connect(builtIn, &QPushButton::clicked, this, &SettingsDialog::showBuiltInEditorSettings);
+    return group;
+}
+
+QGroupBox *SettingsDialog::createEditorMarkdownGroup()
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Markdown"));
+    group->setObjectName(QStringLiteral("editorMarkdownGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *form = new QFormLayout;
+    auto *vault = new KUrlRequester;
+    vault->setObjectName(QStringLiteral("kcfg_EditorVaultFolder"));
+    vault->setMode(KFile::Directory | KFile::ExistingOnly | KFile::LocalOnly);
+    vault->setPlaceholderText(i18nc("@info:placeholder", "No vault"));
+    vault->setToolTip(
+        i18nc("@info:tooltip", "The local folder of Markdown notes that wiki links, backlinks and tags use; the editor's Vault menu chooses the same folder"));
+    form->addRow(i18nc("@label:chooser", "Vault folder:"), vault);
+    auto *dialect = comboBox(QStringLiteral("EditorMarkdownDialect"), {i18nc("@item:inlistbox", "GitHub Markdown"), i18nc("@item:inlistbox", "CommonMark")});
+    dialect->setToolTip(i18nc("@info:tooltip", "The dialect that the Markdown preview renders; the editor can switch it for the open document"));
+    form->addRow(i18nc("@label:listbox", "Preview dialect:"), dialect);
+    layout->addLayout(form);
+    layout->addWidget(checkBox(QStringLiteral("EditorMarkdownPreviewOnOpen"), i18nc("@option:check", "Show the preview when a Markdown file opens")));
+    auto *wikiLinks = checkBox(QStringLiteral("EditorWikiLinks"), i18nc("@option:check", "Follow wiki links to the vault notes they name"));
+    wikiLinks->setToolTip(i18nc("@info:tooltip", "When this is off, the preview shows wiki links as they are written"));
+    layout->addWidget(wikiLinks);
+    auto *panelLabel = new QLabel(i18nc("@label", "The vault panel lists:"));
+    layout->addWidget(panelLabel);
+    auto *lists = new QHBoxLayout;
+    lists->addWidget(checkBox(QStringLiteral("EditorVaultBacklinks"), i18nc("@option:check", "Backlinks")));
+    lists->addWidget(checkBox(QStringLiteral("EditorVaultLinks"), i18nc("@option:check", "Links")));
+    lists->addWidget(checkBox(QStringLiteral("EditorVaultTags"), i18nc("@option:check", "Tags")));
+    lists->addStretch();
+    layout->addLayout(lists);
+    auto *status = statusLabel(QStringLiteral("editorMarkdownStatus"));
+    layout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "These settings apply to the built-in editor. Markdown opens in the source or visual mode chosen under "
+                                  "Editor › Editor; visual editing asks before it rewrites Markdown, first keeps a draft of the source, and "
+                                  "changes the file only when you save."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    auto *builtIn = actionButton(QStringLiteral("showMarkdownModeSettings"), i18nc("@action:button", "Markdown Mode and Drafts…"));
+    builtIn->setIcon(QIcon::fromTheme(QStringLiteral("view-pim-notes")));
+    builtIn->setToolTip(i18nc("@info:tooltip", "Show Editor › Editor, with the default Markdown mode and the draft settings"));
+    layout->addLayout(buttonRow({builtIn}));
+
+    // Reports whether the vault folder can be read.
+    const auto refresh = [vault, status] {
+        const QUrl url = vault->url();
+        if (url.isEmpty()) {
+            status->setText(i18nc("@info", "No vault folder is chosen, so wiki links, backlinks and tags are off. A workspace can still use its own vault."));
+            return;
+        }
+        if (!url.isLocalFile()) {
+            status->setText(i18nc("@info", "The vault folder must be a local folder."));
+            return;
+        }
+        const QString root = QDir::cleanPath(url.toLocalFile());
+        if (const QString reason = VaultSettings::unavailableReason(root); !reason.isEmpty()) {
+            status->setText(reason + QLatin1Char(' ') + i18nc("@info", "The editor reports this and reads the folder again when it can."));
+            return;
+        }
+        status->setText(i18nc("@info %1 is a folder path", "Wiki links, backlinks and tags use the Markdown notes in %1.", root));
+    };
+    group->refresh = refresh;
+    connect(vault, &KUrlRequester::textChanged, group, refresh);
     refresh();
     connect(builtIn, &QPushButton::clicked, this, &SettingsDialog::showBuiltInEditorSettings);
     return group;

@@ -7,6 +7,7 @@
 #include "atuin.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
+#include "editorpanel.h"
 #include "editorproviders.h"
 #include "favoritesmodel.h"
 #include "filechooser.h"
@@ -1928,6 +1929,71 @@ private Q_SLOTS:
         // The built-in editor's settings stay on the Editor page.
         dialog.show();
         dialog.findChild<QPushButton *>(QStringLiteral("showBuiltInEditorSettings"))->click();
+        auto *builtIn = dialog.findChild<QWidget *>(QStringLiteral("editorSettingsPage"));
+        QTRY_VERIFY(builtIn->isVisible());
+        QVERIFY(builtIn->isAncestorOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_EditorMarkdownMode"))));
+    }
+
+    void editorTabChoosesTheMarkdownVault()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        const QString vault = QFileInfo(folder.path()).canonicalFilePath();
+        QFile note(vault + QStringLiteral("/Home.md"));
+        QVERIFY(note.open(QIODevice::WriteOnly));
+        note.write("[[Home]] #idea\n");
+        note.close();
+
+        MainWindow window;
+        window.actionCollection()->action(QStringLiteral("open_editor"))->trigger();
+        auto *editor = window.findChild<EditorPanel *>(QStringLiteral("editorPanel"));
+        QVERIFY(editor);
+        QCOMPARE(editor->vaultRoot(), QString());
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *group = dialog.findChild<QGroupBox *>(QStringLiteral("editorMarkdownGroup"));
+        QVERIFY(group);
+        QCOMPARE(tabTitleOf(group), QStringLiteral("Editor"));
+        auto *folderChooser = group->findChild<KUrlRequester *>(QStringLiteral("kcfg_EditorVaultFolder"));
+        auto *dialect = group->findChild<QComboBox *>(QStringLiteral("kcfg_EditorMarkdownDialect"));
+        auto *tags = group->findChild<QCheckBox *>(QStringLiteral("kcfg_EditorVaultTags"));
+        auto *status = group->findChild<QLabel *>(QStringLiteral("editorMarkdownStatus"));
+        QVERIFY(folderChooser && dialect && tags && status);
+        QVERIFY2(status->text().startsWith(QStringLiteral("No vault folder is chosen")), qPrintable(status->text()));
+        const auto apply = [&dialog] {
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        };
+
+        // A missing folder is reported.
+        folderChooser->setUrl(QUrl::fromLocalFile(vault + QStringLiteral("/Missing")));
+        QVERIFY2(status->text().contains(QStringLiteral("doesn't exist")), qPrintable(status->text()));
+        folderChooser->setUrl(QUrl::fromLocalFile(vault));
+        QCOMPARE(status->text(), QStringLiteral("Wiki links, backlinks and tags use the Markdown notes in %1.").arg(vault));
+        apply();
+        QCOMPARE(Settings::editorVaultFolder(), QUrl::fromLocalFile(vault));
+        QCOMPARE(editor->vaultRoot(), vault);
+
+        // The editor follows the dialect and the vault panel's lists.
+        dialect->setCurrentIndex(1);
+        Q_EMIT dialect->activated(1);
+        tags->setChecked(false);
+        apply();
+        QCOMPARE(editor->findChild<QComboBox *>(QStringLiteral("editorMarkdownDialect"))->currentIndex(), 1);
+        auto *vaultTabs = editor->findChild<QTabWidget *>(QStringLiteral("editorVaultTabs"));
+        QVERIFY(!vaultTabs->isTabVisible(vaultTabs->indexOf(editor->findChild<QWidget *>(QStringLiteral("editorTags")))));
+
+        // The editor's Vault menu chooses the same folder.
+        editor->setVault({});
+        QVERIFY(Settings::editorVaultFolder().isEmpty());
+
+        // The Markdown mode and draft settings stay on the Editor page.
+        dialog.show();
+        dialog.findChild<QPushButton *>(QStringLiteral("showMarkdownModeSettings"))->click();
         auto *builtIn = dialog.findChild<QWidget *>(QStringLiteral("editorSettingsPage"));
         QTRY_VERIFY(builtIn->isVisible());
         QVERIFY(builtIn->isAncestorOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_EditorMarkdownMode"))));
