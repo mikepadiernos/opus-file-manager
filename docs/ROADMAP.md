@@ -2066,7 +2066,7 @@ the Nextcloud desktop client or its synchronization engine. See the
 [Nextcloud integration](integrations/nextcloud.md) for app interfaces and
 considered Calendar, Maps, Deck and Notes workflows.
 
-- [ ] Connect supported accounts through KDE Online Accounts or an explicit
+- [x] Connect supported accounts through KDE Online Accounts or an explicit
       Nextcloud login. Use KDE credential facilities, verify TLS and report
       expired access, unavailable providers and server capabilities.
       Real-server verification is a
