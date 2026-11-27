@@ -194,7 +194,7 @@ applications through `org.freedesktop.FileManager1`. Installing also adds the
 Plasma Opus KRunner plugin and its `opus-file-manager-krunner` helper, which
 offer saved workspaces and Favorites in KRunner and Plasma Search, and the
 `opus-file-manager-mcp` server, which lets MCP clients such as AI assistants
-read files in your home folder; see
+read files in your home folder by default; see
 [KDE Plasma integration](docs/integrations/kde-plasma.md).
 `./install.sh --file-chooser` also lets Plasma Opus answer the Open and Save
 dialogs that Flatpak, Snap and other portal-enabled applications request
@@ -260,7 +260,7 @@ Preferences also include
 [tagging settings](docs/tagging.md#settings),
 [Yazi mode settings](docs/yazi-mode.md#settings) and, in development,
 [integration settings](docs/integrations/kde-plasma.md) on the **KDE Plasma**,
-**Applications** and **Remote and Cloud** pages
+**Applications**, **Remote and Cloud** and **Security** pages
 ([M28](docs/ROADMAP.md#m28-integration-settings)).
 
 > [!IMPORTANT]
