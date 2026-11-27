@@ -32,7 +32,7 @@ Board statuses were last confirmed on 2026-11-26.
 | [Send by Email on Plasma](#send-by-email-on-plasma-656)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#656]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Mail attachments on Plasma](#mail-attachments-on-plasma-657)               | [M27](ROADMAP.md#m27-integrations)                                             | [#657]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Mail file preview on Plasma](#mail-file-preview-on-plasma-658)             | [M27](ROADMAP.md#m27-integrations)                                             | [#658]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
-| [Shared Activity context on Plasma](#shared-activity-context-on-plasma-659) | [M27](ROADMAP.md#m27-integrations)                                             | [#659]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
+| [Shared Activity context on Plasma](#shared-activity-context-on-plasma-659) | [M27](ROADMAP.md#m27-integrations)                                             | [#659]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -381,7 +381,7 @@ Board statuses were last confirmed on 2026-11-26.
 ## Shared Activity context on Plasma (#659)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#659]
-  (Review).
+  (Completed).
 - **Blocker:** The development container has no Activities service, and
   Plasma Impresario's account-to-workspace associations aren't released, so
   reports reaching Plasma's history and both applications following one
