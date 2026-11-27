@@ -1892,9 +1892,12 @@ The M27 desktop integrations have these limits
   files cannot be read, get their file name and a generic icon. Menu entries
   point to the AppImage's current path and break when it is moved or
   deleted. AppImage updates need AppImageUpdate's `appimageupdatetool`.
-  This has been verified in a headless container with simulated package
-  tools only, not yet with real `flatpak`, `snap` or Discover on a Plasma
-  session.
+  AppImage, Flatpak and Snap actions, adding AppImages to the menu and
+  reading their name and icon can be turned off under **Preferences ›
+  Applications › Packages**; see
+  [Package settings](#integration-settings). This has been verified in a
+  headless container with simulated package tools only, not yet with real
+  `flatpak`, `snap` or Discover on a Plasma session.
   ([#281](https://github.com/mikepadiernos/plasma-opus/issues/281))
 - **🪟 KWin script:** the script has been tested only against a simulated
   KWin in the headless container, not yet on a Plasma session
@@ -2426,7 +2429,8 @@ The M27 desktop integrations have these limits
     in Discover so they are verified and updated; for a snap that needs
     classic confinement, run `snap install --classic` in a terminal. Remove
     an AppImage from the application menu before moving or deleting it, and
-    add it again from its new location.
+    add it again from its new location. Turn off the package types you don't
+    use under **Preferences › Applications › Packages**.
   - **KWin script:** Install it from **Preferences › KDE Plasma › KWin** in a
     Plasma session, then move or resize the window once with each workspace
     current so its placement is kept. If the status says the script has not
@@ -3136,6 +3140,24 @@ The M28 integration settings have these limits
   mpv application that **Open with mpv** starts is in `PATH`. The tab has no
   volume or other mpv options.
   ([#578](https://github.com/mikepadiernos/plasma-opus/issues/578))
+- **🧳 Package settings:** The **AppImages**, **Flatpak** and **Snap**
+  checkboxes under **Preferences › Applications › Packages** apply after
+  **Apply** or **OK**. A type that is off is no longer recognized as a
+  package, so **Application Package…** is disabled for it and the file opens
+  like any other; an open **Application Package** window keeps describing
+  it, without actions. They don't hide Flatpak or Snap from Discover, the
+  **Application Packages** category in Places or the package tools
+  themselves. Clearing **Offer to add AppImages to the application menu**
+  hides **Add to Application Menu** but keeps **Remove from Application
+  Menu** for entries already added, which the tab counts. Clearing **Read
+  the AppImage's own name, icon and categories** adds AppImages with their
+  file name and a generic icon without running their runtime or marking
+  them executable; it doesn't change entries already added, and **Run**
+  still runs the AppImage. The tab reports whether `flatpak`, `snap`,
+  Discover and `appimageupdatetool` are in `PATH`, checking each time it is
+  shown. In the container it is verified with the tools missing or
+  simulated.
+  ([#296](https://github.com/mikepadiernos/plasma-opus/issues/296))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3290,6 +3312,12 @@ The M28 integration settings have these limits
     choose **mpv** for formats Qt Multimedia can't play. Install the mpv
     application for **Open with mpv** when you need volume, tracks or
     subtitles.
+  - **Package settings:** Turn off the package types you don't use under
+    **Preferences › Applications › Packages**, so their files open in their
+    usual application, and install the tools the tab reports as missing for
+    the rest. Clear **Read the AppImage's own name, icon and categories**
+    before adding AppImages you haven't run yet, and add them again with it
+    checked once you trust them.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3364,6 +3392,10 @@ The M28 integration settings have these limits
   - Keep the playback position when the backend changes, test drawing video
     with mpv from the **Media** tab, and add mpv's options there once the
     embedded player has volume, track and subtitle controls.
+  - Choose where AppImage menu entries and icons are written, list and remove
+    the added entries from the **Packages** tab, and turn off the Flatpak
+    and Snap entries of the **Application Packages** category in Places with
+    their actions.
 
 ## Embedded terminal
 
