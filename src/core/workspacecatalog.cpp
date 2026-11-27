@@ -658,7 +658,7 @@ bool WorkspaceCatalog::load(const KConfigGroup &group, Catalog &catalog, QString
     const QJsonValue active = root.value(QStringLiteral("activeId"));
     const QJsonValue assignments = root.value(QStringLiteral("locationAssignments"));
     const double versionNumber = version.toDouble();
-    bool valid = parseError.error == QJsonParseError::NoError && document.isObject() && version.isDouble() && (versionNumber >= 1 && versionNumber <= 8)
+    bool valid = parseError.error == QJsonParseError::NoError && document.isObject() && version.isDouble() && (versionNumber >= 1 && versionNumber <= 9)
         && entries.isArray() && active.isString() && (versionNumber >= 4 ? assignments.isObject() : assignments.isUndefined());
     Catalog loaded;
     bool credentialsScrubbed = false;
@@ -673,7 +673,7 @@ bool WorkspaceCatalog::load(const KConfigGroup &group, Catalog &catalog, QString
                 valid = false;
                 break;
             }
-            Workspace workspace{id.toString(), name.toString(), label.toString(), std::nullopt, {}, {}, {}, {}, {}};
+            Workspace workspace{id.toString(), name.toString(), label.toString(), std::nullopt, {}, {}, {}, {}, {}, true, std::nullopt};
             if (!readReferenceIds(object.value(QStringLiteral("savedSearchIds")), workspace.savedSearchIds)
                 || !readReferenceIds(object.value(QStringLiteral("folderSyncProfileIds")), workspace.folderSyncProfileIds)) {
                 valid = false;
@@ -697,6 +697,17 @@ bool WorkspaceCatalog::load(const KConfigGroup &group, Catalog &catalog, QString
                     break;
                 }
                 workspace.vaultLocationId = vault.toString();
+            }
+            const QJsonValue vaultEnabled = object.value(QStringLiteral("vaultEnabled"));
+            const QJsonValue vaultOptions = object.value(QStringLiteral("vaultOptions"));
+            if ((!vaultEnabled.isUndefined() && (versionNumber < 9 || !vaultEnabled.isBool()))
+                || (!vaultOptions.isUndefined() && (versionNumber < 9 || !vaultOptions.isObject()))) {
+                valid = false;
+                break;
+            }
+            workspace.vaultEnabled = vaultEnabled.toBool(true);
+            if (vaultOptions.isObject()) {
+                workspace.vaultOptions = VaultSettings::fromJson(vaultOptions.toObject());
             }
             const QJsonValue layout = object.value(QStringLiteral("layout"));
             if (!layout.isUndefined()) {
@@ -754,13 +765,19 @@ bool WorkspaceCatalog::save(KConfigGroup group, const Catalog &catalog, QString 
         if (!workspace.vaultLocationId.isEmpty()) {
             entry.insert(QStringLiteral("vaultLocationId"), workspace.vaultLocationId);
         }
+        if (!workspace.vaultEnabled) {
+            entry.insert(QStringLiteral("vaultEnabled"), false);
+        }
+        if (workspace.vaultOptions) {
+            entry.insert(QStringLiteral("vaultOptions"), VaultSettings::toJson(*workspace.vaultOptions));
+        }
         entries.append(entry);
     }
     QJsonObject assignments;
     for (auto it = catalog.locationAssignments.cbegin(); it != catalog.locationAssignments.cend(); ++it) {
         assignments.insert(it.key(), it.value());
     }
-    const QJsonObject root{{QStringLiteral("version"), 8},
+    const QJsonObject root{{QStringLiteral("version"), 9},
                            {QStringLiteral("workspaces"), entries},
                            {QStringLiteral("activeId"), catalog.activeId},
                            {QStringLiteral("locationAssignments"), assignments}};
@@ -825,7 +842,8 @@ bool WorkspaceCatalog::saveIfUnchanged(KConfigGroup group, const Catalog &expect
 bool WorkspaceCatalog::create(Catalog &catalog, const QString &name, const QString &shortLabel, QString &error)
 {
     Catalog updated = catalog;
-    updated.workspaces.append({QUuid::createUuid().toString(QUuid::WithoutBraces), name.trimmed(), shortLabel.trimmed(), std::nullopt, {}, {}, {}, {}, {}});
+    updated.workspaces.append(
+        {QUuid::createUuid().toString(QUuid::WithoutBraces), name.trimmed(), shortLabel.trimmed(), std::nullopt, {}, {}, {}, {}, {}, true, std::nullopt});
     if (!checkCatalog(updated, error)) {
         return false;
     }
@@ -1015,6 +1033,26 @@ bool WorkspaceCatalog::setVault(Catalog &catalog, const QString &workspaceId, co
         return false;
     }
     catalog.workspaces[index].vaultLocationId = locationId;
+    if (!locationId.isEmpty()) {
+        catalog.workspaces[index].vaultEnabled = true;
+    }
+    error.clear();
+    return true;
+}
+
+bool WorkspaceCatalog::setVaultOptions(Catalog &catalog,
+                                       const QString &workspaceId,
+                                       bool enabled,
+                                       const std::optional<VaultSettings::Options> &options,
+                                       QString &error)
+{
+    const int index = indexOf(catalog, workspaceId);
+    if (index < 0) {
+        error = i18nc("@info", "The workspace no longer exists.");
+        return false;
+    }
+    catalog.workspaces[index].vaultEnabled = enabled;
+    catalog.workspaces[index].vaultOptions = options;
     error.clear();
     return true;
 }

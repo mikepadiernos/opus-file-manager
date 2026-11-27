@@ -179,7 +179,7 @@ private Q_SLOTS:
         QVERIFY(!error.isEmpty());
         QCOMPARE(group.readEntry("Catalog", QByteArray()), previous);
 
-        group.writeEntry("Catalog", QByteArray(R"({"version":9,"workspaces":[],"activeId":""})"));
+        group.writeEntry("Catalog", QByteArray(R"({"version":10,"workspaces":[],"activeId":""})"));
         const Catalog original = catalog;
         QVERIFY(!load(group, catalog, error));
         QVERIFY(!error.isEmpty());
@@ -605,7 +605,7 @@ private Q_SLOTS:
         QCOMPARE(catalog.workspaces.size(), 1);
         QVERIFY(!catalog.workspaces.first().layout.has_value());
         QVERIFY(save(group, catalog, error));
-        QCOMPARE(QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object().value(QStringLiteral("version")).toInt(), 8);
+        QCOMPARE(QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object().value(QStringLiteral("version")).toInt(), 9);
     }
 
     void managesExclusiveLocationAssignments()
@@ -706,7 +706,7 @@ private Q_SLOTS:
         QCOMPARE(catalog.workspaces.at(0).vaultLocationId, notes);
         QVERIFY(save(group, catalog, error));
         const QJsonObject stored = QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object();
-        QCOMPARE(stored.value(QStringLiteral("version")).toInt(), 8);
+        QCOMPARE(stored.value(QStringLiteral("version")).toInt(), 9);
         const QJsonArray entries = stored.value(QStringLiteral("workspaces")).toArray();
         QCOMPARE(entries.at(0).toObject().value(QStringLiteral("vaultLocationId")).toString(), notes);
         QVERIFY(!entries.at(1).toObject().contains(QStringLiteral("vaultLocationId")));
@@ -730,6 +730,90 @@ private Q_SLOTS:
             QJsonArray workspaces = entries;
             QJsonObject entry = workspaces.at(0).toObject();
             entry.insert(QStringLiteral("vaultLocationId"), invalid);
+            workspaces.replace(0, entry);
+            root.insert(QStringLiteral("workspaces"), workspaces);
+            group.writeEntry("Catalog", QJsonDocument(root).toJson(QJsonDocument::Compact));
+            Catalog rejected;
+            QVERIFY(!load(group, rejected, error));
+        }
+    }
+
+    void vaultOptionsPersistWithTheWorkspace()
+    {
+        QTemporaryDir directory;
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(create(catalog, QStringLiteral("Home"), QStringLiteral("H"), error));
+        const QString workId = catalog.workspaces.at(0).id;
+        const QString notes = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        QVERIFY(assignLocation(catalog, notes, workId, error));
+        QVERIFY(setVault(catalog, workId, notes, error));
+        QVERIFY(catalog.workspaces.at(0).vaultEnabled);
+        QVERIFY(!catalog.workspaces.at(0).vaultOptions);
+
+        VaultSettings::Options options;
+        options.visual = true;
+        options.dialect = VaultSettings::Dialect::CommonMark;
+        options.wikiLinks = false;
+        options.tags = false;
+        QVERIFY(!setVaultOptions(catalog, QStringLiteral("missing"), false, options, error));
+        QVERIFY2(setVaultOptions(catalog, workId, false, options, error), qPrintable(error));
+        // Turning the vault off keeps its location and options for later.
+        QCOMPARE(catalog.workspaces.at(0).vaultLocationId, notes);
+        QVERIFY(!catalog.workspaces.at(0).vaultEnabled);
+        QVERIFY(save(group, catalog, error));
+        const QJsonObject stored = QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object();
+        const QJsonArray entries = stored.value(QStringLiteral("workspaces")).toArray();
+        QCOMPARE(entries.at(0).toObject().value(QStringLiteral("vaultEnabled")), QJsonValue(false));
+        QCOMPARE(entries.at(0).toObject().value(QStringLiteral("vaultOptions")).toObject(), VaultSettings::toJson(options));
+        QVERIFY(!entries.at(1).toObject().contains(QStringLiteral("vaultEnabled")));
+        QVERIFY(!entries.at(1).toObject().contains(QStringLiteral("vaultOptions")));
+        Catalog loaded;
+        QVERIFY2(load(group, loaded, error), qPrintable(error));
+        QCOMPARE(loaded, catalog);
+        QVERIFY(*loaded.workspaces.at(0).vaultOptions == options);
+
+        // Choosing a vault turns it on again; a copy keeps the options but not the location.
+        QVERIFY(setVault(loaded, workId, notes, error));
+        QVERIFY(loaded.workspaces.at(0).vaultEnabled);
+        QVERIFY(duplicate(loaded, workId, QStringLiteral("Copy"), QStringLiteral("C"), error));
+        QVERIFY(loaded.workspaces.last().vaultLocationId.isEmpty());
+        QVERIFY(loaded.workspaces.last().vaultOptions == std::optional(options));
+        QVERIFY(setVaultOptions(loaded, workId, true, std::nullopt, error));
+        QVERIFY(!loaded.workspaces.at(0).vaultOptions);
+
+        const QList<std::pair<QString, QJsonValue>> added{{QStringLiteral("vaultEnabled"), QJsonValue(false)},
+                                                          {QStringLiteral("vaultOptions"), QJsonValue(QJsonObject())}};
+        for (const auto &[key, value] : added) {
+            // Only version 9 catalogs hold these values.
+            QJsonObject root = stored;
+            QJsonArray workspaces = entries;
+            QJsonObject work = workspaces.at(0).toObject();
+            work.remove(QStringLiteral("vaultEnabled"));
+            work.remove(QStringLiteral("vaultOptions"));
+            workspaces.replace(0, work);
+            QJsonObject entry = workspaces.at(1).toObject();
+            entry.insert(key, value);
+            workspaces.replace(1, entry);
+            root.insert(QStringLiteral("workspaces"), workspaces);
+            root.insert(QStringLiteral("version"), 8);
+            group.writeEntry("Catalog", QJsonDocument(root).toJson(QJsonDocument::Compact));
+            Catalog rejected;
+            QVERIFY(!load(group, rejected, error));
+            root.insert(QStringLiteral("version"), 9);
+            group.writeEntry("Catalog", QJsonDocument(root).toJson(QJsonDocument::Compact));
+            QVERIFY2(load(group, rejected, error), qPrintable(error));
+        }
+        const QList<std::pair<QString, QJsonValue>> invalid{{QStringLiteral("vaultEnabled"), QJsonValue(1)},
+                                                            {QStringLiteral("vaultOptions"), QJsonValue(QStringLiteral("visual"))}};
+        for (const auto &[key, value] : invalid) {
+            QJsonObject root = stored;
+            QJsonArray workspaces = entries;
+            QJsonObject entry = workspaces.at(0).toObject();
+            entry.insert(key, value);
             workspaces.replace(0, entry);
             root.insert(QStringLiteral("workspaces"), workspaces);
             group.writeEntry("Catalog", QJsonDocument(root).toJson(QJsonDocument::Compact));
