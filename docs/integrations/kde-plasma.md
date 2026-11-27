@@ -496,6 +496,25 @@ behaves like the rest of the desktop and follows the user's choices.
   checks, and KDE's ksshaskpass asks for passwords; passwords never reach the
   command line. See [rsync backend](../CAVEATS.md#desktop-integration).
   ([#363](https://github.com/mikepadiernos/plasma-opus/issues/363))
+- **Cloud sync:** **File › Cloud Sync…** keeps chosen local folders in
+  two-way sync with KIO locations, such as Nextcloud, WebDAV, SFTP, SMB or S3
+  folders and KDE Online Accounts storage, or with rclone remotes. Each pair
+  runs as a two-way sync, a cloud backup or a local backup, optionally
+  mirroring deletions, with saved filters, include and exclude patterns and
+  an interval. Network-folder pairs keep a snapshot of both sides, so a run
+  tells edits, additions, deletions and renames on either side apart; a file
+  changed on both sides is a conflict that the review resolves by keeping
+  one or both versions, and nothing is overwritten silently. Local deletions
+  go to the trash. The first run and large deletions stop for review, and
+  **Review…** previews any run. rclone pairs use `rclone bisync`, or `copy`
+  and `sync` for backups. Pairs can be paused one at a time or by account,
+  background runs pause on metered connections, and folders owned by
+  Nextcloud, ownCloud, Syncthing or Dropbox clients are refused. Nested pairs
+  can exclude each other. **Synchronize in the background after login**
+  starts Plasma Opus in the system tray, which asks for attention when a run
+  needs review. Pairs store no passwords. See
+  [Cloud sync](../CAVEATS.md#desktop-integration).
+  ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718))
 
 ## Planned features
 
@@ -504,13 +523,9 @@ them.
 
 ### M27.06 Accounts, remote access and synchronization
 
-- **Cloud sync and activity:** Keep chosen local folders in two-way sync with
-  KIO, KDE Online Accounts or rclone locations, with backup modes and conflict
-  choices that never overwrite changes silently, and show transfers, quota,
-  pending uploads and cache limits. Keep credentials in KDE's facilities and
-  stay clear of folders owned by the Nextcloud desktop client.
-  ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718),
-  [#719](https://github.com/mikepadiernos/plasma-opus/issues/719))
+- **Cloud activity:** Show transfers, quota, pending uploads and cache limits
+  for cloud sync pairs and rclone mounts.
+  ([#719](https://github.com/mikepadiernos/plasma-opus/issues/719))
 
 ### M27.07 Access control and automation
 
