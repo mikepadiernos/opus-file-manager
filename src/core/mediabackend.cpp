@@ -33,4 +33,20 @@ QString startFailedNotice(const QString &reason)
 {
     return i18nc("@info %1 is an error message", "mpv could not play this file (%1), so Qt Multimedia plays it.", reason);
 }
+
+QString status(Kind chosen, const Capabilities &capabilities)
+{
+    if (!capabilities.mpvBuilt) {
+        return chosen == Kind::Mpv
+            ? i18nc("@info", "This build of Plasma Opus has no mpv support, so Qt Multimedia plays audio and video.")
+            : i18nc("@info", "Qt Multimedia plays audio and video. This build of Plasma Opus has no mpv support, so mpv can't be chosen.");
+    }
+    if (chosen == Kind::QtMultimedia) {
+        return i18nc("@info", "Qt Multimedia plays audio and video.");
+    }
+    if (!capabilities.openGl) {
+        return i18nc("@info", "mpv plays audio. It needs OpenGL to show video, which isn't available here, so Qt Multimedia plays video.");
+    }
+    return i18nc("@info", "mpv plays audio and video, without reading your mpv configuration or scripts.");
+}
 }
