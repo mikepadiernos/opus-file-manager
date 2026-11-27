@@ -2083,7 +2083,7 @@ considered Calendar, Maps, Deck and Notes workflows.
       Real-server verification is a
       [pending handoff](TODO.md#nextcloud-previews-on-a-real-server-589).
       [#589]
-- [ ] Search and organize assets using supported server metadata, tags and
+- [x] Search and organize assets using supported server metadata, tags and
       favorites. Keep server tags distinct from native local tags; identify
       unavailable features and incomplete results. Real-server verification
       is a
