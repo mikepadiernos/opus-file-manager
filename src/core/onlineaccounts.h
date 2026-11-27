@@ -69,6 +69,18 @@ using ProtocolCheck = std::function<bool(const QString &protocol)>;
 /// Whether @p serviceType gives access to files.
 bool isFileService(const QString &serviceType);
 
+/// Whether @p account offers file storage that Plasma Opus can open, so that
+/// it can be shown, even if the storage is currently unavailable.
+bool hasFileStorage(const Account &account);
+
+/// The id under which the settings remember @p account.
+QString settingsId(const Account &account);
+
+/// The accounts of @p accounts to show, in their order: those with file
+/// storage whose settingsId() is not in @p hidden. Hiding an account only
+/// leaves it out here; the account itself is never changed.
+QList<Account> shownAccounts(const QList<Account> &accounts, const QStringList &hidden);
+
 /// The KIO URL of a WebDAV storage service. A host without a scheme, or with
 /// "https", uses webdavs; "http" uses webdav. The user name comes from a
 /// "/dav/files/<user>" storage path, or else from @p accountName up to any

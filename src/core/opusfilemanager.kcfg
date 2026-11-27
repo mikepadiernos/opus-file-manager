@@ -701,6 +701,16 @@
       <default></default>
     </entry>
   </group>
+  <group name="OnlineAccounts">
+    <entry name="OnlineAccountsEnabled" type="Bool">
+      <label>Show the folders of KDE Online Accounts in Plasma Opus</label>
+      <default>false</default>
+    </entry>
+    <entry name="OnlineAccountsHidden" type="StringList">
+      <label>The KDE Online Accounts ids of the accounts that Plasma Opus does not show, which only hides them in Plasma Opus</label>
+      <default></default>
+    </entry>
+  </group>
   <group name="Editor">
     <entry name="EditorOpening" type="Enum">
       <choices><choice name="Panel"/><choice name="Embedded"/><choice name="Maximized"/><choice name="Window"/></choices>

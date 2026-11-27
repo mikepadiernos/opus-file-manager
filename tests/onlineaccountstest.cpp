@@ -213,6 +213,27 @@ private Q_SLOTS:
         QCOMPARE(result.at(1).url, QUrl(QStringLiteral("webdavs://alex@cloud.example.org/remote.php/webdav/")));
     }
 
+    void showsOnlyAccountsWithFileStorageThatAreNotHidden()
+    {
+        Account contactsOnly = googleAccount();
+        contactsOnly.id = 3;
+        contactsOnly.services.removeLast();
+        QVERIFY(hasFileStorage(googleAccount()));
+        QVERIFY(hasFileStorage(nextcloudAccount()));
+        QVERIFY(!hasFileStorage(contactsOnly));
+
+        // Unavailable storage is still storage that can be shown.
+        Account turnedOff = nextcloudAccount();
+        turnedOff.enabled = false;
+        QVERIFY(hasFileStorage(turnedOff));
+
+        QCOMPARE(settingsId(nextcloudAccount()), QStringLiteral("2"));
+        const QList<Account> all{googleAccount(), contactsOnly, nextcloudAccount()};
+        QCOMPARE(shownAccounts(all, {}), (QList<Account>{googleAccount(), nextcloudAccount()}));
+        QCOMPARE(shownAccounts(all, {QStringLiteral("1"), QStringLiteral("42")}), QList<Account>{nextcloudAccount()});
+        QVERIFY(shownAccounts(all, {QStringLiteral("1"), QStringLiteral("2")}).isEmpty());
+    }
+
     void unsupportedBuildExplains()
     {
         if (isSupported()) {

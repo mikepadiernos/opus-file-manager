@@ -48,6 +48,29 @@ bool isFileService(const QString &serviceType)
     return serviceType == GoogleDrive || serviceType == DavStorage;
 }
 
+bool hasFileStorage(const Account &account)
+{
+    return std::any_of(account.services.cbegin(), account.services.cend(), [](const Service &service) {
+        return isFileService(service.type);
+    });
+}
+
+QString settingsId(const Account &account)
+{
+    return QString::number(account.id);
+}
+
+QList<Account> shownAccounts(const QList<Account> &accounts, const QStringList &hidden)
+{
+    QList<Account> result;
+    for (const Account &account : accounts) {
+        if (hasFileStorage(account) && !hidden.contains(settingsId(account))) {
+            result.append(account);
+        }
+    }
+    return result;
+}
+
 QUrl davUrl(const QString &host, const QString &storagePath, const QString &accountName)
 {
     const QString trimmed = host.trimmed();
