@@ -62,6 +62,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Nextcloud previews on a real server](#nextcloud-previews-on-a-real-server-589)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#589]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Nextcloud asset search on a real server](#nextcloud-asset-search-on-a-real-server-590) | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#590]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Nextcloud Photos on a real server](#nextcloud-photos-on-a-real-server-671)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#671]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Nextcloud shares on a real server](#nextcloud-shares-on-a-real-server-591)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#591]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1527,6 +1528,50 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
    its roadmap link.
 
+## Nextcloud shares on a real server (#591)
+
+- **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#591]
+  (Development).
+- **Blocker:** The development container has no Nextcloud server, mail client,
+  desktop portal, KDE Wallet or Plasma session, so shares are tested only
+  against a local fake server with recorded OCS responses, and **Send Link by
+  Email…** only with a fake composer. The permission combinations the server
+  accepts for links and user and group shares, its responses to `PUT` and
+  `DELETE`, and its error messages are unverified.
+- **Confirmed state:** `NextcloudClient::listShares`,
+  `NextcloudClient::fetchShareCapabilities`, `NextcloudClient::createShare`,
+  `NextcloudClient::updateShare` and `NextcloudClient::deleteShare` in
+  `src/core/nextcloudshares.cpp` send OCS requests through KIO and never keep
+  share passwords or password hashes. `NextcloudSharesDialog` and
+  `NextcloudShareEditor` in `src/app/nextcloudsharesdialog.cpp` provide **Go ›
+  Nextcloud › *account* › Shares…** and **Nextcloud › Nextcloud Shares…**,
+  confirm creating, broadening and revoking shares, and open a reviewed link
+  through `SendByEmailDialog::composeMessage`. `nextcloudsharestest` and
+  `nextcloudsharesdialogtest` pass in the container. See
+  [Nextcloud integration](CAVEATS.md#nextcloud-integration).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, KDE Wallet
+   enabled, a default mail client and a disposable Nextcloud server with two
+   synthetic users and a group, sign in as the first user under **Go ›
+   Nextcloud › Manage Nextcloud Accounts…**.
+2. In a pane, choose **Nextcloud › Nextcloud Shares…** on a folder. Create a
+   public link with a password and an expiry, a file drop link and a share
+   with the second user, confirming each, and check them in the web
+   interface's sharing sidebar. Check that the password isn't in
+   `~/.config/opus-file-managerrc` or `~/.local/state/opus-file-managerstaterc`.
+3. Narrow and widen a share with **Change…**, checking that only widening
+   asks first, then **Revoke…** a link and check that it stops working.
+4. Choose **Send Link by Email…**, review the link and check that the mail
+   client opens a message with the link and without the password. Repeat in
+   the Flatpak build through the desktop portal.
+5. Sign in as the second user and check **Shared with me**. Enforce link
+   passwords and expiry on the server, then disable public links and the
+   sharing app, and check the editor's rules and the window's notices.
+   Record any differences in [CAVEATS](CAVEATS.md#nextcloud-integration),
+   then remove this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1552,6 +1597,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#588]: https://github.com/mikepadiernos/plasma-opus/issues/588
 [#589]: https://github.com/mikepadiernos/plasma-opus/issues/589
 [#590]: https://github.com/mikepadiernos/plasma-opus/issues/590
+[#591]: https://github.com/mikepadiernos/plasma-opus/issues/591
 [#654]: https://github.com/mikepadiernos/plasma-opus/issues/654
 [#655]: https://github.com/mikepadiernos/plasma-opus/issues/655
 [#656]: https://github.com/mikepadiernos/plasma-opus/issues/656
