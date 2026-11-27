@@ -2044,7 +2044,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Password-gated folders**
 
-  - [ ] **Access:** manage protected local folders and their passwords, with a
+  - [x] **Access:** manage protected local folders and their passwords, with a
         clear warning that the gate applies only inside Plasma Opus [#403]
 
 - **Encryption**
