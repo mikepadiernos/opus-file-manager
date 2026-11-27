@@ -1996,7 +1996,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **KDE Connect**
 
-  - [ ] **Sharing:** enable the sharing action and choose whether to remember a
+  - [x] **Sharing:** enable the sharing action and choose whether to remember a
         device without changing pairing or KDE Connect settings.
         Plasma-session verification is a
         [pending handoff](TODO.md#kde-connect-settings-on-plasma-393). [#393]
