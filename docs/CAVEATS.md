@@ -2090,7 +2090,9 @@ The M27 desktop integrations have these limits
   folders with many small files load more slowly, and at most 32 connections
   are served at once. Shares aren't announced on the network, the address
   list isn't refreshed when the network changes, and sharing ends when the
-  dialog closes.
+  dialog closes. The starting choices are under **Preferences › Remote and
+  Cloud › LAN Sharing**, as described under [LAN sharing
+  settings](#integration-settings).
   ([#653](https://github.com/mikepadiernos/plasma-opus/issues/653))
 - **👤 KDE Online Accounts:** Only Google Drive, through kio-gdrive, and
   Nextcloud and ownCloud storage, through WebDAV, open as folders; other
@@ -2534,11 +2536,12 @@ The M27 desktop integrations have these limits
     certificate, check that the fingerprint the browser shows matches the
     dialog's. Share only on trusted networks, with the shortest practical
     time limit, and pass the link through the QR code or a private channel.
-    If clients can't connect, choose a fixed port and allow it, for example
-    with `sudo firewall-cmd --add-port=PORT/tcp` until the next restart or
-    `sudo ufw allow PORT/tcp`, removing the ufw rule afterwards. For paired
-    phones, KDE Connect is simpler; for lasting shares, use Samba sharing in
-    the folder's **Properties** dialog.
+    If clients can't connect, choose a fixed port under **Preferences ›
+    Remote and Cloud › LAN Sharing** and allow it, for example with `sudo
+    firewall-cmd --add-port=PORT/tcp` until the next restart or `sudo ufw
+    allow PORT/tcp`, removing the ufw rule afterwards. For paired phones, KDE
+    Connect is simpler; for lasting shares, use Samba sharing in the folder's
+    **Properties** dialog.
   - **KDE Online Accounts:** Install `kio-gdrive` for Google Drive and
     `kaccounts-providers` for Nextcloud and ownCloud, add accounts in
     **System Settings › Online Accounts**, then check **Show the folders of
@@ -2720,8 +2723,8 @@ The M27 desktop integrations have these limits
     options, and pass KWallet passwords to davfs2 and CIFS with consent.
   - Keep sharing from the system tray after the dialog closes, announce
     shares over DNS-SD, add an optional password and revocable links,
-    keep connections alive, create folders over WebDAV, refresh addresses
-    when the network changes, and the M28 **LAN sharing** defaults.
+    keep connections alive, create folders over WebDAV, and refresh
+    addresses when the network changes.
   - Show online account folders in Places, mount them as remote drives,
     refresh the menu when accounts change, and hand Nextcloud app passwords
     to KIO with consent.
@@ -3380,6 +3383,25 @@ The M28 integration settings have these limits
   generated rclone options and the tray menu with a fake tray host ([Plasma
   check](TODO.md#transfer-and-cache-settings-on-plasma-721)).
   ([#721](https://github.com/mikepadiernos/plasma-opus/issues/721))
+- **🏘️ LAN sharing settings:** The choices under **Preferences › Remote and
+  Cloud › LAN Sharing** apply when **File › Share on Local Network…** opens;
+  running shares and open windows keep their choices. Choices made in the window
+  apply to that share only, and the window no longer remembers the last share's
+  port, HTTPS, time limit or upload folder. Interfaces are matched by name, so
+  an interface that is renamed or added later starts checked, and cleared
+  interfaces that disappear stay cleared. Public addresses always start
+  unchecked. With **Browsers only**, file managers can't browse folders but can
+  still download a file through its link; with **File managers only (WebDAV)**,
+  browsers get no folder pages or upload form but can still download files
+  through their links. The HTTPS choice has no effect without `openssl`. A fixed
+  port that is already in use stops sharing from starting, so only one share at
+  a time can use it, and ports below 1024 normally need administrator rights.
+  The time limit is 1 minute to 24 hours, with no unlimited choice. The upload
+  folder must exist and be writable, and clients can browse it while uploads are
+  allowed. The container has only loopback and its own network interface, so
+  interfaces are tested with loopback and fake interfaces ([Plasma
+  check](TODO.md#lan-sharing-settings-on-plasma-664)).
+  ([#664](https://github.com/mikepadiernos/plasma-opus/issues/664))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3612,6 +3634,12 @@ The M28 integration settings have these limits
     the limits with Preferences closed when using **File › Cloud Activity…**,
     then unmount and mount remotes again. For davfs2 mounts, set the cache in
     `davfs2.conf`.
+  - **LAN sharing settings:** Keep HTTPS on and the time limit at 30 minutes or
+    less, and clear VPN and virtual-machine interfaces so shares start only on
+    your home or office network. Choose a fixed port above 1024 when a firewall
+    needs a rule for it, and allow uploads by default only if you often receive
+    files, into a dedicated folder rather than Downloads. Choose **Browsers
+    only** when no one connects with a file manager.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3725,6 +3753,10 @@ The M28 integration settings have these limits
     of waiting for the next mount, follow changes made in **File › Cloud
     Activity…** while Preferences is open, show how much of the cache each
     remote uses, and limit the bandwidth of KIO FUSE mounts and KIO pairs.
+  - Choose interfaces by the network they connect to rather than their name, try
+    the next port when the fixed port is in use, report in Preferences when the
+    port is already taken, and offer sharing until the window closes without a
+    time limit.
 
 ## Embedded terminal
 
