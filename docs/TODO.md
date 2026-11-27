@@ -37,6 +37,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [File chooser settings on Plasma](#file-chooser-settings-on-plasma-292)     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#292]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [Chooser start folder on Plasma](#chooser-start-folder-on-plasma-750)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#750]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [Operation notifications on Plasma](#operation-notifications-on-plasma-392) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#392]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
+| [Start hidden in tray on Plasma](#start-hidden-in-tray-on-plasma-290)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#290]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -563,10 +564,44 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
    its roadmap link.
 
+## Start hidden in tray on Plasma (#290)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#290]
+  (Development).
+- **Blocker:** The development container has no Plasma session or system
+  tray host, so starting hidden with Plasma's tray, at login or otherwise,
+  cannot be seen there.
+- **Confirmed state:** `TrayPolicy::startHidden()` in
+  `src/core/traypolicy.cpp` hides the window at start only when **Start with
+  the window hidden in the system tray** is checked under **Preferences ›
+  KDE Plasma › System Tray**, no folders or workspace were asked for and a
+  tray host can show the icon; `DesktopTray::startHidden()` applies it from
+  `main.cpp`. `traypolicytest`, `desktoptraytest` and
+  `integrationsettingstest` pass in the container with a simulated tray host.
+  See [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Opus installed by `./install.sh`,
+   check **Start with the window hidden in the system tray** under
+   **Preferences › KDE Plasma › System Tray** and apply. Quit and start
+   Plasma Opus from the launcher; check that only the tray icon appears and
+   that choosing it shows the window with its tabs.
+2. Quit, then run `opus-file-manager ~/Documents`, and check that the
+   window is shown. Start Plasma Opus while it is hidden and check that the
+   window is shown.
+3. Add Plasma Opus under **System Settings › Autostart**, log out and back
+   in, and check whether it starts hidden or shows the window because the
+   tray was not ready. Check both on Wayland and X11, and that the tab's
+   Wayland note appears only on Wayland. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
+   its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
 [#288]: https://github.com/mikepadiernos/plasma-opus/issues/288
+[#290]: https://github.com/mikepadiernos/plasma-opus/issues/290
 [#292]: https://github.com/mikepadiernos/plasma-opus/issues/292
 [#293]: https://github.com/mikepadiernos/plasma-opus/issues/293
 [#392]: https://github.com/mikepadiernos/plasma-opus/issues/392

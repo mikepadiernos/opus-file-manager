@@ -1908,7 +1908,9 @@ Settings for M27 integrations, stored in KConfig.
 
 - **System tray**
 
-  - [ ] **Behaviour:** choose whether to minimize and close to the tray [#290]
+  - [ ] **Behaviour:** choose whether to minimize and close to the tray.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#start-hidden-in-tray-on-plasma-290). [#290]
 
 - **Shortcuts**
 
