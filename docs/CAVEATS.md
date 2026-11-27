@@ -2220,18 +2220,20 @@ The M27 desktop integrations have these limits
   ([#655](https://github.com/mikepadiernos/plasma-opus/issues/655))
 - **📧 Send by Email:** **File › Send by Email…** opens a new message in
   the default mail client, chosen in System Settings › Default
-  Applications, and never sends it. Folders and missing, unreadable or
-  special files are listed and skipped. A remote file is attached only
-  after you allow a private local copy, which is downloaded into a temporary
-  folder that only you can read and kept until Plasma Opus quits, because
-  the mail client may read it later. Most clients receive the files as
-  `attach` parameters in a `mailto:` URL, and Thunderbird through its own
-  command line; whether they are attached is up to the client, so Plasma
-  Opus reports that the composer opened, not what it attached. A client
-  that is registered but fails to start is not reported. Plasma Impresario
-  currently ignores attachments from other applications, so Plasma Opus
-  warns before and after opening it and asks you to drag the files from the
-  dialog's list into its composer instead. Inside
+  Applications, and never sends it. **Preferences › Applications › Mail**
+  names the client and turns the action off
+  ([Mail client settings](#integration-settings)). Folders and missing,
+  unreadable or special files are listed and skipped. A remote file is
+  attached only after you allow a private local copy, which is downloaded
+  into a temporary folder that only you can read and kept until Plasma Opus
+  quits, because the mail client may read it later. Most clients receive the
+  files as `attach` parameters in a `mailto:` URL, and Thunderbird through
+  its own command line; whether they are attached is up to the client, so
+  Plasma Opus reports that the composer opened, not what it attached. A
+  client that is registered but fails to start is not reported. Plasma
+  Impresario currently ignores attachments from other applications, so
+  Plasma Opus warns before and after opening it and asks you to drag the
+  files from the dialog's list into its composer instead. Inside
   a Flatpak or Snap sandbox, the XDG Email portal attaches the files
   instead, and Plasma Opus reports only that the portal accepted the
   request. The container used for development has no mail client or
@@ -2576,10 +2578,11 @@ The M27 desktop integrations have these limits
     or `.asc`.
   - **Send by Email:** Choose a client that accepts attachments, such as
     KMail or Thunderbird, under **System Settings › Default Applications ›
-    Email client**. With Plasma Impresario, drag the files from the **Send
-    by Email** list into its composer instead. Send a message that uses
-    local copies of remote files before quitting Plasma Opus, or copy the
-    files into a local folder first.
+    Email client**, which **Configure Default Applications…** under
+    **Preferences › Applications › Mail** opens. With Plasma Impresario,
+    drag the files from the **Send by Email** list into its composer
+    instead. Send a message that uses local copies of remote files before
+    quitting Plasma Opus, or copy the files into a local folder first.
   - **Mail attachments:** To keep an attachment you received, save it from
     Plasma Impresario, then drag the saved file into Plasma Opus.
   - **Mail file preview:** Read encrypted, signed or formatted messages in
@@ -2623,9 +2626,8 @@ The M27 desktop integrations have these limits
     default key and the text format.
   - Offer to compress a selected folder and attach the archive, ask the
     XDG Email portal for its response to report cancelled requests, and the
-    M28 **Mail** settings to choose the client and when to prepare local
-    copies ([#666](https://github.com/mikepadiernos/plasma-opus/issues/666),
-    [#667](https://github.com/mikepadiernos/plasma-opus/issues/667)).
+    M28 **Mail** setting to choose when to prepare local copies
+    ([#667](https://github.com/mikepadiernos/plasma-opus/issues/667)).
   - Extract mail attachments into a chosen folder, preview remote `.eml`
     files through a size-limited download, show inline images only on
     request, and the M28 **Mail file preview** setting.
@@ -3174,6 +3176,23 @@ The M28 integration settings have these limits
   checking when Preferences opens. The container has no Ark, so only the
   missing-Ark report is verified there.
   ([#665](https://github.com/mikepadiernos/plasma-opus/issues/665))
+- **📮 Mail client settings:** The **Client** group under **Preferences ›
+  Applications › Mail** names the default mail client, the `mailto:`
+  handler that KDE's application list resolves, and reports when none is set
+  or when the client can't receive attached files, such as Plasma
+  Impresario. It reads the client again each time the tab is shown, so it
+  doesn't follow a change made in System Settings while the tab stays open.
+  **Configure Default Applications…** opens Plasma's Default Applications
+  settings, or reports that they aren't installed; Plasma Opus never changes
+  the default itself. Inside a Flatpak or Snap sandbox the tab can't see the
+  client and says that the desktop portal chooses it. Clearing **Offer Send
+  by Email for selected files** hides **File › Send by Email…** and leaves it
+  out of the context menus after **Apply** or **OK**; a **Send by Email**
+  window that is already open stays usable. The container has no mail client
+  or System Settings, so the client is verified with a fake one and opening
+  Default Applications only by its absence
+  ([Plasma check](TODO.md#mail-client-settings-on-plasma-666)).
+  ([#666](https://github.com/mikepadiernos/plasma-opus/issues/666))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3340,6 +3359,11 @@ The M28 integration settings have these limits
     archive. Keep **Offer a password for ZIP archives** checked unless you
     never encrypt archives, and use **More Options in Ark…** for encrypted 7z
     archives when the group says Ark can write them.
+  - **Mail client settings:** Check the client named under **Preferences ›
+    Applications › Mail** before sending files, and choose one that accepts
+    attachments, such as KMail or Thunderbird, with **Configure Default
+    Applications…**. Clear **Offer Send by Email for selected files** if you
+    attach files from your mail client instead.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3421,6 +3445,8 @@ The M28 integration settings have these limits
   - Offer encrypted 7z archives in **Compress** itself, remember the last
     format, volume size and location as an option, and offer common volume
     sizes, such as the largest file a FAT32 drive holds.
+  - Follow a mail client chosen in System Settings while the **Mail** tab is
+    open, and list there which installed mail clients accept attachments.
 
 ## Embedded terminal
 
