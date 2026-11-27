@@ -5,11 +5,12 @@
 [![Roadmap: M28 integration settings](https://img.shields.io/badge/roadmap-M28%20integration%20settings-8957e5?style=flat-square)](../ROADMAP.md#m28-integration-settings)
 
 ![Milestones M27–M28](https://img.shields.io/badge/milestones-M27%E2%80%93M28-8957e5?style=flat-square)
-![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)
+![M27 Merged](https://img.shields.io/badge/M27-Merged-8957e5?style=flat-square)
+![M28 Development](https://img.shields.io/badge/M28-Development-1f6feb?style=flat-square)
 
-How Plasma Opus builds on KDE Plasma today and which desktop integrations are
-planned for [M27](../ROADMAP.md#m27-integrations) and
-[M28](../ROADMAP.md#m28-integration-settings).
+How Plasma Opus builds on KDE Plasma: the desktop integrations added in
+[M27](../ROADMAP.md#m27-integrations), and the Preferences that configure them
+in [M28](../ROADMAP.md#m28-integration-settings).
 
 **Integration plans:** **KDE Plasma** · [Nextcloud](nextcloud.md) ·
 [Plasma Impresario](plasma-impresario.md)
@@ -19,6 +20,9 @@ planned for [M27](../ROADMAP.md#m27-integrations) and
 > [Existing foundations](#existing-foundations), from merged milestones
 > M01–M26, and the M27 integrations listed there, from default file-manager
 > registration to cloud sync and cloud activity.
+> **In development:** the M28 settings for these integrations. Those completed
+> so far are on the **KDE Plasma** and **Applications** pages of Preferences,
+> and each foundation below names its setting and location.
 > **Planned:** everything under [Planned features](#planned-features). The
 > [roadmap](../ROADMAP.md) is authoritative for status.
 
