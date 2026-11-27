@@ -55,6 +55,7 @@ are in [reported bugs](BUGS.md), and untested scenarios in
 - **🛠️ Setup and tools:** [Desktop integration](#desktop-integration),
   [integration settings](#integration-settings),
   [Nextcloud integration](#nextcloud-integration),
+  [Nextcloud settings](#nextcloud-settings),
   [embedded terminal](#embedded-terminal),
   [settings backups](#settings-backups),
   [build and installation](#build-installation-and-references),
@@ -354,8 +355,9 @@ tracked in its own issue:
   characters are shown without syntax highlighting. Remote previews download to
   a temporary file and use the same limits, or 128 MiB for other file types.
   Since M29, the preview panel first asks a Nextcloud account's server for its
-  preview image, up to 8 MiB, and downloads the file only when there is none
-  or on request ([Nextcloud integration](#nextcloud-integration)).
+  preview image, up to 8 MiB, and downloads the file only when there is none,
+  on request or when that is turned off under **Preferences › Remote and Cloud
+  › Nextcloud** ([Nextcloud integration](#nextcloud-integration)).
   ([#259][issue-259], [#264][issue-264])
 
   - **Recommendation:** Open files in a suitable external application when
@@ -3879,9 +3881,8 @@ The M29 Nextcloud integration has these limits
   and sharing from the capabilities, and file search is assumed from the
   `dav` app on Nextcloud 15 or later without trying a search. **Remove…**
   asks `kpasswdserver` to forget the app password; whether that also removes
-  the KDE Wallet entry is unverified. Accounts aren't added to Places, and
-  their settings wait for M30. The container has no Nextcloud server, KDE
-  Wallet or Plasma session
+  the KDE Wallet entry is unverified. Accounts aren't added to Places. The
+  container has no Nextcloud server, KDE Wallet or Plasma session
   ([real-server check](TODO.md#nextcloud-accounts-on-a-real-server-588)).
   ([#588](https://github.com/mikepadiernos/plasma-opus/issues/588))
 - **⛅ Nextcloud browsing:** Server permissions are read with a separate
@@ -3908,7 +3909,8 @@ The M29 Nextcloud integration has these limits
   has no preview, its preview is over 8 MiB or the request fails, the panel
   downloads the file as before, without saying why. The information panel
   reads metadata for each item it shows, including hovered items when it
-  follows the pointer, and reads it again after a minute, so favourites and
+  follows the pointer, and reads it again after a minute, or the time set
+  under **Preferences › Remote and Cloud › Nextcloud**, so favourites and
   tags changed elsewhere can take that long to appear. Which
   `nc:metadata-*` properties exist depends on the server version and its
   apps; values are shown as the server sends them, without units, up to 60
@@ -3919,17 +3921,18 @@ The M29 Nextcloud integration has these limits
   ([#589](https://github.com/mikepadiernos/plasma-opus/issues/589))
 - **🔖 Nextcloud search and tags:** **Search and Organize…** searches only
   file names, kinds and favourites, not photo metadata, EXIF values or
-  content, and lists at most 500 results, newest first, without sorting them
-  another way. Nextcloud doesn't report whether it supports WebDAV search, so
-  it is assumed from Nextcloud 15 and a missing search shows as an error.
-  Favourites and tag listings have no server-side limit, so the server sends
-  every match before the list is cut to 500. The context menu offers both
-  favourite actions until the item's metadata has been read, and the panes
-  don't mark favourites or show server tags. **Create Tag…** creates the tag
-  on the server as soon as it is confirmed, so it remains when the dialog is
-  cancelled. Changes made in the web interface appear after the next search
-  or after a minute in the information panel. Checked only against a fake
-  server and recorded Nextcloud responses
+  content, and lists at most 500 results by default, or up to 5,000 as set
+  under **Preferences › Remote and Cloud › Nextcloud**, newest first, without
+  sorting them another way. Nextcloud doesn't report whether it supports
+  WebDAV search, so it is assumed from Nextcloud 15 and a missing search shows
+  as an error. Favourites and tag listings have no server-side limit, so the
+  server sends every match before the list is cut to the limit. The context
+  menu offers both favourite actions until the item's metadata has been read,
+  and the panes don't mark favourites or show server tags. **Create Tag…**
+  creates the tag on the server as soon as it is confirmed, so it remains
+  when the dialog is cancelled. Changes made in the web interface appear
+  after the next search or after a minute in the information panel. Checked
+  only against a fake server and recorded Nextcloud responses
   ([real-server check](TODO.md#nextcloud-asset-search-on-a-real-server-590)).
   ([#590](https://github.com/mikepadiernos/plasma-opus/issues/590))
 - **📸 Nextcloud Photos:** **Photos…** browses albums, shared albums and
@@ -4015,11 +4018,13 @@ The M29 Nextcloud integration has these limits
   - **Nextcloud search and tags:** Use **Search and Organize…** to find files
     by name across the account and to list favourites or tagged files, then
     **Show in Pane** to work with them. Narrow a search that reports only the
-    first 500 results. Check the tag list before choosing **Create Tag…**,
-    since every user sees a new tag, and remove unwanted tags in Nextcloud's
-    web interface. Use Plasma Opus tags for private labels and Nextcloud tags
-    only for labels to share with other users of the server.
-  - **Nextcloud Photos:** Use **Go › Nextcloud › *account* › Photos…** to
+    first results, or raise the limit under **Preferences › Remote and Cloud ›
+    Nextcloud** when narrowing it doesn't help. Check the tag list before
+    choosing **Create Tag…**, since every user sees a new tag, and remove
+    unwanted tags in Nextcloud's web interface. Use Plasma Opus tags for
+    private labels and Nextcloud tags only for labels to share with other
+    users of the server.
+  - **Nextcloud Photos:** Use **Go › Nextcloud › _account_ › Photos…** to
     review albums and places by capture date and place, then **Show in
     Pane** to work with a photo's file. Use **Remove from Album…**, which
     never deletes the file, to tidy an album, and delete a file only from its
@@ -4059,7 +4064,7 @@ The M29 Nextcloud integration has these limits
     preview was unavailable, and refresh the metadata when the server's ETag
     changes.
   - Search photo metadata and tags on the server, page through results
-    beyond 500, sort them by any column, confirm search support with a
+    beyond the limit, sort them by any column, confirm search support with a
     trial request, mark favourites and server tags in the panes, and offer
     to delete a tag created in a cancelled dialog.
   - Browse albums in a pane as virtual folders, rename and delete albums with
@@ -4074,6 +4079,53 @@ The M29 Nextcloud integration has these limits
     status while the menu is open, show files' status in the panes, report
     the client's sign-in state and errors, and tell downloaded virtual files
     from those still on the server.
+
+## Nextcloud settings
+
+The M30 Nextcloud settings have these limits
+([#769](https://github.com/mikepadiernos/plasma-opus/issues/769)):
+
+- **🎛️ Nextcloud settings:** **Preferences › Remote and Cloud › Nextcloud**
+  doesn't list or edit accounts itself: **Manage Nextcloud Accounts…** opens
+  the M29 dialog, and only when Preferences was opened from a main window.
+  The **Accounts** group counts only the accounts saved in Plasma Opus and
+  says whether KDE Online Accounts are read, without counting theirs. Changes
+  apply to menus and panels from the next item shown, and to **Search and
+  Organize…** and **Shares…** windows opened afterwards; open windows keep
+  their result limit and link expiry. Turning favourites and tags off removes
+  them only from the context menu; **Search and Organize…** still lists
+  favourites and tags and changes favourites. Turning shares off hides
+  **Shares…** and **Nextcloud Shares…** without changing existing shares.
+  The link expiry applies only to new public links, not to user and group
+  shares, and a server's enforced maximum wins. With server previews off,
+  the preview panel downloads files within the usual limits, and folder
+  views' thumbnails still follow **Show previews in remote folders** under
+  **Interface › Previews**. With the permission check off, every action
+  stays enabled and the server refuses what it doesn't allow. The
+  **Desktop Client** group reads only the client's default configuration
+  path, as the menu does. Checked only against fake servers, a recorded
+  client configuration and a fake socket
+  ([Plasma check](TODO.md#nextcloud-settings-on-plasma-368)).
+  ([#368](https://github.com/mikepadiernos/plasma-opus/issues/368))
+
+- **Recommendation:**
+  - **Nextcloud settings:** Keep the defaults unless you need otherwise. Keep
+    the permission check on when working in shared folders, and turn the
+    server's previews off only to preview files exactly as stored. Raise
+    **Search and Organize lists at most** only when narrowing a search
+    doesn't help, since the server then sends more at once. Set **New public
+    links expire after** so links end on their own, and still review each
+    link's expiry before creating it. Turn the desktop client's status off
+    when the client isn't used. Reopen **Search and Organize…** and
+    **Shares…** windows after changing their settings.
+  - Comment:
+    [#769.7229818538](https://github.com/mikepadiernos/plasma-opus/issues/769#issuecomment-7229818538)
+- **Proposed improvements:**
+  - List and edit accounts on the tab itself and count those from KDE Online
+    Accounts, apply a new limit and expiry to open windows, offer a setting
+    for the favourites and tags of **Search and Organize…**, apply a default
+    expiry to user and group shares, and find the desktop client's
+    configuration in its Flatpak and Snap builds.
 
 ## Embedded terminal
 
