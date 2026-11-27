@@ -100,8 +100,14 @@ behaves like the rest of the desktop and follows the user's choices.
   batch renaming, batch image conversion and tag-library refreshes. The job
   shows file and folder names, never full paths; error details stay in the
   Plasma Opus dialog. File copies, moves and deletions keep using KIO's own
-  reporting.
-  ([#388](https://github.com/mikepadiernos/plasma-opus/issues/388))
+  reporting. Choose which of these operations report to Plasma under
+  **Preferences › KDE Plasma › Notifications**; all do by default, and an
+  operation that does not report still shows its progress and errors in its
+  dialog. **Configure Plasma Notifications…** there opens Plasma's
+  notification settings for Plasma Opus, which control how the reports
+  appear, and reports when System Settings cannot open them.
+  ([#388](https://github.com/mikepadiernos/plasma-opus/issues/388),
+  [#392](https://github.com/mikepadiernos/plasma-opus/issues/392))
 - **System tray and global shortcut:** while Plasma Opus runs, its icon sits
   in the system tray's hidden section. Clicking it shows or hides the window;
   its menu also opens the home folder or the transfer queue, and quits.
