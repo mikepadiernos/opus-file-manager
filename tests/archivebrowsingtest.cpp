@@ -10,13 +10,16 @@
 #include <KSharedConfig>
 #include <KZip>
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QScopeGuard>
+#include <QSpinBox>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -121,6 +124,73 @@ private Q_SLOTS:
         dialog.findChild<QComboBox *>(QStringLiteral("archiveFormat"))->setCurrentIndex(ArchiveWriter::formats().indexOf(ArchiveWriter::Format::TarGz));
         QVERIFY(!password->isEnabled());
         QVERIFY(!ok->isEnabled());
+    }
+
+    void compressDialogSplitsAndHandsOffToArk()
+    {
+        CompressDialog plain(QStringLiteral("note"), false, nullptr);
+        QVERIFY(!plain.findChild<QPushButton *>(QStringLiteral("compressWithArk"))->isEnabled());
+        QCOMPARE(plain.volumeSize(), 0);
+        auto *split = plain.findChild<QCheckBox *>(QStringLiteral("archiveSplit"));
+        auto *size = plain.findChild<QSpinBox *>(QStringLiteral("archiveVolumeSize"));
+        QVERIFY(split && size && !size->isEnabled());
+        split->setChecked(true);
+        QVERIFY(size->isEnabled());
+        size->setValue(5);
+        QCOMPARE(plain.volumeSize(), qint64(5) * 1024 * 1024);
+        plain.findChild<QComboBox *>(QStringLiteral("archiveFormat"))->setCurrentIndex(ArchiveWriter::formats().indexOf(ArchiveWriter::Format::SevenZip));
+        QCOMPARE(plain.format(), ArchiveWriter::Format::SevenZip);
+        QVERIFY(!plain.findChild<QLineEdit *>(QStringLiteral("archivePassword"))->isEnabled());
+
+        CompressDialog withArk(QStringLiteral("note"), false, nullptr, ArchiveWriter::Format::Zip, false, true);
+        auto *ark = withArk.findChild<QPushButton *>(QStringLiteral("compressWithArk"));
+        QVERIFY(ark->isEnabled());
+        QTimer::singleShot(0, ark, &QPushButton::click);
+        QCOMPARE(withArk.exec(), CompressDialog::UseArk);
+    }
+
+    void compressSplitsIntoVolumes()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("source")));
+        QFile input(root.filePath(QStringLiteral("source/data.bin")));
+        QVERIFY(input.open(QIODevice::WriteOnly));
+        const QByteArray data(3 * 1024 * 1024 + 512 * 1024, 'x');
+        QVERIFY(input.write(data) == data.size());
+        input.close();
+        QFile existing(root.filePath(QStringLiteral("source/data.zip")));
+        QVERIFY(existing.open(QIODevice::WriteOnly));
+        existing.close();
+
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(root.filePath(QStringLiteral("source")))});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        view->selectUrls({QUrl::fromLocalFile(input.fileName())});
+        QCOMPARE(view->selectedItems().size(), 1);
+        auto *poll = new QTimer(&window);
+        QObject::connect(poll, &QTimer::timeout, poll, [poll] {
+            auto *dialog = qobject_cast<CompressDialog *>(QApplication::activeModalWidget());
+            if (!dialog) {
+                return;
+            }
+            poll->deleteLater();
+            dialog->findChild<QComboBox *>(QStringLiteral("archiveFormat"))
+                ->setCurrentIndex(ArchiveWriter::formats().indexOf(ArchiveWriter::Format::ZipStored));
+            dialog->findChild<QCheckBox *>(QStringLiteral("archiveSplit"))->setChecked(true);
+            dialog->findChild<QSpinBox *>(QStringLiteral("archiveVolumeSize"))->setValue(1);
+            dialog->accept();
+        });
+        poll->start(20);
+        window.actionCollection()->action(QStringLiteral("compress"))->trigger();
+        const QDir folder(root.filePath(QStringLiteral("source")));
+        QTRY_COMPARE(folder.entryList({QStringLiteral("*.zip.0*")}).size(), 4);
+        const QStringList volumes = folder.entryList({QStringLiteral("*.zip.0*")});
+        QVERIFY2(volumes.first().endsWith(QStringLiteral(".zip.001")) && volumes.first() != QStringLiteral("data.zip.001"), qPrintable(volumes.join(u',')));
+        QCOMPARE(folder.entryList({QStringLiteral("*.zip")}), QStringList{QStringLiteral("data.zip")});
+        QCOMPARE(QFileInfo(folder.filePath(volumes.first())).size(), 1024 * 1024);
+        QCOMPARE(existing.size(), 0);
     }
 
     void compressWritesAnArchiveAndNeverOverwrites()

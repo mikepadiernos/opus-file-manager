@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/kwin/opusfilemanager">
+    <file alias="metadata.json">../kwin/opusfilemanager/metadata.json</file>
+    <file alias="contents/code/main.js">../kwin/opusfilemanager/contents/code/main.js</file>
+  </qresource>
+</RCC>

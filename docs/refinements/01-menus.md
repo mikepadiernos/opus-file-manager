@@ -123,6 +123,10 @@ Main menus
 │   ├── Home
 │   ├── Jump Back
 │   ├── Popular Folders
+│   ├── Mount Points
+│   ├── Remote Connections
+│   ├── Cloud Storage
+│   ├── Network
 │   ├── Edit Location
 │   ├── Add to Favorites
 │   ├── Switch Pane
@@ -144,7 +148,12 @@ Main menus
 │   ├── Export Listing
 │   ├── Transfer Queue
 │   ├── Open Terminal
+│   ├── Open Terminal With
+│   ├── Search Command History with Atuin
 │   ├── Open Editor
+│   ├── Edit
+│   ├── Edit With
+│   ├── Open in Office Application
 │   └── Custom Commands
 ├── Settings
 │   ├── Configure Plasma Opus
@@ -165,6 +174,9 @@ organization, not a promise that every action is available in every context.
 File listing: selected items
 ├── Open
 ├── Open With
+├── Edit
+├── Edit With
+├── Open in Office Application
 ├── Open Folder in New Tab
 ├── Open Folder in Other Pane
 ├── Cut
@@ -178,6 +190,7 @@ File listing: selected items
 ├── Move to Trash
 ├── Delete Permanently
 ├── Open Terminal Here
+├── Open Terminal With
 ├── Content Chart
 ├── Add to Favorites
 ├── Folder Look
@@ -197,6 +210,7 @@ File listing: empty space
 ├── New Tab
 ├── Reload
 ├── Open Terminal Here
+├── Open Terminal With
 ├── Calculate Occupied Space
 ├── Content Chart
 ├── Folder Look
@@ -269,7 +283,9 @@ Main or pane toolbar
 ```text
 Terminal panel header or session tab
 ├── Dismiss Message
-└── Hide Terminal Panel
+├── Hide Terminal Panel
+├── Search Command History with Atuin
+└── Terminal Component
 ```
 
 ##### Terminal content

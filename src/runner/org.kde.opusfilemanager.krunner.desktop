@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Service
+Name=Plasma Opus
+Comment=Open saved Plasma Opus workspaces and Favorites
+Icon=org.kde.opusfilemanager
+X-KDE-PluginInfo-Name=org.kde.opusfilemanager.krunner
+X-KDE-PluginInfo-Author=Mike Padiernos
+X-KDE-PluginInfo-License=GPL-3.0-or-later
+X-KDE-PluginInfo-EnabledByDefault=true
+X-Plasma-API-Minimum-Version=2.0
+X-Plasma-API=DBus
+X-Plasma-DBusRunner-Service=org.kde.opusfilemanager.krunner
+X-Plasma-DBusRunner-Path=/runner
+X-Plasma-Request-Actions-Once=true
+X-Plasma-Runner-Unique-Results=true

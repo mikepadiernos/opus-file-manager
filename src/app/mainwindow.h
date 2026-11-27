@@ -2,9 +2,17 @@
 
 #pragma once
 
+#include "activityassociations.h"
+#include "ark.h"
 #include "editorpanel.h"
+#include "editorproviders.h"
+#include "edittools.h"
+#include "fileencryption.h"
 #include "metadataeditdialog.h"
+#include "officeapps.h"
 #include "previewpanel.h"
+#include "rclone.h"
+#include "remoteprofiles.h"
 #include "tagpanel.h"
 #include "workspacecatalog.h"
 #include "yazimode.h"
@@ -19,7 +27,32 @@
 #include <QUrl>
 #include <memory>
 
+class ActivityController;
+class CloudActivityDialog;
+class CloudSyncDialog;
+namespace CloudActivity
+{
+class Monitor;
+struct Limits;
+}
+namespace CloudSync
+{
+class Scheduler;
+}
+class KdeConnectClient;
+class PlasmaVaultMenu;
+class VaultClient;
+class MountBackend;
+class RcloneMounts;
+class RemoteMountManager;
+class DropDownWindow;
+class KWinBackend;
+class DiskImageBackend;
+class PackageTools;
+class IndexBackend;
+class KWinIntegration;
 class CombinedPanel;
+class DesktopTray;
 class FavoritesModel;
 class WorkspaceLocations;
 class QFileSystemWatcher;
@@ -62,8 +95,33 @@ public:
     /// session (or the home folder) when the list is empty.
     void openUrls(const QList<QUrl> &urls);
 
+    /// Opens each folder in a new tab of the active pane, restoring the
+    /// session first if needed, as the FileManager1 service requests.
+    void showFolders(const QList<QUrl> &folders);
+    /// Opens the folder of each item in a new tab of the active pane, one tab
+    /// per folder, and selects the requested items in it.
+    void showItems(const QList<QUrl> &items);
+    /// Shows the KDE properties dialog for the items.
+    void showItemProperties(const QList<QUrl> &items);
+
     Pane *activePane() const;
     Pane *inactivePane() const;
+
+    ActivityController *activityController() const;
+    /// Shows the dialog that associates Plasma Activities with workspaces and default folders.
+    void showActivityAssociations();
+    /**
+     * Applies an Activity association the user chose to apply: switches to its
+     * workspace, asking first as a workspace switch does, and opens its
+     * default folders in new tabs of the first and second pane.
+     */
+    void applyActivityPlan(const ActivityAssociations::Plan &plan);
+    /**
+     * Switches to the saved workspace with @p id, asking first as any
+     * workspace switch does, or reports in the status bar that it no longer
+     * exists. KRunner and `--workspace` open workspaces this way.
+     */
+    void openWorkspace(const QString &id);
 
     /**
      * Splits the panes top/bottom instead of side by side. When stacked,
@@ -94,6 +152,127 @@ public:
     TabColors *tabColors() const;
 
     bool isDualLayout() const;
+
+    /// The system tray icon and the global shortcut that shows or hides the
+    /// window.
+    DesktopTray *desktopTray() const;
+
+    /// Runs the two-way cloud synchronization pairs.
+    CloudSync::Scheduler *cloudSync() const;
+    /// Opens the Cloud Sync dialog, or raises it when it is open.
+    void showCloudSync();
+    /// Keeps transfer speeds and recent errors for the Cloud Activity window.
+    CloudActivity::Monitor *cloudActivity() const;
+    /// Opens the Cloud Activity window, or raises it when it is open.
+    void showCloudActivity();
+    /// Applies rclone transfer limits to sync runs and later mounts.
+    void applyCloudLimits(const CloudActivity::Limits &limits);
+    /**
+     * Waits for files written to @p remotes, or to every mounted rclone remote
+     * when it is empty, to upload, and for cloud sync runs when @p syncRuns is
+     * set. Returns false when the user cancels.
+     */
+    bool waitForCloudUploads(const QString &text, const QStringList &remotes, bool syncRuns);
+
+    /// The KDE Connect daemon the Send to Device action uses, created when first needed.
+    KdeConnectClient *kdeConnectClient();
+    /// Replaces the KDE Connect client and takes ownership of it.
+    void setKdeConnectClient(KdeConnectClient *client);
+    /// The Go › Plasma Vaults menu's controller.
+    PlasmaVaultMenu *plasmaVaultMenu() const;
+    /// Replaces the Plasma Vault client and takes ownership of it.
+    void setVaultClient(VaultClient *client);
+    /// Shows the dialog that sends the selected files to a KDE Connect device.
+    void sendToDevice();
+    /// Shows the dialog that opens a new message with the selected files attached.
+    void sendByEmail();
+    /// Shares the selected local items, or the current folder, on the local network.
+    void shareOnNetwork();
+    /**
+     * Switches the active pane between a local folder and the same folder
+     * through KIO's admin: worker, after warning about the risks. Reports a
+     * missing kio-admin package and unsupported locations.
+     */
+    void setActingAsAdministrator(bool enabled);
+
+    /// The file systems the mount manager and the Mount Points menu list, created when first needed.
+    MountBackend *mountBackend();
+    /// Replaces the mount backend and takes ownership of it.
+    void setMountBackend(MountBackend *backend);
+    /// Shows the mount manager.
+    void showMountManager();
+    /// Fills the Mount Points menu with each file system and its state.
+    void populateMountPoints();
+    /// Fills the Remote Connections menu with each saved connection.
+    void populateRemoteConnections();
+    /// Shows the dialog that manages saved remote connections.
+    void showRemoteConnections();
+    /// Fills the Online Accounts menu with the folders of each KDE Online Account.
+    void populateOnlineAccounts();
+    /// Opens @p profile in the active pane, or in the other pane when @p otherPane is set.
+    void openRemoteProfile(const RemoteProfiles::Profile &profile, bool otherPane);
+    /// Opens an SSH session for @p profile in the terminal panel.
+    void openSshTerminal(const RemoteProfiles::Profile &profile);
+    /// The rclone mounts this window started, created on first use.
+    RcloneMounts *rcloneMounts();
+    /// Fills the Cloud Storage menu from the last list of rclone remotes.
+    void populateCloudStorage();
+    /// Mounts an rclone remote if needed and opens it in the active pane.
+    void openRcloneRemote(const QString &remote);
+    /// Leaves the remote's folder in either pane and stops its mount.
+    void unmountRcloneRemote(const QString &remote);
+    /// The remote connections this window mounted as folders, created on first use.
+    RemoteMountManager *remoteMounts();
+    /// Mounts @p profile with its saved mount options, opening it in the active pane when @p open is set.
+    void mountRemoteProfile(const RemoteProfiles::Profile &profile, bool open);
+    /// Leaves the mounted folder in either pane and unmounts it.
+    void unmountRemoteProfile(const QString &id);
+    /// Shows how @p profile is mounted as a folder.
+    void showRemoteMountOptions(const RemoteProfiles::Profile &profile);
+    /// Removes Places entries left by earlier mounts and mounts the connections set to mount at startup.
+    void mountRemoteProfilesAtStartup();
+
+    /// The optional Plasma Opus KWin script and its D-Bus interface.
+    KWinIntegration *kwinIntegration() const;
+    /// Replaces the KWin backend, for tests.
+    void setKWinBackend(std::unique_ptr<KWinBackend> backend);
+    /// Shows Settings › Configure KWin Integration.
+    void showKWinIntegration();
+    /// Shows the drop-down window, or hides it when it is shown and active.
+    void toggleDropDown();
+    DropDownWindow *dropDownWindow() const;
+    /// Replaces the detected Ark backends, for tests.
+    void setArkBackends(const Ark::Backends &backends);
+    /// Replaces the disk image backend, for tests.
+    void setDiskImageBackend(std::unique_ptr<DiskImageBackend> backend);
+    /// Replaces the package tools the Application Package dialog uses, for tests.
+    void setPackageTools(PackageTools *tools);
+    /// Opens the Application Package dialog for the selected AppImage, Flatpak or snap package.
+    void showApplicationPackage();
+    /// Replaces the file indexer the Indexing Status dialog and the search panel report on, for tests.
+    void setIndexBackend(IndexBackend *backend);
+    /// Opens the Indexing Status dialog for the active pane's folder.
+    void showIndexStatus();
+    /**
+     * Opens a file-type place from Places, such as Ebooks under Search For.
+     * Shows the category's Baloo search in @p pane when the index can answer
+     * it, confirming first when the index may be incomplete. Otherwise
+     * explains why and offers a live search of a chosen folder.
+     */
+    void openFileTypePlace(Pane *pane, const QUrl &url, bool newTab);
+    /**
+     * Searches @p folder live for the files of the file-type place @p url in
+     * the search panel.
+     * @returns whether the search started
+     */
+    bool searchFileTypeLive(const QUrl &url, const QUrl &folder);
+    /**
+     * Adds the selected local items to @p archivePath with Ark, after a
+     * confirmation, since Ark edits the archive in place. Refuses formats the
+     * installed backends cannot write and an archive inside the selection.
+     * @returns whether Ark was asked to add the items
+     */
+    bool addSelectionToArchive(const QString &archivePath);
 
     /**
      * Applies the current Settings to the panes, actions and status bar.
@@ -126,7 +305,9 @@ protected:
 private:
     /// Opens the workspace selector and management dialog.
     void showWorkspaces();
-    void selectWorkspace(int index, bool confirmed = false);
+    void selectWorkspace(int index, bool confirmed = false, const std::optional<WorkspaceCatalog::BehaviorSelection> &behaviors = std::nullopt);
+    /// The behaviours that apply to @p workspace: an applied Activity association's, or its own.
+    WorkspaceCatalog::BehaviorSelection workspaceBehaviors(const WorkspaceCatalog::Workspace &workspace) const;
     /// Asks, if enabled, and returns to the active workspace's saved layout.
     void restoreActiveWorkspaceLayout();
     /// Applies the configured colour scheme and reports when it cannot be used.
@@ -177,6 +358,8 @@ private:
     void reloadWorkspaceCatalog();
     /// Applies current workspace visibility to the navigation panels.
     void refreshWorkspaceLocations();
+    /// The local folder of the active workspace's editor vault, or empty.
+    QString workspaceVaultRoot() const;
     /// Watches the workspace configuration for changes from other windows.
     void watchWorkspaceCatalog();
     bool captureWorkspaceLayout(WorkspaceCatalog::Layout &layout, QString &error) const;
@@ -191,6 +374,8 @@ private:
     /// Keeps the search panel beside the terminal when their orientations match, otherwise in the outer search splitter.
     void updateSearchPlacement();
     void setupPlaces();
+    /// Adds the file-type places to Places once, so that removed entries stay removed.
+    void addFileTypePlaces();
     void setupPanels();
     void setupStatusBar();
     void applyPanelSettings();
@@ -201,6 +386,7 @@ private:
     void setActivePane(Pane *pane);
     void connectPane(Pane *pane);
     void updateActions();
+    void updateFolderGateActions();
     void updateStatusBarIndicatorOrder();
     void updateStatusBar();
     void updateFreeSpace(Pane *pane = nullptr);
@@ -240,6 +426,16 @@ private:
     void updateInformationPanel();
     void openGallery();
     void openEditor();
+    /**
+     * Shows the editor panel where the user's opening preference places it,
+     * first opening @p url when it isn't empty. Returns false if the file
+     * couldn't be opened or the user kept the editor's unsaved changes.
+     */
+    bool showEditor(const QUrl &url);
+    void editFile();
+    void editWithEditor(EditorProviders::Editor editor);
+    void openInOfficeApp(OfficeApps::App app);
+    void updateTerminalPanelVisibility();
     void compareFiles();
     void createSymlink();
     void exportListing(bool pdf);
@@ -285,6 +481,12 @@ private:
     void updateTabBarPlacement();
     void splitFile();
     void combineFiles();
+    /// Opens the encryption dialog for the selected files that @p operation applies to.
+    void encryptSelection(FileEncryption::Operation operation);
+    /// Hands the selected files to Kleopatra's sign-and-encrypt or decrypt-and-verify action.
+    void openSelectionInKleopatra(bool decrypt);
+    /// Enables the Encryption menu's entries for the selection and the installed tools.
+    void updateEncryptionActions();
     void setupEditor();
     void setEditorPlacement(EditorPanel::Placement placement);
     void setPreviewPlacement(PreviewPanel::Placement placement);
@@ -360,8 +562,62 @@ private:
      * @param target the folder to create; it must not exist
      */
     void extractArchive(const QUrl &archive, const QUrl &target);
+    /// Opens the selected archive in Ark, which can add, rename and remove entries.
+    void openInArk();
+    /// Asks for an archive Ark can write and adds the selection to it.
+    void addToArchive();
+    /// What the installed Ark backends support, read once.
+    const Ark::Backends &arkBackends();
+    /// Whether @p item is a local archive that Ark reads but KIO cannot browse, such as RAR.
+    bool isArkOnlyArchive(const KFileItem &item);
+    /// Starts Ark with @p arguments, reporting a missing Ark or a failed start.
+    void launchArk(const QStringList &arguments);
+    /// The selected item when it is exactly one local disk image, otherwise a null item.
+    KFileItem selectedDiskImage() const;
+    /**
+     * Mounts or unmounts the selected disk image through Dolphin's Mount ISO
+     * plugin, then reports the result Solid shows.
+     */
+    void setDiskImageMounted(bool mount);
+    /// The selected item when it is exactly one local AppImage, Flatpak or snap package, otherwise a null item.
+    KFileItem selectedPackage() const;
+
+    std::optional<Ark::Backends> m_arkBackends;
+    std::unique_ptr<DiskImageBackend> m_diskImages;
+    PackageTools *m_packageTools = nullptr;
+    IndexBackend *m_indexBackend = nullptr;
 
     KFilePlacesModel *m_placesModel = nullptr;
+    DesktopTray *m_desktopTray = nullptr;
+    CloudSync::Scheduler *m_cloudSync = nullptr;
+    QPointer<CloudSyncDialog> m_cloudSyncDialog;
+    CloudActivity::Monitor *m_cloudActivity = nullptr;
+    QPointer<CloudActivityDialog> m_cloudActivityDialog;
+    ActivityController *m_activityController = nullptr;
+    KdeConnectClient *m_kdeConnect = nullptr;
+    MountBackend *m_mountBackend = nullptr;
+    KWinIntegration *m_kwin = nullptr;
+    DropDownWindow *m_dropDown = nullptr;
+    /// The file system the Mount Points menu mounts and then opens.
+    QString m_openAfterMount;
+    RcloneMounts *m_rcloneMounts = nullptr;
+    QMenu *m_cloudStorageMenu = nullptr;
+    QMenu *m_onlineAccountsMenu = nullptr;
+    PlasmaVaultMenu *m_plasmaVaultMenu = nullptr;
+    QList<Rclone::Remote> m_rcloneRemotes;
+    QString m_rcloneError;
+    bool m_rcloneListed = false;
+    QString m_openAfterRcloneMount;
+    RemoteMountManager *m_remoteMounts = nullptr;
+    /// The connection to open once mounted.
+    QString m_openAfterRemoteMount;
+    /// The names and folders of mounted connections, by profile identifier.
+    QHash<QString, QString> m_remoteMountNames;
+    QHash<QString, QString> m_remoteMountPaths;
+    /// Behaviours an applied Activity association chose for its workspace, until another workspace is chosen.
+    std::optional<WorkspaceCatalog::BehaviorSelection> m_activityBehaviors;
+    QString m_activityBehaviorsWorkspaceId;
+    bool m_applyingActivity = false;
     std::unique_ptr<KConfig> m_workspaceConfig;
     QString m_currentWorkspaceId;
     WorkspaceCatalog::Catalog m_workspaceCatalog;
@@ -475,6 +731,8 @@ private:
     bool m_automaticLocalSizeDefault = false;
     bool m_automaticRemoteSizeDefault = false;
     QMenu *m_popularFoldersMenu = nullptr;
+    QMenu *m_mountPointsMenu = nullptr;
+    QMenu *m_remoteConnectionsMenu = nullptr;
     QHash<QString, int> m_popularFolderVisits;
     QHash<QString, QAction *> m_customCommandActions;
     QHash<Pane *, QUrl> m_lastFolderByPane;

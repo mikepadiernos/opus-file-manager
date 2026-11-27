@@ -37,12 +37,12 @@
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. Since then, `main` has gained M15–M26: workspaces
+> released after M14. Since then, `main` has gained M15–M27: workspaces
 > (M15–M16), themes (M17–M18), branding (M19–M20), advanced search (M21–M22),
 > native tagging (M23–M24) and Yazi mode (M25–M26), each followed by a settings
-> milestone. Features marked with a milestone badge below are on `main` but not
-> in v0.2.0. See the [roadmap](docs/ROADMAP.md#at-a-glance) for status and the
-> planned M27–M32.
+> milestone, and desktop integrations (M27). Features marked with a milestone
+> badge below are on `main` but not in v0.2.0. See the
+> [roadmap](docs/ROADMAP.md#at-a-glance) for status and the planned M28–M32.
 
 ## Features
 
@@ -101,6 +101,22 @@ preview. Both behaviours can be changed in Preferences.
   tab snapshots, workspace-scoped search, a startup choice, recovery options
   and profile import or export.
 
+### Integrate with Plasma
+
+- **Desktop services**
+  [![M27](https://img.shields.io/badge/M27-8957e5?style=flat-square)](docs/integrations/kde-plasma.md):
+  register as the default file manager, report progress through Plasma
+  notifications, and offer a system tray icon, a global shortcut, a drop-down
+  window, KRunner, KDE Connect, Activities and an optional system file chooser.
+- **Files and applications:** Ark archives, disk images, AppImage, Flatpak and
+  Snap packages, Baloo search, office and ebook previews, editing in suitable
+  applications, Markdown vaults with wiki links and tags, and optional embedded
+  mpv playback.
+- **Remote and secure access:** named SSH, SFTP, WebDAV, SMB and FTP
+  connections, rclone and KDE Online Accounts, temporary LAN sharing,
+  administrator mode, Plasma Vault, file encryption and password-gated
+  folders.
+
 ### Personalize
 
 - **Themes**
@@ -156,8 +172,8 @@ to print the build and optional feature packages; it does not install them.
 
 > [!TIP]
 > To build for development, run the tests, use the headless dev container on
-> other hosts such as macOS, or contribute, see the
-> [development guide](docs/development.md). It also describes the project
+> other hosts such as macOS, run the optional mise tasks or contribute, see
+> the [development guide](docs/development.md). It also describes the project
 > workflow from issue to merge.
 
 ### Arguments
@@ -172,10 +188,22 @@ Plasma Opus is already running, the arguments open in the existing window.
 Run `./install.sh` to build a release and install it for the current user
 under `~/.local`; use `./install.sh --help` for other options, such as
 `--system` and `--prefix`. `./install.sh --default` also makes Plasma Opus the
-default folder handler.
+default folder handler and lets it answer **Show in folder** requests from other
+applications through `org.freedesktop.FileManager1`. Installing also adds the
+Plasma Opus KRunner plugin and its `opus-file-manager-krunner` helper, which
+offer saved workspaces and Favorites in KRunner and Plasma Search, and the
+`opus-file-manager-mcp` server, which lets MCP clients such as AI assistants
+read files in your home folder; see
+[KDE Plasma integration](docs/integrations/kde-plasma.md).
+`./install.sh --file-chooser` also lets Plasma Opus answer the Open and Save
+dialogs that Flatpak, Snap and other portal-enabled applications request
+through the XDG file chooser portal, keeping KDE's chooser as the fallback;
+run `opus-file-manager --install-portal` or `--uninstall-portal` to switch it
+on or off for an existing install.
 
 The installer uses `build-plasma` with tests disabled; set `OPUSFM_BUILD_DIR`
-to choose another build tree. `./install.sh --uninstall` removes the files
+to choose another build tree. `./install.sh --uninstall` restores the previous
+file chooser, then removes the files
 installed from that build tree, so uninstall using the same build tree. If
 Plasma Opus is the folder handler, it hands folders back to Dolphin when Dolphin
 is installed.
@@ -186,9 +214,10 @@ application; file and action icons follow the active desktop theme. See
 
 ### Optional integrations
 
-Baloo provides indexed search, Konsole provides the embedded terminal, and
-ExifTool supports media metadata editing. See the [caveats](docs/CAVEATS.md)
-for requirements and restrictions and the [translation guide](po/README.md) for
+Baloo provides indexed search, Konsole provides the embedded terminal,
+ExifTool supports media metadata editing, and libmpv offers embedded mpv
+playback in previews and the gallery. See the [caveats](docs/CAVEATS.md) for
+requirements and restrictions and the [translation guide](po/README.md) for
 language setup.
 
 ## Customize the interface

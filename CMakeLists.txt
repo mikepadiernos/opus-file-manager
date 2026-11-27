@@ -21,9 +21,25 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ecm_setup_version(${PROJECT_VERSION} VARIABLE_PREFIX OPUSFM VERSION_HEADER ${CMAKE_CURRENT_BINARY_DIR}/src/opusfm_version.h)
 
-find_package(Qt6 ${QT_MIN_VERSION} REQUIRED COMPONENTS Concurrent Core Gui Widgets DBus Test Multimedia MultimediaWidgets Network Xml)
+find_package(Qt6 ${QT_MIN_VERSION} REQUIRED COMPONENTS Concurrent Core Gui Widgets DBus Test Multimedia MultimediaWidgets Network Qml Xml)
 find_package(LibArchive REQUIRED)
 find_package(KF6Baloo ${KF_MIN_VERSION} QUIET)
+find_package(KF6Prison ${KF_MIN_VERSION} QUIET)
+set_package_properties(KF6Prison PROPERTIES TYPE OPTIONAL PURPOSE "QR codes for links to files shared on the local network")
+find_package(AccountsQt6 QUIET)
+set_package_properties(AccountsQt6 PROPERTIES TYPE OPTIONAL PURPOSE "Browsing the files of accounts configured in KDE Online Accounts")
+find_package(PlasmaActivities 6.0 REQUIRED)
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(MPV QUIET IMPORTED_TARGET mpv)
+endif()
+find_package(Qt6 ${QT_MIN_VERSION} QUIET COMPONENTS OpenGL OpenGLWidgets)
+if(MPV_FOUND AND Qt6OpenGLWidgets_FOUND)
+    set(OPUSFM_HAVE_MPV ON)
+else()
+    set(OPUSFM_HAVE_MPV OFF)
+endif()
+add_feature_info(MpvPlayback OPUSFM_HAVE_MPV "Embedded audio and video playback through libmpv in the preview panel and gallery; needs libmpv and Qt OpenGL Widgets")
 
 include(KDEGitCommitHooks)
 find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS
@@ -36,13 +52,18 @@ find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS
     Crash
     DBusAddons
     FileMetaData
+    GlobalAccel
     GuiAddons
     I18n
     IconThemes
     ItemViews
+    JobWidgets
     KIO
+    NewStuff
+    Package
     Parts
     Solid
+    StatusNotifierItem
     SyntaxHighlighting
     TextEditor
     WidgetsAddons

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "archivewriter.h"
+#include "filesplitter.h"
 
 #include <KLocalizedString>
 #include <KTar>
@@ -34,19 +35,15 @@ std::unique_ptr<KArchive> createArchive(const QString &archivePath, ArchiveWrite
         return std::make_unique<KTar>(archivePath, QStringLiteral("application/x-xz-compressed-tar"));
     case Format::TarZstd:
         return std::make_unique<KTar>(archivePath, QStringLiteral("application/x-zstd-compressed-tar"));
+    case Format::SevenZip:
+        return nullptr;
     }
     return nullptr;
 }
-}
 
-QString ArchiveWriter::writeEncryptedZip(const QString &archivePath, Format format, const QStringList &sources, const QString &password)
+// Writes a new archive with libarchive; configure chooses the format and options.
+QString writeWithLibarchive(const QString &archivePath, const QStringList &sources, const std::function<bool(archive *)> &configure)
 {
-    if ((format != Format::Zip && format != Format::ZipStored) || password.isEmpty()) {
-        return i18nc("@info:status archive creation", "An encrypted ZIP requires a password.");
-    }
-    if (password.contains(QChar::Null)) {
-        return i18nc("@info:status archive creation", "The password cannot contain a NUL character.");
-    }
     if (sources.isEmpty()) {
         return i18nc("@info:status archive creation", "No files or folders were selected for compression.");
     }
@@ -71,16 +68,11 @@ QString ArchiveWriter::writeEncryptedZip(const QString &archivePath, Format form
     if (!writer) {
         return i18nc("@info:status archive creation", "Could not initialize archive writer.");
     }
-    const QByteArray passphrase = password.toUtf8();
     const auto errorText = [&writer] {
         const char *text = archive_error_string(writer.get());
         return text ? QString::fromLocal8Bit(text) : i18nc("@info:status archive creation", "Archive writing failed.");
     };
-    if (archive_write_set_format_zip(writer.get()) != ARCHIVE_OK
-        || archive_write_set_options(writer.get(), format == Format::ZipStored ? "zip:encryption=aes256,zip:compression=store" : "zip:encryption=aes256")
-            != ARCHIVE_OK
-        || archive_write_set_passphrase(writer.get(), passphrase.constData()) != ARCHIVE_OK
-        || archive_write_open_fd(writer.get(), output.handle()) != ARCHIVE_OK) {
+    if (!configure(writer.get()) || archive_write_open_fd(writer.get(), output.handle()) != ARCHIVE_OK) {
         return errorText();
     }
     std::function<QString(const QString &, const QString &)> add = [&](const QString &path, const QString &name) -> QString {
@@ -153,10 +145,28 @@ QString ArchiveWriter::writeEncryptedZip(const QString &archivePath, Format form
     }
     return {};
 }
+}
+
+QString ArchiveWriter::writeEncryptedZip(const QString &archivePath, Format format, const QStringList &sources, const QString &password)
+{
+    if ((format != Format::Zip && format != Format::ZipStored) || password.isEmpty()) {
+        return i18nc("@info:status archive creation", "An encrypted ZIP requires a password.");
+    }
+    if (password.contains(QChar::Null)) {
+        return i18nc("@info:status archive creation", "The password cannot contain a NUL character.");
+    }
+    const QByteArray passphrase = password.toUtf8();
+    return writeWithLibarchive(archivePath, sources, [format, &passphrase](archive *writer) {
+        return archive_write_set_format_zip(writer) == ARCHIVE_OK
+            && archive_write_set_options(writer, format == Format::ZipStored ? "zip:encryption=aes256,zip:compression=store" : "zip:encryption=aes256")
+            == ARCHIVE_OK
+            && archive_write_set_passphrase(writer, passphrase.constData()) == ARCHIVE_OK;
+    });
+}
 
 QList<ArchiveWriter::Format> ArchiveWriter::formats()
 {
-    return {Format::Zip, Format::ZipStored, Format::TarGz, Format::TarXz, Format::TarZstd};
+    return {Format::Zip, Format::ZipStored, Format::TarGz, Format::TarXz, Format::TarZstd, Format::SevenZip};
 }
 
 QString ArchiveWriter::suffix(Format format)
@@ -171,12 +181,19 @@ QString ArchiveWriter::suffix(Format format)
         return QStringLiteral("tar.xz");
     case Format::TarZstd:
         return QStringLiteral("tar.zst");
+    case Format::SevenZip:
+        return QStringLiteral("7z");
     }
     return {};
 }
 
 QString ArchiveWriter::write(const QString &archivePath, Format format, const QStringList &sources)
 {
+    if (format == Format::SevenZip) {
+        return writeWithLibarchive(archivePath, sources, [](archive *writer) {
+            return archive_write_set_format_7zip(writer) == ARCHIVE_OK;
+        });
+    }
     const std::unique_ptr<KArchive> archive = createArchive(archivePath, format);
     if (!archive->open(QIODevice::WriteOnly)) {
         return archive->errorString();
@@ -194,4 +211,24 @@ QString ArchiveWriter::write(const QString &archivePath, Format format, const QS
         return archive->errorString();
     }
     return {};
+}
+
+QString ArchiveWriter::firstVolumeName(const QString &archiveFileName)
+{
+    return archiveFileName + QStringLiteral(".001");
+}
+
+ArchiveWriter::Volumes ArchiveWriter::splitIntoVolumes(const QString &archivePath, qint64 volumeSize)
+{
+    const FileSplitter::Result split = FileSplitter::split(archivePath, archivePath, volumeSize);
+    if (!split.error.isEmpty()) {
+        for (const QString &volume : split.outputs) {
+            QFile::remove(volume);
+        }
+        return {{}, split.error};
+    }
+    if (!QFile::remove(archivePath)) {
+        return {split.outputs, i18nc("@info:status archive creation", "The volumes were written, but the whole archive could not be removed: %1", archivePath)};
+    }
+    return {split.outputs, {}};
 }

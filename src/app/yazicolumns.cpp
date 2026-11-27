@@ -2,6 +2,7 @@
 
 #include "yazicolumns.h"
 
+#include "foldergates.h"
 #include "folderview.h"
 #include "namefilter.h"
 #include "symbolicicon.h"
@@ -61,12 +62,29 @@ int halfPageRows(const QAbstractItemView *view)
     }
     return qMax(1, view->viewport()->height() / qMax(1, rowHeight) / 2);
 }
+
+/// Hides items inside locked password-gated folders.
+class GateFilterProxyModel : public KDirSortFilterProxyModel
+{
+public:
+    using KDirSortFilterProxyModel::KDirSortFilterProxyModel;
+
+protected:
+    bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override
+    {
+        if (!KDirSortFilterProxyModel::filterAcceptsRow(sourceRow, sourceParent)) {
+            return false;
+        }
+        const auto *model = static_cast<const KDirModel *>(sourceModel());
+        return !FolderGates::instance()->hidesItem(model->itemForIndex(model->index(sourceRow, 0, sourceParent)));
+    }
+};
 }
 
 YaziColumns::YaziColumns(QWidget *parent)
     : QWidget(parent)
     , m_model(new KDirModel(this))
-    , m_proxy(new KDirSortFilterProxyModel(this))
+    , m_proxy(new GateFilterProxyModel(this))
 {
     setObjectName(QStringLiteral("yaziColumns"));
     resetLister();
@@ -75,6 +93,7 @@ YaziColumns::YaziColumns(QWidget *parent)
     m_proxy->sort(KDirModel::Name, Qt::AscendingOrder);
     connect(m_proxy, &QAbstractItemModel::rowsInserted, this, &YaziColumns::highlightCurrent);
     connect(m_proxy, &QAbstractItemModel::layoutChanged, this, &YaziColumns::highlightCurrent);
+    connect(FolderGates::instance(), &FolderGates::changed, m_proxy, &QSortFilterProxyModel::invalidate);
 
     m_parentColumn = new QListView(this);
     m_parentColumn->setObjectName(QStringLiteral("yaziParentColumn"));

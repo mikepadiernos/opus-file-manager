@@ -5,3 +5,4 @@
 compile_commands.json
 /rust/*/target/
 *.user
+mise.local.toml

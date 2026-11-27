@@ -14,7 +14,7 @@ record the Max File Manager behaviour that informs its parity goals.
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. M15–M26 have since been merged into `main`; M27–M32 are
+> released after M14. M15–M27 have since been merged into `main`; M28–M32 are
 > planned. See [pending tasks](TODO.md) for blocked work and branch-specific
 > handoffs.
 
@@ -23,8 +23,8 @@ record the Max File Manager behaviour that informs its parity goals.
 Status reflects the milestones' parent issues on the
 [project board](https://github.com/users/mikepadiernos/projects/3): Merged
 groups have every feature checked and merged into `main`, and Planned groups are
-not yet complete. M27 already has one checked feature (default file manager
-registration) and partial work recorded in [pending tasks](TODO.md).
+not yet complete. In the M27–M31 group, M27 is merged and its Plasma checks
+are recorded in [pending tasks](TODO.md); M28–M31 are planned.
 
 | Milestones | Focus                                        | Status                                                                    | Jump to                         |
 | ---------- | -------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------- |
@@ -88,10 +88,11 @@ change KIO's role. See the [pilot evaluation](rust-prototype.md) for its
 findings and the criteria for later Rust components.
 
 Qt Widgets is the user interface toolkit. Qt Quick may be embedded only for a
-self-contained, optional component that Widgets cannot reasonably provide, such
-as embedded mpv playback in M27, hosted in a `QQuickWidget` with a Widgets
-fallback. See [Qt Widgets and Qt Quick](qt-quick.md) for the decision, the
-embedding rules and the criteria for new candidates.
+self-contained, optional component that Widgets cannot reasonably provide,
+hosted in a `QQuickWidget` with a Widgets fallback. Embedded mpv playback in
+M27 draws into a `QOpenGLWidget` instead, so no Qt Quick code ships. See
+[Qt Widgets and Qt Quick](qt-quick.md) for the decision, the embedding rules
+and the criteria for new candidates.
 
 ## Plasma-native decisions
 
@@ -1368,22 +1369,22 @@ for some features are recorded in [pending tasks](TODO.md).
 - **M27.01: KDE Plasma and desktop services**
 
   - [x] Default file manager registration [#284]
-  - [ ] Provide the `org.freedesktop.FileManager1` D-Bus service [#279]
-  - [ ] Integrate with KDE Plasma's language preferences using M13 translation
+  - [x] Provide the `org.freedesktop.FileManager1` D-Bus service [#279]
+  - [x] Integrate with KDE Plasma's language preferences using M13 translation
         catalogues, M14 language and regional-format preferences, and supported
         KDE and Qt facilities. Follow Plasma when no app override is selected,
         fall back to source text if a Plasma Opus catalogue is unavailable, and
         offer access to Plasma's language settings when supported. Do not change
         shared desktop settings without explicit action or require a particular
         translation. [#437]
-  - [ ] Plasma notifications and jobs: integrate Plasma Opus-owned long-running
+  - [x] Plasma notifications and jobs: integrate Plasma Opus-owned long-running
         operations with KDE's notification settings and offer relevant actions
         to return to the operation or inspect its result. Reuse KIO's existing
         progress reporting rather than creating duplicate notifications or
         controls. Respect notification settings and privacy; report failures and
         partial results without exposing sensitive paths unnecessarily. [#388]
-  - [ ] Provide system-tray integration and a global shortcut [#285]
-  - [ ] Plasma Activities: optionally associate M15 workspaces with Activities
+  - [x] Provide system-tray integration and a global shortcut [#285]
+  - [x] Plasma Activities: optionally associate M15 workspaces with Activities
         and configure default folders for each Activity and workspace
         association. For each association, use all, selected or none of the
         applicable workspace behaviours, including theme and layout, and
@@ -1396,19 +1397,19 @@ for some features are recorded in [pending tasks](TODO.md).
         Handle an unavailable Activities service, missing folders and removed
         Activities without losing workspace data, and avoid duplicating KDE's
         KIO resource history. [#387]
-  - [ ] KDE Connect sharing: offer an explicit action to send selected files to
+  - [x] KDE Connect sharing: offer an explicit action to send selected files to
         an available paired device through supported KDE Connect interfaces.
         Show the selected device and transfer outcome; do not pair devices, send
         files or change shared KDE Connect settings automatically. Handle
         missing services, offline devices and unsupported locations visibly.
         [#389]
-  - [ ] KRunner integration: provide an optional runner for explicitly saved
+  - [x] KRunner integration: provide an optional runner for explicitly saved
         Plasma Opus workspaces and locations, with actions to open the chosen
         item in Plasma Opus. Respect workspace privacy, avoid exposing
         credentials or unselected history, and handle missing or stale targets
         without creating files or running commands. Use Plasma's supported
         runner interfaces and do not replace its existing file search. [#390]
-  - [ ] Download service menus from the existing Context Menu settings page, as
+  - [x] Download service menus from the existing Context Menu settings page, as
         in Dolphin, using KDE's KNewStuff service-menu provider. Support
         browsing, installation, updates and removal through the provider, and
         refresh the installed-action list without discarding pending settings
@@ -1416,7 +1417,7 @@ for some features are recorded in [pending tasks](TODO.md).
         shared with other KDE applications; require explicit user action and
         report failures. Reuse the existing Plasma Opus-specific and
         Dolphin-shared visibility controls. [#369]
-  - [ ] Optional system file chooser that replaces application Open and Save
+  - [x] Optional system file chooser that replaces application Open and Save
         dialogs, as in [Strata](https://github.com/lgse/strata), by serving the
         XDG portal file chooser. Implement
         `org.freedesktop.impl.portal.FileChooser` (`OpenFile`, `SaveFile` and
@@ -1440,8 +1441,9 @@ for some features are recorded in [pending tasks](TODO.md).
         Snap apps and portal-enabled GTK, Electron and browser apps; native Qt
         and KDE applications keep Plasma's in-process dialog. Do not change
         platform themes or environment variables, and report a missing portal
-        service or setup failures. [#286]
-  - [ ] Mount manager, like Krusader's
+        service or setup failures. Plasma-session verification is a
+        [pending handoff](TODO.md#system-file-chooser-on-plasma-286). [#286]
+  - [x] Mount manager, like Krusader's
         [MountMan](https://docs.kde.org/trunk_kf6/en/krusader/krusader/mount-man.html):
         list mounted and fstab-defined file systems with their device, type,
         mount point, size, free space and a usage chart, optionally showing
@@ -1451,8 +1453,10 @@ for some features are recorded in [pending tasks](TODO.md).
         that shows each mount point's current state, and include network and
         FUSE mounts such as remote drives. Leave partitioning, formatting and
         fstab editing to KDE Partition Manager. Report busy devices, denied
-        authorization and failed operations. (Krusader) [#703]
-  - [ ] Optional KWin script for window management that Wayland applications
+        authorization and failed operations. (Krusader) Plasma-session
+        verification is a
+        [pending handoff](TODO.md#mount-manager-on-plasma-703). [#703]
+  - [x] Optional KWin script for window management that Wayland applications
         cannot perform themselves: install, enable, update and remove a Plasma
         Opus KWin script package only through explicit action, using KPackage
         and KWin's scripting D-Bus interface. When applying an M15 workspace or
@@ -1466,30 +1470,34 @@ for some features are recorded in [pending tasks](TODO.md).
         KWindowSystem, XDG activation and window rules where they suffice, and
         open KWin's settings instead of editing window rules, other scripts or
         global KWin settings. Report when KWin or scripting is unavailable,
-        such as on other compositors, without affecting file management. [#707]
-  - [ ] Drop-down window, like Yakuake: optionally slide a Plasma Opus window
+        such as on other compositors, without affecting file management.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#kwin-script-on-plasma-707-708). [#707]
+  - [x] Drop-down window, like Yakuake: optionally slide a Plasma Opus window
         in from a chosen screen edge and hide it again, toggled by a KDE global
         shortcut or by a screen edge or touch-screen edge registered by the
         KWin script. Keep it above other windows and out of the taskbar and
         pager, open it on the active screen and optionally hide it when it
         loses focus, but not while a dialog or confirmation needs attention.
         Restore its own layout or an assigned workspace, and fall back to a
-        regular window when KWin or the script is unavailable. (Yakuake) [#708]
+        regular window when KWin or the script is unavailable. (Yakuake)
+        Plasma-session verification is a
+        [pending handoff](TODO.md#kwin-script-on-plasma-707-708). [#708]
 
 - **M27.02: Archives and application packages**
 
-  - [ ] Integrate deeply with ARK [#280]
-  - [ ] Extend archive creation through Ark: create 7z, password-protected and
+  - [x] Integrate deeply with ARK [#280]
+  - [x] Extend archive creation through Ark: create 7z, password-protected and
         split archives, encrypting file names where the format supports it,
         and add, rename or remove entries in existing archives. Keep M03's
         non-overwriting behaviour, confirm changes to existing archives and
         report formats that installed Ark backends can only extract, such as
         RAR. (MiXplorer) [#647]
-  - [ ] Mount and unmount ISO and other disk images through the Mount ISO
+  - [x] Mount and unmount ISO and other disk images through the Mount ISO
         action from Dolphin's plugins when installed, and show mounted images
         in Places through Solid. Report a missing plugin or denied
         authorization. (MiXplorer) [#648]
-  - [ ] Integrate deeply with AppImage, Flatpak and Snap: identify packages and
+  - [x] Integrate deeply with AppImage, Flatpak and Snap: identify packages and
         show available application details and actions. Support AppImage
         launching and optional desktop integration, and use the respective
         package tools for supported Flatpak and Snap installation, updates and
@@ -1498,7 +1506,7 @@ for some features are recorded in [pending tasks](TODO.md).
 
 - **M27.03: Search and indexing**
 
-  - [ ] Enhance Baloo integration using M09 indexed search and M21's search
+  - [x] Enhance Baloo integration using M09 indexed search and M21's search
         interface. Show service status, configured folders and exclusions, and
         available coverage or indexing progress. Distinguish configured scope
         from confirmed coverage and warn about missing or stale results. Offer
@@ -1506,18 +1514,18 @@ for some features are recorded in [pending tasks](TODO.md).
         KFileMetaData extractors and identify missing extractors when
         detectable. Do not change shared settings, enable indexing or start a
         reindex without explicit action. [#441]
-  - [ ] Extend Baloo search with supported metadata criteria and optional fuzzy
+  - [x] Extend Baloo search with supported metadata criteria and optional fuzzy
         ranking. Explain that ranking cannot recover matches missing from the
         index or results truncated by existing limits. Offer an explicit
         live-search fallback for supported local folders, retaining its limits,
         progress, cancellation and error reporting; never silently broaden scope
         or substitute another search. [#442]
-  - [ ] Show file-type categories in Places, such as documents, images, audio,
+  - [x] Show file-type categories in Places, such as documents, images, audio,
         video, archives, ebooks, application packages and large files, as Baloo
         searches alongside KDE's existing **Search For** entries. Explain when
         indexing is off or incomplete and offer a live search of a chosen
         folder instead. (MiXplorer) [#649]
-  - [ ] Run indexed searches inside Baloo where possible: translate the M21
+  - [x] Run indexed searches inside Baloo where possible: translate the M21
         query, scope and filters into one Baloo query using its AND, OR and
         property terms and its folder, file-type and date filters, rather than
         fetching one name or content term from the whole index and filtering
@@ -1528,7 +1536,7 @@ for some features are recorded in [pending tasks](TODO.md).
         previously lost to its limits; report when limits still apply, and use
         newer Baloo search scopes only when the installed version supports
         them. [#733]
-  - [ ] Share saved searches with KDE: offer to add a saved search that Baloo
+  - [x] Share saved searches with KDE: offer to add a saved search that Baloo
         can represent to KDE's shared places as a search location, so Dolphin
         and file dialogs can reuse it. Explain which criteria, such as depth,
         exclusions or Plasma Opus tags, cannot be carried over, and add the
@@ -1538,13 +1546,13 @@ for some features are recorded in [pending tasks](TODO.md).
 
 - **M27.04: Terminals and command history**
 
-  - [ ] Extend the existing open-terminal action and M09 embedded Konsole
+  - [x] Extend the existing open-terminal action and M09 embedded Konsole
         terminal with explicit separate Konsole, Yakuake or Kwi providers and an
         embedded Kwi KPart when available. Reuse the current Konsole integration
         and pane-preserving layout. Yakuake is a separate drop-down application,
         not an embeddable terminal; report unavailable providers and unsupported
         locations. [#289]
-  - [ ] Optional [Atuin](https://docs.atuin.sh/) integration for terminal
+  - [x] Optional [Atuin](https://docs.atuin.sh/) integration for terminal
         command history: let users open interactive Atuin search in a supported
         terminal, without automatically executing a selected command. Respect
         the user's existing shell configuration; do not install or initialize
@@ -1554,14 +1562,14 @@ for some features are recorded in [pending tasks](TODO.md).
 
 - **M27.05: Editors, documents and media**
 
-  - [ ] Editor integrations: offer KWrite and Kate as separate GUI editors, and
+  - [x] Editor integrations: offer KWrite and Kate as separate GUI editors, and
         Neovim, Rune, micro and nano in a supported embedded or separate
         terminal, as alternatives to the built-in editor. KWrite and Kate use
         KTextEditor themselves; they are separate applications, not replacement
         editor components. Preserve the built-in editor and its draft handling,
         pass file paths safely without shell interpolation, and report missing
         providers, launch failures and unsupported locations. [#319]
-  - [ ] Office documents: integrate viewing and editing for documents,
+  - [x] Office documents: integrate viewing and editing for documents,
         spreadsheets and presentations, including OpenDocument and Microsoft
         Office formats. Reuse installed KParts for supported previews and offer
         an explicit action to open files in an available office application,
@@ -1570,12 +1578,12 @@ for some features are recorded in [pending tasks](TODO.md).
         unavailable providers, unsupported formats and locations, and launch or
         save failures. Preserve unsaved changes and existing file content; never
         silently convert or overwrite a document. [#674]
-  - [ ] For any viewable file, offer an edit action when a suitable tool is
+  - [x] For any viewable file, offer an edit action when a suitable tool is
         available. Use supported embedded providers or launch a separate editor;
         distinguish viewing from editing capabilities and report unavailable
         tools, unsupported locations and launch failures. Preserve unsaved
         changes and avoid silent conversion or overwrite. [#675]
-  - [ ] Edit text in the preview panel: when the preview panel shows a text
+  - [x] Edit text in the preview panel: when the preview panel shows a text
         file, offer an explicit Edit action that switches the preview in place
         to the built-in KTextEditor editor for that file, without opening the
         separate editor panel or changing the M08 opening choice. Load the
@@ -1589,12 +1597,12 @@ for some features are recorded in [pending tasks](TODO.md).
         requested, never save the truncated preview text, and report
         read-only files, remote locations, size limits, binary content or
         unsupported encodings, and save failures. [#729]
-  - [ ] Extend the built-in editor with CommonMark and Obsidian-like wiki links
+  - [x] Extend the built-in editor with CommonMark and Obsidian-like wiki links
         and backlinks within a user-selected local vault. Preserve source and
         drafts, respect vault boundaries, and report ambiguous, missing or
         inaccessible targets and incomplete scans. See the
         [pending handoff](TODO.md#markdown-editor-and-backlinks-564). [#564]
-  - [ ] Let an assigned local location serve as an optional Obsidian-inspired
+  - [x] Let an assigned local location serve as an optional Obsidian-inspired
         vault for the built-in text editor. Reuse [#564] for source and visual
         Markdown editing, live preview, note navigation, wiki links, backlinks,
         tags and a note relationship view. Preserve drafts and unsaved edits
@@ -1603,13 +1611,13 @@ for some features are recorded in [pending tasks](TODO.md).
         existing folders without moving notes, executing plugins or changing
         Obsidian configuration. Deleting a workspace must not delete its vault.
         See the [pending handoff](TODO.md#workspace-vault-editing-565). [#565]
-  - [ ] Offer optional mpv integration for embedded audio and video playback in
+  - [x] Offer optional mpv integration for embedded audio and video playback in
         the preview panel and gallery alongside Qt Multimedia, and an explicit
         action to open selected media in the separate mpv application. Preserve
         autoplay and remote preview behaviour; report unavailable backends,
         playback errors and unsupported locations. See the
         [pending handoff](TODO.md#mpv-integration-563). [#563]
-  - [ ] Preview ebooks, comics and help files, such as EPUB, MOBI, FictionBook,
+  - [x] Preview ebooks, comics and help files, such as EPUB, MOBI, FictionBook,
         CBZ, DjVu and CHM, with Okular's KPart when installed, within the M05
         preview limits. Preview fonts with editable sample text through
         Plasma's font viewer part where available, and offer installation
@@ -1618,7 +1626,7 @@ for some features are recorded in [pending tasks](TODO.md).
 
 - **M27.06: Accounts, remote access and synchronization**
 
-  - [ ] Integrate advanced SSH, SFTP and WebDAV support: manage named profiles
+  - [x] Integrate advanced SSH, SFTP and WebDAV support: manage named profiles
         and browse remote locations in either pane using KDE's KIO workers. Use
         the existing transfer queue where available and offer a separate SSH
         terminal for SSH profiles. Support passwords and SSH key/agent
@@ -1626,11 +1634,11 @@ for some features are recorded in [pending tasks](TODO.md).
         respect SSH host-key and WebDAV TLS certificate verification. Report
         connection, authentication and unsupported-operation errors explicitly.
         [#282]
-  - [ ] Extend remote profiles to SMB and FTP or FTPS through KDE's KIO
+  - [x] Extend remote profiles to SMB and FTP or FTPS through KDE's KIO
         workers, and show services discovered on the local network through
         KIO's `network:/` location. Warn that plain FTP sends credentials
         unencrypted, and use KDE credential facilities. (MiXplorer) [#651]
-  - [ ] Optional [rclone](https://rclone.org/) integration for cloud providers
+  - [x] Optional [rclone](https://rclone.org/) integration for cloud providers
         without KDE support, such as Dropbox, OneDrive, Box, MEGA and pCloud.
         List the user's configured remotes through rclone and open one in
         either pane by serving it over WebDAV on the loopback interface or by
@@ -1638,7 +1646,7 @@ for some features are recorded in [pending tasks](TODO.md).
         or configuration; report missing tools, failed mounts and unsupported
         operations, and stop processes that Plasma Opus started. (MiXplorer)
         [#652]
-  - [ ] Mount remote storage as local folders, like
+  - [x] Mount remote storage as local folders, like
         [RaiDrive](https://www.raidrive.com/) drives, so applications without
         KIO support can open, edit and save files in place. Mount saved SSH,
         SFTP, WebDAV, FTP or FTPS and SMB profiles, Nextcloud, S3-compatible
@@ -1655,7 +1663,7 @@ for some features are recorded in [pending tasks](TODO.md).
         them. Report missing FUSE support or tools, mounts that need an fstab
         entry or administrator authorization, stale or busy mounts and failed
         unmounts; unmount only what Plasma Opus mounted. (RaiDrive) [#702]
-  - [ ] Temporary LAN sharing: serve selected files or a folder over HTTP or
+  - [x] Temporary LAN sharing: serve selected files or a folder over HTTP or
         WebDAV to devices on the local network, with optional TLS, a QR code,
         a random access token, read-only access by default and an optional
         upload folder with conflict handling. Bind only to chosen interfaces,
@@ -1663,7 +1671,7 @@ for some features are recorded in [pending tasks](TODO.md).
         and never open firewall ports. Warn that transfers without TLS can be
         observed on the network, and point to KDE Connect and Samba sharing
         for paired devices and persistent shares. (MiXplorer) [#653]
-  - [ ] Integrate with KDE Online Accounts: discover available accounts and
+  - [x] Integrate with KDE Online Accounts: discover available accounts and
         their supported file services, let users explicitly connect or open them
         in either pane through the appropriate KDE provider or KIO worker, and
         provide access to KDE's account-management interface. Reuse account
@@ -1673,7 +1681,7 @@ for some features are recorded in [pending tasks](TODO.md).
         account offers file access. Respect provider permissions, authentication
         and TLS verification, and never store tokens or passwords in URLs, logs
         or Plasma Opus configuration. [#370]
-  - [ ] Optional [rsync](https://rsync.samba.org/) backend for M09 folder sync:
+  - [x] Optional [rsync](https://rsync.samba.org/) backend for M09 folder sync:
         support local folders and SSH locations, reuse sync profiles and
         exclusions, and show an itemized dry run before confirmation. Disable
         deletion by default and explicitly confirm overwrites and deletions.
@@ -1683,7 +1691,7 @@ for some features are recorded in [pending tasks](TODO.md).
         partial results; a preview is a snapshot, not a guarantee against
         subsequent filesystem changes. Use safe argument handling and SSH
         host-key verification. [#363]
-  - [ ] Two-way cloud sync, like
+  - [x] Two-way cloud sync, like
         [Syncative](https://github.com/Santuzius/syncative): pair any local
         folder, not only a single sync root, with a folder on a Nextcloud,
         WebDAV, SFTP, SMB, S3-compatible or KDE Online Accounts location or an
@@ -1702,7 +1710,7 @@ for some features are recorded in [pending tasks](TODO.md).
         overlap folders managed by the Nextcloud desktop client or another
         sync engine. Report quota, offline remotes, permission errors and
         partial runs. (Syncative) [#718]
-  - [ ] Cloud activity panel, like
+  - [x] Cloud activity panel, like
         [SDrive](https://github.com/TitanniOpen/SDrive) and
         [DucksDrive](https://patopatetico2-lab.github.io/ducksdrive/): for
         remote drives and sync pairs, show connection state, quota where the
@@ -1719,9 +1727,11 @@ for some features are recorded in [pending tasks](TODO.md).
 
 - **M27.07: Access control and automation**
 
-  - [ ] Support administrator mode through KIO's `admin:/` worker [#288]
-  - [ ] Provide an MCP server [#287]
-  - [ ] Optional password-gated folders: let users require a password before
+  - [x] Support administrator mode through KIO's `admin:/` worker.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#administrator-mode-on-plasma-288). [#288]
+  - [x] Provide an MCP server [#287]
+  - [x] Optional password-gated folders: let users require a password before
         opening selected local folders through Plasma Opus. This is a Plasma
         Opus-only convenience gate, not encryption or filesystem access control:
         clearly warn that other applications and direct filesystem access remain
@@ -1731,22 +1741,27 @@ for some features are recorded in [pending tasks](TODO.md).
         and KDE credential facilities where appropriate. Report unavailable
         protection and failures rather than silently bypassing the gate; provide
         explicit password change and removal workflows. [#402]
-  - [ ] Plasma Vault integration: list encrypted vaults (CryFS, gocryptfs or
+  - [x] Plasma Vault integration: list encrypted vaults (CryFS, gocryptfs or
         EncFS) with their lock state, and open, close or create them through
         Plasma Vault's `org.kde.plasmavault` D-Bus interface, revealing an
         opened vault in a pane. Leave passwords and vault configuration to
         Plasma Vault, warn before closing a vault with files in use and report
-        an unavailable service. (MiXplorer) [#654]
-  - [ ] File encryption: offer encrypt, decrypt, sign and verify actions for
+        an unavailable service. Plasma-session verification is a
+        [pending handoff](TODO.md#plasma-vault-on-plasma-654). (MiXplorer)
+        [#654]
+  - [x] File encryption: offer encrypt, decrypt, sign and verify actions for
         selected files through GnuPG, reusing Kleopatra's file actions when
         installed, and write new files without replacing the originals.
         Identify encrypted and signed files. Support AES Crypt (`.aes`) files,
         as used by MiXplorer, only through an installed `aescrypt` tool and
-        without exposing passwords in command lines. (MiXplorer) [#655]
+        without exposing passwords in command lines. Plasma-session
+        verification is a
+        [pending handoff](TODO.md#file-encryption-on-plasma-655). (MiXplorer)
+        [#655]
 
 - **M27.08: Development tooling**
 
-  - [ ] Use [mise](https://mise.jdx.dev/) for development tooling: manage
+  - [x] Use [mise](https://mise.jdx.dev/) for development tooling: manage
         project tool versions and provide configure, build, test and formatting
         tasks. Document setup and system-provided Qt, KDE and other
         dependencies, including versions needed to reproduce builds; keep the
@@ -1754,7 +1769,7 @@ for some features are recorded in [pending tasks](TODO.md).
 
 - **M27.09: Plasma Impresario and mail**
 
-  - [ ] Send selected files by email: offer an explicit action that opens the
+  - [x] Send selected files by email: offer an explicit action that opens the
         user's preferred mail client, such as
         [Plasma Impresario](https://github.com/mikepadiernos/plasma-impresario),
         through KIO's `KEMailClientLauncherJob` or the XDG Email portal when
@@ -1763,28 +1778,35 @@ for some features are recorded in [pending tasks](TODO.md).
         missing clients and clients that cannot accept attachments; Plasma
         Impresario currently ignores `mailto:` attachments. See the
         [companion workflows](integrations/plasma-impresario.md#compose-with-selected-files).
-        [#656]
-  - [ ] Mail attachments: verify dragging local files into Plasma Impresario's
+        Plasma-session verification is a
+        [pending handoff](TODO.md#send-by-email-on-plasma-656). [#656]
+  - [x] Mail attachments: verify dragging local files into Plasma Impresario's
         composer and offer private local copies for remote items. Recognize
         its private attachment drag format and explain that the attachment
         must be saved from the mail client instead of saving the reference as
         a file; accept real file content or URLs through the existing KIO drop
-        and conflict handling when provided. Never contact a mail server. [#657]
-  - [ ] Mail file preview: show local `.eml` (`message/rfc822`) headers,
+        and conflict handling when provided. Never contact a mail server.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#mail-attachments-on-plasma-657). [#657]
+  - [x] Mail file preview: show local `.eml` (`message/rfc822`) headers,
         plain-text body and attachment list in the preview panel without
         loading remote content, running scripts or decrypting messages. Offer
         explicit attachment extraction with normal conflict handling and
         opening through the registered application; never import messages.
-        [#658]
-  - [ ] Shared context with Plasma Impresario: use Plasma Activities, not a
+        Plasma-session verification is a
+        [pending handoff](TODO.md#mail-file-preview-on-plasma-658). [#658]
+  - [x] Shared context with Plasma Impresario: use Plasma Activities, not a
         private API, as the only shared context with its planned
         account-to-workspace associations. Each application follows Activity
         changes with its own associations; do not read or change the other
-        application's workspace, account or mail data. [#659]
+        application's workspace, account or mail data.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#shared-activity-context-on-plasma-659). [#659]
 
 **Caveats:**
-[Password-gated folders](CAVEATS.md#planned-password-gated-folders) (planned),
-tracked in [#406].
+[Desktop integration](CAVEATS.md#desktop-integration), tracked in [#728];
+[Password-gated folders](CAVEATS.md#password-gated-folders), tracked in
+[#406].
 
 ### M28: Integration settings
 
@@ -3025,6 +3047,7 @@ the end of this file.
 [#721]: https://github.com/mikepadiernos/plasma-opus/issues/721
 [#723]: https://github.com/mikepadiernos/plasma-opus/issues/723
 [#725]: https://github.com/mikepadiernos/plasma-opus/issues/725
+[#728]: https://github.com/mikepadiernos/plasma-opus/issues/728
 [#729]: https://github.com/mikepadiernos/plasma-opus/issues/729
 [#730]: https://github.com/mikepadiernos/plasma-opus/issues/730
 [#733]: https://github.com/mikepadiernos/plasma-opus/issues/733

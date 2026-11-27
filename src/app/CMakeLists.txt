@@ -1,6 +1,14 @@
 add_library(opusfm_app STATIC
+    activityassociationsdialog.cpp
+    activityassociationsdialog.h
+    activitycontroller.cpp
+    activitycontroller.h
+    activityreporting.cpp
+    activityreporting.h
     appearancestyle.cpp
     appearancestyle.h
+    applicationpackagedialog.cpp
+    applicationpackagedialog.h
     batchconversiondialog.cpp
     batchconversiondialog.h
     batchrenamedialog.cpp
@@ -9,6 +17,10 @@ add_library(opusfm_app STATIC
     carddelegate.h
     checksumdialog.cpp
     checksumdialog.h
+    cloudactivitydialog.cpp
+    cloudactivitydialog.h
+    cloudsyncdialog.cpp
+    cloudsyncdialog.h
     combinedpanel.cpp
     combinedpanel.h
     compressdialog.cpp
@@ -25,6 +37,8 @@ add_library(opusfm_app STATIC
     customstylesheet.h
     densitydelegate.cpp
     densitydelegate.h
+    desktoptray.cpp
+    desktoptray.h
     detailsview.cpp
     detailsview.h
     duplicatefinderdialog.cpp
@@ -41,10 +55,39 @@ add_library(opusfm_app STATIC
     embeddedmetadatasettings.h
     filediffdialog.cpp
     filediffdialog.h
+    fileencryptiondialog.cpp
+    fileencryptiondialog.h
+    filemanagerservice.cpp
+    filemanagerservice.h
     filesplitdialog.cpp
     filesplitdialog.h
     fileoperations.cpp
     fileoperations.h
+    plasmavaultmenu.cpp
+    plasmavaultmenu.h
+    kdeconnectclient.cpp
+    kdeconnectclient.h
+    indexbackend.cpp
+    indexbackend.h
+    indexstatusdialog.cpp
+    indexstatusdialog.h
+    kdeconnectsharedialog.cpp
+    kdeconnectsharedialog.h
+    lansharedialog.cpp
+    lansharedialog.h
+    dropdownwindow.cpp
+    dropdownwindow.h
+    diskimagebackend.cpp
+    diskimagebackend.h
+    kwinintegration.cpp
+    kwinintegration.h
+    kwinintegrationdialog.cpp
+    kwinintegrationdialog.h
+    kwinscript.qrc
+    mountbackend.cpp
+    mountbackend.h
+    mountmanagerdialog.cpp
+    mountmanagerdialog.h
     filterbar.cpp
     filterbar.h
     folderview.cpp
@@ -53,8 +96,14 @@ add_library(opusfm_app STATIC
     foldertree.h
     foldercomparisondialog.cpp
     foldercomparisondialog.h
+    foldergatedialog.cpp
+    foldergatedialog.h
     folderpreview.cpp
     folderpreview.h
+    fontpreview.cpp
+    fontpreview.h
+    mailpreview.cpp
+    mailpreview.h
     foldersyncdialog.cpp
     foldersyncdialog.h
     gallerywindow.cpp
@@ -83,12 +132,20 @@ add_library(opusfm_app STATIC
     metadataeditdialog.h
     mediaview.cpp
     mediaview.h
+    onlineaccountsmenu.cpp
+    onlineaccountsmenu.h
+    packagetools.cpp
+    packagetools.h
     pane.cpp
     pane.h
     pathfiltereditor.cpp
     pathfiltereditor.h
     pathfilterpresetsdialog.cpp
     pathfilterpresetsdialog.h
+    remotemountdialog.cpp
+    remotemountdialog.h
+    remoteprofilesdialog.cpp
+    remoteprofilesdialog.h
     previewpanel.cpp
     previewpanel.h
     searchpanel.cpp
@@ -99,6 +156,8 @@ add_library(opusfm_app STATIC
     searchtoolbaraction.h
     searchwidget.cpp
     searchwidget.h
+    sendbyemaildialog.cpp
+    sendbyemaildialog.h
     settingsdialog.cpp
     settingsdialog.h
     settingswidgets.cpp
@@ -123,6 +182,8 @@ add_library(opusfm_app STATIC
     tagmanagerwidget.h
     tagpanel.cpp
     tagpanel.h
+    terminallauncher.cpp
+    terminallauncher.h
     terminalpanel.cpp
     terminalpanel.h
     toolbarcustomizer.cpp
@@ -154,7 +215,9 @@ target_include_directories(opusfm_app PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE
 target_link_libraries(opusfm_app
     PUBLIC
         opusfm_core
+        Plasma::Activities
         Qt6::Concurrent
+        Qt6::DBus
         Qt6::Widgets
         Qt6::Xml
         Qt6::Multimedia
@@ -163,20 +226,34 @@ target_link_libraries(opusfm_app
         KF6::ConfigWidgets
         KF6::Bookmarks
         KF6::CoreAddons
+        KF6::GlobalAccel
         KF6::I18n
+        KF6::Package
         KF6::KIOCore
         KF6::KIOFileWidgets
         KF6::KIOGui
         KF6::KIOWidgets
         KF6::ItemViews
+        KF6::NewStuffWidgets
         KF6::Parts
         KF6::Solid
+        KF6::StatusNotifierItem
         KF6::SyntaxHighlighting
         KF6::TextEditor
         KF6::WidgetsAddons
         KF6::WindowSystem
         KF6::XmlGui
 )
+
+if(OPUSFM_HAVE_MPV)
+    target_sources(opusfm_app PRIVATE mpvvideowidget.cpp mpvvideowidget.h)
+    target_link_libraries(opusfm_app PUBLIC Qt6::OpenGL Qt6::OpenGLWidgets)
+endif()
+
+if(KF6Prison_FOUND)
+    target_compile_definitions(opusfm_app PRIVATE OPUSFM_HAVE_PRISON)
+    target_link_libraries(opusfm_app PRIVATE KF6::Prison)
+endif()
 
 add_executable(opus-file-manager main.cpp applicationicon.qrc)
 
@@ -186,6 +263,7 @@ target_link_libraries(opus-file-manager
         Qt6::DBus
         KF6::Crash
         KF6::DBusAddons
+        KF6::JobWidgets
         KF6::WindowSystem
 )
 

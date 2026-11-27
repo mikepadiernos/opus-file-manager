@@ -1,0 +1,75 @@
+# Optional development tooling for Plasma Opus: https://mise.jdx.dev/
+#
+# mise pins the build tools below and runs the usual CMake workflow as tasks;
+# the plain CMake commands in docs/development.md keep working without it.
+# The compiler, Qt 6, KDE Frameworks, Extra CMake Modules, clang-format and the
+# other libraries come from the system or the dev container, because they must
+# match the libraries Plasma Opus links against. See "Development tooling" in
+# docs/development.md for the versions used to reproduce builds.
+
+[tools]
+# The versions in the dev container; any CMake 3.25+ and Ninja also work.
+cmake = "4.3.0"
+ninja = "1.13.2"
+
+[tasks.configure]
+description = "Configure a Debug build with tests in build/"
+run = "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON"
+# Ninja reruns CMake when a CMakeLists.txt changes, so this only runs once.
+sources = ["CMakeLists.txt"]
+outputs = ["build/build.ninja"]
+
+[tasks.build]
+description = "Build Plasma Opus and its tests in build/"
+depends = ["configure"]
+run = "cmake --build build"
+
+[tasks.test]
+description = "Run the test suites headlessly; extra arguments go to ctest"
+depends = ["build"]
+env = { QT_QPA_PLATFORM = "offscreen" }
+run = "ctest --test-dir build --output-on-failure"
+
+[tasks.format]
+description = "Format all C++ sources with clang-format"
+depends = ["configure"]
+run = "cmake --build build --target clang-format"
+
+[tasks.messages]
+description = "Extract translatable messages to build/opus-file-manager.pot"
+depends = ["configure"]
+run = "cmake --build build --target extract-messages"
+
+[tasks.run]
+description = "Start the built file manager; extra arguments are folders or URLs"
+depends = ["build"]
+run = "./build/bin/opus-file-manager"
+
+# The same workflow in the headless dev container, for hosts without the Linux
+# build dependencies, such as macOS. It uses build-container/ so it does not
+# collide with a host build.
+
+[tasks."container:configure"]
+description = "Configure a Debug build in the dev container's build-container/"
+run = "tools/dev-container/run.sh cmake -S . -B build-container -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON"
+sources = ["CMakeLists.txt"]
+outputs = ["build-container/build.ninja"]
+
+[tasks."container:build"]
+description = "Build in the dev container"
+depends = ["container:configure"]
+run = "tools/dev-container/run.sh cmake --build build-container"
+
+[tasks."container:test"]
+description = "Run the test suites in the dev container; extra arguments go to ctest"
+depends = ["container:build"]
+run = "tools/dev-container/run.sh ctest --test-dir build-container --output-on-failure -j4"
+
+[tasks."container:format"]
+description = "Format all C++ sources with the dev container's clang-format"
+depends = ["container:configure"]
+run = "tools/dev-container/run.sh cmake --build build-container --target clang-format"
+
+[tasks."container:shell"]
+description = "Open an interactive shell in the dev container"
+run = "tools/dev-container/run.sh"

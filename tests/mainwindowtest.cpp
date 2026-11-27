@@ -1,31 +1,38 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "mainwindow.h"
+#include "applicationpackagedialog.h"
 #include "batchrenamedialog.h"
 #include "checksumdialog.h"
 #include "combinedpanel.h"
 #include "contentchartdialog.h"
 #include "customcommanddialog.h"
 #include "customcommands.h"
+#include "diskimagebackend.h"
 #include "duplicatefinderdialog.h"
+#include "editorpanel.h"
 #include "effectiveappearance.h"
 #include "favoritesmodel.h"
 #include "fieldeditdialog.h"
 #include "filediffdialog.h"
 #include "fileoperations.h"
 #include "filesplitdialog.h"
+#include "filetypeplaces.h"
 #include "filterbar.h"
 #include "foldercomparisondialog.h"
 #include "foldersyncdialog.h"
 #include "foldertree.h"
 #include "folderview.h"
 #include "gallerywindow.h"
+#include "indexbackend.h"
+#include "indexstatusdialog.h"
 #include "informationpanel.h"
 #include "interfacelanguage.h"
 #include "libraryregistry.h"
 #include "localizeddates.h"
 #include "metadataeditdialog.h"
 #include "metadataimportdialog.h"
+#include "packagetools.h"
 #include "pane.h"
 #include "previewpanel.h"
 #include "savedpathfilters.h"
@@ -52,7 +59,9 @@
 #include <KFileItemDelegate>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
+#include <KLocalizedString>
 #include <KPageWidgetItem>
+#include <KProtocolInfo>
 #include <KSelectAction>
 #include <KSharedConfig>
 #include <KTextEditor/Document>
@@ -81,6 +90,8 @@
 #include <QIcon>
 #include <QImage>
 #include <QInputDialog>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QListView>
 #include <QListWidget>
@@ -139,6 +150,63 @@ void answerMessageBox(const QString &objectName, const std::function<void(QMessa
         }
     });
 }
+
+// Accepts the folder dialog named objectName in folder when it opens.
+void acceptFolderDialog(const QString &objectName, const QString &folder, int attempts = 200)
+{
+    QTimer::singleShot(10, [objectName, folder, attempts] {
+        auto *dialog = qobject_cast<QFileDialog *>(QApplication::activeModalWidget());
+        if (dialog && dialog->isVisible() && dialog->objectName() == objectName) {
+            dialog->setDirectory(folder);
+            QMetaObject::invokeMethod(dialog, "accept");
+        } else if (attempts > 0) {
+            acceptFolderDialog(objectName, folder, attempts - 1);
+        }
+    });
+}
+
+// Reports a fixed index configuration and indexer state.
+class FakeIndexBackend : public IndexBackend
+{
+public:
+    IndexStatus::Config fakeConfig;
+    IndexStatus::Service fakeService;
+    int settingsOpened = 0;
+
+    IndexStatus::Config config() const override
+    {
+        return fakeConfig;
+    }
+    IndexStatus::Service service() const override
+    {
+        return fakeService;
+    }
+    bool isIndexed(const QString &) const override
+    {
+        return false;
+    }
+    bool hasExtractor(const QString &) const override
+    {
+        return false;
+    }
+    bool suspend(QString *) override
+    {
+        return false;
+    }
+    bool resume(QString *) override
+    {
+        return false;
+    }
+    bool checkUnindexedFiles(QString *) override
+    {
+        return false;
+    }
+    bool openSettings(QString *) override
+    {
+        ++settingsOpened;
+        return true;
+    }
+};
 
 // Emits a pane signal while MainWindow's children are being destroyed, after
 // its members are gone, as KCoreDirListerCache can when the places model's
@@ -325,6 +393,533 @@ private Q_SLOTS:
         QVERIFY(!FileOperations::openWithMpv({QUrl::fromLocalFile(file)}).isEmpty());
     }
 
+    void arkOpensAndExtractsArchivesKioCannotBrowse()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QDir root(directory.path());
+        QVERIFY(root.mkpath(QStringLiteral("bin")) && root.mkpath(QStringLiteral("left")) && root.mkpath(QStringLiteral("right/music")));
+        QFile executable(root.filePath(QStringLiteral("bin/ark")));
+        QVERIFY(executable.open(QIODevice::WriteOnly));
+        QVERIFY(executable.write("#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$ARK_TEST_OUTPUT\"\n") > 0);
+        executable.close();
+        QVERIFY(executable.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        const QString archive = root.filePath(QStringLiteral("left/music.rar"));
+        QFile rar(archive);
+        QVERIFY(rar.open(QIODevice::WriteOnly));
+        QVERIFY(rar.write(QByteArray("Rar!\x1a\x07\x01\x00", 8) + QByteArray(64, '\0')) > 0);
+        rar.close();
+
+        const QByteArray oldPath = qgetenv("PATH");
+        const QByteArray oldOutput = qgetenv("ARK_TEST_OUTPUT");
+        const auto restore = qScopeGuard([&] {
+            qputenv("PATH", oldPath);
+            qputenv("ARK_TEST_OUTPUT", oldOutput);
+        });
+        const QString outputPath = root.filePath(QStringLiteral("arguments"));
+        qputenv("PATH", root.filePath(QStringLiteral("bin")).toLocal8Bit());
+        qputenv("ARK_TEST_OUTPUT", outputPath.toLocal8Bit());
+        const auto readArguments = [&outputPath] {
+            QFile output(outputPath);
+            return output.open(QIODevice::ReadOnly) ? QString::fromLocal8Bit(output.readAll()).split(u'\n', Qt::SkipEmptyParts) : QStringList();
+        };
+
+        MainWindow window;
+        const QJsonObject rarPlugin = QJsonDocument::fromJson(R"({"KPlugin": {"Id": "kerfuffle_clirar", "MimeTypes": ["application/vnd.rar"]},
+            "X-KDE-Kerfuffle-ReadOnlyExecutables": ["unrar"], "X-KDE-Kerfuffle-ReadWrite": true, "X-KDE-Kerfuffle-ReadWriteExecutables": ["rar"]})")
+                                          .object();
+        window.setArkBackends(Ark::Backends::fromPlugins({rarPlugin}, [](const QString &program) {
+            return program == QLatin1String("unrar");
+        }));
+        window.openUrls({QUrl::fromLocalFile(root.filePath(QStringLiteral("left"))), QUrl::fromLocalFile(root.filePath(QStringLiteral("right")))});
+        window.show();
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        QAction *open = window.actionCollection()->action(QStringLiteral("open_in_ark"));
+        QVERIFY(open && !open->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(archive)});
+        QTRY_VERIFY(open->isEnabled());
+
+        open->trigger();
+        QTRY_COMPARE(readArguments(), (QStringList{QStringLiteral("--"), archive}));
+
+        QFile::remove(outputPath);
+        window.actionCollection()->action(QStringLiteral("extract_to_other_pane"))->trigger();
+        QTRY_VERIFY(!readArguments().isEmpty());
+        const QStringList arguments = readArguments();
+        QCOMPARE(arguments.size(), 5);
+        QCOMPARE(arguments.mid(0, 2), (QStringList{QStringLiteral("--batch"), QStringLiteral("--destination")}));
+        QCOMPARE(arguments.mid(3), (QStringList{QStringLiteral("--"), archive}));
+        const QString destination = arguments.at(2);
+        QVERIFY2(destination != root.filePath(QStringLiteral("right/music")), qPrintable(destination));
+        QVERIFY(destination.startsWith(root.filePath(QStringLiteral("right/music"))));
+        QVERIFY(QFileInfo(destination).isDir());
+
+        qputenv("PATH", QByteArray());
+        QFile::remove(outputPath);
+        bool reported = false;
+        std::function<void(int)> closeReport = [&reported, &closeReport](int attempts) {
+            QTimer::singleShot(10, [&reported, &closeReport, attempts] {
+                auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+                if (dialog && dialog->isVisible()) {
+                    reported = dialog->windowTitle().contains(QStringLiteral("Ark Not Found"));
+                    dialog->reject();
+                } else if (attempts > 0) {
+                    closeReport(attempts - 1);
+                }
+            });
+        };
+        closeReport(200);
+        open->trigger();
+        QVERIFY(reported);
+        QVERIFY(!QFile::exists(outputPath));
+    }
+
+    void arkAddsSelectionOnlyToWritableArchives()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QDir root(directory.path());
+        QVERIFY(root.mkpath(QStringLiteral("bin")) && root.mkpath(QStringLiteral("left/folder")));
+        QFile executable(root.filePath(QStringLiteral("bin/ark")));
+        QVERIFY(executable.open(QIODevice::WriteOnly));
+        QVERIFY(executable.write("#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$ARK_TEST_OUTPUT\"\n") > 0);
+        executable.close();
+        QVERIFY(executable.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        const auto writeFile = [](const QString &path, const QByteArray &data) {
+            QFile file(path);
+            return file.open(QIODevice::WriteOnly) && file.write(data) == data.size();
+        };
+        const QString note = root.filePath(QStringLiteral("left/note.txt"));
+        const QString zip = root.filePath(QStringLiteral("left/photos.zip"));
+        const QString innerZip = root.filePath(QStringLiteral("left/folder/inner.zip"));
+        const QString rar = root.filePath(QStringLiteral("left/music.rar"));
+        const QByteArray emptyZip = QByteArray("PK\x05\x06", 4) + QByteArray(18, '\0');
+        QVERIFY(writeFile(note, "hello"));
+        QVERIFY(writeFile(zip, emptyZip));
+        QVERIFY(writeFile(innerZip, emptyZip));
+        QVERIFY(writeFile(rar, QByteArray("Rar!\x1a\x07\x01\x00", 8) + QByteArray(64, '\0')));
+
+        const QByteArray oldPath = qgetenv("PATH");
+        const QByteArray oldOutput = qgetenv("ARK_TEST_OUTPUT");
+        const auto restore = qScopeGuard([&] {
+            qputenv("PATH", oldPath);
+            qputenv("ARK_TEST_OUTPUT", oldOutput);
+        });
+        const QString outputPath = root.filePath(QStringLiteral("arguments"));
+        qputenv("PATH", root.filePath(QStringLiteral("bin")).toLocal8Bit());
+        qputenv("ARK_TEST_OUTPUT", outputPath.toLocal8Bit());
+        const auto readArguments = [&outputPath] {
+            QFile output(outputPath);
+            return output.open(QIODevice::ReadOnly) ? QString::fromLocal8Bit(output.readAll()).split(u'\n', Qt::SkipEmptyParts) : QStringList();
+        };
+        // Answers the confirmation once it is shown, by adding or cancelling.
+        bool confirmed = false;
+        std::function<void(bool, int)> answer = [&confirmed, &answer](bool add, int attempts) {
+            QTimer::singleShot(10, [&confirmed, &answer, add, attempts] {
+                auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+                if (!dialog || !dialog->isVisible()) {
+                    if (attempts > 0) {
+                        answer(add, attempts - 1);
+                    }
+                    return;
+                }
+                confirmed = dialog->windowTitle().contains(QStringLiteral("Add to Archive"));
+                const QList<QPushButton *> buttons = dialog->findChildren<QPushButton *>();
+                for (QPushButton *button : buttons) {
+                    if (add && button->text().remove(u'&') == QStringLiteral("Add")) {
+                        button->click();
+                        return;
+                    }
+                }
+                dialog->reject();
+            });
+        };
+
+        MainWindow window;
+        const QJsonObject rarPlugin = QJsonDocument::fromJson(R"({"KPlugin": {"Id": "kerfuffle_clirar", "MimeTypes": ["application/vnd.rar"]},
+            "X-KDE-Kerfuffle-ReadOnlyExecutables": ["unrar"], "X-KDE-Kerfuffle-ReadWrite": true, "X-KDE-Kerfuffle-ReadWriteExecutables": ["rar"]})")
+                                          .object();
+        const QJsonObject zipPlugin =
+            QJsonDocument::fromJson(R"({"KPlugin": {"Id": "kerfuffle_libzip", "MimeTypes": ["application/zip"]}, "X-KDE-Kerfuffle-ReadWrite": true})").object();
+        window.setArkBackends(Ark::Backends::fromPlugins({rarPlugin, zipPlugin}, [](const QString &program) {
+            return program == QLatin1String("unrar");
+        }));
+        window.openUrls({QUrl::fromLocalFile(root.filePath(QStringLiteral("left")))});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 4);
+        QVERIFY(window.actionCollection()->action(QStringLiteral("add_to_archive")));
+        view->selectUrls({QUrl::fromLocalFile(note)});
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+
+        QVERIFY(!window.addSelectionToArchive(rar));
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("only extract")));
+        QVERIFY(!window.addSelectionToArchive(root.filePath(QStringLiteral("left/missing.zip"))));
+
+        answer(false, 200);
+        QVERIFY(!window.addSelectionToArchive(zip));
+        QVERIFY(confirmed);
+        QVERIFY(!QFile::exists(outputPath));
+
+        confirmed = false;
+        answer(true, 200);
+        QVERIFY(window.addSelectionToArchive(zip));
+        QVERIFY(confirmed);
+        QTRY_COMPARE(readArguments(), (QStringList{QStringLiteral("--changetofirstpath"), QStringLiteral("--add-to"), zip, QStringLiteral("--"), note}));
+
+        QFile::remove(outputPath);
+        view->selectUrls({QUrl::fromLocalFile(zip)});
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+        QVERIFY(!window.addSelectionToArchive(zip));
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("itself")));
+        view->selectUrls({QUrl::fromLocalFile(root.filePath(QStringLiteral("left/folder")))});
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+        QVERIFY(!window.addSelectionToArchive(innerZip));
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("itself")));
+        QVERIFY(!QFile::exists(outputPath));
+    }
+
+    void mountsDiskImagesAndReportsFailures()
+    {
+        struct FakeDiskImages : DiskImageBackend {
+            bool installed = true;
+            bool offersAction = true;
+            // The states each plugin action moves through, in order.
+            QList<Status> results;
+            Status current;
+            int runs = 0;
+            bool pluginInstalled() const override
+            {
+                return installed;
+            }
+            bool runPluginAction(const QString &, QWidget *) override
+            {
+                if (!offersAction) {
+                    return false;
+                }
+                ++runs;
+                if (!results.isEmpty()) {
+                    current = results.takeFirst();
+                }
+                return true;
+            }
+            Status status(const QString &) const override
+            {
+                return current;
+            }
+        };
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString image = directory.filePath(QStringLiteral("install.iso"));
+        const QString note = directory.filePath(QStringLiteral("note.txt"));
+        for (const QString &path : {image, note}) {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly) && file.write("x") == 1);
+        }
+        auto owned = std::make_unique<FakeDiskImages>();
+        FakeDiskImages *fake = owned.get();
+        MainWindow window;
+        window.setDiskImageBackend(std::move(owned));
+        window.openUrls({QUrl::fromLocalFile(directory.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        QAction *mount = window.actionCollection()->action(QStringLiteral("mount_disk_image"));
+        QAction *unmount = window.actionCollection()->action(QStringLiteral("unmount_disk_image"));
+        QVERIFY(mount && unmount);
+        view->selectUrls({QUrl::fromLocalFile(note)});
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+        QVERIFY(!mount->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(image)});
+        QTRY_VERIFY(mount->isEnabled() && unmount->isEnabled());
+        const auto message = [&window] {
+            return window.statusBar()->currentMessage();
+        };
+
+        fake->results = {{DiskImageBackend::State::Mounted, QStringLiteral("/run/media/user/INSTALL")}};
+        mount->trigger();
+        QCOMPARE(fake->runs, 1);
+        QVERIFY2(message().contains(QStringLiteral("/run/media/user/INSTALL")), qPrintable(message()));
+        mount->trigger();
+        QCOMPARE(fake->runs, 1);
+        QVERIFY(message().contains(QStringLiteral("already mounted")));
+
+        fake->results = {{DiskImageBackend::State::Mounted, QStringLiteral("/run/media/user/INSTALL")}};
+        unmount->trigger();
+        QVERIFY(message().contains(QStringLiteral("still mounted")));
+        fake->results = {{}};
+        unmount->trigger();
+        QVERIFY(message().startsWith(QStringLiteral("Unmounted")));
+        unmount->trigger();
+        QVERIFY(message().contains(QStringLiteral("not mounted")));
+
+        fake->runs = 0;
+        fake->results = {{}};
+        mount->trigger();
+        QVERIFY(message().contains(QStringLiteral("Authorization may have been denied")));
+        fake->results = {{DiskImageBackend::State::Attached, {}}};
+        mount->trigger();
+        QVERIFY(message().contains(QStringLiteral("attached but not mounted")));
+        // Mounting an attached image detaches it first, then mounts it again.
+        fake->runs = 0;
+        fake->results = {{}, {DiskImageBackend::State::Mounted, QStringLiteral("/mnt/image")}};
+        mount->trigger();
+        QCOMPARE(fake->runs, 2);
+        QVERIFY(message().contains(QStringLiteral("/mnt/image")));
+
+        fake->current = {};
+        fake->offersAction = false;
+        mount->trigger();
+        QVERIFY(message().contains(QStringLiteral("offered no action")));
+
+        fake->installed = false;
+        bool reported = false;
+        std::function<void(int)> closeReport = [&reported, &closeReport](int attempts) {
+            QTimer::singleShot(10, [&reported, &closeReport, attempts] {
+                auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+                if (dialog && dialog->isVisible()) {
+                    reported = dialog->windowTitle().contains(QStringLiteral("Mount ISO Plugin Not Found"));
+                    dialog->reject();
+                } else if (attempts > 0) {
+                    closeReport(attempts - 1);
+                }
+            });
+        };
+        closeReport(200);
+        mount->trigger();
+        QVERIFY(reported);
+    }
+
+    void opensApplicationPackages()
+    {
+        struct NoTools : PackageTools {
+            bool hasProgram(const QString &) const override
+            {
+                return false;
+            }
+            void run(const AppPackages::Command &, const QString &, QObject *, std::function<void(const Result &)>) override
+            {
+            }
+            void launch(const AppPackages::Command &, QObject *, std::function<void(const QString &)>) override
+            {
+            }
+        };
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString ref = directory.filePath(QStringLiteral("kate.flatpakref"));
+        const QString note = directory.filePath(QStringLiteral("note.txt"));
+        for (const auto &[path, contents] : {std::pair{ref, QByteArray("[Flatpak Ref]\nName=org.kde.kate\nTitle=Kate\n")}, std::pair{note, QByteArray("x")}}) {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size());
+        }
+        NoTools tools;
+        MainWindow window;
+        window.setPackageTools(&tools);
+        window.openUrls({QUrl::fromLocalFile(directory.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        QAction *action = window.actionCollection()->action(QStringLiteral("application_package"));
+        QVERIFY(action);
+        view->selectUrls({QUrl::fromLocalFile(note)});
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+        QVERIFY(!action->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(ref)});
+        QTRY_VERIFY(action->isEnabled());
+        action->trigger();
+        auto *dialog = window.findChild<ApplicationPackageDialog *>();
+        QVERIFY(dialog);
+        QCOMPARE(dialog->package().kind, AppPackages::Kind::FlatpakRef);
+        QCOMPARE(dialog->package().name, QStringLiteral("Kate"));
+        auto *install = dialog->findChild<QPushButton *>(QStringLiteral("packageInstall"));
+        QVERIFY(install && !install->isEnabled());
+        dialog->close();
+    }
+
+    void opensIndexStatus()
+    {
+        struct Unavailable : IndexBackend {
+            IndexStatus::Config config() const override
+            {
+                return {};
+            }
+            IndexStatus::Service service() const override
+            {
+                return {};
+            }
+            bool isIndexed(const QString &) const override
+            {
+                return false;
+            }
+            bool hasExtractor(const QString &) const override
+            {
+                return false;
+            }
+            bool suspend(QString *) override
+            {
+                return false;
+            }
+            bool resume(QString *) override
+            {
+                return false;
+            }
+            bool checkUnindexedFiles(QString *) override
+            {
+                return false;
+            }
+            bool openSettings(QString *) override
+            {
+                return false;
+            }
+        };
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        Unavailable backend;
+        MainWindow window;
+        window.setIndexBackend(&backend);
+        window.openUrls({QUrl::fromLocalFile(directory.path())});
+        QAction *action = window.actionCollection()->action(QStringLiteral("index_status"));
+        QVERIFY(action && action->isEnabled());
+        action->trigger();
+        auto *dialog = window.findChild<IndexStatusDialog *>(QStringLiteral("indexStatusDialog"));
+        QVERIFY(dialog);
+        QVERIFY(dialog->findChild<QLabel *>(QStringLiteral("indexWarnings"))->text().contains(QStringLiteral("without Baloo")));
+        dialog->close();
+    }
+
+    void addsFileTypePlacesOnce()
+    {
+        // Every visible file-type place, so that a duplicate entry is counted.
+        const auto placeRows = [](KFilePlacesModel *model) {
+            QList<QPair<QUrl, QModelIndex>> rows;
+            for (int row = 0; row < model->rowCount(); ++row) {
+                const QModelIndex index = model->index(row, 0);
+                if (FileTypePlaces::isPlaceUrl(model->url(index))) {
+                    rows.append({model->url(index), index});
+                }
+            }
+            return rows;
+        };
+        const auto rowFor = [](const QList<QPair<QUrl, QModelIndex>> &rows, FileTypePlaces::Category category) {
+            for (const auto &[url, index] : rows) {
+                if (url == FileTypePlaces::placeUrl(category)) {
+                    return index;
+                }
+            }
+            return QModelIndex();
+        };
+        KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("FileTypePlaces"));
+        state.writeEntry("Added", false);
+        {
+            MainWindow window;
+            auto *model = qobject_cast<KFilePlacesModel *>(window.findChild<KFilePlacesView *>()->model());
+            QVERIFY(model);
+            const auto rows = placeRows(model);
+            QCOMPARE(rows.size(), FileTypePlaces::categories().size());
+            for (const FileTypePlaces::Category category : FileTypePlaces::categories()) {
+                const QModelIndex index = rowFor(rows, category);
+                QVERIFY(index.isValid());
+                QCOMPARE(model->text(index), FileTypePlaces::title(category));
+                QCOMPARE(model->groupType(index), KFilePlacesModel::SearchForType);
+            }
+            model->removePlace(rowFor(rows, FileTypePlaces::Category::Ebooks));
+        }
+        QVERIFY(state.readEntry("Added", false));
+        {
+            // A removed entry stays removed.
+            MainWindow window;
+            auto *model = qobject_cast<KFilePlacesModel *>(window.findChild<KFilePlacesView *>()->model());
+            const auto rows = placeRows(model);
+            QCOMPARE(rows.size(), FileTypePlaces::categories().size() - 1);
+            QVERIFY(!rowFor(rows, FileTypePlaces::Category::Ebooks).isValid());
+        }
+        state.writeEntry("Added", false);
+        {
+            // Adding again restores only the missing entry.
+            MainWindow window;
+            auto *model = qobject_cast<KFilePlacesModel *>(window.findChild<KFilePlacesView *>()->model());
+            QCOMPARE(placeRows(model).size(), FileTypePlaces::categories().size());
+        }
+    }
+
+    void opensFileTypePlaceAsLiveSearchWhenIndexingIsOff()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("books")));
+        for (const QString &name : {QStringLiteral("books/novel.epub"), QStringLiteral("books/report.pdf")}) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        FakeIndexBackend backend;
+        backend.fakeConfig.available = true;
+        MainWindow window;
+        window.setIndexBackend(&backend);
+        const QUrl rootUrl = QUrl::fromLocalFile(root.path());
+        window.openUrls({rootUrl});
+        Pane *pane = window.activePane();
+
+        bool offeredSettings = false;
+        answerMessageBox(QStringLiteral("fileTypePlaceBox"), [&](QMessageBox *box) {
+            offeredSettings = box->findChild<QPushButton *>(QStringLiteral("fileTypeSettings"));
+            QVERIFY(!box->findChild<QPushButton *>(QStringLiteral("fileTypeIndexed")));
+            box->findChild<QPushButton *>(QStringLiteral("fileTypeLive"))->click();
+        });
+        acceptFolderDialog(QStringLiteral("fileTypeFolderDialog"), root.filePath(QStringLiteral("books")));
+        pane->setUrl(FileTypePlaces::placeUrl(FileTypePlaces::Category::Ebooks));
+        QVERIFY(offeredSettings);
+        QCOMPARE(pane->url(), rootUrl);
+
+        auto *search = window.findChild<SearchWidget *>();
+        QVERIFY(search);
+        QCOMPARE(search->folder(), QUrl::fromLocalFile(root.filePath(QStringLiteral("books"))));
+        QTRY_VERIFY(!search->isRunning());
+        auto *results = search->findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        QTRY_COMPARE(results->findItems(QStringLiteral("novel.epub"), Qt::MatchContains | Qt::MatchRecursive).size(), 1);
+        QVERIFY(results->findItems(QStringLiteral("report.pdf"), Qt::MatchContains | Qt::MatchRecursive).isEmpty());
+
+        const int tabCount = pane->tabs()->count();
+        answerMessageBox(QStringLiteral("fileTypePlaceBox"), [](QMessageBox *box) {
+            box->findChild<QPushButton *>(QStringLiteral("fileTypeSettings"))->click();
+        });
+        pane->openInNewTab(FileTypePlaces::placeUrl(FileTypePlaces::Category::Images));
+        QCOMPARE(backend.settingsOpened, 1);
+        QCOMPARE(pane->tabs()->count(), tabCount);
+    }
+
+    void opensFileTypePlaceFromIndex()
+    {
+        if (!KProtocolInfo::isKnownProtocol(QStringLiteral("baloosearch")) || FileTypePlaces::balooUrl(FileTypePlaces::Category::Images).isEmpty()) {
+            QSKIP("Needs Baloo and its baloosearch KIO worker");
+        }
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        FakeIndexBackend backend;
+        backend.fakeConfig.available = true;
+        backend.fakeConfig.enabled = true;
+        backend.fakeService.running = true;
+        backend.fakeService.state = static_cast<int>(IndexStatus::State::Idle);
+        MainWindow window;
+        window.setIndexBackend(&backend);
+        window.openUrls({QUrl::fromLocalFile(root.path())});
+        Pane *pane = window.activePane();
+        const QUrl images = FileTypePlaces::balooUrl(FileTypePlaces::Category::Images);
+        pane->setUrl(FileTypePlaces::placeUrl(FileTypePlaces::Category::Images));
+        QCOMPARE(pane->url(), images);
+
+        // A stopped indexer asks first, then shows the indexed results in a new tab.
+        backend.fakeService.running = false;
+        const int tabCount = pane->tabs()->count();
+        bool warned = false;
+        answerMessageBox(QStringLiteral("fileTypePlaceBox"), [&](QMessageBox *box) {
+            warned = box->informativeText().contains(QStringLiteral("not running"));
+            box->findChild<QPushButton *>(QStringLiteral("fileTypeIndexed"))->click();
+        });
+        pane->openInNewTab(FileTypePlaces::placeUrl(FileTypePlaces::Category::Audio));
+        QVERIFY(warned);
+        QCOMPARE(pane->tabs()->count(), tabCount + 1);
+        QCOMPARE(pane->url(), FileTypePlaces::balooUrl(FileTypePlaces::Category::Audio));
+    }
+
     void opensFilteredFolderComparison()
     {
         QTemporaryDir root;
@@ -449,6 +1044,108 @@ private Q_SLOTS:
         Settings::setWorkspaceSelectorPlacement(Settings::EnumWorkspaceSelectorPlacement::ViewMenuAndStatusBar);
         window.applySettings();
         QVERIFY(selector->isVisible() && statusButton->isVisible());
+    }
+
+    void opensWorkspaceById()
+    {
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup group = config->group(QStringLiteral("Workspaces"));
+        const bool hadCatalog = group.hasKey("Catalog");
+        const QByteArray previousCatalog = group.readEntry("Catalog", QByteArray());
+        group.deleteEntry("Catalog");
+        QVERIFY(group.sync());
+        const auto restore = qScopeGuard([config, hadCatalog, previousCatalog] {
+            config->reparseConfiguration();
+            KConfigGroup saved = config->group(QStringLiteral("Workspaces"));
+            if (hadCatalog) {
+                saved.writeEntry("Catalog", previousCatalog);
+            } else {
+                saved.deleteEntry("Catalog");
+            }
+            saved.sync();
+        });
+
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        QTRY_VERIFY(window.isVisible());
+        window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+        auto *dialog = window.findChild<WorkspaceDialog *>(QStringLiteral("workspaceDialog"));
+        QVERIFY(dialog);
+        dialog->findChild<QLineEdit *>(QStringLiteral("workspaceName"))->setText(QStringLiteral("Runner"));
+        dialog->findChild<QLineEdit *>(QStringLiteral("workspaceShortLabel"))->setText(QStringLiteral("R"));
+        dialog->findChild<QPushButton *>(QStringLiteral("workspaceCreate"))->click();
+        dialog->close();
+        delete dialog;
+        config->reparseConfiguration();
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY2(WorkspaceCatalog::load(config->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        QCOMPARE(catalog.workspaces.size(), 1);
+
+        window.openWorkspace(QStringLiteral("missing"));
+        QCOMPARE(window.statusBar()->currentMessage(), i18nc("@info:status", "The requested workspace no longer exists."));
+
+        bool asked = false;
+        QTimer::singleShot(0, &window, [&asked] {
+            if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+                asked = true;
+                box->button(QMessageBox::Yes)->click();
+            }
+        });
+        window.openWorkspace(catalog.workspaces.first().id);
+        QVERIFY(asked);
+        if (auto *opened = window.findChild<WorkspaceDialog *>(QStringLiteral("workspaceDialog"))) {
+            opened->close();
+            delete opened;
+        }
+        QAction *selector = window.actionCollection()->action(QStringLiteral("workspace_selector"));
+        QVERIFY(selector);
+        QTRY_VERIFY(selector->text().contains(QStringLiteral("Runner")));
+    }
+
+    void appliesTheActiveWorkspaceVaultToEditors()
+    {
+        QTemporaryDir directory;
+        const auto config = KSharedConfig::openConfig();
+        const auto backup = KSharedConfig::openConfig(directory.filePath(QStringLiteral("backup")));
+        KConfigGroup favorites = config->group(QStringLiteral("Favorites"));
+        KConfigGroup workspaces = config->group(QStringLiteral("Workspaces"));
+        KConfigGroup savedFavorites = backup->group(QStringLiteral("Favorites"));
+        KConfigGroup savedWorkspaces = backup->group(QStringLiteral("Workspaces"));
+        favorites.copyTo(&savedFavorites);
+        workspaces.copyTo(&savedWorkspaces);
+        favorites.deleteGroup();
+        workspaces.deleteGroup();
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Notes"), QStringLiteral("N"), error));
+        const QString id = catalog.workspaces.first().id;
+        QVERIFY(WorkspaceCatalog::assignLocation(catalog, WorkspaceCatalog::locationId(m_a), id, error));
+        QVERIFY(WorkspaceCatalog::setVault(catalog, id, WorkspaceCatalog::locationId(m_a), error));
+        QVERIFY(WorkspaceCatalog::activate(catalog, id, error));
+        QVERIFY2(WorkspaceCatalog::save(workspaces, catalog, error), qPrintable(error));
+        QVERIFY(config->sync());
+        const auto restore = qScopeGuard([config, savedFavorites, savedWorkspaces]() mutable {
+            config->reparseConfiguration();
+            auto favorites = config->group(QStringLiteral("Favorites"));
+            auto workspaces = config->group(QStringLiteral("Workspaces"));
+            favorites.deleteGroup();
+            workspaces.deleteGroup();
+            savedFavorites.copyTo(&favorites);
+            savedWorkspaces.copyTo(&workspaces);
+            config->sync();
+        });
+        {
+            MainWindow window;
+            QVERIFY(window.favorites()->add(m_a));
+            QTRY_COMPARE(EditorPanel::workspaceVault(), QDir::cleanPath(m_a.toLocalFile()));
+            QVERIFY(window.favorites()->remove(m_a));
+            QTRY_VERIFY(EditorPanel::workspaceVault().isEmpty());
+            QVERIFY(window.favorites()->add(m_a));
+            QTRY_VERIFY(!EditorPanel::workspaceVault().isEmpty());
+        }
+        QVERIFY(EditorPanel::workspaceVault().isEmpty());
     }
 
     void switchesAndRestoresWorkspaceLocationVisibility()

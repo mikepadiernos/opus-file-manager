@@ -2,12 +2,14 @@
 
 #pragma once
 
+#include "indexstatus.h"
 #include "livesearch.h"
 #include "savedsearches.h"
 #include "searchdefaults.h"
 
 #include <KSharedConfig>
 #include <QFutureWatcher>
+#include <QPointer>
 #include <QUrl>
 #include <QWidget>
 
@@ -24,6 +26,7 @@ class QStringListModel;
 class QTabWidget;
 class QTreeWidget;
 class QTreeWidgetItem;
+class IndexBackend;
 class PathFilterEditor;
 
 /// Search criteria, progress, results and collections, embedded in the search panel.
@@ -84,6 +87,11 @@ public:
     bool runSavedSearch(const QString &name);
     /// Rereads and returns the recent queries, most recent first; empty when history is not retained.
     QStringList history();
+    /**
+     * Replaces the indexer the Baloo scope reports on, for tests.
+     * @param backend stays owned by the caller
+     */
+    void setIndexBackend(IndexBackend *backend);
 
 Q_SIGNALS:
     /// Escape was pressed while no search was running.
@@ -117,6 +125,8 @@ private:
     void setItemPath(QTreeWidgetItem *item, const QString &path) const;
     void recordHistory(const QString &query);
     void showHistory();
+    /// Shows warnings about the index in the Baloo scope; @p reload rereads the settings and the indexer.
+    void refreshIndexNotice(bool reload);
     PathFilter pathFilter() const;
     SavedSearches::Search currentSearch(const QString &name, const QString &id = {}) const;
 
@@ -146,4 +156,16 @@ private:
     SearchDefaults::Defaults m_appliedDefaults;
     PathFilter m_appliedFilter;
     bool m_defaultsPending = false;
+    QPointer<IndexBackend> m_indexBackend;
+    IndexStatus::Config m_indexConfig;
+    IndexStatus::Service m_indexService;
+    QLabel *m_indexNotice = nullptr;
+    QPushButton *m_indexStatus = nullptr;
+    QCheckBox *m_rank = nullptr;
+    /// Repeats the last indexed search live in the current folder or workspace locations.
+    QPushButton *m_liveFallback = nullptr;
+    QString m_lastText;
+    LiveSearch::Field m_lastField = LiveSearch::Field::FileName;
+    bool m_lastIndexed = false;
+    bool m_lastWorkspaceOnly = false;
 };

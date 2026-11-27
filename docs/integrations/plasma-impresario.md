@@ -16,10 +16,13 @@ IMAP mail client formerly named Plasma Mail, and other mail clients.
 · **Plasma Impresario**
 
 > [!NOTE]
-> **Implemented:** no mail-specific feature yet; Plasma Opus drags already
-> provide file URLs. **Planned:** the workflows under
-> [Planned features](#planned-features), mostly in M27.09 Plasma Impresario
-> and mail. They are not commitments by Plasma Impresario. Everything under
+> **Implemented:** **File › Send by Email…**
+> ([#656](https://github.com/mikepadiernos/plasma-opus/issues/656)), under
+> [Compose with selected files](#compose-with-selected-files); Plasma
+> Impresario's composer still opens without the files. Plasma Opus drags
+> already provide file URLs. **Planned:** the other workflows under
+> [Planned features](#planned-features), in M27.09 Plasma Impresario and
+> mail. They are not commitments by Plasma Impresario. Everything under
 > [Considered features](#considered-features), including theme sharing, is
 > outside the roadmap.
 
@@ -64,6 +67,11 @@ action.
 
 ### Compose with selected files
 
+> [!TIP]
+> **Implemented** as **File › Send by Email…**, also in the context menu.
+> Its limits are recorded under
+> [Desktop integration](../CAVEATS.md#desktop-integration).
+
 - Offer an explicit **Send by Email** action for selected files. Use KIO's
   `KEMailClientLauncherJob`, which starts the user's preferred `mailto:`
   handler, and the
@@ -88,6 +96,12 @@ action.
 
 ### Drag and drop into a draft
 
+> [!TIP]
+> **Implemented:** files can be dragged from the **Send by Email** list into
+> any composer, including remote files once their private local copies are
+> ready. Its limits are recorded under
+> [Desktop integration](../CAVEATS.md#desktop-integration).
+
 - Plasma Opus drags already provide file URLs. Plasma Impresario attaches
   dropped local files, so local drags need verification rather than new
   Plasma Opus code.
@@ -96,6 +110,11 @@ action.
   send files, and do not expose credentials embedded in remote URLs.
 
 ### Save received attachments into a pane
+
+> [!TIP]
+> **Implemented:** a dropped Plasma Impresario attachment reference is
+> refused with a status-bar explanation, and dropped file content with a
+> suggested filename is saved through KIO.
 
 - Dropping a Plasma Impresario attachment on a Plasma Opus pane currently
   delivers only its private IMAP reference. KIO's drop handling would offer to
@@ -109,13 +128,19 @@ action.
 
 - Let Plasma Impresario own attachment selection, saving and confirmation.
   After an explicit save, it may ask the file manager to reveal the saved
-  location through `org.freedesktop.FileManager1`, which Plasma Opus plans to
-  provide ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279)).
+  location through `org.freedesktop.FileManager1`, which Plasma Opus provides
+  while it is the default folder handler
+  ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279)).
 - Preserve the selected destination, file identity and conflict handling; show
   errors for unavailable or removed files. Do not access message stores,
   download attachments automatically or infer that a saved file is safe.
 
 ### Preview and open mail files
+
+> [!TIP]
+> **Implemented:** local `.eml` files show their headers, plain-text body and
+> attachments in the preview panel; **Extract All**, **Extract Selected** and
+> **Open** act on the attachments only when asked.
 
 - Preview local `.eml` (`message/rfc822`) files in the preview panel as plain
   text: show headers, the plain-text body or a sanitized text rendering, and
@@ -136,6 +161,12 @@ action.
   Nextcloud workflow.
 
 ### Workspaces and Plasma Activities
+
+> [!TIP]
+> **Implemented:** Plasma Opus follows Activity changes with its own
+> associations and reports visited folders and opened files to the current
+> Activity through Plasma Activities, which Plasma Impresario can read the
+> same way. It uses no private interface and none of Plasma Impresario's data.
 
 - Plasma Impresario plans to associate mail accounts with workspaces and their
   Plasma Activities. Use the Activity as the only shared context: each

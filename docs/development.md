@@ -10,9 +10,9 @@
 ![KDE Frameworks 6.20+](https://img.shields.io/badge/KDE%20Frameworks-6.20%2B-1D99F3?style=flat-square&logo=kde&logoColor=white)
 
 How to build, test and contribute to Plasma Opus: build and test commands, the
-headless dev container, formatting, code conventions and the project workflow
-from issue to merge. To install Plasma Opus for everyday use, see
-[Install](../README.md#install) in the project README.
+headless dev container, optional mise tasks, formatting, code conventions and
+the project workflow from issue to merge. To install Plasma Opus for everyday
+use, see [Install](../README.md#install) in the project README.
 
 > [!NOTE]
 > The [project instructions](../CLAUDE.md) are the authoritative rules; this
@@ -24,6 +24,7 @@ from issue to merge. To install Plasma Opus for everyday use, see
 - [Requirements](#requirements)
 - [Build and test](#build-and-test)
 - [Dev container](#dev-container)
+- [Development tooling](#development-tooling)
 - [Formatting and checks](#formatting-and-checks)
 - [Code conventions](#code-conventions)
 - [Project workflow](#project-workflow)
@@ -39,11 +40,13 @@ Plasma Opus builds on Linux with:
 - Qt 6.8+ with Jalali calendar support;
 - Extra CMake Modules, libarchive and KDE Frameworks 6.20+.
 
-See `CMakeLists.txt` for the required components. Baloo development files
-optionally enable indexed search. Run `./install.sh --deps` to print the build
-and optional feature packages; it does not install them. For runtime
-dependencies such as Konsole and ExifTool, see
-[Optional integrations](../README.md#optional-integrations).
+See `CMakeLists.txt` for the required components and
+[Development tooling](#development-tooling) for the versions used to
+reproduce builds. Baloo development files optionally enable indexed search,
+and libmpv with Qt OpenGL Widgets optionally enables embedded mpv playback.
+Run `./install.sh --deps` to print the build and optional feature packages;
+it does not install them. For runtime dependencies such as Konsole and
+ExifTool, see [Optional integrations](../README.md#optional-integrations).
 
 ## Build and test
 
@@ -86,6 +89,53 @@ and ccache data persists between runs.
 > [!IMPORTANT]
 > The container has no Plasma session. Verify visual, KWin and Plasma
 > integration behaviour on Plasma.
+
+## Development tooling
+
+[mise](https://mise.jdx.dev/) is optional. The root `mise.toml` pins CMake
+and Ninja and wraps the commands above as tasks; the plain CMake workflow
+needs no mise. After installing mise, trust the project's configuration once:
+
+```bash
+mise trust
+mise run test                        # configure, build and run every suite
+mise run test -R fileencryption      # extra arguments go to ctest
+mise run container:test              # the same in the dev container
+```
+
+| Task                                                | Runs                                                             |
+| --------------------------------------------------- | ---------------------------------------------------------------- |
+| `configure`                                         | A Debug build with tests in `build`, once; Ninja reconfigures it |
+| `build`                                             | `cmake --build build`                                            |
+| `test`                                              | `ctest` headlessly with `QT_QPA_PLATFORM=offscreen`              |
+| `format`                                            | The `clang-format` target                                        |
+| `messages`                                          | The `extract-messages` target                                    |
+| `run`                                               | `build/bin/opus-file-manager`, passing folders or URLs           |
+| `container:configure`, `:build`, `:test`, `:format` | The same in the dev container, in `build-container`              |
+| `container:shell`                                   | An interactive shell in the dev container                        |
+
+mise installs only CMake and Ninja. The compiler, Qt, KDE Frameworks, Extra
+CMake Modules, clang-format and the other libraries come from the system or
+the dev container, because they must match the libraries Plasma Opus links
+against. Builds are reproduced and tested with the dev container's Fedora 44
+packages:
+
+| Dependency                             | Required               | Dev container |
+| -------------------------------------- | ---------------------- | ------------- |
+| GCC                                    | Any with C++20 support | 16.2          |
+| CMake                                  | 3.25+                  | 4.3.0         |
+| Ninja                                  | Any                    | 1.13.2        |
+| Qt                                     | 6.8+                   | 6.11.2        |
+| KDE Frameworks and Extra CMake Modules | 6.20+                  | 6.32.0        |
+| libarchive                             | Any                    | 3.8.7         |
+| gettext                                | Any                    | 0.26          |
+| clang-format                           | Any                    | 22.1          |
+
+> [!TIP]
+> clang-format versions can format the same code differently. Use
+> `mise run container:format`, or the container command under
+> [Formatting and checks](#formatting-and-checks), so formatting matches the
+> commits.
 
 ## Formatting and checks
 

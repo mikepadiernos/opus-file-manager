@@ -708,7 +708,8 @@ QList<Term> Query::requiredTerms() const
         return terms;
     }
     const auto add = [&terms](const Node &node) {
-        if (node.kind == Node::Kind::Term && (node.term.field == Field::Name || node.term.field == Field::Content) && node.term.pattern.pattern().isEmpty()) {
+        if (node.kind == Node::Kind::Term && (node.term.field == Field::Name || node.term.field == Field::Content || node.term.field == Field::Metadata)
+            && node.term.pattern.pattern().isEmpty()) {
             terms.append(node.term);
         }
     };
@@ -730,4 +731,14 @@ bool Query::matches(const QFileInfo &entry, const ContentMatcher &content, const
 QString Query::toString() const
 {
     return isValid() ? describe(m_root) : QString();
+}
+
+const Node &Query::root() const
+{
+    return m_root;
+}
+
+QString SearchQuery::toString(const Node &node)
+{
+    return describe(node);
 }

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="49" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="75" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -10,9 +10,14 @@
       <Action name="copy_to_other_pane"/>
       <Action name="move_to_other_pane"/>
       <Action name="compress"/>
+      <Action name="add_to_archive"/>
       <Action name="extract_to_other_pane"/>
       <Action name="extract_protected_archive"/>
       <Action name="test_archive_integrity"/>
+      <Action name="open_in_ark"/>
+      <Action name="mount_disk_image"/>
+      <Action name="unmount_disk_image"/>
+      <Action name="application_package"/>
       <Action name="rename"/>
       <Action name="batch_rename"/>
       <Action name="edit_metadata"/>
@@ -21,9 +26,27 @@
       <Action name="delete"/>
       <Separator/>
       <Action name="open_terminal"/>
+      <Action name="open_terminal_with"/>
+      <Action name="search_terminal_history"/>
       <Action name="custom_command"/>
       <Action name="transfer_queue"/>
       <Action name="open_editor"/>
+      <Action name="edit_file"/>
+      <Action name="edit_with"/>
+      <Action name="open_in_office"/>
+      <Action name="kdeconnect_send"/>
+      <Action name="send_by_email"/>
+      <Action name="share_on_network"/>
+      <Action name="mount_manager"/>
+      <Action name="act_as_admin"/>
+      <Menu name="folder_password">
+        <text>Password Protection</text>
+        <Action name="protect_folder"/>
+        <Action name="unlock_folder"/>
+        <Action name="change_folder_password"/>
+        <Action name="remove_folder_password"/>
+        <Action name="lock_protected_folders"/>
+      </Menu>
       <Action name="compare_files"/>
       <Action name="export_listing"/>
       <Action name="export_listing_csv"/>
@@ -32,13 +55,17 @@
       <Action name="calculate_occupied_space"/>
       <Action name="content_chart"/>
       <Action name="search_folder"/>
+      <Action name="index_status"/>
       <Action name="find_duplicates"/>
       <Action name="compare_pane_folders"/>
       <Action name="compare_folders_filtered"/>
+      <Action name="cloud_sync"/>
+      <Action name="cloud_activity"/>
       <Action name="create_checksum"/>
       <Action name="verify_checksum"/>
       <Action name="split_file"/>
       <Action name="combine_files"/>
+      <Action name="encryption"/>
       <Separator/>
       <Action name="file_quit"/>
     </Menu>
@@ -64,6 +91,9 @@
       <Action name="workspace_selector"/>
       <Action name="restore_workspace_layout"/>
       <Action name="manage_workspaces"/>
+      <Action name="activity_associations"/>
+      <Action name="apply_activity_association"/>
+      <Action name="toggle_drop_down"/>
       <Separator/>
       <Action name="dual_layout"/>
       <Action name="stacked_layout"/>
@@ -125,6 +155,12 @@
       <Action name="go_home"/>
       <Action name="jump_back"/>
       <Action name="popular_folders"/>
+      <Action name="mount_points"/>
+      <Action name="remote_connections"/>
+      <Action name="cloud_storage"/>
+      <Action name="online_accounts"/>
+      <Action name="plasma_vaults"/>
+      <Action name="network_locations"/>
       <Separator/>
       <Action name="edit_location"/>
       <Action name="add_to_favorites"/>
@@ -161,6 +197,7 @@
     <Menu name="settings">
       <text>&amp;Settings</text>
       <Action name="options_configure"/>
+      <Action name="kwin_integration"/>
       <Action name="customize_main_toolbar"/>
     </Menu>
   </MenuBar>
@@ -179,6 +216,7 @@
     <Action name="compact_view"/>
     <Action name="open_editor"/>
     <Action name="show_preview_panel"/>
+    <Action name="mount_points"/>
     <Spacer/>
     <Action name="search_folder"/>
     <Action name="show_filter_bar"/>

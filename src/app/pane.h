@@ -15,6 +15,7 @@
 class FilterBar;
 class FolderView;
 class KFilePlacesModel;
+class KMessageWidget;
 class KUrlNavigator;
 class TabColors;
 class TabModel;
@@ -239,6 +240,12 @@ public:
 public Q_SLOTS:
     void setUrl(const QUrl &url);
     void revealUrl(const QUrl &url);
+    /**
+     * Shows a folder in the current tab and selects the given local items in
+     * it, which must all be in that folder. Missing items are skipped and
+     * reported; nothing is selected if none remain.
+     */
+    void revealUrls(const QUrl &folder, const QList<QUrl> &items);
     void openInNewTab(const QUrl &url, bool activate = false);
     void newTab();
     void closeCurrentTab();
@@ -272,6 +279,13 @@ Q_SIGNALS:
      * @param contents true to search file contents, false to search file names
      */
     void yaziSearchRequested(bool contents);
+    /**
+     * A file-type place from Places, such as Documents under Search For, was
+     * opened in the pane. The pane stays where it was; the window decides how
+     * to search.
+     * @param newTab true when the place was opened in a new tab
+     */
+    void fileTypePlaceRequested(const QUrl &url, bool newTab);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -298,11 +312,13 @@ private:
     void rebuildTabs(const PaneSession &state);
     void saveHistoryViewState();
     void restoreHistoryViewState();
+    void startReveal(const QUrl &folder, const QList<QUrl> &items);
     void finishReveal();
     /// Opens @p folder and selects @p item once it is listed.
     void showFolderItem(const QUrl &folder, const QUrl &item);
     void syncTabBar();
     void updateBreadcrumbs(const QUrl &url);
+    void updateGateBar(const QUrl &url);
     void updateTabStripVisibility();
     void updateNavigationLayout();
     void configureToolbar();
@@ -325,6 +341,9 @@ private:
     QList<QPair<QAction *, bool>> m_defaultToolbarActions;
     QString m_toolbarConfigId;
     QWidget *m_navigationBar = nullptr;
+    /// Warns while the current tab lists an admin: folder.
+    KMessageWidget *m_adminBar = nullptr;
+    KMessageWidget *m_gateBar = nullptr;
     QBoxLayout *m_navigationLayout = nullptr;
     QWidget *m_statusBarWidget = nullptr;
     KUrlNavigator *m_navigator = nullptr;
@@ -372,7 +391,7 @@ private:
     int m_lastTabCount = -1;
     NavigationHistory::ViewState m_pendingViewState;
     QUrl m_revealFolder;
-    QUrl m_revealItem;
+    QList<QUrl> m_revealItems;
     int m_revealTab = -1;
     quint64 m_viewStateGeneration = 0;
     bool m_historyExpansionStarted = false;

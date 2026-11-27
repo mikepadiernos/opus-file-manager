@@ -22,7 +22,7 @@ How Plasma Opus works today and how to set it up.
 
 | Guide                                | What it covers                                                  | Milestones                                                                                      |
 | ------------------------------------ | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [Project README](../README.md)       | Features, installation, customization and safety                | [M01–M26](ROADMAP.md#at-a-glance)                                                               |
+| [Project README](../README.md)       | Features, installation, customization and safety                | [M01–M27](ROADMAP.md#at-a-glance)                                                               |
 | [Native tagging](tagging.md)         | Library format, tags, fields, search, backups and settings      | [M23](ROADMAP.md#m23-native-tagging)–[M24](ROADMAP.md#m24-tagging-settings)                     |
 | [Yazi mode](yazi-mode.md)            | Per-pane column browsing, keys, what it keeps, persistence      | [M25](ROADMAP.md#m25-yazi-mode)–[M26](ROADMAP.md#m26-yazi-mode-settings)                        |
 | [Translations](../po/README.md)      | Language settings, catalogue extraction, installation, fallback | [M13](ROADMAP.md#m13-translations)–[M14](ROADMAP.md#m14-translation-settings)                   |
@@ -91,8 +91,9 @@ flowchart TD
 These plans extend [M27](ROADMAP.md#m27-integrations),
 [M28](ROADMAP.md#m28-integration-settings) and the Nextcloud milestones
 [M29](ROADMAP.md#m29-nextcloud-integration) and
-[M30](ROADMAP.md#m30-nextcloud-settings). Apart from the KDE foundations already
-in use, they are not implemented.
+[M30](ROADMAP.md#m30-nextcloud-settings). Each plan marks what is already
+implemented, such as the KDE foundations and the M27 integrations; the rest is
+not implemented yet.
 
 | Plan                                                   | What it covers                                  |
 | ------------------------------------------------------ | ----------------------------------------------- |
@@ -115,7 +116,7 @@ adapts the reference to KDE; use the roadmap for implementation status.
 
 | Document                                       | What it covers                                                                  |
 | ---------------------------------------------- | ------------------------------------------------------------------------------- |
-| [Development guide](development.md)            | Building, testing, dev container, conventions and project workflow              |
+| [Development guide](development.md)            | Building, testing, dev container, mise tasks, conventions and workflow          |
 | [Project instructions](../CLAUDE.md)           | Authoritative conventions, project workflow, branches and issue handling        |
 | [Release notes template](releases/TEMPLATE.md) | Starting point for GitHub release notes                                         |
 | [Rust prototype](rust-prototype.md)            | M21 query-parser pilot, M23 tagging evaluation and criteria for later Rust work |

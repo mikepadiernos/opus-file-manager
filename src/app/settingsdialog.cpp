@@ -10,10 +10,13 @@
 #include "doubleshift.h"
 #include "embeddedmetadatasettings.h"
 #include "folderpreview.h"
+#include "indexbackend.h"
+#include "interfacelanguage.h"
 #include "libraryarchive.h"
 #include "libraryconfirmations.h"
 #include "libraryregistry.h"
 #include "localizednumbers.h"
+#include "mediabackend.h"
 #include "pane.h"
 #include "pathfilterpresetsdialog.h"
 #include "searchhistory.h"
@@ -35,9 +38,12 @@
 #include <KColorButton>
 #include <KConfigGroup>
 #include <KEditListWidget>
+#include <KLanguageName>
 #include <KLocalizedString>
 #include <KMessageBox>
 #include <KMessageWidget>
+#include <KNSCore/Entry>
+#include <KNSWidgets/Button>
 #include <KPageWidget>
 #include <KPluginMetaData>
 #include <KSharedConfig>
@@ -74,6 +80,7 @@
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSpinBox>
+#include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTimer>
@@ -214,6 +221,39 @@ protected:
         }
     }
 };
+
+QString languageName(const QString &code)
+{
+    const QString name = KLanguageName::nameForCode(code);
+    return name.isEmpty() ? code : name;
+}
+
+/// Describes which language Plasma Opus shows for an interface language
+/// override, or for Plasma's languages when the override is empty.
+QString interfaceLanguageStatus(const QString &override)
+{
+    QSet<QString> available = KLocalizedString::availableDomainTranslations(QByteArrayLiteral("opus-file-manager"));
+    if (!override.isEmpty()) {
+        if (InterfaceLanguage::effectiveLanguage({override}, available).isEmpty()) {
+            return i18nc("@info", "No Plasma Opus translation is installed for %1, so the original English text is shown.", languageName(override));
+        }
+        return i18nc("@info", "Plasma Opus uses %1, regardless of Plasma's language settings.", languageName(override));
+    }
+    QStringList followed = InterfaceLanguage::followedLanguages(qEnvironmentVariable("LANGUAGE"), InterfaceLanguage::plasmaLanguages());
+    if (followed.isEmpty()) {
+        followed.append(QLocale::system().name());
+    }
+    QStringList names;
+    for (const QString &code : std::as_const(followed)) {
+        names.append(languageName(code));
+    }
+    const QString list = QLocale().createSeparatedList(names);
+    const QString effective = InterfaceLanguage::effectiveLanguage(followed, available);
+    if (effective.isEmpty()) {
+        return i18nc("@info", "Following Plasma's languages: %1. None has a Plasma Opus translation, so the original English text is shown.", list);
+    }
+    return i18nc("@info", "Following Plasma's languages: %1. Plasma Opus is shown in %2.", list, languageName(effective));
+}
 }
 
 SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
@@ -247,7 +287,11 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                                KStandardGuiItem::cancel())
             == KMessageBox::PrimaryAction;
     };
-    addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
+    addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")},
+                   {createSystemTrayPage(), i18nc("@title:tab", "System Tray")},
+                   {createPlasmaSearchPage(), i18nc("@title:tab", "Plasma Search")}},
+                  i18nc("@title:group", "General"),
+                  QStringLiteral("configure"));
     addTabbedPage({{createLanguagePage(), i18nc("@title:tab", "Language and Layout")}, {createDateLanguagePage(), i18nc("@title:tab", "Dates")}},
                   i18nc("@title:group", "Translation"),
                   QStringLiteral("preferences-desktop-locale"));
@@ -326,7 +370,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                      {createWorkspaceIndicatorsPage(), i18nc("@title:tab", "Indicators")},
                                      {createWorkspaceLocationBarsPage(), i18nc("@title:tab", "Location Bars")},
                                      {createWorkspaceBehaviorsPage(), i18nc("@title:tab", "Behaviors")},
-                                     {createWorkspacePortabilityPage(), i18nc("@title:tab", "Portability")}},
+                                     {createWorkspacePortabilityPage(), i18nc("@title:tab", "Portability")},
+                                     {createWorkspaceActivitiesPage(), i18nc("@title:tab", "Activities")}},
                                     i18nc("@title:group", "Workspaces"),
                                     QStringLiteral("view-grid"),
                                     &m_workspaceTabs);
@@ -459,12 +504,102 @@ QWidget *SettingsDialog::createSettingsDialogPage()
     return page;
 }
 
+QWidget *SettingsDialog::createSystemTrayPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("systemTrayPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *show = checkBox(QStringLiteral("ShowTrayIcon"), i18nc("@option:check", "Show an icon in the system tray"));
+    auto *minimize = checkBox(QStringLiteral("MinimizeToTray"), i18nc("@option:check", "Hide the window in the system tray when it is minimized"));
+    auto *close = checkBox(QStringLiteral("CloseToTray"), i18nc("@option:check", "Hide the window in the system tray when it is closed"));
+    layout->addWidget(show);
+    layout->addWidget(minimize);
+    layout->addWidget(close);
+    auto *note = new QLabel(i18nc("@info",
+                                  "The window hides only while a system tray can show the icon that brings it back. File › Quit and the "
+                                  "tray icon's Quit still quit. Change the global shortcut that shows or hides the window in Configure Keyboard "
+                                  "Shortcuts or Plasma's Shortcuts settings."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
+    const auto update = [show, minimize, close] {
+        minimize->setEnabled(show->isChecked());
+        close->setEnabled(show->isChecked());
+    };
+    connect(show, &QCheckBox::toggled, page, update);
+    update();
+    return page;
+}
+
+QWidget *SettingsDialog::createPlasmaSearchPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("plasmaSearchPage"));
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(checkBox(QStringLiteral("RunnerWorkspaces"), i18nc("@option:check", "Offer saved workspaces in KRunner and Plasma Search")));
+    layout->addWidget(checkBox(QStringLiteral("RunnerFavorites"), i18nc("@option:check", "Offer Favorites in KRunner and Plasma Search")));
+    auto *note = new QLabel(i18nc("@info",
+                                  "Only saved workspaces and Favorites are offered, never history, searches or recent folders. Choosing a "
+                                  "workspace asks before switching, as any workspace switch does. Turn the Plasma Opus search plugin off "
+                                  "entirely in System Settings › Search › Plasma Search."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceActivitiesPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("workspaceActivitiesPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *enabled = checkBox(QStringLiteral("ActivityAssociations"), i18nc("@option:check", "Associate workspaces and default folders with Plasma Activities"));
+    auto *offer = checkBox(QStringLiteral("OfferActivityAssociation"),
+                           i18nc("@option:check", "Offer to apply an Activity's association when the current Activity changes"));
+    layout->addWidget(enabled);
+    layout->addWidget(offer);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Choose each Activity's workspace, behaviors and default folders in View › Activity Associations. "
+                                  "Associations are only offered, never applied without asking, and Plasma Opus never creates, removes "
+                                  "or switches Activities."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    auto *report = checkBox(QStringLiteral("ReportActivityUsage"), i18nc("@option:check", "Report visited folders and opened files to Plasma Activities"));
+    layout->addWidget(report);
+    auto *reportNote = new QLabel(i18nc("@info",
+                                        "Plasma lists them in the current Activity's recent files and locations, where other applications, "
+                                        "such as Plasma Impresario, can offer them too. Temporary files, encrypted vaults, searches and "
+                                        "administrator locations are never reported. Choose what Plasma remembers, or clear it, in System "
+                                        "Settings › Recent Files."),
+                                  page);
+    reportNote->setWordWrap(true);
+    layout->addWidget(reportNote);
+    layout->addStretch();
+    connect(enabled, &QCheckBox::toggled, offer, &QWidget::setEnabled);
+    offer->setEnabled(enabled->isChecked());
+    return page;
+}
+
 QWidget *SettingsDialog::createLanguagePage()
 {
     auto *page = new QWidget;
     auto *layout = new QVBoxLayout(page);
     auto *form = new QFormLayout;
-    form->addRow(i18nc("@label:listbox", "Interface language:"), bound(new InterfaceLanguageCombo, QStringLiteral("InterfaceLanguage"), "language"));
+    auto *languageCombo = bound(new InterfaceLanguageCombo, QStringLiteral("InterfaceLanguage"), "language");
+    form->addRow(i18nc("@label:listbox", "Interface language:"), languageCombo);
+    auto *languageStatus = new QLabel(page);
+    languageStatus->setObjectName(QStringLiteral("interfaceLanguageStatus"));
+    languageStatus->setWordWrap(true);
+    languageStatus->setTextFormat(Qt::PlainText);
+    form->addRow(QString(), languageStatus);
+    const auto updateLanguageStatus = [languageCombo, languageStatus] {
+        languageStatus->setText(interfaceLanguageStatus(languageCombo->language()));
+    };
+    connect(languageCombo, &InterfaceLanguageCombo::languageChanged, page, updateLanguageStatus);
+    updateLanguageStatus();
     form->addRow(i18nc("@label:listbox", "Regional formats:"), bound(new RegionalLocaleCombo, QStringLiteral("RegionalLocale"), "localeName"));
     form->addRow(i18nc("@label:listbox", "Layout direction:"),
                  comboBox(QStringLiteral("TranslationDirection"),
@@ -492,6 +627,29 @@ QWidget *SettingsDialog::createLanguagePage()
                               page);
     notice->setWordWrap(true);
     layout->addWidget(notice);
+    auto *plasmaSettings = new QPushButton(i18nc("@action:button", "Open Plasma Language Settings"), page);
+    plasmaSettings->setObjectName(QStringLiteral("openPlasmaLanguageSettings"));
+    plasmaSettings->setToolTip(i18nc("@info:tooltip", "Plasma's Region & Language settings apply to all applications"));
+    layout->addWidget(plasmaSettings, 0, Qt::AlignLeading);
+    auto *plasmaStatus = new QLabel(page);
+    plasmaStatus->setObjectName(QStringLiteral("plasmaLanguageSettingsStatus"));
+    plasmaStatus->setWordWrap(true);
+    plasmaStatus->setTextFormat(Qt::PlainText);
+    layout->addWidget(plasmaStatus);
+    connect(plasmaSettings, &QPushButton::clicked, page, [plasmaStatus] {
+        const auto plugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), QStringLiteral("kcm_regionandlang"));
+        if (!plugin.isValid()) {
+            plasmaStatus->setText(i18nc("@info", "Plasma's Region & Language settings are not installed."));
+            return;
+        }
+        const QString launcher = QStandardPaths::findExecutable(QStringLiteral("kcmshell6"));
+        if (launcher.isEmpty() || !QProcess::startDetached(launcher, {QStringLiteral("kcm_regionandlang")})) {
+            plasmaStatus->setText(i18nc("@info", "Could not launch Plasma's Region & Language settings."));
+            return;
+        }
+        plasmaStatus->setText(
+            i18nc("@info", "Requested Plasma's Region & Language settings. Changes there affect all applications and apply after you log in again."));
+    });
     layout->addStretch();
     return page;
 }
@@ -1160,6 +1318,8 @@ QWidget *SettingsDialog::createTerminalPage()
                           {i18nc("@item:inlistbox", "Automatic (right for stacked panes)"),
                            i18nc("@item:inlistbox", "Below both panes"),
                            i18nc("@item:inlistbox", "Right of both panes")}));
+    form->addRow(i18nc("@label:listbox", "Terminal component:"),
+                 comboBox(QStringLiteral("EmbeddedTerminal"), {i18nc("@item:inlistbox", "Konsole"), i18nc("@item:inlistbox", "Kwi")}));
     form->addRow(checkBox(QStringLiteral("TerminalFollowActiveFolder"), i18nc("@option:check", "Follow the active pane's local folder")));
     auto *notice = new QLabel(i18nc("@info",
                                     "Following switches to a terminal session in each folder, creating one when needed. "
@@ -1297,7 +1457,7 @@ QWidget *SettingsDialog::createSearchPage()
     manageSearches->setObjectName(QStringLiteral("manageSavedSearches"));
     layout->addWidget(manageSearches);
     connect(manageSearches, &QPushButton::clicked, this, [this] {
-        SearchStoreDialog dialog(this);
+        SearchStoreDialog dialog(this, {}, m_places);
         dialog.exec();
     });
     auto *description =
@@ -1315,18 +1475,9 @@ QWidget *SettingsDialog::createSearchPage()
     layout->addWidget(status);
     layout->addStretch();
     connect(open, &QPushButton::clicked, page, [status] {
-        const auto plugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), QStringLiteral("kcm_baloofile"));
-        const auto widgetPlugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings_qwidgets"), QStringLiteral("kcm_baloofile"));
-        if (!plugin.isValid() && !widgetPlugin.isValid()) {
-            status->setText(i18nc("@info", "KDE File Search settings are not installed."));
-            return;
-        }
-        const QString launcher = QStandardPaths::findExecutable(QStringLiteral("kcmshell6"));
-        if (launcher.isEmpty() || !QProcess::startDetached(launcher, {QStringLiteral("kcm_baloofile")})) {
-            status->setText(i18nc("@info", "Could not launch KDE File Search settings."));
-            return;
-        }
-        status->setText(i18nc("@info", "Requested KDE File Search settings. Changes affect the shared Baloo index."));
+        QString error;
+        status->setText(
+            SystemIndexBackend::launchSettings(&error) ? i18nc("@info", "Requested KDE File Search settings. Changes affect the shared Baloo index.") : error);
     });
     return page;
 }
@@ -3099,6 +3250,18 @@ QWidget *SettingsDialog::createPreviewsPage()
     form->addRow(QString(), checkBox(QStringLiteral("ShowPreviews"), i18nc("@option:check", "Show previews in new windows")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowRemotePreviews"), i18nc("@option:check", "Show previews in remote folders")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewMediaAutoplay"), i18nc("@option:check", "Automatically play audio and video previews")));
+    auto *mediaBackend = comboBox(QStringLiteral("MediaBackend"),
+                                  {i18nc("@item:inlistbox playback backend", "Qt Multimedia"), i18nc("@item:inlistbox playback backend", "mpv")});
+    if (!MediaBackend::mpvBuilt()) {
+        if (auto *model = qobject_cast<QStandardItemModel *>(mediaBackend->model())) {
+            model->item(Settings::EnumMediaBackend::Mpv)->setEnabled(false);
+            model->item(Settings::EnumMediaBackend::Mpv)->setToolTip(i18nc("@info:tooltip", "This build of Plasma Opus has no mpv support"));
+        }
+    }
+    mediaBackend->setToolTip(
+        i18nc("@info:tooltip",
+              "Plays audio and video in the preview panel and gallery. When OpenGL is unavailable, Qt Multimedia plays video instead of mpv."));
+    form->addRow(i18nc("@label:listbox", "Audio and video playback:"), mediaBackend);
     form->addRow(QString(), checkBox(QStringLiteral("PreviewFormatted"), i18nc("@option:check", "Show formatted HTML and Markdown by default")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewLineNumbers"), i18nc("@option:check", "Show line numbers in text previews")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewSyntaxHighlighting"), i18nc("@option:check", "Highlight syntax in text previews")));
@@ -3224,7 +3387,8 @@ QWidget *SettingsDialog::createArchivesPage()
                            i18nc("@item:inlistbox", "Uncompressed ZIP"),
                            i18nc("@item:inlistbox", "tar.gz"),
                            i18nc("@item:inlistbox", "tar.xz"),
-                           i18nc("@item:inlistbox", "tar.zst")}));
+                           i18nc("@item:inlistbox", "tar.zst"),
+                           i18nc("@item:inlistbox", "7z")}));
     form->addRow({}, checkBox(QStringLiteral("ArchiveOtherPaneByDefault"), i18nc("@option:check", "Create archives in the other pane by default")));
     return page;
 }
@@ -3924,41 +4088,145 @@ QWidget *SettingsDialog::createServiceMenusPage()
 {
     auto *list = new QWidget;
     auto *column = new QVBoxLayout(list);
-    const QList<ServiceMenuEntry> entries = ServiceMenus::installed();
-    auto *localActions = new HiddenItemsList;
-    for (const ServiceMenuEntry &entry : entries) {
-        localActions->addItem(entry.key, entry.submenu.isEmpty() ? entry.text : i18nc("@item:inlistbox", "%1: %2", entry.submenu, entry.text));
+    auto *note = new QLabel(i18nc("@info",
+                                  "Downloaded service menus can run commands on the selected files. They are shared with Dolphin and other KDE "
+                                  "applications, which may show them too. Only install service menus from authors you trust."));
+    note->setWordWrap(true);
+    column->addWidget(note);
+    auto *downloadRow = new QHBoxLayout;
+    auto *download = new KNSWidgets::Button(i18nc("@action:button", "Download New Services…"), QLatin1String(ServiceMenus::DownloadConfig), list);
+    download->setObjectName(QStringLiteral("serviceMenuDownload"));
+    downloadRow->addWidget(download);
+    downloadRow->addStretch();
+    column->addLayout(downloadRow);
+    m_serviceMenuStatus = new QLabel;
+    m_serviceMenuStatus->setObjectName(QStringLiteral("serviceMenuStatus"));
+    m_serviceMenuStatus->setWordWrap(true);
+    column->addWidget(m_serviceMenuStatus);
+    if (ServiceMenus::downloadConfigPath().isEmpty()) {
+        download->setEnabled(false);
+        m_serviceMenuStatus->setText(i18nc("@info",
+                                           "Downloading needs Dolphin's service menu provider, which is not installed. Install Dolphin to "
+                                           "browse, install, update and remove service menus here."));
+    } else {
+        m_serviceMenuStatus->hide();
     }
+    connect(download, &KNSWidgets::Button::dialogFinished, this, [this](const QList<KNSCore::Entry> &changed) {
+        reportServiceMenuChanges(changed);
+        refreshServiceMenus();
+        updateButtons();
+    });
+
+    m_serviceMenuList = new HiddenItemsList;
     auto *form = new QFormLayout;
-    form->addRow(i18nc("@label", "Show in Plasma Opus:"), bound(localActions, QStringLiteral("HiddenServiceActions"), "hiddenItems"));
+    form->addRow(i18nc("@label", "Show in Plasma Opus:"), bound(m_serviceMenuList, QStringLiteral("HiddenServiceActions"), "hiddenItems"));
     column->addLayout(form);
-    for (const ServiceMenuEntry &entry : entries) {
-        const QString key = entry.key;
-        const bool shownByDefault = entry.shownByDefault;
-        const QString text = entry.submenu.isEmpty() ? entry.text : i18nc("@option:check submenu: action", "%1: %2", entry.submenu, entry.text);
-        QCheckBox *check = addSharedToggle(
-            QStringLiteral("serviceMenu_") + key,
-            text,
-            [key, shownByDefault] {
-                return KConfig(QLatin1String(ServiceMenus::ConfigFile), KConfig::NoGlobals)
-                    .group(QLatin1String(ServiceMenus::ShowGroup))
-                    .readEntry(key, shownByDefault);
-            },
-            [key](bool shown) {
-                KConfig config(QLatin1String(ServiceMenus::ConfigFile), KConfig::NoGlobals);
-                config.group(QLatin1String(ServiceMenus::ShowGroup)).writeEntry(key, shown);
-                config.sync();
-            },
-            shownByDefault);
-        check->setIcon(QIcon::fromTheme(entry.iconName));
-        column->addWidget(check);
-    }
+    m_serviceMenuToggles = new QVBoxLayout;
+    column->addLayout(m_serviceMenuToggles);
     column->addStretch();
+    refreshServiceMenus();
 
     auto *scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
     scroll->setWidget(list);
     return scroll;
+}
+
+void SettingsDialog::refreshServiceMenus()
+{
+    const QList<ServiceMenuEntry> entries = ServiceMenus::installed();
+    QList<std::pair<QString, QString>> items;
+    for (const ServiceMenuEntry &entry : entries) {
+        items.append({entry.key, entry.submenu.isEmpty() ? entry.text : i18nc("@item:inlistbox", "%1: %2", entry.submenu, entry.text)});
+    }
+    m_serviceMenuList->setItems(items);
+
+    // Keep the checkboxes of service menus that are still installed, so
+    // their unsaved changes survive, and drop those of removed ones.
+    const QString prefix = QStringLiteral("serviceMenu_");
+    QHash<QString, QCheckBox *> existing;
+    for (auto it = m_sharedToggles.begin(); it != m_sharedToggles.end();) {
+        const QString name = it->check->objectName();
+        if (!name.startsWith(prefix)) {
+            ++it;
+            continue;
+        }
+        m_serviceMenuToggles->removeWidget(it->check);
+        const QString key = name.mid(prefix.size());
+        if (std::any_of(entries.cbegin(), entries.cend(), [&key](const ServiceMenuEntry &entry) {
+                return entry.key == key;
+            })) {
+            existing.insert(key, it->check);
+            ++it;
+        } else {
+            it->check->deleteLater();
+            it = m_sharedToggles.erase(it);
+        }
+    }
+    for (const ServiceMenuEntry &entry : entries) {
+        const QString key = entry.key;
+        QCheckBox *check = existing.value(key);
+        if (!check) {
+            const bool shownByDefault = entry.shownByDefault;
+            const QString text = entry.submenu.isEmpty() ? entry.text : i18nc("@option:check submenu: action", "%1: %2", entry.submenu, entry.text);
+            const auto read = [key, shownByDefault] {
+                return KConfig(QLatin1String(ServiceMenus::ConfigFile), KConfig::NoGlobals)
+                    .group(QLatin1String(ServiceMenus::ShowGroup))
+                    .readEntry(key, shownByDefault);
+            };
+            check = addSharedToggle(
+                prefix + key,
+                text,
+                read,
+                [key](bool shown) {
+                    KConfig config(QLatin1String(ServiceMenus::ConfigFile), KConfig::NoGlobals);
+                    config.group(QLatin1String(ServiceMenus::ShowGroup)).writeEntry(key, shown);
+                    config.sync();
+                },
+                shownByDefault);
+            check->setIcon(QIcon::fromTheme(entry.iconName));
+            const QSignalBlocker blocker(check);
+            check->setChecked(read());
+        }
+        m_serviceMenuToggles->addWidget(check);
+    }
+}
+
+void SettingsDialog::reportServiceMenuChanges(const QList<KNSCore::Entry> &changed)
+{
+    int installed = 0;
+    int removed = 0;
+    QStringList failed;
+    for (const KNSCore::Entry &entry : changed) {
+        switch (entry.status()) {
+        case KNSCore::Entry::Installed:
+            ++installed;
+            break;
+        case KNSCore::Entry::Deleted:
+            ++removed;
+            break;
+        // A failed installation or update leaves the entry as it was offered.
+        case KNSCore::Entry::Downloadable:
+        case KNSCore::Entry::Invalid:
+            failed.append(entry.name());
+            break;
+        default:
+            break;
+        }
+    }
+    QStringList parts;
+    if (installed > 0) {
+        parts.append(i18ncp("@info", "Installed or updated %1 service menu.", "Installed or updated %1 service menus.", installed));
+    }
+    if (removed > 0) {
+        parts.append(i18ncp("@info", "Removed %1 service menu.", "Removed %1 service menus.", removed));
+    }
+    if (!failed.isEmpty()) {
+        parts.append(
+            i18nc("@info", "These could not be installed: %1. The download window shows the reason.", failed.join(i18nc("@info list separator", ", "))));
+    }
+    m_serviceMenuStatus->setText(parts.join(QLatin1Char(' ')));
+    m_serviceMenuStatus->setVisible(!parts.isEmpty());
 }
 
 QWidget *SettingsDialog::createConfirmationsPage()

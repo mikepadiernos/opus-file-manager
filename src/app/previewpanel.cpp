@@ -5,10 +5,15 @@
 
 #include "folderpreview.h"
 
+#include "documentformats.h"
+#include "editorpanel.h"
+#include "fontpreview.h"
 #include "imagebackground.h"
 #include "imagedetails.h"
 #include "localizeddates.h"
 #include "localizednumbers.h"
+#include "mailmessage.h"
+#include "mailpreview.h"
 #include "mediaview.h"
 #include "settings.h"
 #include "symbolicicon.h"
@@ -22,6 +27,8 @@
 #include <KSyntaxHighlighting/Repository>
 #include <KSyntaxHighlighting/SyntaxHighlighter>
 #include <KSyntaxHighlighting/Theme>
+#include <KTextEditor/Document>
+#include <KTextEditor/View>
 
 #include <QActionGroup>
 #include <QDir>
@@ -46,11 +53,14 @@
 #include <QTemporaryFile>
 #include <QTextBlock>
 #include <QTextBrowser>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
 
 #include <algorithm>
+#include <limits>
+#include <optional>
 #include <utility>
 
 namespace
@@ -58,6 +68,10 @@ namespace
 constexpr qint64 ImageLimit = 8 * 1024 * 1024;
 constexpr qint64 RemoteFileLimit = 128 * 1024 * 1024;
 constexpr qsizetype HighlightLineLimit = 16384;
+// Larger files are slow to load into the embedded editor; the editor panel
+// remains available for them.
+constexpr qint64 EditLimit = 10 * 1024 * 1024;
+constexpr qint64 BinaryProbeSize = 8192;
 
 class ImagePreviewLabel : public QLabel
 {
@@ -78,10 +92,12 @@ protected:
 
 bool isDocumentMime(const QString &mimeType)
 {
-    return mimeType == QLatin1String("application/pdf") || mimeType == QLatin1String("application/msword")
-        || mimeType == QLatin1String("application/vnd.ms-excel") || mimeType == QLatin1String("application/vnd.ms-powerpoint")
-        || mimeType.startsWith(QLatin1String("application/vnd.openxmlformats-officedocument."))
-        || mimeType.startsWith(QLatin1String("application/vnd.oasis.opendocument."));
+    return DocumentFormats::usesDocumentViewer(mimeType);
+}
+
+bool isMailMime(const QString &mimeType)
+{
+    return QMimeDatabase().mimeTypeForName(mimeType).inherits(QStringLiteral("message/rfc822"));
 }
 
 bool isTextMime(const QString &mimeType)
@@ -371,13 +387,56 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     });
     connect(m_gallery, &QToolButton::clicked, this, &PreviewPanel::galleryRequested);
     connect(m_open, &QToolButton::clicked, this, &PreviewPanel::openRequested);
+    m_edit = new QToolButton(this);
+    m_edit->setObjectName(QStringLiteral("previewEdit"));
+    m_edit->setText(i18nc("@action", "Edit"));
+    m_edit->setToolTip(i18nc("@info:tooltip", "Edit the whole file here"));
+    m_edit->hide();
+    connect(m_edit, &QToolButton::clicked, this, &PreviewPanel::startEditing);
+    m_editMove = new QToolButton(this);
+    m_editMove->setObjectName(QStringLiteral("previewEditMove"));
+    m_editMove->setText(i18nc("@action", "Move to Editor"));
+    m_editMove->setToolTip(i18nc("@info:tooltip", "Continue editing in the editor panel, keeping unsaved changes"));
+    m_editMove->hide();
+    connect(m_editMove, &QToolButton::clicked, this, [this] {
+        if (m_editing && m_editor->syncVisual()) {
+            Q_EMIT editorRequested(m_editor->document()->url(), m_editor->document()->text(), m_editor->document()->isModified());
+        }
+    });
+    m_editClose = new QToolButton(this);
+    m_editClose->setObjectName(QStringLiteral("previewEditClose"));
+    m_editClose->setText(i18nc("@action", "Close Editor"));
+    m_editClose->setToolTip(i18nc("@info:tooltip", "Return to the preview, asking to save unsaved changes"));
+    m_editClose->hide();
+    connect(m_editClose, &QToolButton::clicked, this, &PreviewPanel::queryClose);
     m_header->addWidget(m_previous);
     m_header->addWidget(m_next);
     m_header->addWidget(m_gallery);
     m_header->addWidget(m_renderMode);
+    m_header->addWidget(m_edit);
+    m_header->addWidget(m_editMove);
+    m_header->addWidget(m_editClose);
     m_header->addWidget(m_autoplay);
     m_header->addWidget(m_placement);
     m_header->addWidget(m_close);
+
+    m_editNotice = new QWidget(this);
+    m_editNotice->setObjectName(QStringLiteral("previewEditNotice"));
+    auto *noticeLayout = new QHBoxLayout(m_editNotice);
+    noticeLayout->setContentsMargins(0, 0, 0, 0);
+    m_editNoticeText = new QLabel(m_editNotice);
+    m_editNoticeText->setObjectName(QStringLiteral("previewEditNoticeText"));
+    m_editNoticeText->setTextFormat(Qt::PlainText);
+    m_editNoticeText->setWordWrap(true);
+    m_editNoticeText->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    m_editShowSelection = new QToolButton(m_editNotice);
+    m_editShowSelection->setObjectName(QStringLiteral("previewEditShowSelection"));
+    m_editShowSelection->setText(i18nc("@action", "Preview Selection…"));
+    m_editShowSelection->setToolTip(i18nc("@info:tooltip", "Save or discard the changes, then preview the current selection"));
+    connect(m_editShowSelection, &QToolButton::clicked, this, &PreviewPanel::queryClose);
+    noticeLayout->addWidget(m_editNoticeText, 1);
+    noticeLayout->addWidget(m_editShowSelection);
+    m_editNotice->hide();
 
     m_content->addWidget(m_message);
     m_content->addWidget(m_imageLabel);
@@ -386,6 +445,7 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(qMax(8, layout->contentsMargins().left()), -1, qMax(8, layout->contentsMargins().right()), -1);
     layout->addLayout(m_header);
+    layout->addWidget(m_editNotice);
     layout->addWidget(m_content, 1);
     m_footerLayout = new QHBoxLayout;
     m_footerLayout->setObjectName(QStringLiteral("previewFooterLayout"));
@@ -425,6 +485,7 @@ void PreviewPanel::setCompact(bool compact)
         button->setVisible(!compact);
     }
     setMinimumWidth(compact ? 0 : 240);
+    updateEditControls();
     if (m_url.isEmpty() && m_baseFooter.isEmpty()) {
         clear();
     }
@@ -438,7 +499,7 @@ bool PreviewPanel::isCompact() const
 void PreviewPanel::showFolder(const KFileItem &item)
 {
     clear();
-    if (item.isNull()) {
+    if (item.isNull() || m_editing) {
         return;
     }
     m_title->setText(item.text());
@@ -480,6 +541,145 @@ bool PreviewPanel::isBusy() const
     return m_busy;
 }
 
+bool PreviewPanel::isEditing() const
+{
+    return m_editing;
+}
+
+bool PreviewPanel::queryClose()
+{
+    if (!m_editing) {
+        return true;
+    }
+    if (!m_editor->closeDocument()) {
+        return false;
+    }
+    stopEditing();
+    return true;
+}
+
+void PreviewPanel::endEditing()
+{
+    if (m_editing) {
+        m_editor->discardDocument();
+        stopEditing();
+    }
+}
+
+void PreviewPanel::startEditing()
+{
+    if (m_editing || m_compact || m_url.isEmpty() || m_textMimeType.isEmpty()) {
+        return;
+    }
+    if (!m_url.isLocalFile()) {
+        showEditNotice(i18nc("@info", "Remote files can't be edited in the preview. Use the editor panel or an editor that supports this location."));
+        return;
+    }
+    const QString path = m_url.toLocalFile();
+    const QFileInfo info(path);
+    if (!info.isFile()) {
+        showEditNotice(i18nc("@info", "This file no longer exists."));
+        return;
+    }
+    if (!info.isWritable()) {
+        showEditNotice(i18nc("@info", "This file is read-only, so it can't be edited."));
+        return;
+    }
+    if (info.size() > EditLimit) {
+        showEditNotice(i18nc("@info",
+                             "This file is larger than %1, so it can't be edited in the preview. Use the editor panel instead.",
+                             LocalizedNumbers::shape(KIO::convertSize(EditLimit))));
+        return;
+    }
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        showEditNotice(i18nc("@info", "Could not read this file: %1", file.errorString()));
+        return;
+    }
+    if (file.read(BinaryProbeSize).contains('\0')) {
+        showEditNotice(i18nc("@info", "This file contains binary data, so it can't be edited as text."));
+        return;
+    }
+    file.close();
+    if (!m_editor) {
+        m_editor = new EditorPanel(m_content);
+        m_editor->setObjectName(QStringLiteral("previewEditor"));
+        m_editor->setEmbedded(true);
+        m_content->addWidget(m_editor);
+        connect(m_editor->document(), &KTextEditor::Document::documentSavedOrUploaded, this, [this] {
+            QTimer::singleShot(0, this, [this] {
+                if (m_editing && !m_editor->document()->isModified()) {
+                    stopEditing();
+                }
+            });
+        });
+    }
+    // KTextEditor keeps a document read-only after loading a file it can't
+    // save safely, so restore the state left by an earlier file.
+    m_editor->document()->setReadWrite(true);
+    if (!m_editor->openUrl(m_url)) {
+        m_editor->discardDocument();
+        showEditNotice(i18nc("@info", "Could not open this file in the editor."));
+        return;
+    }
+    if (!m_editor->document()->isReadWrite()) {
+        m_editor->discardDocument();
+        showEditNotice(i18nc("@info",
+                             "The editor can only open this file read-only, for example because its encoding isn't supported or it has very long "
+                             "lines, so it can't be edited safely."));
+        return;
+    }
+    m_editing = true;
+    m_hasPendingItems = false;
+    m_editNotice->hide();
+    m_content->setCurrentWidget(m_editor);
+    updateEditControls();
+    const auto views = m_editor->document()->views();
+    if (!views.isEmpty()) {
+        views.first()->setFocus(Qt::OtherFocusReason);
+    }
+}
+
+void PreviewPanel::stopEditing()
+{
+    if (!m_editing) {
+        return;
+    }
+    m_editor->discardDocument();
+    m_editing = false;
+    m_editNotice->hide();
+    KFileItemList items;
+    QList<QUrl> images = m_images;
+    if (std::exchange(m_hasPendingItems, false)) {
+        items = std::exchange(m_pendingItems, {});
+        images = std::exchange(m_pendingImages, {});
+    } else {
+        KFileItem item = m_item;
+        item.refresh();
+        items = {item};
+    }
+    // Reload the preview even when the selection is the edited file.
+    m_url = {};
+    setItems(items, images);
+}
+
+void PreviewPanel::updateEditControls()
+{
+    m_edit->setVisible(!m_compact && !m_editing && !m_url.isEmpty() && !m_textMimeType.isEmpty());
+    m_editMove->setVisible(m_editing);
+    m_editClose->setVisible(m_editing);
+    if (m_editing) {
+        m_renderMode->hide();
+    }
+}
+
+void PreviewPanel::showEditNotice(const QString &message, bool pendingSelection)
+{
+    m_editNoticeText->setText(message);
+    m_editShowSelection->setVisible(pendingSelection);
+    m_editNotice->show();
+}
+
 void PreviewPanel::setBusy(bool busy)
 {
     if (busy == m_busy) {
@@ -518,6 +718,25 @@ void PreviewPanel::applyPresentationSettings()
 
 void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &images)
 {
+    if (m_editing) {
+        if (items.size() == 1 && items.first().url() == m_item.url()) {
+            m_hasPendingItems = false;
+            m_pendingItems.clear();
+            m_pendingImages.clear();
+            m_editNotice->hide();
+            return;
+        }
+        if (m_editor->document()->isModified()) {
+            m_hasPendingItems = true;
+            m_pendingItems = items;
+            m_pendingImages = images;
+            showEditNotice(i18nc("@info", "%1 has unsaved changes. Save them or close the editor to preview the selection.", m_item.text()), true);
+            return;
+        }
+        m_editor->discardDocument();
+        m_editing = false;
+        m_url = {};
+    }
     applyPresentationSettings();
     if (items.size() != 1 || items.first().isDir()) {
         clear();
@@ -525,6 +744,7 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
     }
 
     const KFileItem item = items.first();
+    m_item = item;
     m_images = images;
     const int imageIndex = m_images.indexOf(item.url());
     m_previous->setEnabled(imageIndex > 0);
@@ -541,6 +761,7 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
     m_url = item.url();
     m_textLimit = textLimit;
     ++m_generation;
+    m_editNotice->hide();
     m_pendingUrl = {};
     m_pendingMimeType.clear();
     m_pendingFile.clear();
@@ -564,6 +785,7 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
     m_baseFooter = modified.isEmpty() ? size : i18nc("@info", "%1 · %2", size, modified);
     m_footer->setText(m_baseFooter);
     showMessage(i18nc("@info", "Loading preview…"));
+    updateEditControls();
     setBusy(true);
 
     if (!m_url.isLocalFile()) {
@@ -574,6 +796,14 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
     scheduleMetadata(m_url, mimeType);
     if (m_url.isLocalFile() && isDocumentMime(mimeType)) {
         showDocument(m_url, mimeType);
+        return;
+    }
+    if (DocumentFormats::kind(mimeType) == DocumentFormats::Kind::Font) {
+        showFont(m_url, m_url, mimeType);
+        return;
+    }
+    if (isMailMime(mimeType)) {
+        showMail(m_url);
         return;
     }
     if (m_url.isLocalFile() && (mimeType.startsWith(QLatin1String("audio/")) || mimeType.startsWith(QLatin1String("video/")))) {
@@ -614,8 +844,21 @@ void PreviewPanel::startPendingPreview()
 
 void PreviewPanel::clear()
 {
+    if (m_editing) {
+        if (m_editor->document()->isModified()) {
+            m_hasPendingItems = true;
+            m_pendingItems.clear();
+            m_pendingImages.clear();
+            showEditNotice(i18nc("@info", "%1 has unsaved changes. Save them or close the editor to leave the file.", m_item.text()), true);
+            return;
+        }
+        m_editor->discardDocument();
+        m_editing = false;
+    }
     ++m_generation;
     m_url = {};
+    m_item = {};
+    m_editNotice->hide();
     m_pendingUrl = {};
     m_pendingMimeType.clear();
     m_pendingFile.clear();
@@ -644,6 +887,7 @@ void PreviewPanel::clear()
     m_gallery->setEnabled(false);
     m_open->setEnabled(false);
     showMessage(m_compact ? i18nc("@info", "Nothing to preview.") : i18nc("@info", "Select one file to preview."));
+    updateEditControls();
 }
 
 void PreviewPanel::startRemotePreview(const QUrl &url)
@@ -733,6 +977,9 @@ void PreviewPanel::finishRemotePreview()
     if (isDocumentMime(m_remoteMimeType)) {
         m_renderFile = std::exchange(m_remoteFile, {});
         showDocument(localUrl, m_remoteMimeType);
+    } else if (DocumentFormats::kind(m_remoteMimeType) == DocumentFormats::Kind::Font) {
+        m_renderFile = std::exchange(m_remoteFile, {});
+        showFont(localUrl, m_url, m_remoteMimeType);
     } else if (m_remoteMimeType.startsWith(QLatin1String("audio/")) || m_remoteMimeType.startsWith(QLatin1String("video/"))) {
         m_renderFile = std::exchange(m_remoteFile, {});
         showMedia(localUrl, m_remoteMimeType.startsWith(QLatin1String("video/")));
@@ -797,9 +1044,13 @@ void PreviewPanel::showDocument(const QUrl &url, const QString &mimeType)
         showMessage(i18nc("@info", "Could not open this document."));
         return;
     }
+    if (KParts::PartLoader::partsForMimeType(mimeType).isEmpty()) {
+        showMessage(DocumentFormats::missingViewerMessage(DocumentFormats::kind(mimeType)));
+        return;
+    }
     const auto result = KParts::PartLoader::instantiatePartForMimeType<KParts::ReadOnlyPart>(mimeType, m_content, this);
     if (!result) {
-        showMessage(result.errorString.isEmpty() ? i18nc("@info", "No document viewer is installed for this file type.")
+        showMessage(result.errorString.isEmpty() ? DocumentFormats::missingViewerMessage(DocumentFormats::kind(mimeType))
                                                  : i18nc("@info", "Could not load a document viewer: %1", result.errorString));
         return;
     }
@@ -834,6 +1085,72 @@ void PreviewPanel::clearDocument()
         disconnect(document, nullptr, this, nullptr);
         delete document;
     }
+    if (m_font) {
+        m_font->clear();
+    }
+    if (m_mail) {
+        m_mail->clear();
+    }
+}
+
+void PreviewPanel::showFont(const QUrl &url, const QUrl &source, const QString &mimeType)
+{
+    if (!m_font) {
+        m_font = new FontPreview(m_content);
+        m_font->setObjectName(QStringLiteral("previewFont"));
+        m_content->addWidget(m_font);
+    }
+    const QString error = m_font->open(url.toLocalFile(), source, mimeType);
+    if (!error.isEmpty()) {
+        showMessage(error);
+        return;
+    }
+    m_content->setCurrentWidget(m_font);
+    setBusy(false);
+}
+
+void PreviewPanel::showMail(const QUrl &url)
+{
+    const QFileInfo file(url.toLocalFile());
+    if (!file.isFile()) {
+        showMessage(i18nc("@info", "Could not open this message."));
+        return;
+    }
+    if (file.size() > MailMessage::FileLimit) {
+        showMessage(i18nc("@info", "This message is too large to preview."));
+        return;
+    }
+    if (!m_mail) {
+        m_mail = new MailPreview(m_content);
+        m_mail->setObjectName(QStringLiteral("previewMail"));
+        m_content->addWidget(m_mail);
+    }
+    struct Loaded {
+        std::optional<MailMessage::Message> message;
+        QString error;
+    };
+    const quint64 generation = m_generation;
+    const qsizetype bodyLimit = qsizetype(std::min<qint64>(m_textLimit, std::numeric_limits<int>::max()));
+    auto *watcher = new QFutureWatcher<Loaded>(this);
+    connect(watcher, &QFutureWatcher<Loaded>::finished, this, [this, watcher, generation, url] {
+        const Loaded loaded = watcher->result();
+        watcher->deleteLater();
+        if (generation != m_generation) {
+            return;
+        }
+        if (!loaded.message) {
+            showMessage(i18nc("@info", "Could not load preview: %1", loaded.error));
+            return;
+        }
+        m_mail->open(*loaded.message, url);
+        m_content->setCurrentWidget(m_mail);
+        setBusy(false);
+    });
+    watcher->setFuture(QtConcurrent::run([path = file.filePath(), bodyLimit] {
+        Loaded loaded;
+        loaded.message = MailMessage::load(path, bodyLimit, &loaded.error);
+        return loaded;
+    }));
 }
 
 void PreviewPanel::showMessage(const QString &message)
@@ -860,6 +1177,7 @@ void PreviewPanel::showContent(const PreviewContent &content, const QString &mim
         updateTextMode();
         m_truncated = content.truncated;
         updateFooter();
+        updateEditControls();
         break;
     case PreviewContent::Kind::Image:
         m_image = content.image;

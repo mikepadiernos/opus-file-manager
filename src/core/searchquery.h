@@ -89,6 +89,9 @@ using TagMatcher = std::function<bool(const Term &term)>;
 /// Returns the entry's embedded metadata texts; entries without metadata return none.
 using MetadataReader = std::function<QStringList()>;
 
+/// Normalized form of @p node, as Query::toString() writes it.
+QString toString(const Node &node);
+
 class Query
 {
 public:
@@ -103,7 +106,7 @@ public:
     bool usesMetadata() const;
     /// The distinct values of content terms, in query order.
     QStringList contentTerms() const;
-    /// Positive literal name and content terms that every match must satisfy.
+    /// Positive literal name, content and metadata terms that every match must satisfy.
     QList<Term> requiredTerms() const;
     /**
      * Evaluates the query; @p content, @p tags and @p metadata are called
@@ -113,6 +116,8 @@ public:
     bool matches(const QFileInfo &entry, const ContentMatcher &content = {}, const TagMatcher &tags = {}, const MetadataReader &metadata = {}) const;
     /// Normalized form with explicit operators and grouping.
     QString toString() const;
+    /// The parsed expression; meaningful only when isValid().
+    const Node &root() const;
 
 private:
     Node m_root;

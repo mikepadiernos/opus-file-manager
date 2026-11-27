@@ -277,6 +277,9 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
         m_progress->setValue(result.canceled ? 0 : 1);
         if (result.canceled) {
             m_status->setText(i18nc("@info", "Scan canceled; no results are shown."));
+            if (m_job) {
+                m_job->cancel();
+            }
             return;
         }
         m_scanComplete = true;
@@ -303,6 +306,11 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
         m_trash->setEnabled(!result.groups.isEmpty());
         m_status->setText(
             i18nc("@info", "Found %1 groups. Scan errors: %2. Results can become stale; review files before removal.", result.groups.size(), m_errors.size()));
+        if (m_job && !m_errors.isEmpty()) {
+            m_job->finish(i18np("Found duplicates with one scan error. Details are shown in Plasma Opus.",
+                                "Found duplicates with %1 scan errors. Details are shown in Plasma Opus.",
+                                m_errors.size()));
+        }
     });
     startScan();
 }
@@ -336,6 +344,16 @@ void DuplicateFinderDialog::startScan()
     m_progress->setRange(0, 0);
     m_status->setText(i18nc("@info", "Listing files…"));
     m_listJob = KIO::listRecursive(m_folder, KIO::HideProgressInfo);
+    if (m_job) {
+        m_job->cancel();
+    }
+    m_job = OperationJob::track(new OperationJob(i18nc("@title job", "Finding duplicate files")));
+    m_job->setSource(m_folder);
+    m_job->setCancelHandler([button = QPointer<QPushButton>(m_cancel)] {
+        if (button && button->isEnabled()) {
+            button->click();
+        }
+    });
     connect(m_listJob, &KIO::ListJob::entries, this, [this](KIO::Job *, const KIO::UDSEntryList &entries) {
         for (const auto &entry : entries) {
             const KFileItem item(entry, m_folder, true, true);
@@ -355,6 +373,9 @@ void DuplicateFinderDialog::startScan()
             m_rescan->setEnabled(true);
             m_progress->setRange(0, 1);
             m_status->setText(i18nc("@info", "Could not list folder: %1", job->errorString()));
+            if (m_job) {
+                m_job->finish(i18nc("@info", "Could not list the folder. Details are shown in Plasma Opus."));
+            }
             return;
         }
         startHashing();
@@ -377,6 +398,9 @@ void DuplicateFinderDialog::cancel()
         m_status->setText(i18nc("@info", "Scan canceled; no results are shown."));
         m_sameFileName->setEnabled(true);
         m_rescan->setEnabled(true);
+        if (m_job) {
+            m_job->cancel();
+        }
     } else if (m_watcher.isRunning()) {
         m_status->setText(i18nc("@info", "Canceling…"));
     }
@@ -399,4 +423,7 @@ void DuplicateFinderDialog::startHashing()
         };
         promise.addResult(DuplicateFinder::find(files, check, progress, requireSameFileName));
     }));
+    if (m_job) {
+        m_job->follow(&m_watcher);
+    }
 }

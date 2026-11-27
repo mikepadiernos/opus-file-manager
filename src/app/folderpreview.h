@@ -54,6 +54,8 @@ Q_SIGNALS:
 
 private:
     void resetLister();
+    /// Shows that the folder is protected with a password instead of listing it.
+    void showLocked();
     void scheduleRefresh();
     void refresh();
     void setListing(bool listing);

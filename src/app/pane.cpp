@@ -2,11 +2,15 @@
 
 #include "pane.h"
 
+#include "adminmode.h"
 #include "appearancestyle.h"
 #include "colorschemes.h"
 
+#include "filetypeplaces.h"
 #include "filterbar.h"
 #include "foldercolors.h"
+#include "foldergatedialog.h"
+#include "foldergates.h"
 #include "folderview.h"
 #include "settings.h"
 #include "symbolicicon.h"
@@ -23,6 +27,7 @@
 #include <KFilePlacesModel>
 #include <KIO/Global>
 #include <KLocalizedString>
+#include <KMessageWidget>
 #include <KSharedConfig>
 #include <KUrlNavigator>
 
@@ -314,6 +319,41 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     m_outerLayout->addLayout(m_layout, 1);
     m_layout->addWidget(m_tabStrip);
     m_layout->addWidget(m_navigationBar);
+    m_adminBar = new KMessageWidget(this);
+    m_adminBar->setObjectName(QStringLiteral("adminBar"));
+    m_adminBar->setMessageType(KMessageWidget::Warning);
+    m_adminBar->setIcon(SymbolicIcon::fromTheme(QStringLiteral("security-medium")));
+    m_adminBar->setWordWrap(true);
+    m_adminBar->setCloseButtonVisible(false);
+    m_adminBar->setText(i18nc("@info", "Acting as an administrator. Changes in this folder can affect the whole system, and deleted items skip the trash."));
+    auto *stopAdmin = new QAction(SymbolicIcon::fromTheme(QStringLiteral("dialog-close")), i18nc("@action:button", "Stop Acting as Administrator"), m_adminBar);
+    stopAdmin->setObjectName(QStringLiteral("stopAdmin"));
+    connect(stopAdmin, &QAction::triggered, this, [this] {
+        setUrl(AdminMode::toUser(url()));
+    });
+    m_adminBar->addAction(stopAdmin);
+    m_adminBar->hide();
+    m_layout->addWidget(m_adminBar);
+    m_gateBar = new KMessageWidget(this);
+    m_gateBar->setObjectName(QStringLiteral("gateBar"));
+    m_gateBar->setMessageType(KMessageWidget::Information);
+    m_gateBar->setIcon(SymbolicIcon::fromTheme(QStringLiteral("folder-locked")));
+    m_gateBar->setWordWrap(true);
+    m_gateBar->setCloseButtonVisible(false);
+    auto *unlockGate = new QAction(SymbolicIcon::fromTheme(QStringLiteral("object-unlocked")), i18nc("@action:button", "Unlock…"), m_gateBar);
+    unlockGate->setObjectName(QStringLiteral("unlockGate"));
+    connect(unlockGate, &QAction::triggered, this, [this] {
+        const QString gate = FolderGates::instance()->lockedGateFor(url());
+        if (!gate.isEmpty()) {
+            FolderGateDialog::unlock(this, gate);
+        }
+    });
+    m_gateBar->addAction(unlockGate);
+    m_gateBar->hide();
+    m_layout->addWidget(m_gateBar);
+    connect(FolderGates::instance(), &FolderGates::changed, this, [this] {
+        updateGateBar(url());
+    });
     m_layout->addWidget(m_view, 1);
     m_yaziColumns = new YaziColumns(this);
     m_yaziColumns->hide();
@@ -354,7 +394,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     connect(m_tabs, &TabModel::currentIndexChanged, this, [this](int index) {
         if (m_revealTab >= 0 && index != m_revealTab) {
             m_revealFolder.clear();
-            m_revealItem.clear();
+            m_revealItems.clear();
             m_revealTab = -1;
         }
     });
@@ -374,7 +414,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     connect(m_tabs, &TabModel::currentUrlChanged, this, [this](const QUrl &url) {
         if (!m_revealFolder.isEmpty() && url != m_revealFolder) {
             m_revealFolder.clear();
-            m_revealItem.clear();
+            m_revealItems.clear();
             m_revealTab = -1;
         }
         if (m_view->url().isValid() && m_view->url() != url && !Settings::retainFilterOnNavigation()) {
@@ -397,6 +437,8 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
         }
         m_navigator->setLocationUrl(url);
         updateBreadcrumbs(url);
+        m_adminBar->setVisible(AdminMode::isAdminUrl(url));
+        updateGateBar(url);
         if (m_view->url() == url && !m_pendingViewState.valid) {
             m_view->clearSelection();
             m_view->currentView()->verticalScrollBar()->setValue(0);
@@ -492,9 +534,10 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     });
     connect(m_view, &FolderView::goUpRequested, this, &Pane::goUp);
     connect(m_view, &FolderView::listingFailed, this, &Pane::statusMessage);
+    connect(m_view, &FolderView::dropRefused, this, &Pane::statusMessage);
     connect(m_view, &FolderView::listingFailed, this, [this] {
         m_revealFolder.clear();
-        m_revealItem.clear();
+        m_revealItems.clear();
         m_revealTab = -1;
     });
     connect(m_view, &FolderView::listingReady, this, &Pane::restoreHistoryViewState);
@@ -853,6 +896,20 @@ Pane::LocationPresentation Pane::defaultLocationPresentation() const
     return m_defaultLocationPresentation;
 }
 
+void Pane::updateGateBar(const QUrl &url)
+{
+    const QString gate = FolderGates::instance()->lockedGateFor(url);
+    if (gate.isEmpty()) {
+        m_gateBar->hide();
+        return;
+    }
+    const QString name = QFileInfo(gate).fileName();
+    m_gateBar->setText(FolderGates::localPath(url) == gate || FolderGates::canonicalPath(FolderGates::localPath(url)) == gate
+                           ? xi18nc("@info", "<filename>%1</filename> is protected with a password.", name)
+                           : xi18nc("@info", "This folder is inside <filename>%1</filename>, which is protected with a password.", name));
+    m_gateBar->show();
+}
+
 void Pane::updateBreadcrumbs(const QUrl &url)
 {
     while (QLayoutItem *item = m_breadcrumbLayout->takeAt(0)) {
@@ -977,13 +1034,21 @@ void Pane::resetToolbarConfiguration()
 
 void Pane::setUrl(const QUrl &url)
 {
+    if (FileTypePlaces::isPlaceUrl(url)) {
+        // A file-type place isn't a location; the window opens its search instead.
+        if (m_tabs->currentUrl().isValid()) {
+            m_navigator->setLocationUrl(m_tabs->currentUrl());
+        }
+        Q_EMIT fileTypePlaceRequested(url, false);
+        return;
+    }
     m_tabs->setCurrentUrl(m_followSymlinks ? Symlinks::resolve(url) : url);
 }
 
 void Pane::revealUrl(const QUrl &url)
 {
     m_revealFolder.clear();
-    m_revealItem.clear();
+    m_revealItems.clear();
     m_revealTab = -1;
     const QFileInfo item(url.toLocalFile());
     if (!url.isLocalFile() || !item.exists() || item.fileName().isEmpty()) {
@@ -994,16 +1059,59 @@ void Pane::revealUrl(const QUrl &url)
         Q_EMIT statusMessage(i18nc("@info:status", "Turn off flat view to reveal a search result."));
         return;
     }
-    QUrl folder = QUrl::fromLocalFile(item.absolutePath());
-    if (m_followSymlinks) {
+    startReveal(QUrl::fromLocalFile(item.absolutePath()), {url});
+}
+
+void Pane::revealUrls(const QUrl &folder, const QList<QUrl> &items)
+{
+    m_revealFolder.clear();
+    m_revealItems.clear();
+    m_revealTab = -1;
+    QList<QUrl> present;
+    QStringList missing;
+    for (const QUrl &item : items) {
+        if (item.isLocalFile() && !QFileInfo::exists(item.toLocalFile())) {
+            missing.append(item.toDisplayString(QUrl::PreferLocalFile));
+        } else {
+            present.append(item);
+        }
+    }
+    if (!missing.isEmpty()) {
+        Q_EMIT statusMessage(i18ncp("@info:status",
+                                    "Could not find %1 requested item: %2",
+                                    "Could not find %1 requested items: %2",
+                                    missing.size(),
+                                    missing.join(QStringLiteral(", "))));
+    }
+    if (m_view->isFlat() && !present.isEmpty()) {
+        Q_EMIT statusMessage(i18nc("@info:status", "Turn off flat view to select the requested items."));
+        present.clear();
+    }
+    startReveal(folder, present);
+}
+
+void Pane::startReveal(const QUrl &requestedFolder, const QList<QUrl> &items)
+{
+    QUrl folder = requestedFolder;
+    if (m_followSymlinks && folder.isLocalFile()) {
         folder = Symlinks::resolve(folder);
     }
-    m_revealFolder = folder;
-    m_revealItem = QUrl::fromLocalFile(QDir(folder.toLocalFile()).filePath(item.fileName()));
-    setUrl(folder);
-    if (!m_revealItem.isEmpty()) {
-        m_revealTab = m_tabs->currentIndex();
+    QList<QUrl> revealItems;
+    for (const QUrl &item : items) {
+        // Select each item as it is listed in the possibly resolved folder.
+        if (item.isLocalFile() && folder.isLocalFile()) {
+            revealItems.append(QUrl::fromLocalFile(QDir(folder.toLocalFile()).filePath(QFileInfo(item.toLocalFile()).fileName())));
+        } else {
+            revealItems.append(item);
+        }
     }
+    setUrl(folder);
+    if (revealItems.isEmpty()) {
+        return;
+    }
+    m_revealFolder = folder;
+    m_revealItems = revealItems;
+    m_revealTab = m_tabs->currentIndex();
     ++m_viewStateGeneration;
     m_pendingViewState = {};
     m_historyExpansionPending = false;
@@ -1015,16 +1123,23 @@ void Pane::revealUrl(const QUrl &url)
 
 void Pane::finishReveal()
 {
-    if (m_revealItem.isEmpty() || m_view->url() != m_revealFolder) {
+    if (m_revealItems.isEmpty() || m_view->url() != m_revealFolder) {
         return;
     }
-    const QUrl item = m_revealItem;
+    const QList<QUrl> items = m_revealItems;
     m_revealFolder.clear();
-    m_revealItem.clear();
+    m_revealItems.clear();
     m_revealTab = -1;
-    m_view->selectUrls({item});
+    m_view->selectUrls(items);
     if (m_view->selectedItems().isEmpty()) {
-        Q_EMIT statusMessage(i18nc("@info:status", "Could not reveal %1. It may have been removed, hidden or filtered.", item.toDisplayString()));
+        if (items.size() == 1) {
+            Q_EMIT statusMessage(i18nc("@info:status", "Could not reveal %1. It may have been removed, hidden or filtered.", items.first().toDisplayString()));
+        } else {
+            Q_EMIT statusMessage(i18ncp("@info:status",
+                                        "Could not reveal %1 item. It may have been removed, hidden or filtered.",
+                                        "Could not reveal %1 items. They may have been removed, hidden or filtered.",
+                                        items.size()));
+        }
     } else {
         m_view->currentView()->setFocus();
     }
@@ -1032,6 +1147,10 @@ void Pane::finishReveal()
 
 void Pane::openInNewTab(const QUrl &url, bool activate)
 {
+    if (FileTypePlaces::isPlaceUrl(url)) {
+        Q_EMIT fileTypePlaceRequested(url, true);
+        return;
+    }
     const int index = m_newTabsAfterCurrent ? m_tabs->currentIndex() + 1 : m_tabs->count();
     m_tabs->insertTab(index, m_followSymlinks ? Symlinks::resolve(url) : url, activate);
 }
@@ -1768,7 +1887,11 @@ void Pane::updateTabStripVisibility()
 PaneSession Pane::saveState() const
 {
     PaneSession state;
-    state.tabs = m_tabs->urls();
+    // Administrator access is never restored: sessions and workspaces reopen
+    // admin: tabs as the user's own view of the same folder.
+    for (const QUrl &tab : m_tabs->urls()) {
+        state.tabs.append(AdminMode::toUser(tab));
+    }
     state.currentTab = m_tabs->currentIndex();
     state.pinnedCount = m_tabs->pinnedCount();
     for (int i = 0; i < m_tabs->count(); ++i) {

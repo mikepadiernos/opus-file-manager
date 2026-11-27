@@ -20,6 +20,7 @@
 #include "savedpathfilters.h"
 #include "searchhistory.h"
 #include "searchstoredialog.h"
+#include "servicemenus.h"
 #include "settings.h"
 #include "settingsbackup.h"
 #include "settingswidgets.h"
@@ -37,9 +38,12 @@
 #include <KConfigGroup>
 #include <KEditListWidget>
 #include <KFilePlacesModel>
+#include <KNSCore/Entry>
+#include <KNSWidgets/Button>
 #include <KPageWidget>
 #include <KPageWidgetModel>
 #include <KPluginMetaData>
+#include <KProtocolInfo>
 #include <KSharedConfig>
 #include <KShortcutsDialog>
 #include <KToolBar>
@@ -132,6 +136,96 @@ private Q_SLOTS:
         QVERIFY(portability);
         QVERIFY(portability->findChild<QPushButton *>(QStringLiteral("exportWorkspaceProfiles")));
         QVERIFY(portability->findChild<QPushButton *>(QStringLiteral("importWorkspaceProfiles")));
+    }
+
+    void refreshesServiceMenusAfterDownloads()
+    {
+        const QString folder = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/kio/servicemenus");
+        QVERIFY(QDir().mkpath(folder));
+        const auto write = [&folder](const QString &name, const QByteArray &key, const QByteArray &text) {
+            QFile file(folder + QLatin1Char('/') + name);
+            if (!file.open(QIODevice::WriteOnly)) {
+                return false;
+            }
+            file.write("[Desktop Entry]\nType=Service\nMimeType=all/allfiles;\nActions=" + key + ";\n\n[Desktop Action " + key + "]\nName=" + text
+                       + "\nExec=true %F\n");
+            return true;
+        };
+        const auto cleanup = qScopeGuard([&folder] {
+            for (const QString &name :
+                 {QStringLiteral("opusfm-first.desktop"), QStringLiteral("opusfm-gone.desktop"), QStringLiteral("opusfm-second.desktop")}) {
+                QFile::remove(folder + QLatin1Char('/') + name);
+            }
+            KConfig config(QStringLiteral("kservicemenurc"), KConfig::NoGlobals);
+            config.deleteGroup(QStringLiteral("Show"));
+            config.sync();
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        QVERIFY(write(QStringLiteral("opusfm-first.desktop"), "opusfmFirst", "First Download"));
+        QVERIFY(write(QStringLiteral("opusfm-gone.desktop"), "opusfmGone", "Gone Download"));
+
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *download = dialog.findChild<KNSWidgets::Button *>(QStringLiteral("serviceMenuDownload"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("serviceMenuStatus"));
+        auto *list = dialog.findChild<HiddenItemsList *>(QStringLiteral("kcfg_HiddenServiceActions"));
+        QVERIFY(download && status && list);
+        QCOMPARE(download->isEnabled(), !ServiceMenus::downloadConfigPath().isEmpty());
+        QCOMPARE(status->isHidden(), download->isEnabled());
+        auto *first = dialog.findChild<QCheckBox *>(QStringLiteral("serviceMenu_opusfmFirst"));
+        QVERIFY(first && first->isChecked());
+        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("serviceMenu_opusfmGone")));
+        const auto row = [list](const QString &id) -> QListWidgetItem * {
+            for (int index = 0; index < list->count(); ++index) {
+                if (list->item(index)->data(Qt::UserRole).toString() == id) {
+                    return list->item(index);
+                }
+            }
+            return nullptr;
+        };
+        QVERIFY(row(QStringLiteral("opusfmFirst")));
+
+        // Unsaved changes to service menus that stay installed survive a refresh.
+        first->setChecked(false);
+        row(QStringLiteral("opusfmFirst"))->setCheckState(Qt::Unchecked);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        QVERIFY(QFile::remove(folder + QStringLiteral("/opusfm-gone.desktop")));
+        QVERIFY(write(QStringLiteral("opusfm-second.desktop"), "opusfmSecond", "Second Download"));
+        Q_EMIT download->dialogFinished({});
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+        QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("serviceMenu_opusfmGone")));
+        QVERIFY(!row(QStringLiteral("opusfmGone")));
+        auto *second = dialog.findChild<QCheckBox *>(QStringLiteral("serviceMenu_opusfmSecond"));
+        QVERIFY(second && second->isChecked());
+        QVERIFY(row(QStringLiteral("opusfmSecond")));
+        QCOMPARE(row(QStringLiteral("opusfmSecond"))->checkState(), Qt::Checked);
+        QCOMPARE(dialog.findChild<QCheckBox *>(QStringLiteral("serviceMenu_opusfmFirst")), first);
+        QVERIFY(!first->isChecked());
+        QCOMPARE(row(QStringLiteral("opusfmFirst"))->checkState(), Qt::Unchecked);
+        QVERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+
+        // The status line summarizes what the download window changed.
+        KNSCore::Entry installed;
+        installed.setName(QStringLiteral("Installed Menu"));
+        installed.setStatus(KNSCore::Entry::Installed);
+        KNSCore::Entry removed;
+        removed.setName(QStringLiteral("Removed Menu"));
+        removed.setStatus(KNSCore::Entry::Deleted);
+        KNSCore::Entry failed;
+        failed.setName(QStringLiteral("Failed Menu"));
+        failed.setStatus(KNSCore::Entry::Downloadable);
+        Q_EMIT download->dialogFinished({installed, removed, failed});
+        QVERIFY(!status->isHidden());
+        QVERIFY(status->text().contains(QStringLiteral("Installed or updated 1 service menu.")));
+        QVERIFY(status->text().contains(QStringLiteral("Removed 1 service menu.")));
+        QVERIFY(status->text().contains(QStringLiteral("Failed Menu")));
+        QVERIFY(!status->text().contains(QStringLiteral("Installed Menu")));
+
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::hiddenServiceActions().contains(QStringLiteral("opusfmFirst")));
+        QVERIFY(!KConfig(QStringLiteral("kservicemenurc"), KConfig::NoGlobals).group(QStringLiteral("Show")).readEntry("opusfmFirst", true));
     }
 
     void taggingPrivacySettings()
@@ -3002,6 +3096,99 @@ private Q_SLOTS:
         dialog.findChild<QPushButton *>(QStringLiteral("manageSavedSearches"))->click();
     }
 
+    void sharesSavedSearchesWithPlaces()
+    {
+#ifndef OPUSFM_HAVE_BALOO
+        QSKIP("Plasma Opus was built without Baloo.");
+#endif
+        if (!KProtocolInfo::isKnownProtocol(QStringLiteral("baloosearch"))) {
+            QSKIP("KDE's baloosearch:/ location is not installed.");
+        }
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchesrc")), KConfig::SimpleConfig);
+        const auto group = config->group(QStringLiteral("SavedSearches"));
+        SavedSearches::Search invoices{QStringLiteral("Opus shared invoices"),
+                                       QStringLiteral("content:invoice size>1M"),
+                                       QUrl::fromLocalFile(root.path()),
+                                       LiveSearch::Field::Query};
+        const SavedSearches::Search wildcard{QStringLiteral("Opus shared wildcard"),
+                                             QStringLiteral("*.pdf"),
+                                             QUrl::fromLocalFile(root.path()),
+                                             LiveSearch::Field::Query};
+        QString error;
+        QVERIFY(SavedSearches::save(group, {invoices, wildcard}, &error));
+        KFilePlacesModel places;
+        const auto shared = [&places] {
+            QList<QUrl> urls;
+            for (int row = 0; row < places.rowCount(); ++row) {
+                if (places.text(places.index(row, 0)) == QLatin1String("Opus shared invoices")) {
+                    urls.append(places.url(places.index(row, 0)));
+                }
+            }
+            return urls;
+        };
+        const auto cleanup = qScopeGuard([&places] {
+            for (int row = places.rowCount() - 1; row >= 0; --row) {
+                if (places.text(places.index(row, 0)).startsWith(QLatin1String("Opus shared"))) {
+                    places.removePlace(places.index(row, 0));
+                }
+            }
+        });
+        SearchStoreDialog dialog(nullptr, config, &places);
+        auto *searches = dialog.findChild<QListWidget *>(QStringLiteral("managedSearches"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("searchStoreStatus"));
+        auto *share = dialog.findChild<QPushButton *>(QStringLiteral("managedSearchShare"));
+        QVERIFY(searches && status && share);
+
+        searches->setCurrentRow(1);
+        share->click();
+        QVERIFY(status->text().contains(QStringLiteral("can't express")));
+        QVERIFY(shared().isEmpty());
+
+        searches->setCurrentRow(0);
+        QString details;
+        const auto answer = [&details](const QString &button) {
+            QTimer::singleShot(0, [&details, button] {
+                auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+                QVERIFY(box);
+                details = box->informativeText();
+                if (button.isEmpty()) {
+                    box->button(QMessageBox::Cancel)->click();
+                } else {
+                    box->findChild<QPushButton *>(button)->click();
+                }
+            });
+        };
+        answer({});
+        share->click();
+        QVERIFY(details.contains(QStringLiteral("size>")));
+        QVERIFY(details.contains(root.path()));
+        QVERIFY(shared().isEmpty());
+
+        answer(QStringLiteral("shareSearchAdd"));
+        share->click();
+        const QList<QUrl> added = shared();
+        QCOMPARE(added.size(), 1);
+        QCOMPARE(added.first().scheme(), QStringLiteral("baloosearch"));
+        QVERIFY(status->text().contains(QStringLiteral("Added")));
+        share->click();
+        QVERIFY(status->text().contains(QStringLiteral("already in Places")));
+
+        // Changing the saved search leaves the shared place alone until it is replaced.
+        invoices.text = QStringLiteral("content:receipt");
+        QVERIFY(SavedSearches::save(group, {invoices, wildcard}, &error));
+        dialog.findChild<QPushButton *>(QStringLiteral("managedSearchRefresh"))->click();
+        QCOMPARE(shared(), added);
+        searches->setCurrentRow(0);
+        answer(QStringLiteral("shareSearchReplace"));
+        share->click();
+        QVERIFY(details.contains(QStringLiteral("already has a search")));
+        QCOMPARE(shared().size(), 1);
+        QVERIFY(shared().first() != added.first());
+        QVERIFY(status->text().contains(QStringLiteral("Replaced")));
+    }
+
     void savedSearchManagerRejectsStaleDeletion()
     {
         QTemporaryDir root;
@@ -3184,6 +3371,55 @@ private Q_SLOTS:
             return argument.open(QIODevice::ReadOnly) ? argument.readAll() : QByteArray();
         };
         QTRY_COMPARE(readArgument(), QByteArray("kcm_baloofile"));
+    }
+
+    void languagePageDescribesPlasmaLanguages()
+    {
+        const QByteArray oldLanguage = qgetenv("LANGUAGE");
+        const bool languageSet = qEnvironmentVariableIsSet("LANGUAGE");
+        const QByteArray oldPath = qgetenv("PATH");
+        const bool pathSet = qEnvironmentVariableIsSet("PATH");
+        const auto restore = qScopeGuard([&] {
+            if (languageSet) {
+                qputenv("LANGUAGE", oldLanguage);
+            } else {
+                qunsetenv("LANGUAGE");
+            }
+            if (pathSet) {
+                qputenv("PATH", oldPath);
+            } else {
+                qunsetenv("PATH");
+            }
+        });
+        KFilePlacesModel places;
+        qputenv("LANGUAGE", "xx_YY");
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *status = dialog.findChild<QLabel *>(QStringLiteral("interfaceLanguageStatus"));
+            QVERIFY(status);
+            QVERIFY2(status->text().contains(QStringLiteral("original English text")), qPrintable(status->text()));
+        }
+        qputenv("LANGUAGE", "xx_YY:en_GB");
+        SettingsDialog dialog(&places, nullptr);
+        auto *combo = dialog.findChild<InterfaceLanguageCombo *>(QStringLiteral("kcfg_InterfaceLanguage"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("interfaceLanguageStatus"));
+        QVERIFY(combo && status);
+        QVERIFY2(status->text().startsWith(QStringLiteral("Following Plasma's languages:")), qPrintable(status->text()));
+        QVERIFY2(status->text().contains(QStringLiteral("is shown in")), qPrintable(status->text()));
+        combo->setLanguage(QStringLiteral("en_US"));
+        QVERIFY2(status->text().contains(QStringLiteral("regardless of Plasma's language settings")), qPrintable(status->text()));
+        combo->setLanguage(QString());
+        QVERIFY(status->text().startsWith(QStringLiteral("Following Plasma's languages:")));
+
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        qputenv("PATH", QFile::encodeName(root.path()));
+        auto *open = dialog.findChild<QPushButton *>(QStringLiteral("openPlasmaLanguageSettings"));
+        auto *openStatus = dialog.findChild<QLabel *>(QStringLiteral("plasmaLanguageSettingsStatus"));
+        QVERIFY(open && openStatus);
+        open->click();
+        QVERIFY2(openStatus->text().contains(QStringLiteral("not installed")) || openStatus->text().contains(QStringLiteral("Could not launch")),
+                 qPrintable(openStatus->text()));
     }
 
     void savesViewAndFileRules()

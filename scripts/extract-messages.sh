@@ -12,7 +12,27 @@ sources=$(mktemp)
 trap 'rm -f -- "$resources" "$rewritten" "$sources"' EXIT
 
 find src -type f \( -name '*.ui' -o -name '*.rc' -o -name '*.kcfg' \) -exec extractrc {} + > "$resources"
-sed -E 's@^// i18n: file: (.*):([0-9]+)$@#line \2 "\1"@' "$resources" > "$rewritten"
+# Point each message at its resource line. Newer extractrc versions put
+# context comments between the file marker and the message, so the #line
+# directive is moved above them and offset to keep them next to the message.
+awk '
+    /^\/\/ i18n: file: / {
+        location = substr($0, 16)
+        split_at = match(location, /:[0-9]+$/)
+        file = substr(location, 1, split_at - 1)
+        line = substr(location, split_at + 1)
+        held = ""
+        count = 0
+        pending = 1
+        next
+    }
+    pending && /^\/\/ i18n: / { held = held $0 "\n"; count++; next }
+    pending {
+        printf "#line %d \"%s\"\n%s", line - count, file, held
+        pending = 0
+    }
+    { print }
+' "$resources" > "$rewritten"
 find src -type f \( -name '*.cpp' -o -name '*.h' \) > "$sources"
 LC_ALL=C sort -o "$sources" "$sources"
 printf '%s\n' "$rewritten" >> "$sources"

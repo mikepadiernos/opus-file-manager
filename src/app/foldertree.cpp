@@ -4,6 +4,7 @@
 
 #include "contentheight.h"
 #include "foldercolors.h"
+#include "foldergates.h"
 #include "ignorelist.h"
 #include "symbolicicon.h"
 #include "treelines.h"
@@ -57,6 +58,9 @@ public:
         const QVariant value = KDirSortFilterProxyModel::data(index, role);
         if (role == Qt::DecorationRole && value.typeId() == QMetaType::QIcon) {
             const KFileItem item = index.data(KDirModel::FileItemRole).value<KFileItem>();
+            if (FolderGates::instance()->isLockedGateItem(item)) {
+                return SymbolicIcon::wrap(QIcon::fromTheme(QStringLiteral("folder-locked"), value.value<QIcon>()), QStringLiteral("folder-locked"), {});
+            }
             return FolderColors::decorate(SymbolicIcon::wrap(value.value<QIcon>(), item.iconName(), item.overlays()), item);
         }
         if (role == Qt::ForegroundRole && index.column() == KDirModel::Name) {
@@ -72,8 +76,17 @@ protected:
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override
     {
         const QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
-        return KDirSortFilterProxyModel::filterAcceptsRow(sourceRow, sourceParent)
-            && !m_ignoreList.ignores(index.data(KDirModel::FileItemRole).value<KFileItem>().name());
+        const KFileItem item = index.data(KDirModel::FileItemRole).value<KFileItem>();
+        return KDirSortFilterProxyModel::filterAcceptsRow(sourceRow, sourceParent) && !m_ignoreList.ignores(item.name())
+            && !FolderGates::instance()->hidesItem(item);
+    }
+
+public:
+    /// Filters rows again after password-gated folders are locked or unlocked.
+    void refreshGates()
+    {
+        beginFilterChange();
+        endFilterChange(QSortFilterProxyModel::Direction::Rows);
     }
 
 private:
@@ -117,6 +130,7 @@ FolderTree::FolderTree(const QList<QUrl> &roots, QWidget *parent)
         auto *proxy = new RootProxyModel(root, this);
         proxy->setSourceModel(model);
         proxy->setSortCaseSensitivity(Qt::CaseInsensitive);
+        connect(FolderGates::instance(), &FolderGates::changed, proxy, &RootProxyModel::refreshGates);
 
         auto *tree = new FolderTreeView(this);
         tree->setModel(proxy);

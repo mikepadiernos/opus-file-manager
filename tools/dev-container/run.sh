@@ -9,8 +9,8 @@
 # The image extends plasma-impresario-dev. When that image is missing, this
 # builds it with Plasma Impresario's tools/dev-container/run.sh, found through
 # IMPRESARIO_DIR (default: a plasma-impresario checkout beside this one). The
-# Plasma Opus image is rebuilt automatically when the base image changes;
-# --rebuild forces a rebuild. To refresh the base image itself, run
+# Plasma Opus image is rebuilt automatically when the base image or the
+# Containerfile changes; --rebuild forces a rebuild. To refresh the base image itself, run
 # Impresario's run.sh with --rebuild.
 
 set -eu
@@ -19,6 +19,7 @@ image=plasma-opus-dev
 base_image=plasma-impresario-dev
 ccache_volume=plasma-opus-ccache
 label=io.github.mikepadiernos.plasma-opus.base-image-id
+sum_label=io.github.mikepadiernos.plasma-opus.containerfile-sum
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../.." && pwd)
 impresario_dir=${IMPRESARIO_DIR:-$root/../plasma-impresario}
@@ -43,11 +44,14 @@ fi
 
 base_id=$(docker image inspect --format '{{.Id}}' "$base_image")
 built_from=$(docker image inspect --format "{{index .Config.Labels \"$label\"}}" "$image" 2>/dev/null || true)
+containerfile_sum=$(cksum <"$here/Containerfile" | cut -d ' ' -f 1)
+built_sum=$(docker image inspect --format "{{index .Config.Labels \"$sum_label\"}}" "$image" 2>/dev/null || true)
 
-if [ "$rebuild" = 1 ] || [ "$built_from" != "$base_id" ]; then
+if [ "$rebuild" = 1 ] || [ "$built_from" != "$base_id" ] || [ "$built_sum" != "$containerfile_sum" ]; then
     docker build --platform "$platform" \
         --build-arg "BASE_IMAGE=$base_image" \
         --build-arg "BASE_IMAGE_ID=$base_id" \
+        --build-arg "CONTAINERFILE_SUM=$containerfile_sum" \
         -t "$image" -f "$here/Containerfile" "$here"
 fi
 

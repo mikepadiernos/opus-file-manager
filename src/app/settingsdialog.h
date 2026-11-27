@@ -12,6 +12,7 @@ class ColorSchemeCombo;
 class EmbeddedMetadataKeyList;
 class EmbeddedMetadataMappingTable;
 class FieldTemplateEditor;
+class HiddenItemsList;
 class KPageWidgetItem;
 class PreviewSizeSpinBox;
 class QCheckBox;
@@ -21,6 +22,7 @@ class QListWidget;
 class QPushButton;
 class QTabWidget;
 class QTreeWidget;
+class QVBoxLayout;
 class RuleListEditor;
 class StartupWorkspaceCombo;
 class TagFieldManagerWidget;
@@ -29,6 +31,11 @@ class YaziColumnRatiosEditor;
 namespace LibraryConfirmations
 {
 struct Confirmation;
+}
+
+namespace KNSCore
+{
+class Entry;
 }
 
 /**
@@ -135,6 +142,8 @@ private:
     void applySidebarStyle(int size, bool below);
 
     QWidget *createSettingsDialogPage();
+    QWidget *createSystemTrayPage();
+    QWidget *createPlasmaSearchPage();
     QWidget *createLanguagePage();
     QWidget *createDateLanguagePage();
     QWidget *createToolbarEntriesPage();
@@ -214,6 +223,16 @@ private:
     QWidget *createIconsPage();
     QWidget *createContextMenuActionsPage();
     QWidget *createServiceMenusPage();
+    /**
+     * Lists the installed service menus again, after downloads, keeping
+     * unsaved changes to those still installed.
+     */
+    void refreshServiceMenus();
+    /// Summarizes what the download window installed, removed or failed to install.
+    void reportServiceMenuChanges(const QList<KNSCore::Entry> &changed);
+    HiddenItemsList *m_serviceMenuList = nullptr;
+    QVBoxLayout *m_serviceMenuToggles = nullptr;
+    QLabel *m_serviceMenuStatus = nullptr;
     QWidget *createPanelAppearancePage();
     QWidget *createTabAppearancePage();
     QWidget *createArchivesPage();
@@ -247,6 +266,7 @@ private:
     QWidget *createWorkspaceLocationBarsPage();
     QWidget *createWorkspaceBehaviorsPage();
     QWidget *createWorkspacePortabilityPage();
+    QWidget *createWorkspaceActivitiesPage();
     void createSettingsBackup();
     void restoreSettingsBackup();
     void exportWorkspaceProfiles();

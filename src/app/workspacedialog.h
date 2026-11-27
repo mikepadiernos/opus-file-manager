@@ -55,8 +55,9 @@ public Q_SLOTS:
     /**
      * Switches to the selected workspace.
      * @param confirmed true when the user already confirmed replacing the current state
+     * @param behaviors the behaviours to apply instead of the workspace's own, as an Activity association chooses
      */
-    void activateSelectedWorkspace(bool confirmed = false);
+    void activateSelectedWorkspace(bool confirmed = false, const std::optional<WorkspaceCatalog::BehaviorSelection> &behaviors = std::nullopt);
 
 Q_SIGNALS:
     void currentWorkspaceChanged(const QString &id);
@@ -70,7 +71,7 @@ private:
     void renameWorkspace();
     void duplicateWorkspace();
     void deleteWorkspace();
-    void activateWorkspace(bool confirmed = false);
+    void activateWorkspace(bool confirmed = false, const std::optional<WorkspaceCatalog::BehaviorSelection> &behaviors = std::nullopt);
     /// Whether the window differs from the active workspace's saved layout.
     bool hasUnsavedState() const;
     /// Asks before switching, as set by the ConfirmWorkspaceSwitch setting.
@@ -92,6 +93,8 @@ private:
     void assignSelectedLocation();
     /// Removes the selected saved location's assignment.
     void unassignSelectedLocation();
+    /// Uses the selected local location as its workspace's editor vault, or stops using it.
+    void toggleSelectedVault();
 
     KConfigGroup m_group;
     CaptureLayout m_capture;

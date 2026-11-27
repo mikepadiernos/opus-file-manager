@@ -76,6 +76,13 @@ void QueuedTransfer::begin()
         emitSpeed(speed);
         Q_EMIT m_queue->changed();
     });
+    // Byte amounts let the queue show the remaining time.
+    connect(m_job, &KJob::totalAmountChanged, this, [this](KJob *, KJob::Unit unit, qulonglong amount) {
+        setTotalAmount(unit, amount);
+    });
+    connect(m_job, &KJob::processedAmountChanged, this, [this](KJob *, KJob::Unit unit, qulonglong amount) {
+        setProcessedAmount(unit, amount);
+    });
     connect(m_job, &KJob::result, this, [this](KJob *job) {
         if (m_killing) {
             return;
@@ -206,6 +213,31 @@ int TransferQueue::concurrency() const
     return m_concurrency;
 }
 
+void TransferQueue::setPaused(bool paused)
+{
+    if (paused == m_paused) {
+        return;
+    }
+    m_paused = paused;
+    const auto entries = m_entries;
+    for (QueuedTransfer *entry : entries) {
+        if (paused && entry->state() == QueuedTransfer::State::Running) {
+            entry->suspend();
+        } else if (!paused && entry->state() == QueuedTransfer::State::Paused) {
+            entry->resume();
+        }
+    }
+    Q_EMIT changed();
+    if (!paused) {
+        schedule();
+    }
+}
+
+bool TransferQueue::isPaused() const
+{
+    return m_paused;
+}
+
 void TransferQueue::clearFinished()
 {
     for (auto it = m_entries.begin(); it != m_entries.end();) {
@@ -231,6 +263,9 @@ void TransferQueue::schedule()
 void TransferQueue::startNext()
 {
     m_scheduled = false;
+    if (m_paused) {
+        return;
+    }
     int running = 0;
     for (const QueuedTransfer *entry : std::as_const(m_entries)) {
         if (entry->state() == QueuedTransfer::State::Running || entry->state() == QueuedTransfer::State::Paused) {

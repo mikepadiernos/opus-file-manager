@@ -33,6 +33,12 @@ public:
         emitSpeed(speed);
     }
 
+    void amounts(qulonglong total, qulonglong processed)
+    {
+        setTotalAmount(Bytes, total);
+        setProcessedAmount(Bytes, processed);
+    }
+
 protected:
     bool doKill() override
     {
@@ -178,6 +184,70 @@ private Q_SLOTS:
         QCOMPARE(entry->state(), QueuedTransfer::State::Failed);
         QCOMPARE(result.size(), 1);
         QVERIFY(!entry->failure().isEmpty());
+    }
+
+    void forwardsByteAmounts()
+    {
+        TransferQueue queue;
+        FakeTransfer *running = nullptr;
+        auto *entry = queue.enqueue(QStringLiteral("amounts"), [&] {
+            running = new FakeTransfer;
+            return running;
+        });
+        QTRY_VERIFY(running);
+        running->amounts(4096, 1024);
+        QCOMPARE(entry->totalAmount(KJob::Bytes), 4096ULL);
+        QCOMPARE(entry->processedAmount(KJob::Bytes), 1024ULL);
+        running->finish();
+    }
+
+    void pausesTheWholeQueue()
+    {
+        TransferQueue queue;
+        queue.setConcurrency(1);
+        FakeTransfer *first = nullptr;
+        FakeTransfer *second = nullptr;
+        auto *one = queue.enqueue(QStringLiteral("one"), [&] {
+            first = new FakeTransfer;
+            return first;
+        });
+        auto *two = queue.enqueue(QStringLiteral("two"), [&] {
+            second = new FakeTransfer;
+            return second;
+        });
+        QTRY_VERIFY(first);
+        queue.setPaused(true);
+        QVERIFY(queue.isPaused());
+        QCOMPARE(one->state(), QueuedTransfer::State::Paused);
+
+        // A transfer finishing while paused doesn't start the next one.
+        first->finish();
+        QCOMPARE(one->state(), QueuedTransfer::State::Completed);
+        QTest::qWait(20);
+        QVERIFY(!second);
+        QCOMPARE(two->state(), QueuedTransfer::State::Waiting);
+
+        queue.setPaused(false);
+        QVERIFY(!queue.isPaused());
+        QTRY_VERIFY(second);
+        QCOMPARE(two->state(), QueuedTransfer::State::Running);
+        second->finish();
+    }
+
+    void resumesSuspendedTransfers()
+    {
+        TransferQueue queue;
+        FakeTransfer *running = nullptr;
+        auto *entry = queue.enqueue(QStringLiteral("resume"), [&] {
+            running = new FakeTransfer;
+            return running;
+        });
+        QTRY_VERIFY(running);
+        queue.setPaused(true);
+        QCOMPARE(entry->state(), QueuedTransfer::State::Paused);
+        queue.setPaused(false);
+        QCOMPARE(entry->state(), QueuedTransfer::State::Running);
+        running->finish();
     }
 };
 

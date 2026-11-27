@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "terminalpanel.h"
+#include "atuin.h"
+#include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
 #include "settings.h"
 
 #include <KActionCollection>
+#include <KActionMenu>
 #include <KConfigDialog>
 #include <KConfigGroup>
 #include <KParts/ReadOnlyPart>
@@ -16,6 +19,7 @@
 #include <QContextMenuEvent>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QImage>
 #include <QItemSelectionModel>
 #include <QLabel>
@@ -70,6 +74,179 @@ private Q_SLOTS:
         const QString status = panel.findChild<QLabel *>(QStringLiteral("terminalPanelStatus"))->text();
         QCoreApplication::setLibraryPaths(paths);
         QVERIFY(status.contains(QStringLiteral("not installed")));
+    }
+
+    void componentChoiceAppliesToNewSessions()
+    {
+        const auto reset = qScopeGuard([] {
+            Settings::setEmbeddedTerminal(Settings::EnumEmbeddedTerminal::Konsole);
+        });
+        if (TerminalProviders::isPartInstalled(TerminalProviders::Provider::Kwi)) {
+            QSKIP("The Kwi terminal component is installed in this environment");
+        }
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        TerminalPanel panel;
+        auto *status = panel.findChild<QLabel *>(QStringLiteral("terminalPanelStatus"));
+        auto *components = panel.findChild<QMenu *>(QStringLiteral("terminalComponentMenu"));
+        auto *konsole = panel.findChild<QAction *>(QStringLiteral("terminalComponent_konsole"));
+        auto *kwi = panel.findChild<QAction *>(QStringLiteral("terminalComponent_kwi"));
+        QVERIFY(status && components && konsole && kwi);
+        QCOMPARE(TerminalPanel::embeddedProvider(), TerminalProviders::Provider::Konsole);
+
+        Q_EMIT components->aboutToShow();
+        QVERIFY(!kwi->isEnabled());
+        QVERIFY(kwi->toolTip().contains(QStringLiteral("not installed")));
+        QCOMPARE(konsole->isChecked(), true);
+
+        panel.setEmbeddedProvider(TerminalProviders::Provider::Kwi);
+        QCOMPARE(Settings::embeddedTerminal(), Settings::EnumEmbeddedTerminal::Kwi);
+        QVERIFY(status->text().contains(QStringLiteral("Kwi")));
+        Q_EMIT components->aboutToShow();
+        QVERIFY(kwi->isChecked() && kwi->isEnabled());
+
+        panel.start(QUrl::fromLocalFile(folder.path()));
+        QVERIFY(!panel.hasSessions());
+        QVERIFY(panel.findChildren<KParts::ReadOnlyPart *>().isEmpty());
+        QVERIFY(status->text().contains(QStringLiteral("Kwi")));
+        QVERIFY(status->text().contains(QStringLiteral("not installed")));
+
+        konsole->trigger();
+        QCOMPARE(Settings::embeddedTerminal(), Settings::EnumEmbeddedTerminal::Konsole);
+        QVERIFY(status->text().contains(QStringLiteral("New terminal sessions use Konsole")));
+        panel.start(QUrl::fromLocalFile(folder.path()));
+        if (!TerminalProviders::isPartInstalled(TerminalProviders::Provider::Konsole)) {
+            QSKIP("KonsolePart is not available in this environment");
+        }
+        QVERIFY(panel.hasSessions());
+        auto *tabs = panel.findChild<QTabWidget *>(QStringLiteral("terminalSessions"));
+        QVERIFY(tabs->tabToolTip(0).startsWith(QStringLiteral("Konsole session started in ")));
+    }
+
+    void historySearchRunsOnlyInIdleSessions()
+    {
+        const QString home = QDir::homePath();
+        const QString atuin = home + QStringLiteral("/.atuin/bin/atuin");
+        const QString marker = home + QStringLiteral("/atuin-arguments");
+        const auto cleanup = qScopeGuard([&home, &marker] {
+            QDir(home + QStringLiteral("/.atuin")).removeRecursively();
+            QFile::remove(Atuin::databasePath());
+            QFile::remove(marker);
+        });
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        TerminalPanel panel;
+        panel.resize(600, 300);
+        panel.show();
+        auto *status = panel.findChild<QLabel *>(QStringLiteral("terminalPanelStatus"));
+        auto *action = panel.findChild<QAction *>(QStringLiteral("terminalPanelAtuinAction"));
+        QVERIFY(status && action);
+
+        action->trigger();
+        QVERIFY(status->text().contains(QStringLiteral("Atuin is not installed")));
+        QVERIFY(QDir().mkpath(QFileInfo(atuin).absolutePath()));
+        QFile script(atuin);
+        QVERIFY(script.open(QIODevice::WriteOnly));
+        script.write("#!/bin/sh\nprintf '%s\\n' \"$@\" > '" + marker.toLocal8Bit() + "'\n");
+        script.close();
+        QVERIFY(script.setPermissions(script.permissions() | QFileDevice::ExeOwner));
+        action->trigger();
+        QVERIFY(status->text().contains(QStringLiteral("atuin init")));
+        QVERIFY(!QFile::exists(Atuin::databasePath()));
+        QVERIFY(QDir().mkpath(QFileInfo(Atuin::databasePath()).absolutePath()));
+        QFile database(Atuin::databasePath());
+        QVERIFY(database.open(QIODevice::WriteOnly));
+        database.close();
+        action->trigger();
+        QVERIFY(status->text().contains(QStringLiteral("Open a terminal session")));
+
+        panel.start(QUrl::fromLocalFile(folder.path()));
+        auto *part = panel.findChild<KParts::ReadOnlyPart *>();
+        if (!part) {
+            QSKIP("KonsolePart is not available in this environment");
+        }
+        auto *terminal = qobject_cast<TerminalInterface *>(part);
+        QVERIFY(terminal);
+        panel.searchHistory();
+        QTRY_VERIFY2(QFile::exists(marker), qPrintable(status->text()));
+        QFile arguments(marker);
+        QTRY_VERIFY(arguments.size() > 0);
+        QVERIFY(arguments.open(QIODevice::ReadOnly));
+        QCOMPARE(arguments.readAll(), QByteArray("search\n--interactive\n"));
+        QVERIFY(status->text().contains(QStringLiteral("without running it")));
+
+        const auto busy = [terminal] {
+            const int foreground = terminal->foregroundProcessId();
+            return foreground > 0 && foreground != terminal->terminalProcessId();
+        };
+        QTRY_VERIFY(!busy());
+        terminal->sendInput(QStringLiteral("sleep 30\n"));
+        QTRY_VERIFY(busy());
+        QVERIFY(QFile::remove(marker));
+        panel.searchHistory();
+        QVERIFY(status->text().contains(QStringLiteral("running sleep")));
+        QTest::qWait(300);
+        QVERIFY(!QFile::exists(marker));
+    }
+
+    void terminalEditorsRunInTheirOwnSession()
+    {
+        QTemporaryDir bin;
+        QTemporaryDir folder;
+        QVERIFY(bin.isValid() && folder.isValid());
+        const QString marker = bin.filePath(QStringLiteral("arguments"));
+        QFile script(bin.filePath(QStringLiteral("nano")));
+        QVERIFY(script.open(QIODevice::WriteOnly));
+        script.write("#!/bin/sh\nprintf '%s\\n' \"$0\" \"$@\" \"$PWD\" > '" + marker.toLocal8Bit() + "'\n");
+        script.close();
+        QVERIFY(script.setPermissions(script.permissions() | QFileDevice::ExeOwner));
+        const QByteArray path = qgetenv("PATH");
+        const auto restore = qScopeGuard([&path] {
+            qputenv("PATH", path);
+        });
+        qputenv("PATH", QByteArray(bin.path().toLocal8Bit() + ':' + path));
+        const QString file = folder.filePath(QStringLiteral("-n notes.txt"));
+        QFile note(file);
+        QVERIFY(note.open(QIODevice::WriteOnly));
+        note.close();
+
+        TerminalPanel panel;
+        auto *status = panel.findChild<QLabel *>(QStringLiteral("terminalPanelStatus"));
+        QVERIFY(!panel.openProgram(script.fileName(), {file}, folder.filePath(QStringLiteral("missing")), QStringLiteral("nano")));
+        QVERIFY(status->text().contains(QStringLiteral("not an existing local folder")));
+        if (!TerminalProviders::isPartInstalled(TerminalProviders::Provider::Konsole)) {
+            QSKIP("KonsolePart is not available in this environment");
+        }
+
+        MainWindow window;
+        const QString processDirectory = QDir::currentPath();
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        window.show();
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        view->selectUrls({QUrl::fromLocalFile(file)});
+        auto *editWith = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("edit_with")));
+        QVERIFY(editWith && editWith->isEnabled());
+        QAction *nano = editWith->menu()->findChild<QAction *>(QStringLiteral("editWith_nano"));
+        QVERIFY(nano);
+        nano->trigger();
+        QVERIFY(window.actionCollection()->action(QStringLiteral("show_embedded_terminal"))->isChecked());
+        auto *tabs = window.findChild<QTabWidget *>(QStringLiteral("terminalSessions"));
+        QVERIFY(tabs);
+        // The editor opens without a shell session beside it.
+        QCOMPARE(tabs->count(), 1);
+        QCOMPARE(tabs->tabText(0).remove(QLatin1Char('&')), QStringLiteral("nano"));
+        QFile arguments(marker);
+        QTRY_VERIFY(arguments.exists() && arguments.size() > 0);
+        QVERIFY(arguments.open(QIODevice::ReadOnly));
+        const QStringList lines = QString::fromLocal8Bit(arguments.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        QCOMPARE(lines.size(), 3);
+        QCOMPARE(lines.at(0), script.fileName());
+        QCOMPARE(lines.at(1), file);
+        QCOMPARE(QFileInfo(lines.at(2)).canonicalFilePath(), QFileInfo(folder.path()).canonicalFilePath());
+        QCOMPARE(QDir::currentPath(), processDirectory);
+        // The tab closes when the editor exits.
+        QTRY_COMPARE(tabs->count(), 0);
     }
 
     void headerHasHorizontalPadding()

@@ -4,10 +4,12 @@
 
 #include "batchrename.h"
 #include "batchrenamepresets.h"
+#include "operationjob.h"
 
 #include <KSharedConfig>
 #include <QDialog>
 #include <QFutureWatcher>
+#include <QPointer>
 
 #include <atomic>
 #include <memory>
@@ -54,5 +56,6 @@ private:
     QPushButton *m_cancel;
     QFutureWatcher<BatchRename::Plan> m_previewWatcher;
     QFutureWatcher<BatchRename::Result> m_applyWatcher;
+    QPointer<OperationJob> m_applyJob;
     std::shared_ptr<std::atomic_bool> m_canceled;
 };

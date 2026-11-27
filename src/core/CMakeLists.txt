@@ -1,12 +1,24 @@
 add_library(opusfm_core STATIC
+    activityassociations.cpp
+    activityassociations.h
+    activityusage.cpp
+    activityusage.h
+    adminmode.cpp
+    adminmode.h
     appearancedefaults.cpp
     appearancedefaults.h
     appfonts.cpp
     appfonts.h
     appidentity.cpp
     appidentity.h
+    apppackages.cpp
+    apppackages.h
     archives.cpp
     archives.h
+    ark.cpp
+    ark.h
+    atuin.cpp
+    atuin.h
     archivewriter.cpp
     archivewriter.h
     batchrename.cpp
@@ -17,14 +29,30 @@ add_library(opusfm_core STATIC
     branding.h
     checksums.cpp
     checksums.h
+    cloudactivity.cpp
+    cloudactivity.h
+    cloudsync.cpp
+    cloudsync.h
+    cloudsyncrunner.cpp
+    cloudsyncrunner.h
     colorschemes.cpp
     colorschemes.h
     customcommands.cpp
     customcommands.h
+    diskimages.cpp
+    diskimages.h
+    filechooser.cpp
+    filechooser.h
     filecolorrules.cpp
     filecolorrules.h
+    fileencryption.cpp
+    fileencryption.h
+    filemanagerrequest.cpp
+    filemanagerrequest.h
     filesplitter.cpp
     filesplitter.h
+    filetypeplaces.cpp
+    filetypeplaces.h
     favoritesmodel.cpp
     favoritesmodel.h
     flatview.cpp
@@ -35,6 +63,8 @@ add_library(opusfm_core STATIC
     foldercomparison.h
     foldercolors.cpp
     foldercolors.h
+    foldergates.cpp
+    foldergates.h
     foldercolorrules.cpp
     foldercolorrules.h
     foldersync.cpp
@@ -53,8 +83,24 @@ add_library(opusfm_core STATIC
     localizednumbers.h
     indexedsearch.cpp
     indexedsearch.h
+    indexstatus.cpp
+    indexstatus.h
     interfacelanguage.cpp
     interfacelanguage.h
+    kdeconnectshare.cpp
+    kdeconnectshare.h
+    lanshare.cpp
+    lanshare.h
+    mailhandoff.cpp
+    mailhandoff.h
+    mailmessage.cpp
+    mailmessage.h
+    kwinscript.cpp
+    kwinscript.h
+    mediabackend.cpp
+    mediabackend.h
+    mounttable.cpp
+    mounttable.h
     librarymoves.cpp
     librarymoves.h
     libraryarchive.cpp
@@ -79,8 +125,14 @@ add_library(opusfm_core STATIC
     doubleshift.h
     draftstore.cpp
     draftstore.h
+    documentformats.cpp
+    documentformats.h
     duplicatefinder.cpp
     duplicatefinder.h
+    editorproviders.cpp
+    editorproviders.h
+    edittools.cpp
+    edittools.h
     effectiveappearance.cpp
     effectiveappearance.h
     executables.cpp
@@ -95,12 +147,34 @@ add_library(opusfm_core STATIC
     imageediting.h
     navigationhistory.cpp
     namefilter.cpp
+    notevault.cpp
+    notevault.h
     namefilter.h
+    officeapps.cpp
+    officeapps.h
+    onlineaccounts.cpp
+    onlineaccounts.h
+    operationjob.cpp
+    operationjob.h
     pathfilter.cpp
     pathfilter.h
     navigationhistory.h
+    plasmavaults.cpp
+    plasmavaults.h
+    portalsetup.cpp
+    portalsetup.h
     previewcontent.cpp
     previewcontent.h
+    rclone.cpp
+    rclone.h
+    remotemounts.cpp
+    remotemounts.h
+    remoteprofiles.cpp
+    remoteprofiles.h
+    rsyncsync.cpp
+    rsyncsync.h
+    runnermatches.cpp
+    runnermatches.h
     savedpathfilters.cpp
     savedpathfilters.h
     savedsearches.cpp
@@ -115,12 +189,16 @@ add_library(opusfm_core STATIC
     searchlocations.h
     searchquery.cpp
     searchquery.h
+    searchranking.cpp
+    searchranking.h
     safetextdocument.h
     session.cpp
     settingsbackup.cpp
     settingsbackup.h
     servicemenus.cpp
     servicemenus.h
+    sharedsearch.cpp
+    sharedsearch.h
     session.h
     tabcolors.cpp
     tabcolors.h
@@ -139,6 +217,7 @@ add_library(opusfm_core STATIC
     taglibrary.cpp
     taglibrary.h
     tagsearch.cpp
+    terminalproviders.cpp
     tagsearch.h
     themeprofiles.cpp
     themeprofiles.h
@@ -146,8 +225,12 @@ add_library(opusfm_core STATIC
     treemap.h
     transferqueue.cpp
     transferqueue.h
+    traypolicy.cpp
+    traypolicy.h
     viewsettings.cpp
     viewsettings.h
+    wikilinks.cpp
+    wikilinks.h
     workspacecatalog.cpp
     workspacecatalog.h
     workspaceappearance.cpp
@@ -169,10 +252,24 @@ if(KF6Baloo_FOUND)
     target_link_libraries(opusfm_core PUBLIC KF6::Baloo)
 endif()
 
+if(OPUSFM_HAVE_MPV)
+    target_sources(opusfm_core PRIVATE mpvplayer.cpp mpvplayer.h)
+    target_compile_definitions(opusfm_core PUBLIC OPUSFM_HAVE_MPV)
+    target_link_libraries(opusfm_core PUBLIC PkgConfig::MPV)
+endif()
+
+if(AccountsQt6_FOUND)
+    target_compile_definitions(opusfm_core PRIVATE OPUSFM_HAVE_ACCOUNTS)
+    target_include_directories(opusfm_core SYSTEM PRIVATE ${ACCOUNTSQT_INCLUDE_DIRS})
+    target_link_libraries(opusfm_core PRIVATE ${ACCOUNTSQT_LIBRARIES} Qt6::Xml)
+endif()
+
 target_link_libraries(opusfm_core
     PUBLIC
         Qt6::Core
+        Qt6::DBus
         Qt6::Gui
+        Qt6::Network
         KF6::Archive
         KF6::ConfigCore
         KF6::CoreAddons

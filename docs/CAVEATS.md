@@ -27,7 +27,7 @@ are in [reported bugs](BUGS.md), and untested scenarios in
 
 - **🗂️ Browsing and viewing:** [Archives](#archives),
   [folder metadata and listings](#folder-metadata-and-listings),
-  [planned password-gated folders](#planned-password-gated-folders),
+  [password-gated folders](#password-gated-folders),
   [previews and gallery](#previews-and-gallery), [editor](#editor),
   [file-list minimap](#file-list-minimap), [Yazi mode](#yazi-mode),
   [Yazi mode settings](#yazi-mode-settings)
@@ -52,7 +52,8 @@ are in [reported bugs](BUGS.md), and untested scenarios in
   [native title and header padding](#native-title-and-header-padding)
 - **🌐 Languages:** [Jalali dates](#jalali-dates),
   [translation format overrides](#translation-format-overrides)
-- **🛠️ Setup and tools:** [Embedded terminal](#embedded-terminal),
+- **🛠️ Setup and tools:** [Desktop integration](#desktop-integration),
+  [embedded terminal](#embedded-terminal),
   [settings backups](#settings-backups),
   [build and installation](#build-installation-and-references),
   [installing optional tools](#installing-optional-alternatives)
@@ -79,11 +80,12 @@ tracked in its own issue:
     are not a commitment to support remote archive creation or testing.
     - Comment: [#265.7021749894][comment-265]
 
-- **Password-protected archives:** Creation supports AES-encrypted ZIP only and
-  rejects symbolic links and other unsupported file types. ZIP entry names are
-  not encrypted. Extraction rejects links, unsafe paths and unsupported entry
-  types. If creation or extraction fails, a partial archive or extraction folder
-  may remain. ([#255][issue-255], [#256][issue-256])
+- **Password-protected archives:** Built-in creation supports AES-encrypted ZIP
+  only and rejects symbolic links and other unsupported file types. ZIP entry
+  names are not encrypted, and 7z archives are created without a password.
+  Extraction rejects links, unsafe paths and unsupported entry types. If
+  creation or extraction fails, a partial archive or extraction folder may
+  remain. ([#255][issue-255], [#256][issue-256])
 
   - **Recommendation:** Avoid sensitive ZIP entry names, and check for partial
     output after failures before retrying. Use another trusted archive tool if
@@ -99,6 +101,29 @@ tracked in its own issue:
     - Extract into a fresh staging directory first.
       - Comment:
         [#256.7029666231](https://github.com/mikepadiernos/plasma-opus/issues/256#issuecomment-7029666231)
+    - For encrypted 7z archives with encrypted file names, choose **More
+      Options in Ark…** in the Compress dialog; see
+      [Ark integration](#ark-integration).
+
+- **Split archives:** **Split into volumes** writes the whole archive, then cuts
+  it into raw numbered parts of at most the chosen size, such as
+  `photos.7z.001`, as 7-Zip does. They are not ZIP spanned or RAR multi-volume
+  archives, so only 7-Zip opens the first part directly; KIO archive browsing
+  and most other tools need the parts joined first. Splitting needs free space
+  for the whole archive and its parts, and creates the parts with owner-only
+  permissions. An archive smaller than the volume size stays a single file. If
+  splitting fails, the parts written so far are removed and the whole archive
+  is kept. ([#732][issue-732])
+
+  - **Recommendation:** Keep the parts together and open the first with 7-Zip,
+    or join them with **File › Combine Files**, naming the result after the
+    original archive. Check free space before splitting, and adjust the parts'
+    permissions before sharing them with other local users.
+    - Comment: [#732.7200937321][comment-732]
+  - **Alternative:** For RAR multi-volume archives, choose **More Options in
+    Ark…**; Ark offers them only when RAR's proprietary `rar` program is
+    installed.
+    - Comment: [#732.7200937321][comment-732]
 
 - **Encrypted 7z:** Extraction uses KArchive and can fail even for valid
   archives. Integrity testing uses the `7z` executable when available and
@@ -111,39 +136,61 @@ tracked in its own issue:
     enter passwords at its prompt rather than putting them in command arguments.
     - Comment: [#36.7021740511][comment-36]
     - Comment: [#255.7021741358][comment-255]
-  - **Alternative:** Try standalone Ark with its 7z backend.
+  - **Alternative:** Try standalone Ark with its 7z backend, or **File › Open
+    in Ark**.
     - Comment:
       [#36.7029665511](https://github.com/mikepadiernos/plasma-opus/issues/36#issuecomment-7029665511)
-  - **Planned:** [M27 Ark integration](ROADMAP.md#m27-integrations) does not
-    guarantee encrypted 7z support or safe password handling.
+  - **Ark:** **More Options in Ark…** creates encrypted 7z archives through
+    Ark's dialog. It does not change built-in extraction or guarantee safe
+    password handling; see [Ark integration](#ark-integration).
     - Comment: [#36.7021740511][comment-36]
 
-### Possible Ark integration
+### Ark integration
 
-Plasma Opus does not currently integrate with Ark
-([#313][issue-313]):
+Plasma Opus hands archives to Ark, KDE's archiving tool, when it is installed
+([#313][issue-313], [#280](https://github.com/mikepadiernos/plasma-opus/issues/280),
+[#647](https://github.com/mikepadiernos/plasma-opus/issues/647)):
 
-- **Possible benefit:** An optional handoff could improve encrypted 7z
-  compatibility through Ark's dedicated `7z` backend.
-- **Requirements:** It would require Ark and `7z` at runtime as well as error,
-  destination and overwrite handling.
+- **Current behaviour:** **File › Open in Ark** opens one local archive in
+  Ark's own window, where entries can be added, renamed or removed and
+  encrypted archives opened with Ark's password prompt. **Extract to Other
+  Pane** uses Ark only for local formats that no KIO archive worker can
+  browse, such as RAR. It creates a new, uniquely named folder in the other
+  pane's local folder and runs Ark in batch mode there, so nothing existing is
+  overwritten. **More Options in Ark…** in the Compress dialog opens Ark's own
+  Compress dialog for the selection, with encrypted 7z, encrypted file names,
+  compression levels and multi-volume archives where the installed backends
+  support them. **File › Add to Archive…** adds the selection to an archive
+  Ark can write, after a confirmation. Plasma Opus reads which formats Ark can
+  open and write from Ark's installed backend plugins and the programs they
+  need, and refuses formats Ark can only extract, such as RAR without `rar`.
+- **Limits:** Ark reports its own progress, password prompts and errors;
+  Plasma Opus reports only a missing Ark or a failed start. If Ark fails or is
+  cancelled, the new folder stays, possibly empty. **Add to Archive** changes
+  the archive in place, and Ark replaces an entry with the same name; entries
+  are named relative to the first selected item's folder. Ark chooses where its
+  Compress dialog saves, so the non-overwriting name and pane choices of the
+  built-in Compress dialog do not apply. Remote archives and remote
+  destinations are not handed to Ark. Formats KIO can browse, including 7z
+  and ZIP, still use the built-in extraction, and **Extract
+  Password-Protected Archive** still uses KArchive.
 - **Password exposure:** Ark's
   [7z plugin](https://github.com/KDE/ark/blob/master/plugins/cli7zplugin/cliplugin.cpp)
-  defines a `-p$Password` command-line switch. Verify the installed version and
-  operation before assuming passwords are not exposed in process arguments.
+  defines a `-p$Password` command-line switch. Plasma Opus never passes a
+  password to Ark, but a password typed into Ark's prompt may appear in the
+  `7z` process arguments, which other local users can read on some systems.
 
-- **Recommendation:** Investigate an optional Ark handoff with explicit
-  dependency checks and safe error, destination, overwrite and password
-  handling. Until then, open archives with 7-Zip or another trusted external
-  tool when needed.
+- **Recommendation:** For encrypted 7z archives that the built-in extraction
+  cannot open, use **Open in Ark** with its 7z backend installed. On shared
+  systems, avoid typing sensitive passwords into Ark, or use 7-Zip at its own
+  prompt instead. Remove an empty folder left by a cancelled Ark extraction.
+  Before **Add to Archive**, keep a copy of an archive you cannot recreate, and
+  check that no entry with the same name should be kept.
   - Comment: [#313.7021757012][comment-313]
 - **Alternative proposal:** Consider a user-controlled external archiver
   handoff.
   - Comment:
     [#313.7029672463](https://github.com/mikepadiernos/plasma-opus/issues/313#issuecomment-7029672463)
-- **Planned:** [M27](ROADMAP.md#m27-integrations) includes Ark integration; its
-  precise backend and safeguards still need to be established.
-  - Comment: [#313.7021757012][comment-313]
 
 ## Folder metadata and listings
 
@@ -215,28 +262,47 @@ its own issue:
     - Comment:
       [#262.7029668154](https://github.com/mikepadiernos/plasma-opus/issues/262#issuecomment-7029668154)
 
-## Planned password-gated folders
+## Password-gated folders
 
-The [proposed Plasma Opus password gate](ROADMAP.md#m27-integrations) is not
-implemented ([#406](https://github.com/mikepadiernos/plasma-opus/issues/406);
-feature [#402](https://github.com/mikepadiernos/plasma-opus/issues/402)). As
-proposed, it has these limits:
+**File › Password Protection** gates local folders behind a password inside
+Plasma Opus only ([#406](https://github.com/mikepadiernos/plasma-opus/issues/406);
+feature [#402](https://github.com/mikepadiernos/plasma-opus/issues/402)):
 
-- **Not security:** It would be a Plasma Opus-only prompt, not encryption or
-  filesystem access control.
-- **Bypass:** Other file managers and processes with the same user permissions
-  could access the underlying folder without the password.
-- **Filesystem permissions:** Standard filesystem permissions and ACLs
+- **Current behaviour:** A protected folder starts locked in every new
+  session. While it is locked, Plasma Opus shows the folder with a lock icon
+  but does not list it, preview it, search inside it, open a terminal in it or
+  copy, move, trash or delete it or anything inside it; its subfolders are
+  hidden from the tree and Yazi columns. Unlocking lasts until **Lock All
+  Protected Folders** or the end of the session; there is no idle auto-lock.
+  The MCP server treats every protected folder as locked.
+- **Not security:** The gate is not encryption or filesystem access control.
+  Other file managers, terminals and processes with the same user
+  permissions use the folder freely, and standard permissions and ACLs
   distinguish users and groups, not applications running with the same
-  credentials.
+  credentials. Removing the folder's entry from `opus-file-managerrc` removes
+  the gate. Plasma Opus stores a salted PBKDF2-SHA256 verifier rather than the
+  password, and does not use KWallet.
+- **Leaks inside Plasma Opus:** A locked folder can still be dragged to
+  another application, which then copies or opens it. Folder sizes,
+  **Properties** counts, the trash, recent files, history, bookmarks and
+  search collections can show sizes or names from inside it, and thumbnails
+  cached before it was protected stay in the thumbnail cache.
+- **Paths, not folders:** A gate follows a folder moved or renamed in Plasma
+  Opus, but a folder moved by another application leaves its gate behind,
+  unprotected at the new path. A gate on a deleted folder stays and gates any
+  new folder created at the same path. Bind mounts, hard-linked files and
+  other paths to the same data are not gated.
 
-- **Recommendation:** For confidential files, use a separate encrypted vault
-  such as [KDE Plasma Vault](https://github.com/KDE/plasma-vault). Applications
-  with access can use files while the vault is unlocked and mounted; when it is
-  locked, the decrypted contents are unavailable through the mount. This uses
-  encryption, unlike the requested gate. Back up the data and protect the
-  passphrase; handle any original unencrypted copies separately. Backend
-  availability and behaviour vary.
+- **Recommendation:** Treat the gate as a privacy screen against casual
+  browsing in Plasma Opus, not as protection. For confidential files, use a
+  separate encrypted vault such as
+  [KDE Plasma Vault](https://github.com/KDE/plasma-vault): applications with
+  access can use files while the vault is unlocked and mounted, and the
+  decrypted contents are unavailable through the mount when it is locked.
+  Back up the data, protect the passphrase and handle any original
+  unencrypted copies separately. Lock protected folders before leaving the
+  desktop, move them only in Plasma Opus, and remove protection before
+  deleting a folder.
   - Comment:
     [#406.7040077820](https://github.com/mikepadiernos/plasma-opus/issues/406#issuecomment-7040077820)
 - **Alternatives:**
@@ -257,6 +323,9 @@ proposed, it has these limits:
     permissions vary, so this is not universal password enforcement.
     - Comment:
       [#406.7040079777](https://github.com/mikepadiernos/plasma-opus/issues/406#issuecomment-7040079777)
+- **Proposed improvements:** Gate locked folders when dragging them out,
+  hide their sizes and names in Properties, history and collections, add an
+  idle auto-lock, and offer Plasma Vault for folders that need encryption.
 
 ## Previews and gallery
 
@@ -290,7 +359,7 @@ tracked in its own issue:
   - **Alternative:** Use Kate or KWrite for long-line text.
     - Comment:
       [#264.7029668772](https://github.com/mikepadiernos/plasma-opus/issues/264#issuecomment-7029668772)
-  - **Planned:** [M27 editor integrations](ROADMAP.md#m27-integrations) would
+  - **Planned:** [M27 editor integrations](ROADMAP.md#m27-integrations)
     launch separate editors; they do not increase Plasma Opus preview limits.
     - Comment: [#264.7021749088][comment-264]
 
@@ -358,8 +427,8 @@ tracked in its own issue:
 
 ## Editor
 
-The text editor's drafts and Markdown handling have these limits, each tracked
-in its own issue:
+The text editor's drafts, Markdown handling and editing in the preview have
+these limits, each tracked in its own issue:
 
 - **Draft storage:** Drafts are limited to 8 MiB of UTF-8 text and are stored in
   the application's private data directory, not in the original file. If draft
@@ -409,6 +478,22 @@ in its own issue:
   - **Planned:** [M27 editor integrations](ROADMAP.md#m27-integrations) do not
     change the built-in visual editor's Markdown limitations.
     - Comment: [#309.7021755164][comment-309]
+
+- **Editing in the preview:** The preview's **Edit** action edits only local,
+  writable text files up to 10 MiB. It refuses binary content and files that
+  KTextEditor opens read-only, such as unsupported encodings or very long
+  lines, and remote text previews report that they can't be edited there.
+  Moving a session to the editor panel keeps the text and its unsaved state,
+  but not the undo history, cursor position or visual Markdown mode. A file
+  open in both the preview and the editor panel is two independent documents.
+  ([#755][issue-755])
+
+  - **Recommendation:** Use the preview for quick edits to local text files,
+    and the editor panel or an external editor such as Kate or Neovim for
+    remote, large, binary or unusually encoded files. Move a session to the
+    editor panel before you need its undo history, and edit a file in only
+    one place at a time.
+    - Comment: [#755.7207460156][comment-755]
 
 ## File-list minimap
 
@@ -578,13 +663,63 @@ have these limits
 - **Indexed search:** Requires Baloo at build and runtime and searches its
   configured locations. It matches indexed terms rather than literal substrings,
   does not accept double quotes, and may omit files or return stale results.
-  With path filters, it examines at most 200,000 Baloo matches and returns at
-  most 5,000 filtered matches. A depth limit restricts results to the current
-  local folder.
+  Baloo applies required content terms and alternatives, folder, image, audio
+  and video types and modification dates itself; NOT, name, path, size,
+  extension, tag and metadata criteria are still checked against the files it
+  returns. Types and dates use the MIME type and modification time Baloo
+  recorded, so files changed since indexing or with misleading names may be
+  missed. Plasma Opus examines at most 200,000 Baloo matches, says so when it
+  stops there, and returns at most 5,000 matches. A depth limit or workspace
+  search asks Baloo about each location; a location with no indexed matches,
+  such as an unindexed folder, makes the search ask the whole index instead,
+  which is slower.
+  ([#733](https://github.com/mikepadiernos/plasma-opus/issues/733))
 - **Index status:** Coverage notices reflect configuration, not proof of
   indexing; exclusions and pending indexing can affect results. Baloo's query
   API does not report index-read failures, and a running query cannot be
-  interrupted until it returns.
+  interrupted until it returns. **Indexing Status** reproduces Baloo's
+  folder, hidden-item, pattern and file-type rules from KDE File Search
+  settings; the indexer may still skip files it can't read, very large
+  files or files it failed to extract. **Check Index Coverage** looks up only
+  the folder's first 200 files, not subfolders, and a file in the index may
+  still have stale contents. Missing extractors are detected only for
+  document, text, image, audio, video and ebook types among those files.
+  The indexer's state is read over D-Bus when the status is opened or the
+  Baloo scope is chosen, then updated when the indexer reports a change; its
+  remaining-time estimate is Baloo's own. Suspend, resume and checking for
+  unindexed files ask the shared indexer, which may ignore them, for example
+  on battery power. This has been verified in a headless container with a
+  simulated indexer only, not yet against a running Baloo on a Plasma
+  session.
+  ([#441](https://github.com/mikepadiernos/plasma-opus/issues/441))
+- **Indexed metadata and ranking:** A `meta:` term selects Baloo candidates
+  only when the query has no name or content term. Baloo then matches whole
+  indexed words in any indexed text and in the enabled text properties, not
+  substrings, so `meta:Can` may not find Canon; every candidate is confirmed by
+  reading its metadata, which is slower on large result sets. Numbers, dates
+  and properties Baloo does not index, or files whose extractor is missing,
+  can't be found this way, and Baloo limited to file names finds no metadata;
+  add a name term or search live instead. Ranking compares file names only,
+  not paths, contents or metadata, and only reorders the results found: it
+  can't add files missing from the index or beyond the 5,000-result limit,
+  and the order is by score, not relevance as Baloo computes it. **Search
+  Current Folder Live** appears only after an indexed search that was not
+  cancelled, for a local current folder or workspace locations, and switches
+  the scope to the live search before running it, so later searches stay
+  live until the scope is changed back.
+  ([#442](https://github.com/mikepadiernos/plasma-opus/issues/442))
+- **Shared searches:** A saved search shared with KDE Places is a Baloo
+  search, so Dolphin and file dialogs list only indexed files, match whole
+  words rather than parts of names or text, and use the MIME types and
+  dates Baloo recorded. Top-level criteria Baloo can't express are dropped
+  rather than approximated, so the place may list more files than the saved
+  search: sizes, extensions, paths, tags, metadata numbers, NOT terms, name
+  wildcards and exact names, today and yesterday, depth limits, path filters
+  and exclusions. A search of several search folders covers every indexed
+  location, since Baloo limits a search to one folder, and remote folders
+  can't be shared. The place doesn't follow later changes to the saved
+  search, and renaming or deleting the saved search leaves it in Places.
+  ([#734](https://github.com/mikepadiernos/plasma-opus/issues/734))
 - **Selection and exclusions:** Path-selection filters apply only to local
   top-level listings or the visible flat list, not expanded child rows. Excluded
   folders are entered one per line, so paths containing newlines cannot be
@@ -652,11 +787,13 @@ have these limits
   from the name and, if needed, the contents, which can slow live searches and
   miss misnamed files. Content criteria use live search's text limits;
   unreadable, binary and oversized files never contain a term, so NOT content
-  criteria match them. Indexed queries need a name or content term that every
-  result must match, which selects Baloo candidates; other content terms use
-  Baloo's word matching rather than substrings, and name, path, type, size and
-  date criteria are checked against the files found. The normalized query
-  shown while typing uses English field names.
+  criteria match them. Indexed queries need a name, content or meta term, or
+  a group of content alternatives, that every result must match, which
+  selects Baloo candidates. Content terms use Baloo's word matching rather
+  than substrings. Baloo also applies required folder, image, audio and video
+  types and modification dates; other criteria, and any criterion under NOT
+  or in an OR group with other fields, are checked against the files found.
+  The normalized query shown while typing uses English field names.
 - **Search folders and exclusions:** The search folders and excluded folders
   set on Preferences' Search page apply only to Plasma Opus. They do not
   change what Baloo indexes, and an excluded folder is still searched by other
@@ -677,17 +814,23 @@ have these limits
   Sticky Keys is on in Plasma's accessibility settings, and Plasma Opus can't
   detect input methods or remappings that intercept <kbd>Shift</kbd>.
 
-- **Recommendation:** Check Baloo's indexing configuration and status; use live
-  search for a current local folder, search smaller folders, inspect errors and
-  repeat searches after files change. Use flat view when selecting nested local
-  items by path, and verify the resulting selection. Use GNU `find` for other
-  local filename searches or ripgrep (`rg`) for content searches when Plasma
-  Opus limits are unsuitable; check each tool's hidden-file, ignore, encoding
-  and symbolic-link behaviour. If a revealed result is hidden or filtered,
-  adjust the pane's visibility settings. Re-run saved searches and check
-  collection references after files change. Use KDE File Search settings to
-  change what Baloo indexes for every application. When pressing
-  <kbd>Shift</kbd> twice is unavailable, use the Search shortcut
+- **Recommendation:** Check Baloo's indexing configuration and status in
+  **File › Indexing Status…**, and use **Check Index Coverage** to confirm
+  that a folder's files are indexed, or `balooctl6 status` for details Baloo
+  doesn't expose to applications; use live search for a current local folder,
+  or **Search Current Folder Live** after an indexed search, search smaller
+  folders, inspect errors and repeat searches after files change. Use whole
+  words in indexed `meta:` terms, and add a name term or search live for
+  numbers, dates or partial words. Turn ranking off to keep the order in which
+  results were found. Use flat view when selecting nested local items by path,
+  and verify the resulting selection. Use GNU `find` for other local filename
+  searches or ripgrep (`rg`) for content searches when Plasma Opus limits are
+  unsuitable; check each tool's hidden-file, ignore, encoding and
+  symbolic-link behaviour. If a revealed result is hidden or filtered, adjust
+  the pane's visibility settings. Re-run saved searches and check collection
+  references after files change. Use KDE File Search settings to change what
+  Baloo indexes for every application. When pressing <kbd>Shift</kbd> twice is
+  unavailable, use the Search shortcut
   (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> by default), which can be
   changed in Configure Keyboard Shortcuts. To search another folder from the
   search panel, use Search from that pane's toolbar or the Search shortcut
@@ -697,15 +840,20 @@ have these limits
   active pane; click the panel or use <kbd>Tab</kbd> when keyboard focus needs
   to move elsewhere. Check the normalized query shown while typing to confirm
   grouping, use parentheses where AND and OR are mixed, and search the current
-  folder or search folders when an advanced query has no required name or
-  content term. After renaming or deleting a shared path filter, choose the
-  default path filter again on Preferences' Search page. With several windows
-  open, hide the search panel in the last window you use if it should stay
-  closed at the next startup. Turn off Remember recent search queries before
-  searching for sensitive text, or use Clear Search History afterwards. Choose
-  Names and folders when long paths make results hard to scan. When toolbar
-  searches leave the panel hidden, press <kbd>Down</kbd> in the field after a
-  search to check its errors and results.
+  folder or search folders when an advanced query has no required name,
+  content or meta term. Search live when recently changed or misnamed files
+  must match an indexed type or date, and add a name or content term when an
+  indexed search reaches the 200,000-match limit. Read the criteria listed
+  before sharing a search with KDE Places, share it again after changing it,
+  and remove stale places from Places in any KDE application. After renaming
+  or deleting a shared path filter, choose the default path filter again on
+  Preferences' Search page. With several windows open, hide the search panel
+  in the last window you use if it should stay closed at the next startup.
+  Turn off Remember recent search queries before searching for sensitive text,
+  or use Clear Search History afterwards. Choose Names and folders when long
+  paths make results hard to scan. When toolbar searches leave the panel
+  hidden, press <kbd>Down</kbd> in the field after a search to check its
+  errors and results.
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment:
@@ -717,9 +865,7 @@ have these limits
   plans configurable shortcuts
   ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230)), which
   could include focusing the search field and panel.
-  [M27 Baloo integration](ROADMAP.md#m27-integrations) plans
-  better status, metadata queries, result ranking and an explicit live fallback,
-  not guaranteed index completeness. [M15 workspaces](ROADMAP.md#m15-workspaces)
+  [M15 workspaces](ROADMAP.md#m15-workspaces)
   plan search scoping, not a security boundary.
   - Comment: [#362.7023269364][comment-362]
 
@@ -1118,7 +1264,9 @@ The M24 [tagging settings](tagging.md#settings) have these limits
 Filtered folder comparison has these limits
 ([#376](https://github.com/mikepadiernos/plasma-opus/issues/376)):
 
-- **Scope:** Comparison requires two separate local folders. Patterns match
+- **Scope:** The built-in comparison requires two separate local folders; with
+  a folder on an SSH host, the [rsync backend](#desktop-integration) compares
+  instead. Patterns match
   relative paths case-sensitively; excluded folders are not traversed. Links can
   be skipped or compared by target, but are never followed. When links are
   skipped, the matching subtree on the other side is also skipped.
@@ -1131,22 +1279,21 @@ Filtered folder comparison has these limits
 - **Recommendation:** Use separate local folders and choose relative-path
   patterns carefully; enable content comparison when matching bytes matter.
   Compare smaller trees if the entry limit is reached, and rerun after changes.
-  Use an external tool for remote locations or unsupported filenames.
+  Choose rsync for folders on SSH hosts, and use an external tool for other
+  remote locations or unsupported filenames.
   - Comment: [#376.7026216329][comment-376]
 - **Alternative:** Use a separate graphical directory comparison.
   - Comment:
     [#376.7029677475](https://github.com/mikepadiernos/plasma-opus/issues/376#issuecomment-7029677475)
-- **Planned:** The [M27 rsync backend](ROADMAP.md#m27-integrations) is for
-  folder synchronization; it does not promise remote support in this standalone
-  comparison.
-  - Comment: [#376.7026216329][comment-376]
 
 ## Folder synchronization
 
 Folder synchronization has these limits
 ([#377](https://github.com/mikepadiernos/plasma-opus/issues/377)):
 
-- **Supported operations:** Synchronization is local-only. It copies, overwrites
+- **Supported operations:** The built-in backend is local-only; the optional
+  [rsync backend](#desktop-integration) also reaches folders on SSH hosts, with
+  its own limits. Synchronization copies, overwrites
   and permanently deletes regular files and creates missing folders. Links,
   directory deletion and type replacement are unsupported. Profiles save filters
   and comparison options, not item actions.
@@ -1163,17 +1310,14 @@ Folder synchronization has these limits
 - **Recommendation:** Back up important data first, stop other writers and avoid
   moving the folders during synchronization. Review every planned overwrite and
   permanent deletion, inspect the completed-operation report and any reported
-  `.opus-sync-*` folders after errors, and compare again before retrying. Use
-  another tool for remote locations, links, directory deletion, type replacement
-  or metadata that must be preserved.
+  `.opus-sync-*` folders after errors, and compare again before retrying.
+  Choose rsync for folders on SSH hosts, and use another tool for links,
+  directory deletion, type replacement or metadata that must be preserved.
   - Comment: [#377.7026633904][comment-377]
-- **Alternative:** Use rsync separately with a reviewed dry run.
+- **Alternative:** Run rsync yourself with a reviewed dry run for options
+  Plasma Opus doesn't offer.
   - Comment:
     [#377.7029677824](https://github.com/mikepadiernos/plasma-opus/issues/377#issuecomment-7029677824)
-- **Planned:** [M27](ROADMAP.md#m27-integrations) proposes an optional rsync
-  backend for local and SSH locations, with a reviewed dry run. It is not
-  available yet and would still require confirmation and recovery precautions.
-  - Comment: [#377.7026633904][comment-377]
 
 ## File comparison
 
@@ -1589,10 +1733,995 @@ The regional locale and custom digit shapes do not control every display
   - Comment:
     [#440.7045227580](https://github.com/mikepadiernos/plasma-opus/issues/440#issuecomment-7045227580)
 
+## Desktop integration
+
+The M27 desktop integrations have these limits
+([#728](https://github.com/mikepadiernos/plasma-opus/issues/728)):
+
+- **🔗 FileManager1 service:** Plasma Opus claims
+  `org.freedesktop.FileManager1` only when it starts while it is the default
+  folder handler, and never replaces another owner, such as a running Dolphin.
+  Changing the default handler while it runs takes effect at the next start.
+  The per-user activation file from `install.sh --default` stays when another
+  default is chosen in System Settings, so requests made while no file
+  manager runs still start Plasma Opus. Requests open tabs in the active pane
+  of the existing window; missing items are skipped and reported, and flat
+  view opens the folder without a selection.
+  ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279))
+- **🌐 Language preferences:** Plasma Opus reads Plasma's language list
+  only at start. Changes in Plasma's Region & Language settings reach running
+  applications through `LANGUAGE` only after logging in again, and Plasma Opus
+  falls back to `plasma-localerc` only when `LANGUAGE` is unset. Listed
+  languages without a Plasma Opus catalogue are skipped; when none has one,
+  the original English text is shown.
+  ([#437](https://github.com/mikepadiernos/plasma-opus/issues/437))
+- **🔔 Notifications and jobs:** only the checksum, folder synchronization,
+  duplicate finder, file split, batch rename, batch image conversion and
+  tag-library refresh dialogs report to Plasma's job progress. Automatic
+  library refreshes, previews, gallery loads, searches and archive tools do
+  not. Plasma's job entry cannot bring the dialog back to the front; it offers
+  only its own actions, such as opening the destination folder. Outside a
+  Plasma session, with no job-view service running, nothing is reported and
+  the dialogs remain the only progress display. There is no Plasma Opus
+  setting to turn the reporting off yet.
+  ([#388](https://github.com/mikepadiernos/plasma-opus/issues/388))
+- **📌 System tray and global shortcut:** the tray icon is on by default;
+  minimizing and closing to the tray are off until turned on under
+  **Settings › General › System Tray**. On Wayland, KWin
+  does not tell applications when they are minimized, so minimizing to the
+  tray works only on X11. KWin's focus-stealing prevention may keep a window
+  shown from the tray or the global shortcut behind the active window and
+  highlight it in the task manager instead. When another application already
+  uses Meta+Alt+O, the shortcut stays unassigned without a notice. A window
+  hidden in the tray keeps its tabs and running operations, but there is no
+  option to start hidden in the tray.
+  ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285))
+- **🧭 Plasma Activities:** associations are off by default and are only
+  offered, in a message above the panes, when the current Activity changes;
+  the Activity that is current when Plasma Opus starts is not offered. An
+  association whose workspace is already active offers only its default
+  folders, and its own behaviours apply only when its workspace is switched
+  to. Behaviours chosen by an association last until another workspace is
+  chosen, and they are not saved with the session. Default folders always
+  open in new tabs, so tabs accumulate with each switch. Only local folders
+  are checked before they are offered; a missing remote folder fails when
+  its tab opens. Associations are kept for removed Activities and missing
+  workspaces until they are cleared under **View › Activity Associations**.
+  Without the Activities service, nothing is offered and removed Activities
+  cannot be told apart from existing ones.
+  ([#387](https://github.com/mikepadiernos/plasma-opus/issues/387))
+- **📱 KDE Connect sharing:** **File › Send to Device…** sends only local
+  regular files; folders, remote KIO locations and special files are listed
+  as unsupported and skipped. A successful reply from KDE Connect means it
+  accepted the files, not that they arrived: the transfer's progress, result
+  and any failure appear only in KDE Connect's notifications, not in Plasma
+  Opus. Device states are read when the dialog opens or KDE Connect reports a
+  change, with short blocking D-Bus calls. The action is not in the file
+  context menu, where KDE Connect's own **Send to** service menu may already
+  appear.
+  ([#389](https://github.com/mikepadiernos/plasma-opus/issues/389))
+- **🔎 KRunner:** the plugin works only from an installed build: KRunner
+  finds it through the installed plugin file and starts the helper through
+  D-Bus activation, so a build run from its tree offers nothing. Only saved
+  workspaces and Favorites are offered, matched by name; locations inside a
+  workspace, history and other places are not. Remote Favorites are offered
+  without checking that they can be reached, and fail when their tab opens.
+  Choosing a workspace always asks before switching. The plugin is enabled
+  by default once installed. The helper keeps running after KRunner first
+  starts it, reads the settings again whenever a search session ends, and
+  is not stopped when Plasma Opus quits. KRunner may need restarting before
+  a newly installed plugin appears.
+  ([#390](https://github.com/mikepadiernos/plasma-opus/issues/390))
+- **⬇️ Service-menu downloads:** downloading reuses Dolphin's
+  `servicemenu.knsrc` provider and its `servicemenuinstaller`, so it needs
+  Dolphin installed, and what it installs, updates or removes is shared with
+  Dolphin's own download window. Plasma Opus does not review downloaded
+  service menus; they come from the KDE Store and can run any command.
+  Installation errors are shown in the download window, and the tab names
+  only the entries that failed. Service menus installed outside the download
+  window, or by another application while the settings are open, appear only
+  after the window is used again or the settings are reopened.
+  ([#369](https://github.com/mikepadiernos/plasma-opus/issues/369))
+- **🗂️ System file chooser:** setup is per user and only through
+  `--install-portal` or `./install.sh --file-chooser`; the planned
+  [M28 settings row](ROADMAP.md#m28-integration-settings) does not exist yet.
+  It writes only `kde-portals.conf`, so it applies in Plasma sessions and not
+  in other desktops. xdg-desktop-portal reads per-user portal descriptions
+  only from version 1.21.0; older versions ignore Plasma Opus and fall back
+  to the next chooser in the preference, normally KDE's. Applications that
+  open their own dialog without the portal keep it, including most native
+  Qt and KDE applications. The chooser has no tabs,
+  previews, side panels or indexed search, only a name filter over the
+  current folder, which also lists matching files when choosing a folder.
+  Only local files are accepted; remote locations can be browsed but not
+  returned. A modal request keeps the dialog over its window, but the
+  application's own window is not blocked. Setup and uninstalling restart
+  xdg-desktop-portal, which closes file dialogs open in other applications.
+  This has been verified in a headless container only, not yet on a Plasma
+  session ([pending task](TODO.md#system-file-chooser-on-plasma-286)).
+  ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
+- **💽 Mount manager:** the dialog checks for mounts made by other programs
+  every three seconds while it is open, and sizes and free space are read
+  only when it opens, on **Refresh** and after a mount. Eject works only for
+  optical drives; USB drives can be unmounted but not powered off. File
+  systems that Solid does not manage can be mounted only when their fstab
+  entry allows users, with `user`, `users`, `owner` or `group`, and unmounted
+  only when it allows users or they are FUSE mounts; `/` can never be
+  unmounted. autofs and systemd automount points show as not mounted until
+  they are first accessed. Pseudo, snap, container and portal file systems
+  are hidden, with no option to show them. **Show only removable devices** is
+  off by default until the planned
+  [M28 setting](ROADMAP.md#m28-integration-settings). Plasma's and UDisks2's
+  authorization prompts have been verified in a headless container only, not
+  yet on a Plasma session.
+  ([#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
+- **💽 Disk images:** mounting needs the Mount ISO plugin from Dolphin's
+  plugins, usually packaged as `dolphin-plugins`; without it the actions
+  explain what is missing and do nothing. The plugin blocks the window while
+  UDisks2 attaches and mounts the image, for up to about 20 seconds, and
+  reports no errors, so the reason shown after a failure is inferred from
+  what Solid reports afterwards and may be inaccurate. Mounting and
+  unmounting may ask for authorization through polkit. A refused mount can
+  leave the image attached as a loop device without a mount point; choosing
+  **Mount Disk Image** again detaches it and retries. Solid hides loop
+  devices whose image is outside the home folder, so those images do not
+  appear in Places even when mounted. Only images Dolphin's plugin
+  recognizes are offered, and only one at a time. This has been verified in
+  a headless container with a simulated plugin only, not yet on a Plasma
+  session.
+  ([#648](https://github.com/mikepadiernos/plasma-opus/issues/648))
+- **📦 Application packages:** packages are recognized by MIME type and by
+  the standard installation folders, `~/.local/share/flatpak`,
+  `/var/lib/flatpak` and `/snap`; custom Flatpak installations are not.
+  A Flatpak bundle's application ID is not read, so its installed state and
+  details are unknown until it is installed and opened from its folder.
+  Sandbox permissions are shown only after installing, since Flatpak
+  reports them only for installed applications; installing grants what the
+  application requests. Local snap files are installed with `--dangerous`,
+  without a Store signature check or automatic updates, and snaps that need
+  classic confinement fail to install. Tools run without a terminal, so
+  Flatpak and snapd may ask for authorization through polkit, but any other
+  prompt fails the change, and progress is not shown beyond a busy
+  indicator. **Add to Application Menu** runs a type 2 AppImage's runtime
+  to extract its desktop file and icon; type 1 AppImages, and others whose
+  files cannot be read, get their file name and a generic icon. Menu entries
+  point to the AppImage's current path and break when it is moved or
+  deleted. AppImage updates need AppImageUpdate's `appimageupdatetool`.
+  This has been verified in a headless container with simulated package
+  tools only, not yet with real `flatpak`, `snap` or Discover on a Plasma
+  session.
+  ([#281](https://github.com/mikepadiernos/plasma-opus/issues/281))
+- **🪟 KWin script:** the script has been tested only against a simulated
+  KWin in the headless container, not yet on a Plasma session
+  ([pending task](TODO.md#kwin-script-on-plasma-707-708)). Its use of KWin's
+  tiling API, assigning a tile or `frameGeometry`, and its X11 and Wayland
+  behaviour are unverified, and KWin's scripting API can change between
+  Plasma releases. Requests reach the script through its **Plasma Opus:
+  Process Window Requests** shortcut, which appears, unassigned, in KWin's
+  shortcut list. Only the main window's placement is kept, one per workspace,
+  without its maximized or full-screen state; a placement is kept only once
+  the window has been moved, resized or retiled with that workspace current.
+  Tiled companions are only Plasma Opus's own detached windows, such as the
+  gallery and the popped-out second pane; terminals, editors and other
+  applications it opens are separate processes and are not placed.
+  Windows are matched by desktop file name and process id, so a sandbox that
+  hides the real process id, such as Flatpak, prevents matching. Virtual
+  desktops can be assigned only after the script has reported them. The
+  options are in **Settings › Configure KWin Integration…** until the
+  [M28 KWin scripts settings](ROADMAP.md#m28-integration-settings).
+  ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707))
+- **⬇️ Drop-down window:** it is off by default, and its global shortcut
+  is unassigned until one is chosen. Only the main window drops down, and
+  while it is on, its placement is not kept for workspaces. Without the
+  script it opens as a regular window, wherever KWin places it, and stays in
+  the taskbar. Hiding on focus loss waits 200 ms and does not hide while a
+  dialog, menu or another Plasma Opus window is active; closing the window
+  still quits or hides it to the tray as usual instead of rolling it up. The
+  slide animation needs KWin's **Sliding popups** effect. The screen and
+  touch-screen edges are shared with KWin's own edge actions, and only one
+  can claim an edge.
+  ([#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
+- **🗂️ File-type categories:** Baloo classifies indexed files by their
+  detected content, while the live fallback matches MIME types guessed from
+  names and file extensions, so the two can list different files, such as a
+  renamed file or an ebook saved without its extension. **Ebooks** lists
+  only EPUB, Mobipocket, FictionBook, comic book archives and DjVu, and
+  **Application Packages** only Flatpak, AppImage, Debian, RPM and Snap
+  packages. **Large Files** is fixed at 100 MiB and is always a live search,
+  since Baloo doesn't index file sizes. The entries are saved in Plasma's
+  shared `user-places.xbel`, marked for Plasma Opus only, with their titles
+  in the language in use when they were added. They also show in the KDE
+  file dialogs Plasma Opus opens, where they can't be opened. KDE's older
+  **Search For** entries, where a distribution still adds them, appear beside
+  them. A removed entry isn't added again.
+  ([#649](https://github.com/mikepadiernos/plasma-opus/issues/649))
+- **💻 Terminal providers:** **Open Terminal With** only lists the
+  default terminal, Konsole, Yakuake and Kwi, and finds them through `PATH`,
+  so a terminal installed only as a Flatpak shows as not installed. It opens
+  the active pane's folder, also from a selected folder's context menu.
+  Yakuake has no option to start in a folder, so Plasma Opus adds a session
+  and types `cd` into it; a shell that is slow to start or a profile that
+  runs another program can miss or misread it, and the command can appear in
+  shell history unless leading spaces are ignored. Plasma Opus can't tell
+  whether Yakuake's window is shown, so it doesn't open or close it, and
+  waits 15 seconds for a Yakuake it started. A running Kwi decides how a
+  second request opens. The choice isn't remembered between uses.
+  ([#289](https://github.com/mikepadiernos/plasma-opus/issues/289))
+
+- **📝 Editor integrations:** **Edit With** only lists KWrite, Kate, Neovim,
+  Rune, micro and nano, and finds them through `PATH`, so an editor
+  installed only as a Flatpak shows as not installed. Rune is looked up as
+  `rune` and hasn't been tested. Neovim, Rune, micro and nano open in a new
+  embedded terminal tab rather than a separate terminal window until the M28
+  editor settings choose a session type, so they need the Konsole or Kwi
+  component, and they only open local files; KWrite and Kate also open
+  remote files through KIO. Folders can't be opened. The editor's tab starts
+  in the first file's folder, but a terminal profile with its own start
+  folder takes precedence, and the tab closes when the editor exits. The
+  editors start with their own configuration, and the choice isn't
+  remembered between uses.
+  ([#319](https://github.com/mikepadiernos/plasma-opus/issues/319))
+
+- **📄 Office documents:** Plasma Opus doesn't embed an office editor. The
+  preview panel shows office documents read-only, and only when a document
+  viewer component for the format, such as Calligra's, is installed; otherwise
+  it shows the file's details. **Open in Office Application** lists only
+  LibreOffice, Calligra and ONLYOFFICE, and finds them through `PATH`, so an
+  application installed only as a Flatpak or AppImage shows as not
+  installed. It covers OpenDocument and Microsoft Office documents,
+  spreadsheets and presentations; RTF, CSV and OpenDocument drawings aren't
+  included. LibreOffice and ONLYOFFICE only open local files, and Calligra
+  needs a separate Words, Sheets or Stage program for each kind. The
+  application handles saving and format conversion, and Plasma Opus doesn't
+  track whether a document is open or has unsaved changes.
+  ([#674](https://github.com/mikepadiernos/plasma-opus/issues/674))
+
+- **✏️ Edit action:** **Edit** chooses a tool by file type rather than by
+  the file associations in System Settings, and always takes the first
+  installed tool in a fixed order, so it can't be pointed at a preferred
+  editor. It covers text, office documents, SVG drawings, raster images and
+  audio; videos, PDF documents, archives and other types can be previewed
+  but not edited. Separate tools are found through `PATH`, so Flatpak and
+  AppImage installations show as not installed, and only the built-in
+  editor, KolourPaint and Calligra open remote files. It edits one file at a
+  time. The chosen tool handles saving: some image and audio editors save to
+  their own format or export, and an image editor may not support every
+  format the preview shows. Plasma Opus doesn't track whether a separate
+  tool has unsaved changes.
+  ([#675](https://github.com/mikepadiernos/plasma-opus/issues/675))
+
+- **📚 Ebook and font previews:** Ebooks, comics, DjVu documents and help
+  files need Okular's viewer component, and the preview only offers what the
+  component shows in a narrow panel, without its toolbars or reading
+  position. Okular's support for each format depends on its installed
+  backends. Fonts are previewed with Qt rather than Plasma's font viewer
+  component, without a character map or detailed font information. A font
+  whose family name matches an installed font may show the installed one,
+  font collections show only their first face, and fonts over 64 MiB aren't
+  previewed. Web fonts can be previewed but not installed, and
+  **Install Font…** needs Plasma's `kfontinst` in `PATH`; the installer
+  decides whether the font is installed for the user or system-wide.
+  ([#650](https://github.com/mikepadiernos/plasma-opus/issues/650))
+
+- **🔐 Remote connections:** A profile's private key is passed only to SSH terminals: KIO's SFTP worker
+  uses the SSH agent and its own key lookup, so browsing may still ask for a
+  password. SSH terminals need `ssh` in `PATH` and the Konsole component, and
+  start in the remote home folder rather than the profile's folder.
+  Connections aren't tested when saved, and errors appear only once a pane
+  opens them. Removing a connection doesn't ask for confirmation and leaves
+  any password saved in KWallet. Profiles don't appear in Places.
+  ([#282](https://github.com/mikepadiernos/plasma-opus/issues/282))
+
+- **🌍 Network shares and FTP:** KDE ships no FTPS worker, so FTPS profiles
+  open only when a third-party worker is installed. Plain FTP profiles can't
+  require encryption, and KIO's FTP worker doesn't upgrade them to TLS.
+  **Go › Network** shows what KIO's `network:/` worker or Dolphin's `remote:/`
+  folder discovers, which depends on Avahi and, for Windows shares, WS-Discovery
+  being installed and allowed through the firewall. Plasma Opus doesn't add
+  discovered services to saved connections or Places. SMB sign-in, including
+  domains and Kerberos, follows KIO's SMB worker.
+  ([#651](https://github.com/mikepadiernos/plasma-opus/issues/651))
+
+- **☁️ rclone cloud storage:** remotes open only by mounting, which needs FUSE
+  and `fusermount3`; serving a remote over WebDAV isn't offered. Mounts last
+  only while Plasma Opus runs, including hidden in the tray, so applications
+  editing files on a mount lose access when it quits, and a busy mount may
+  stay behind after rclone stops. A mount left by an earlier session opens
+  but can't be unmounted from the menu. Remotes with an encrypted rclone
+  configuration fail unless `RCLONE_CONFIG_PASS` is set in the environment
+  Plasma Opus starts with. Mounting waits up to 20 seconds, and rclone's
+  cache settings, other than caching writes, are its defaults. Mounts don't
+  appear in Places, and the list refreshes each time the menu opens.
+  ([#652](https://github.com/mikepadiernos/plasma-opus/issues/652))
+
+- **💽 Remote drives:** KIO FUSE can't mount read-only or in a chosen folder,
+  and can't unmount a single connection: **Unmount** only removes it from
+  Plasma Opus and Places, and its folder stays available until KIO FUSE
+  stops. sshfs needs `ksshaskpass` to ask for passwords and new host keys;
+  without it, only the SSH agent and keys sign in, and unknown hosts are
+  refused. davfs2 and CIFS mount only through a user-mountable fstab entry
+  that an administrator adds, usually with the user in the `davfs2` group
+  and credentials in the backend's own secrets file, and read-only comes
+  from that entry. S3-compatible storage and KDE Online Accounts locations
+  aren't offered; S3 works through **Cloud Storage** with an rclone remote.
+  Mounting at login means mounting when Plasma Opus starts, so it needs
+  Plasma Opus in autostart, and mounting when a workspace is activated isn't
+  offered. Changed mount options apply after unmounting. All mounts end
+  when Plasma Opus quits, and a connection mounted outside Plasma Opus opens
+  but can't be unmounted from it. Media streams only where the backend reads
+  ranges, which sshfs, CIFS and KIO FUSE's SFTP and SMB workers do.
+  ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702))
+- **📡 Temporary LAN sharing:** Anyone who sees a link can use it until
+  sharing stops: there is no password, and a single link can't be revoked.
+  Without HTTPS, others on the network can read links and files in transit.
+  The HTTPS certificate is self-signed and made for each share, so browsers
+  warn that it isn't trusted; HTTPS needs `openssl`, and QR codes need KDE's
+  Prison library when Plasma Opus is built. Firewalls such as firewalld and
+  ufw may block the port, which Plasma Opus doesn't open. WebDAV covers
+  browsing, downloading and uploading files only: folders can't be created,
+  renamed or deleted, nothing is locked, and uploads must declare their size,
+  so clients that need locking, such as Windows' WebDAV redirector, may
+  connect read-only or not at all. Uploads go only to the upload folder and
+  its existing subfolders, and a leading dot is removed from their names.
+  Special files aren't served. Each response closes its connection, so
+  folders with many small files load more slowly, and at most 32 connections
+  are served at once. Shares aren't announced on the network, the address
+  list isn't refreshed when the network changes, and sharing ends when the
+  dialog closes.
+  ([#653](https://github.com/mikepadiernos/plasma-opus/issues/653))
+- **👤 KDE Online Accounts:** Only Google Drive, through kio-gdrive, and
+  Nextcloud and ownCloud storage, through WebDAV, open as folders; other
+  services, such as contacts and YouTube, and providers without a KDE file
+  service aren't listed as folders. Plasma Opus doesn't pass account
+  credentials to KIO, so WebDAV storage asks for the password the first
+  time unless Plasma's Online Accounts integration has already given it to
+  KDE's password server. Expired sign-ins and denied access appear as KIO
+  errors in the pane, not in the menu. Accounts aren't shown in Places or
+  offered as remote drives, and the menu reads accounts only when it opens.
+  The menu needs Plasma Opus built with libaccounts-qt6, and **Manage Online
+  Accounts…** needs System Settings with its Online Accounts page.
+  ([#370](https://github.com/mikepadiernos/plasma-opus/issues/370))
+- **🔁 rsync backend:** Each run copies or deletes in one direction, so plans
+  that work both ways are refused, and it deletes only regular files missing
+  from the source; folders, links and type changes aren't synchronized. It
+  works between a local folder and a folder on an SSH host that has rsync
+  installed, not between two hosts or with other KIO locations. Every
+  comparison, dry run and transfer opens new SSH connections, so passwords
+  may be asked for several times, and without ksshaskpass a host that needs
+  a password or an unknown host key fails. Remote comparisons use rsync's
+  listings: times have one-second precision, symbolic links appear only when
+  link targets are compared, and filter patterns with `?`, `\` or a leading
+  or trailing `/` are refused. Copies keep modification times but not
+  permissions, ownership, ACLs or extended attributes. The dry run is a
+  snapshot, runs aren't added to KIO's undo history, and canceling or an
+  error leaves the files already transferred changed.
+  ([#363](https://github.com/mikepadiernos/plasma-opus/issues/363))
+- **🔄 Cloud sync:** Pairs synchronize only while Plasma Opus runs;
+  **Synchronize in the background after login** starts it in the system
+  tray. Each run of a network-folder pair lists both folders in full and
+  compares sizes and modification times, not contents, so an edit that
+  keeps the size and time is missed, and a remote that changes modification
+  times, or an interrupted upload, can cause conflicts on the next run.
+  Renamed files are detected, but a renamed folder is copied anew and the old
+  one deleted. **Keep Both** saves the remote version beside the local file,
+  and the next run uploads that copy. A file and a folder with the same name
+  are left for you to rename, and a remote subfolder that can't be read is
+  skipped for that run. rclone pairs use `rclone bisync`: the first run and
+  any filter change need `--resync`, which copies newer files both ways
+  without deleting anything; the review shows a dry run, so changes made
+  after it are synchronized too; and the report gives no counts. Excluding a
+  nested pair whose folder name contains `*`, `?` or `[` fails for rclone
+  pairs. Only Nextcloud, ownCloud, Syncthing and Dropbox folders are
+  recognized as owned by another client. There are no desktop
+  notifications: runs that need review or found conflicts are shown in the
+  tray and the status bar. Pausing on metered connections relies on Qt's
+  network information, usually from NetworkManager.
+  ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718))
+- **📊 Cloud activity:** Speeds and remaining times are shown only for
+  transfers in the transfer queue; rclone mounts and sync runs show their
+  status, not their speed, and **Pause All** doesn't stop mounts from
+  uploading or sync runs you start yourself. The bandwidth, parallel-transfer
+  and cache limits apply only to rclone, not to pairs that synchronize network
+  folders through KIO, and take effect at a pair's next run and a remote's
+  next mount. Files waiting to upload are found in rclone's cache metadata in
+  Plasma Opus's cache folder, so mounts started outside Plasma Opus aren't
+  counted, and a change to rclone's metadata format would hide them. The
+  offline cache keeps files already opened, but listing a folder or opening an
+  uncached file still needs the remote. Unmounting, closing and quitting wait
+  for uploads, but logging out waits only when the session lets applications
+  ask; otherwise uploads stop and resume at the next mount. Space is shown
+  only for mounted remotes whose provider reports it. Exported definitions
+  contain no passwords, and imported sync pairs start paused.
+  ([#719](https://github.com/mikepadiernos/plasma-opus/issues/719))
+- **🛡️ Administrator mode:** **Act as Administrator** needs the separate
+  `kio-admin` package and is reported as missing without it. Items in the
+  `admin:` view are not local files, so **Move to Trash**, terminals, custom
+  commands, checksums, batch rename, symbolic links, metadata editing, split
+  and combine and editing in the preview are unavailable there, and deleted
+  items skip the trash. Copied or dragged items carry `admin:` URLs that only
+  KIO-based applications open. How often the password is asked and how long
+  an authorization lasts are decided by `kio-admin` and Polkit; stopping
+  administrator mode does not revoke an authorization already granted.
+  Entering it in a pane with linked navigation unlinks the panes. The
+  container used for development has no `kio-admin` or Polkit agent, so the
+  prompt and elevated operations await
+  [verification on Plasma](TODO.md#administrator-mode-on-plasma-288).
+  ([#288](https://github.com/mikepadiernos/plasma-opus/issues/288))
+- **🤖 MCP server:** `opus-file-manager-mcp` speaks only the stdio
+  transport, so a client must run on the same computer and start the server
+  itself; there is no HTTP transport or access token. Until the M28 settings
+  page, access, folders and the audit log are changed only in
+  `opus-file-managerrc`, and a running server keeps the settings it started
+  with. It reads only UTF-8 text, at most 1 MiB per call, and refuses binary
+  files and other encodings. Listings and searches return at most 1,000
+  items, and a search stops after visiting 200,000 entries. Moves work only
+  within one file system, and a failed folder copy leaves a partial copy.
+  Items outside the allowed folders, including the targets of symbolic links,
+  are refused, but links copied inside a folder keep pointing where they did.
+  Tools work on local files only, not KIO locations, and changes are made
+  directly rather than as Plasma Opus jobs, so they can't be undone in Plasma
+  Opus. The audit log records paths but no contents, and grows until it is
+  deleted.
+  ([#287](https://github.com/mikepadiernos/plasma-opus/issues/287))
+- **🔐 Plasma Vault:** **Go › Plasma Vaults** needs Plasma Vault and its
+  kded6 module, and reports Plasma Vault as unavailable without them; opening
+  the menu may start kded6. Passwords, creating, configuring and closing are
+  left to Plasma Vault and its dialogs, so its errors appear only as its own
+  message in the status bar and the menu. Importing and deleting vaults are
+  not offered, and vaults limited to other Activities are listed too. An
+  opened vault is shown in the active pane only when it was opened from
+  Plasma Opus; if Plasma Vault's password prompt is cancelled without a
+  status change, the vault is still shown when it is later opened elsewhere.
+  Before closing, Plasma Opus lists this user's processes whose working
+  folder or open files are inside the vault, but not memory-mapped files or
+  other users' processes, and tabs still showing the vault list a missing
+  folder after it closes. Plasma Opus never forces a vault closed. The
+  container used for development has no Plasma Vault, so the real service
+  awaits [verification on Plasma](TODO.md#plasma-vault-on-plasma-654).
+  ([#654](https://github.com/mikepadiernos/plasma-opus/issues/654))
+- **🔏 File encryption:** **File › Encryption** needs GnuPG for OpenPGP
+  files and the separate `aescrypt` tool for `.aes` files; Kleopatra's
+  entries appear only when Kleopatra is installed. Plasma Opus runs GnuPG
+  without asking questions, so it encrypts only for keys certified as
+  belonging to their owner and lists other keys as unavailable. Passwords
+  for keys and password-only encryption are asked for by GnuPG's own prompt,
+  and the AES Crypt password is held briefly in a private file, readable only
+  by you, under the runtime folder, then overwritten and removed. Results
+  are written as new files beside the originals, which are never replaced or
+  deleted. Binary OpenPGP and AES Crypt files are recognized by their suffix
+  and first bytes, and text (`.asc`) files only when they have an encryption
+  or signature suffix. Folders and remote files are not offered, and
+  verifying a signature checks it against the data file beside it with the
+  same name. The container used for development has no `aescrypt` or
+  Kleopatra, so both await
+  [verification on Plasma](TODO.md#file-encryption-on-plasma-655).
+  ([#655](https://github.com/mikepadiernos/plasma-opus/issues/655))
+- **📧 Send by Email:** **File › Send by Email…** opens a new message in
+  the default mail client, chosen in System Settings › Default
+  Applications, and never sends it. Folders and missing, unreadable or
+  special files are listed and skipped. A remote file is attached only
+  after you allow a private local copy, which is downloaded into a temporary
+  folder that only you can read and kept until Plasma Opus quits, because
+  the mail client may read it later. Most clients receive the files as
+  `attach` parameters in a `mailto:` URL, and Thunderbird through its own
+  command line; whether they are attached is up to the client, so Plasma
+  Opus reports that the composer opened, not what it attached. A client
+  that is registered but fails to start is not reported. Plasma Impresario
+  currently ignores attachments from other applications, so Plasma Opus
+  warns before and after opening it and asks you to drag the files from the
+  dialog's list into its composer instead. Inside
+  a Flatpak or Snap sandbox, the XDG Email portal attaches the files
+  instead, and Plasma Opus reports only that the portal accepted the
+  request. The container used for development has no mail client or
+  portal, so both await
+  [verification on Plasma](TODO.md#send-by-email-on-plasma-656).
+  ([#656](https://github.com/mikepadiernos/plasma-opus/issues/656))
+- **📎 Mail attachments:** Local files in the **Send by Email** list can be
+  dragged into any composer. A remote file can be dragged only after its
+  private local copy is downloaded; ticking the consent box starts the
+  download, and unticking it stops the download or removes the copies.
+  Copies that are attached or dragged out are kept until Plasma Opus quits,
+  because Plasma Opus can't tell when the mail client has finished reading
+  them; others are removed when the dialog closes. Dropping a Plasma
+  Impresario attachment on a pane is refused with a status-bar explanation,
+  because the drag carries only a private reference to the message on the
+  mail server, not the file; Plasma Opus never contacts the mail server. A
+  drop that carries the file content and a suggested filename is saved
+  through KIO, which asks for the file name. The container used for
+  development has no Plasma Impresario, so real drags await
+  [verification on Plasma](TODO.md#mail-attachments-on-plasma-657).
+  ([#657](https://github.com/mikepadiernos/plasma-opus/issues/657))
+- **📨 Mail file preview:** The preview panel shows a local `.eml` file's
+  From, To, Cc, Date and Subject headers, its plain-text body and its
+  attachments. An HTML-only message is reduced to plain text; images, links
+  and other remote content are never loaded, and scripts never run.
+  Encrypted parts are not decrypted and signatures are not verified; the
+  panel says so instead. Messages over 64 MiB, and messages on remote
+  locations, are not parsed; a remote `.eml` still shows as raw text.
+  **Extract All** and **Extract Selected** save the attachments into the
+  folder that holds the message, through KIO's conflict handling, and
+  report an error instead if the message changed after it was previewed.
+  **Open** hands a read-only private copy to the attachment's registered
+  application, chosen from the copy's content rather than the type the
+  message declares, and never runs programs. Those copies are kept until
+  the window closes. Opening the message itself uses the normal **Open**
+  action on the file; Plasma Impresario doesn't open mail files, and Plasma
+  Opus never imports messages into it. The container used for development
+  has no registered applications or mail client, so opening awaits
+  [verification on Plasma](TODO.md#mail-file-preview-on-plasma-658).
+  ([#658](https://github.com/mikepadiernos/plasma-opus/issues/658))
+- **🪢 Shared Activity context:** Plasma Activities is the only context
+  Plasma Opus shares with Plasma Impresario. Each application follows
+  Activity changes with its own associations, and Plasma Opus never reads or
+  changes Plasma Impresario's workspaces, accounts or mail. Visited folders
+  and opened files are reported to the current Activity, so Plasma lists
+  them in its recent files and locations and other applications can offer
+  them. Reporting is on by default and covers local folders and network
+  locations such as SFTP and SMB, without passwords. Temporary files, open
+  CryFS, gocryptfs, EncFS, securefs and eCryptfs folders, searches, the trash
+  and administrator locations are never reported. Plasma Activities decides
+  what it keeps, so blocking Plasma Opus or clearing history happens in
+  System Settings. Plasma Impresario's account-to-workspace associations
+  aren't released yet, and the container used for development has no
+  Activities service, so both await
+  [verification on Plasma](TODO.md#shared-activity-context-on-plasma-659).
+  ([#659](https://github.com/mikepadiernos/plasma-opus/issues/659))
+- **📓 Markdown vault links:** The editor's **Vault** menu chooses one local
+  folder whose notes `[[wiki links]]` resolve against; editors opened later
+  use the same folder. Links name a note anywhere in the
+  vault, a vault-relative path such as `Projects/Plan`, or a path relative
+  to the note that starts with `./` or `../`; names are matched without
+  regard to case. When several notes share a name, the one in the linking
+  note's folder wins, and otherwise the link is reported as ambiguous with
+  the candidates listed. Only `.md`, `.markdown` and `.mkd` files are
+  indexed, up to 10,000 notes of at most 4 MiB of UTF-8 each; hidden
+  folders such as `.obsidian` are skipped, symbolic links are followed only
+  when they stay inside the vault, and links never open anything outside
+  it. The backlinks list and the missing-link count are refreshed when a
+  note is opened, saved or the vault is rescanned, not while typing, and
+  the panel reports unreadable notes and stopped scans. The source is never
+  rewritten: the preview renders a copy with the links made clickable, but
+  only for a saved note inside the vault. A link's `#heading` and the
+  embedded content of `![[embeds]]` are not shown; following either opens
+  the whole note or file, and attachments open in their registered
+  application without running programs. The preview is Qt's Markdown
+  renderer, built on the md4c parser: its **CommonMark** and **GitHub
+  Markdown** dialects parse as those specifications do, but raw HTML,
+  footnotes and math are shown as text, so it is not a complete CommonMark
+  renderer. ([#564](https://github.com/mikepadiernos/plasma-opus/issues/564))
+- **🏷️ Workspace vaults and tags:** **Use as Editor Vault** in **Workspaces**
+  makes one of a workspace's assigned locations the vault of every editor while
+  that workspace is active; the editor's own choice is kept and returns when the
+  workspace has no vault or is left. Only one vault applies at a time, shared by
+  all windows of a Plasma Opus process, and only local folders that resolve to a
+  single saved location qualify, so remote locations and ambiguous saved names
+  can't be chosen. While the workspace's vault applies, **Vault › Choose Vault
+  Folder** and **Vault › Close Vault** are disabled. The **Links** and **Tags**
+  tabs read the open note's text when it is opened, saved or the vault is
+  rescanned, while the other notes listed under a tag come from the last scan.
+  Tags are inline `#tag` or nested `#area/topic` words outside code, and `tags:`
+  or `tag:` in YAML front matter; tags that are only digits are ignored and case
+  is not significant. Tags can't be renamed or searched across the vault, and
+  there is no graph view. Vault options arrive with the M28 **Editor ›
+  Workspace vault** setting
+  ([#566](https://github.com/mikepadiernos/plasma-opus/issues/566)).
+  ([#565](https://github.com/mikepadiernos/plasma-opus/issues/565))
+- **🎞️ Embedded mpv playback:** **Audio and video playback** under **Preferences
+  › Interface › Previews**, or the backend button beside the playback controls,
+  chooses Qt Multimedia, the default, or mpv for the preview panel and gallery.
+  mpv needs a build with libmpv and Qt OpenGL Widgets; otherwise the choice is
+  disabled and Qt Multimedia plays with a notice. Video through mpv also needs
+  OpenGL: when Plasma Opus can't create an OpenGL context, or libmpv can't draw
+  into it, Qt Multimedia plays the video and the notice says why. Audio needs no
+  OpenGL. The embedded player ignores your `mpv.conf`, scripts and `youtube-dl`
+  or `yt-dlp`, uses safe hardware decoding, and only plays local files: remote
+  previews play their temporary download, within the 128 MiB remote preview
+  limit. Its controls are play, pause and seeking; there is no volume, track,
+  subtitle or speed control, and mpv's keyboard shortcuts don't apply. If libmpv
+  only starts with the C numeric locale, Plasma Opus switches the C library's
+  number parsing to it; Qt's number formatting is unaffected. Playback errors
+  appear where the preview or video would be. The separate **Open with mpv**
+  action opens selected local audio and video in the mpv application. The
+  container used for development has no OpenGL, so drawing video on Wayland and
+  X11 awaits [verification on Plasma](TODO.md#mpv-integration-563).
+  ([#563](https://github.com/mikepadiernos/plasma-opus/issues/563))
+
+- **Recommendation:**
+  - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
+    it is running and restart Plasma Opus so it claims the service. To hand
+    requests back, run `./install.sh --uninstall` or delete
+    `~/.local/share/dbus-1/services/org.kde.opusfilemanager.FileManager1.service`
+    as well as changing the default in System Settings.
+  - **Language preferences:** After changing Plasma's languages, log out and
+    back in, or select the language under **Settings › Translation ›
+    Language and Layout** and restart Plasma Opus. The status line on that page
+    shows which language is in effect.
+  - **Notifications and jobs:** Keep the Plasma Opus dialog open, or switch
+    to it from the task manager, to read error details or change options.
+    To hide the progress, turn off application progress in notifications
+    under **System Settings › Notifications**; this affects every
+    application.
+  - **System tray and global shortcut:** To hide the window instead of
+    closing it, check **Hide the window in the system tray when it is
+    closed** under **Settings › General › System Tray**; on Wayland, prefer
+    this to hiding when minimized. Clear **Show an icon in the system tray**
+    there to remove the icon. If the shortcut does nothing, assign one to
+    **Show or Hide Plasma Opus** under **Settings › Configure Keyboard Shortcuts**, and keep the icon
+    always visible through the tray's **Configure System Tray…** entries.
+  - **Plasma Activities:** Turn associations on under **Settings ›
+    Workspaces › Activities**, then choose each Activity's workspace,
+    behaviours and folders under **View › Activity Associations**. To apply
+    the current Activity's association at any time, including at start or
+    after choosing **Not Now**, use **View › Apply Activity Association**.
+    Close default-folder tabs you no longer need, and clear associations of
+    removed Activities once they are not coming back.
+  - **KDE Connect sharing:** To send a folder, compress it first with
+    **Compress…** and send the archive; copy remote files to a local folder
+    before sending. Watch KDE Connect's notification to confirm delivery. If a
+    paired device shows as offline, open KDE Connect on both devices and press
+    **Refresh**; if it shows file sharing as turned off, enable the **Share
+    and receive** plugin for it in KDE Connect's settings.
+  - **KRunner:** Install with `./install.sh`, then run `kquitapp6 krunner`
+    or log out and back in if **Plasma Opus** is missing from **System
+    Settings › Search › Plasma Search**. Turn off what should not be offered
+    under **Settings › General › Plasma Search**, or the plugin itself in
+    System Settings. Add a folder to Favorites to make it searchable.
+  - **Service-menu downloads:** Install Dolphin to enable **Download New
+    Services…**; Plasma Opus does not need to be the default file manager.
+    Read a service menu's description and comments before installing it, and
+    hide any unwanted action under **Settings › Context Menu › Service
+    Menus** instead of removing it if Dolphin should keep it. Reopen the
+    settings to see service menus installed by other means.
+  - **System file chooser:** Run `opus-file-manager --install-portal` from
+    an installed build in a Plasma session with xdg-desktop-portal 1.21.0 or
+    later, after closing open file dialogs. If applications still show KDE's
+    chooser, check `xdg-desktop-portal --version` and log out and back in.
+    Copy remote files to a local folder before choosing them. To go back,
+    run `opus-file-manager --uninstall-portal`, or
+    `./install.sh --uninstall`, which restores the previous
+    `kde-portals.conf`.
+  - **Mount manager:** Press **Refresh** for current sizes. To power off a
+    USB drive, use Plasma's **Disks & Devices** applet. To let Plasma Opus
+    mount an fstab entry without root, add `user` or `users` to its options
+    in KDE Partition Manager, or let UDisks2 manage the device instead. Open
+    an automount point's folder once to mount it.
+  - **Disk images:** Install `dolphin-plugins` from Discover or your
+    distribution, and keep images inside the home folder so they appear in
+    Places once mounted. Wait for the window to respond after choosing
+    **Mount Disk Image**. If an image stays attached without a mount point,
+    choose **Unmount Disk Image**, or **Mount Disk Image** again to retry.
+  - **Application packages:** Install the `flatpak` or `snap` packages, and
+    Discover for **Open in Discover**. Install a Flatpak bundle, then open
+    its folder under `~/.local/share/flatpak/app` to review its permissions,
+    and adjust them with Plasma's Flatpak permission settings in System
+    Settings or with Flatseal. Prefer installing snaps from the Store
+    in Discover so they are verified and updated; for a snap that needs
+    classic confinement, run `snap install --classic` in a terminal. Remove
+    an AppImage from the application menu before moving or deleting it, and
+    add it again from its new location.
+  - **KWin script:** Install it from **Settings › Configure KWin
+    Integration…** in a Plasma session, then move or resize the window once
+    with each workspace current so its placement is kept. If the status says
+    the script has not contacted Plasma Opus, press **Refresh**, or disable
+    and enable it under **KWin Scripts Settings…**. Run Plasma Opus outside
+    Flatpak for window management. Leave the processing shortcut unassigned.
+    Use KWin's **Window Rules…** for placements the script does not restore,
+    such as maximized state.
+  - **Drop-down window:** Turn it on and choose a global shortcut under
+    **Settings › Configure KWin Integration…**, and install the KWin script
+    so it keeps above other windows and out of the taskbar. Enable **Sliding
+    popups** under **System Settings › Window Management › Desktop Effects**
+    for the animation. If an edge does nothing, free it under **System
+    Settings › Mouse & Touchpad › Screen Edges** or **Touch Screen**.
+  - **File-type categories:** Open a category from the main window's Places,
+    not from a file dialog. If indexed results look incomplete, open
+    **File › Indexing Status…** to check the indexer and the folder's
+    coverage, or choose **Search a Folder Live…** to read the files directly.
+    Hide a category you don't use with Places' **Hide** action instead of
+    removing it, so it can be shown again. For other sizes or formats, search
+    with `size>` or `type:` in the search panel.
+  - **Terminal providers:** Install the terminal from your distribution so
+    its command is in `PATH`, or keep using **Open Terminal Here**, which
+    follows the terminal chosen under **System Settings › Default
+    Applications**. After opening a Yakuake session, press Yakuake's shortcut,
+    F12 by default, if its window is hidden, and check the folder before
+    running commands. To keep the `cd` out of shell history, set
+    `HISTCONTROL=ignorespace` in Bash, or `setopt HIST_IGNORE_SPACE` in Zsh.
+  - **Editor integrations:** Install the editor from your distribution so
+    its command is in `PATH`, and install the Konsole component for terminal
+    editors. To edit remote files in a terminal editor, copy them to a local
+    folder first, or use KWrite or Kate. Save your work before closing the
+    editor's terminal tab.
+  - **Office documents:** Install LibreOffice, Calligra or ONLYOFFICE from
+    your distribution so its command is in `PATH`, and install Calligra for
+    previews. To open remote documents in LibreOffice or
+    ONLYOFFICE, copy them to a local folder first, or use Calligra. Open RTF
+    and CSV files with **Open With**.
+  - **Edit action:** Install a listed tool from your distribution, use
+    **Edit With** or **Open in Office Application** to pick a specific
+    editor, or **Open With** for other applications. Copy remote files to a
+    local folder before editing them in a local-only tool, and check the
+    format when saving from an image or audio editor.
+  - **Ebook and font previews:** Install Okular for ebook, comic, DjVu and
+    help-file previews, and open long documents in Okular to read them. To
+    compare a font with an installed one of the same name, or inspect its
+    characters, open it in Plasma's font viewer, KFontView.
+  - **Remote connections:** Install `kio-extras` for SFTP and OpenSSH for
+    SSH terminals. Load keys into the SSH agent, with `ssh-add`, so browsing
+    and terminals sign in without a password. Prefer WebDAV over HTTPS, and
+    remove saved passwords you no longer need in KWalletManager. After an
+    SSH terminal connects, `cd` to the folder you need.
+  - **Network shares and FTP:** Prefer SFTP or WebDAV over HTTPS to plain
+    FTP. For FTPS, install a third-party KIO worker or use `lftp` in the
+    terminal. If **Network** stays empty, install `kio-extras` with Avahi and
+    `kdsoap-ws-discovery-client`, and allow mDNS and WS-Discovery through
+    the firewall, or save a connection to the host directly.
+  - **rclone cloud storage:** Install rclone and FUSE 3 from your
+    distribution and add remotes with `rclone config`. Close files on a
+    mount before unmounting it or quitting Plasma Opus. If a mount stays
+    behind, run `fusermount3 -u` on its folder under
+    `$XDG_RUNTIME_DIR/opus-file-manager/rclone`. For mounts that outlive
+    Plasma Opus or start at login, use rclone's own systemd service.
+  - **Remote drives:** Keep the default KIO FUSE for occasional access; it
+    reuses passwords saved in KWallet. Choose sshfs and install `ksshaskpass`
+    for SSH servers that need read-only or a fixed folder. For WebDAV or
+    Windows shares with a fixed folder, ask an administrator to add the line
+    **Mount Options…** shows to `/etc/fstab`. Close files before unmounting.
+    If a folder is reported as stale, run `fusermount3 -u` on it. For mounts
+    that outlive Plasma Opus, use a systemd mount unit or fstab entry with
+    `auto`.
+  - **Temporary LAN sharing:** Keep HTTPS on and, before accepting the
+    certificate, check that the fingerprint the browser shows matches the
+    dialog's. Share only on trusted networks, with the shortest practical
+    time limit, and pass the link through the QR code or a private channel.
+    If clients can't connect, choose a fixed port and allow it, for example
+    with `sudo firewall-cmd --add-port=PORT/tcp` until the next restart or
+    `sudo ufw allow PORT/tcp`, removing the ufw rule afterwards. For paired
+    phones, KDE Connect is simpler; for lasting shares, use Samba sharing in
+    the folder's **Properties** dialog.
+  - **KDE Online Accounts:** Install `kio-gdrive` for Google Drive and
+    `kaccounts-providers` for Nextcloud and ownCloud, then add accounts in
+    **System Settings › Online Accounts**. When KIO reports an expired
+    sign-in, sign in again on that page. For WebDAV storage, let KWallet
+    remember the password when KIO asks. For providers without a KDE file
+    service, use **Go › Cloud Storage** with rclone.
+  - **rsync backend:** Install rsync on both computers. Use SSH keys with an
+    agent, or install `ksshaskpass`, and connect to the host once in a
+    terminal to accept its host key. Plan one direction per run, read rsync's
+    changes in the confirmation's details, and compare again after each run;
+    for changes in both directions, run two plans. Back up data whose
+    permissions or ownership matter.
+  - **Cloud sync:** Add pairs under **File › Cloud Sync…** and check
+    **Synchronize in the background after login** so they run on their
+    intervals. Read the first run's review and any large deletion before
+    choosing **Synchronize**. Choose a backup mode when only one side should
+    change, keep pairs out of folders another client synchronizes, and
+    resolve conflicts in the review rather than leaving them skipped. Merge
+    and delete conflict copies once you have compared them. Rename one side
+    of a file-and-folder conflict, and move whole folders with the remote's
+    own tools to avoid copying them again. Check the tray icon or the dialog
+    for pairs that need attention.
+  - **Cloud activity:** Open **File › Cloud Activity…**, or **Cloud
+    Activity…** in the tray menu, to follow transfers and errors. Set a
+    bandwidth limit when uploads slow other traffic and an offline cache large
+    enough for the files you reopen, then unmount and mount remotes again for
+    the limits to apply. Let the upload wait finish before unmounting or
+    logging out; if you continue without waiting, mount the remote again later
+    to finish uploading. Before importing definitions on another computer,
+    configure the same rclone remotes there, then sign in to each connection
+    and resume the imported pairs under **File › Cloud Sync…**.
+  - **Administrator mode:** Install `kio-admin` from Discover or your
+    distribution. Act as an administrator only for the change you need,
+    copy a file to a backup name in the same folder before editing it, then
+    press **Stop Acting as Administrator**. For commands, use `sudo` in a
+    normal terminal instead. Lock the screen when leaving the computer,
+    because Polkit may keep the authorization for a short time.
+  - **MCP server:** Keep the default read-only access, and allow only the
+    folders a client needs, such as a single project folder. Turn on write
+    access only while a task needs it, start other clients with
+    `--read-only`, and restart the client after changing the settings.
+    Check `~/.local/state/opus-file-manager/mcp-audit.log` to see what a
+    client did, restore items from the trash, and move large files between
+    drives yourself.
+  - **Plasma Vault:** Install Plasma Vault and a backend such as gocryptfs
+    from Discover or your distribution. Close files and terminals in a vault
+    before **Close Vault**; if Plasma Vault still refuses, use its system
+    tray applet to force the vault closed. Leave other tabs showing a vault
+    before closing it.
+  - **File encryption:** Certify the keys you encrypt for in Kleopatra
+    first, or use **Sign and Encrypt with Kleopatra…** for keys you have not
+    certified. Install `aescrypt` only when you exchange `.aes` files, and
+    delete the original yourself once you have checked the encrypted copy.
+    Keep a signature beside the file it signs, with the same name plus `.sig`
+    or `.asc`.
+  - **Send by Email:** Choose a client that accepts attachments, such as
+    KMail or Thunderbird, under **System Settings › Default Applications ›
+    Email client**. With Plasma Impresario, drag the files from the **Send
+    by Email** list into its composer instead. Send a message that uses
+    local copies of remote files before quitting Plasma Opus, or copy the
+    files into a local folder first.
+  - **Mail attachments:** To keep an attachment you received, save it from
+    Plasma Impresario, then drag the saved file into Plasma Opus.
+  - **Mail file preview:** Read encrypted, signed or formatted messages in
+    your mail client. Copy a remote `.eml` file into a local folder to
+    preview it, and use **Extract Selected** rather than **Open** to keep an
+    attachment, because opened copies are removed when the window closes.
+  - **Shared Activity context:** To keep a location out of Plasma's
+    history, turn off **Report visited folders and opened files to Plasma
+    Activities** under **Settings › Workspaces › Activities**, or choose
+    what Plasma remembers, and clear it, under **System Settings › Recent
+    Files**. Keep private files in a Plasma Vault, whose open folders are
+    never reported.
+  - **Markdown vault links:** Give notes unique names or link to them by
+    path, such as `[[Projects/Plan]]`, and choose **Vault › Rescan Vault**
+    after changing notes in another application. Split vaults with more
+    than 10,000 notes, and convert notes that aren't UTF-8. Use Obsidian or
+    another Markdown application to view embeds, headings and HTML.
+  - **Workspace vaults and tags:** Keep notes in a local folder and assign
+    it to the workspace before choosing **Use as Editor Vault**; for notes
+    on a server, sync them to a local folder first. Save a note, or choose
+    **Vault › Rescan Vault**, to refresh its links and tags. Use Obsidian or
+    another Markdown application to rename tags or browse a graph.
+  - **Embedded mpv playback:** Use **Open with mpv** from the context menu
+    for volume, tracks, subtitles and mpv's own configuration. If video stays
+    black or the notice reports OpenGL, choose **Qt Multimedia** with the
+    backend button.
+  - Comment:
+    [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
+- **Proposed improvements:**
+  - Claim or release the service when the default handler changes while
+    Plasma Opus runs.
+  - An M28 **File manager** settings row that installs or removes the
+    activation file explicitly.
+  - Watch `plasma-localerc` and offer a restart when Plasma's language list
+    changes.
+  - An M28 setting to choose which operations report to Plasma, and to
+    report automatic library refreshes.
+  - A job action that raises the dialog that started the operation.
+  - An M28 **System tray** setting for starting hidden, with a notice when
+    the global shortcut could not be assigned.
+  - Show only the current Activity's vaults, move tabs showing a vault away
+    when it closes, and show or hide vaults in the M28 **Encryption**
+    settings.
+  - Encrypt folders through an archive, offer to remove originals after a
+    checked encryption, pass AES Crypt passwords through a pipe where the
+    tool allows it, and the M28 **Encryption** settings to choose the
+    default key and the text format.
+  - Offer to compress a selected folder and attach the archive, ask the
+    XDG Email portal for its response to report cancelled requests, and the
+    M28 **Mail** settings to choose the client and when to prepare local
+    copies ([#666](https://github.com/mikepadiernos/plasma-opus/issues/666),
+    [#667](https://github.com/mikepadiernos/plasma-opus/issues/667)).
+  - Extract mail attachments into a chosen folder, preview remote `.eml`
+    files through a size-limited download, show inline images only on
+    request, and the M28 **Mail file preview** setting.
+  - Jump to a link's heading, show embedded notes and images in the
+    preview, create a missing note from its link, refresh backlinks while
+    typing and watch the vault for changes, and an M28 setting for the
+    vault's note limit.
+  - Refresh links and tags while typing, rename a tag across the vault,
+    search notes by tag, a graph view, and a vault per window.
+  - Volume, track and subtitle controls and mpv's keyboard shortcuts in the
+    embedded player, an option to read the user's mpv configuration, playing
+    remote files without a full download, and the M28 **Media › Backend**
+    setting ([#578](https://github.com/mikepadiernos/plasma-opus/issues/578)).
+  - Report files opened through **Open With** and from previews, exclude
+    chosen folders from reporting, and an M28 **Plasma Activities** page
+    option to report only while associations are on.
+  - Reuse an open tab showing an Activity's default folder instead of
+    opening another, and offer the current Activity's association at start
+    as an option.
+  - Keep association behaviours with the session, and an M28
+    **Plasma Activities** page that manages associations in the settings.
+  - Offer to compress a selected folder and send the archive, and report
+    KDE Connect's transfer result in the dialog when its share plugin exposes
+    one.
+  - Let KRunner match saved locations assigned to a workspace, check remote
+    Favorites before offering them, and stop the helper after a period
+    without searches.
+  - Ship a Plasma Opus provider and installer so downloads work without
+    Dolphin, and watch the service-menu folders to refresh the list while
+    the settings are open.
+  - The M28 **System file chooser** settings row, a version check that
+    warns before setup on xdg-desktop-portal older than 1.21.0, previews and
+    indexed search in the chooser, and returning remote files through a
+    local copy.
+  - Watch mount changes instead of polling, refresh sizes periodically,
+    power off USB drives after unmounting, and the M28 **Mount manager**
+    display settings, including an option to show system file systems.
+  - Mount disk images through UDisks2 directly, without blocking the window
+    and with its actual error messages, and show images outside the home
+    folder in Places once mounted.
+  - Read a Flatpak bundle's ID and permissions before installing, show tool
+    progress, update or remove AppImage menu entries when the file moves,
+    and recognize custom Flatpak installations.
+  - Verify the script on X11 and Wayland with each supported Plasma release,
+    keep maximized and full-screen state, and record a placement when a
+    workspace is saved as well as when the window moves.
+  - Ask KWin to place other applications started from Plasma Opus, such as
+    terminals and editors, through XDG activation tokens, and the M28 **KWin
+    scripts** settings page.
+  - Roll the drop-down window up instead of closing it, offer a default
+    shortcut when it is free, and let a detached window drop down instead
+    of the main window.
+  - The M28 **Categories** settings to choose which categories appear, set
+    the large-file threshold and restore removed entries; retranslate titles
+    when the language changes; hide the entries from file dialogs; and
+    confirm live results by content as Baloo does.
+  - The M28 terminal **Provider** settings to choose the provider for **Open
+    Terminal Here**, find Flatpak terminals, show Yakuake's window through a
+    dedicated D-Bus call when it offers one, and open a selected folder
+    rather than the pane's folder from its context menu.
+  - The M28 editor settings to choose a default editor, open terminal
+    editors in a separate terminal, find Flatpak editors and add other
+    editors.
+  - Find Flatpak office applications, remember the chosen application and
+    offer RTF and CSV files to it.
+  - An M28 setting to choose the tool for each file type, and use the file
+    associations' editors where available.
+  - Use Plasma's font viewer component when available, preview every face
+    of a font collection, and remember the reading position in ebook
+    previews.
+  - Show saved connections in Places, test a connection before saving it,
+    start SSH terminals in the profile's folder, confirm removals and offer
+    to forget the saved password, and import hosts from `~/.ssh/config`.
+  - Save a discovered share as a connection from **Network**, and hide FTPS
+    when no worker handles it.
+  - Serve remotes over WebDAV on the loopback interface when FUSE is
+    missing, keep mounts running in the tray, show mounts in Places, and
+    choose rclone's cache mode in the M28 settings.
+  - Mount KDE Online Accounts and S3 locations, mount when a workspace is
+    activated, keep chosen mounts after quitting, remount with changed
+    options, and pass KWallet passwords to davfs2 and CIFS with consent.
+  - Keep sharing from the system tray after the dialog closes, announce
+    shares over DNS-SD, add an optional password and revocable links,
+    keep connections alive, create folders over WebDAV, refresh addresses
+    when the network changes, and the M28 **LAN sharing** defaults.
+  - Show online account folders in Places, mount them as remote drives,
+    refresh the menu when accounts change, hand Nextcloud app passwords to
+    KIO with consent, and the M28 **Online Accounts** settings tab.
+  - Share one SSH connection between rsync runs, offer to keep permissions
+    and links, delete folders missing from the source, and the M28
+    **rsync** settings page.
+  - Detect folder renames, compare checksums where the remote offers them,
+    watch local folders instead of waiting for the interval, send desktop
+    notifications, show transfers and quota per pair, and the M28 **Cloud
+    sync** settings page.
+  - Show the speed of rclone mounts and sync runs through rclone's remote
+    control, limit the bandwidth of KIO pairs, delay logout while uploads are
+    pending, mark folders to keep available offline, and the M28 **Cloud
+    activity** settings.
+  - Mark administrator tabs in the tab bar, offer **Open as Administrator**
+    for a selected folder in a new tab, and allow trash, checksums and other
+    local-file actions through the `admin:` worker where KIO supports them.
+  - The M28 **MCP** settings page, with folder choices and an access token;
+    an optional Streamable HTTP transport on the loopback interface; reading
+    other text encodings and images; moving between file systems through KIO
+    jobs that can be undone; and a size limit for the audit log.
+
 ## Embedded terminal
 
-The embedded terminal requires the Konsole KPart and has these limits
+The embedded terminal requires the Konsole or Kwi terminal component and has
+these limits
 ([#321](https://github.com/mikepadiernos/plasma-opus/issues/321)):
+
+- **Terminal component:** **Terminal Component** in the panel's menu applies
+  to new sessions; open sessions keep the component they started with. When
+  the chosen component isn't installed, the panel says so instead of loading
+  the other. Kwi's component doesn't report its blur setting, so the panel
+  isn't blurred behind it.
+- **Atuin history search:** The search is typed into the current session's
+  shell, so it needs the shell to be idle and to accept `atuin search
+--interactive`; a session running another program is refused, but a
+  prompt with half-typed text gets the search appended to it. The chosen
+  command is printed, not placed at the prompt, unless the shell's own Atuin
+  key binding is used. Plasma Opus only checks that the history database
+  file exists, honouring `ATUIN_DB_PATH`, `ATUIN_DATA_DIR`,
+  `ATUIN_CONFIG_DIR` and a top-level `db_path` in `config.toml`; Atuin can
+  still fail to open it. The typed line can appear in shell history unless
+  leading spaces are ignored. Kwi's component may not report a running
+  program, so a busy Kwi session can receive the search.
+  ([#364](https://github.com/mikepadiernos/plasma-opus/issues/364))
 
 - **Working directory:** By default, new sessions start in the active local
   folder, or in the home folder with a visible notice for remote locations,
@@ -1606,19 +2735,24 @@ The embedded terminal requires the Konsole KPart and has these limits
   affect running programs.
 
 - **Recommendation:** Install the Konsole terminal component for embedded
-  sessions; on Arch Linux it is supplied by the `konsole` package. For remote
+  sessions; on Arch Linux it is supplied by the `konsole` package. To use Kwi
+  instead, install it and choose **Kwi** under the panel menu's **Terminal
+  Component**, then open a new session. For remote
   locations, connect using a suitable terminal tool or use a separate terminal
   configured for that service. Check the terminal working directory before
   running commands, close unneeded session tabs, and finish or safely stop
-  programs before closing a tab or the window.
+  programs before closing a tab or the window. Before searching history with
+  Atuin, clear the prompt and finish running programs; to edit a chosen
+  command at the prompt instead, use the key binding from `atuin init`, such
+  as Ctrl+R, in the shell.
   - Comment: [#321.7022392302][comment-321]
 - **Alternative:** Use a terminal multiplexer for independently retained
   sessions.
   - Comment:
     [#321.7029674455](https://github.com/mikepadiernos/plasma-opus/issues/321#issuecomment-7029674455)
-- **Planned:** [M27](ROADMAP.md#m27-integrations) proposes additional terminal
-  providers and separate SSH sessions for SSH profiles; it does not promise
-  embedded remote working directories or persistent sessions after exit.
+- **Planned:** [M27](ROADMAP.md#m27-integrations) proposes separate SSH
+  sessions for SSH profiles; it does not promise embedded remote working
+  directories or persistent sessions after exit.
   - Comment: [#321.7022392302][comment-321]
 
 ## Settings backups
@@ -1717,6 +2851,8 @@ dependency and varies with the chosen output method.
 [issue-311]: https://github.com/mikepadiernos/plasma-opus/issues/311
 [issue-312]: https://github.com/mikepadiernos/plasma-opus/issues/312
 [issue-313]: https://github.com/mikepadiernos/plasma-opus/issues/313
+[issue-732]: https://github.com/mikepadiernos/plasma-opus/issues/732
+[issue-755]: https://github.com/mikepadiernos/plasma-opus/issues/755
 [comment-36]: https://github.com/mikepadiernos/plasma-opus/issues/36#issuecomment-7021740511
 [comment-255]: https://github.com/mikepadiernos/plasma-opus/issues/255#issuecomment-7021741358
 [comment-256]: https://github.com/mikepadiernos/plasma-opus/issues/256#issuecomment-7021742119
@@ -1755,3 +2891,5 @@ dependency and varies with the chosen output method.
 [comment-375]: https://github.com/mikepadiernos/plasma-opus/issues/375#issuecomment-7025250130
 [comment-376]: https://github.com/mikepadiernos/plasma-opus/issues/376#issuecomment-7026216329
 [comment-377]: https://github.com/mikepadiernos/plasma-opus/issues/377#issuecomment-7026633904
+[comment-732]: https://github.com/mikepadiernos/plasma-opus/issues/732#issuecomment-7200937321
+[comment-755]: https://github.com/mikepadiernos/plasma-opus/issues/755#issuecomment-7207460156

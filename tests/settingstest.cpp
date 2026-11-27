@@ -1336,6 +1336,14 @@ private Q_SLOTS:
             return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));
         };
         QCOMPARE(tabOf(QStringLiteral("SidebarTitlePosition")), QStringLiteral("Settings Dialog"));
+        for (const QString &entry : {QStringLiteral("ShowTrayIcon"), QStringLiteral("MinimizeToTray"), QStringLiteral("CloseToTray")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("System Tray"));
+        }
+        QCOMPARE(tabOf(QStringLiteral("ActivityAssociations")), QStringLiteral("Activities"));
+        QCOMPARE(tabOf(QStringLiteral("RunnerWorkspaces")), QStringLiteral("Plasma Search"));
+        QCOMPARE(tabOf(QStringLiteral("RunnerFavorites")), QStringLiteral("Plasma Search"));
+        QCOMPARE(tabOf(QStringLiteral("OfferActivityAssociation")), QStringLiteral("Activities"));
+        QCOMPARE(tabOf(QStringLiteral("ReportActivityUsage")), QStringLiteral("Activities"));
         QCOMPARE(tabOf(QStringLiteral("NewLibraryStorage")), QStringLiteral("Privacy"));
         QCOMPARE(tabOf(QStringLiteral("LibraryExclusions")), QStringLiteral("Libraries"));
         QCOMPARE(tabOf(QStringLiteral("AutomaticLibraryRefresh")), QStringLiteral("Libraries"));
@@ -2156,6 +2164,31 @@ private Q_SLOTS:
         drop(url(QStringLiteral("move-me.txt")));
         QTRY_VERIFY(QFile::exists(m_root.filePath(QStringLiteral("drop/move-me.txt"))));
         QTRY_VERIFY(!QFile::exists(m_root.filePath(QStringLiteral("move-me.txt"))));
+    }
+
+    void refusesPrivateMailReferenceDrops()
+    {
+        QVERIFY(QDir(m_root.path()).mkpath(QStringLiteral("mail-drop")));
+        FolderView view;
+        view.setUrl(url(QStringLiteral("mail-drop")));
+        view.resize(400, 300);
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QWidget *viewport = view.currentView()->viewport();
+        QSignalSpy refused(&view, &FolderView::dropRefused);
+
+        QMimeData mime;
+        mime.setData(QStringLiteral("application/x-trojita-imap-part"), "imap://user@example.org/INBOX;UID=1/;SECTION=2");
+        const QPoint position(5, 200);
+        QDragEnterEvent enter(position, Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(viewport, &enter);
+        QVERIFY(enter.isAccepted());
+        QDropEvent dropEvent(position, Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(viewport, &dropEvent);
+        QCOMPARE(refused.count(), 1);
+        QVERIFY(refused.first().first().toString().contains(QStringLiteral("Save the attachment")));
+        QTest::qWait(200);
+        QVERIFY(QDir(m_root.filePath(QStringLiteral("mail-drop"))).isEmpty());
     }
 
     void panelDropsHonorTheDefaultAction()

@@ -2,6 +2,7 @@
 
 #include "informationpanel.h"
 
+#include "fileencryption.h"
 #include "libraryregistry.h"
 #include "localizeddates.h"
 #include "localizednumbers.h"
@@ -179,6 +180,13 @@ void InformationPanel::refresh()
         m_layout->setRowVisible(label, !m_emptyFieldsHidden || !text.isEmpty());
     }
     refreshTags();
+    if (m_encryption) {
+        // Only files with an encryption or signature suffix are read, so other selections cost nothing.
+        const bool local = !m_item.isNull() && m_item.url().isLocalFile() && !m_item.isDir();
+        const QString text = local ? FileEncryption::kindText(FileEncryption::identifyFile(m_item.url().toLocalFile())) : QString();
+        m_encryption->setText(text);
+        m_layout->setRowVisible(m_encryption, !text.isEmpty());
+    }
 }
 
 void InformationPanel::refreshTags()
@@ -243,6 +251,7 @@ void InformationPanel::rebuild()
     m_values.clear();
     m_tags = nullptr;
     m_libraryFields = nullptr;
+    m_encryption = nullptr;
     if (m_fields.isEmpty()) {
         auto *emptyMessage = new QLabel(i18nc("@info", "No metadata fields are enabled."), this);
         emptyMessage->setWordWrap(true);
@@ -275,5 +284,10 @@ void InformationPanel::rebuild()
     m_libraryFields->setTextInteractionFlags(Qt::TextSelectableByMouse);
     m_libraryFields->setWordWrap(true);
     m_layout->addRow(i18nc("@label:file information tag library fields", "Fields"), m_libraryFields);
+    m_encryption = new QLabel(this);
+    m_encryption->setObjectName(QStringLiteral("informationEncryption"));
+    m_encryption->setTextFormat(Qt::PlainText);
+    m_encryption->setWordWrap(true);
+    m_layout->addRow(i18nc("@label:file information", "Encryption"), m_encryption);
     refresh();
 }

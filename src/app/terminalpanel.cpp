@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "terminalpanel.h"
+#include "foldergates.h"
 
+#include "atuin.h"
 #include "settings.h"
 #include "symbolicicon.h"
 
@@ -11,6 +13,7 @@
 #include <KPluginMetaData>
 #include <kde_terminal_interface.h>
 
+#include <QActionGroup>
 #include <QDir>
 #include <QEvent>
 #include <QFileInfo>
@@ -18,6 +21,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
+#include <QScopeGuard>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTimer>
@@ -86,6 +90,39 @@ TerminalPanel::TerminalPanel(QWidget *parent)
     auto *closeAction = m_panelMenu->addAction(i18nc("@action", "Hide Terminal Panel"));
     closeAction->setObjectName(QStringLiteral("terminalPanelHideAction"));
     connect(closeAction, &QAction::triggered, this, &TerminalPanel::closeRequested);
+    m_panelMenu->addSeparator();
+    auto *historyAction =
+        m_panelMenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("view-history")), i18nc("@action", "Search Command History with Atuin"));
+    historyAction->setObjectName(QStringLiteral("terminalPanelAtuinAction"));
+    connect(historyAction, &QAction::triggered, this, &TerminalPanel::searchHistory);
+    QMenu *components = m_panelMenu->addMenu(i18nc("@title:menu", "Terminal Component"));
+    components->setObjectName(QStringLiteral("terminalComponentMenu"));
+    components->setToolTipsVisible(true);
+    auto *componentGroup = new QActionGroup(components);
+    for (const TerminalProviders::Provider provider : TerminalProviders::embeddedProviders()) {
+        QAction *component = components->addAction(TerminalProviders::name(provider));
+        component->setObjectName(QStringLiteral("terminalComponent_") + TerminalProviders::id(provider));
+        component->setCheckable(true);
+        component->setData(static_cast<int>(provider));
+        componentGroup->addAction(component);
+        connect(component, &QAction::triggered, this, [this, provider] {
+            setEmbeddedProvider(provider);
+        });
+    }
+    connect(components, &QMenu::aboutToShow, this, [components] {
+        const TerminalProviders::Provider current = TerminalPanel::embeddedProvider();
+        const QList<QAction *> entries = components->actions();
+        for (QAction *component : entries) {
+            const auto provider = static_cast<TerminalProviders::Provider>(component->data().toInt());
+            const QString reason = TerminalProviders::partUnavailableReason(provider);
+            component->setChecked(provider == current);
+            component->setEnabled(reason.isEmpty() || provider == current);
+            component->setToolTip(reason.isEmpty() ? i18nc("@info:tooltip %1 is a terminal application",
+                                                           "Start new terminal sessions with %1. Open sessions are unchanged.",
+                                                           TerminalProviders::name(provider))
+                                                   : reason);
+        }
+    });
     const auto showPanelMenu = [this](QWidget *widget, const QPoint &pos) {
         m_panelMenu->popup(widget->mapToGlobal(pos));
     };
@@ -133,6 +170,21 @@ bool TerminalPanel::hasSessions() const
     return m_tabs->count() > 0;
 }
 
+TerminalProviders::Provider TerminalPanel::embeddedProvider()
+{
+    return Settings::embeddedTerminal() == Settings::EnumEmbeddedTerminal::Kwi ? TerminalProviders::Provider::Kwi : TerminalProviders::Provider::Konsole;
+}
+
+void TerminalPanel::setEmbeddedProvider(TerminalProviders::Provider provider)
+{
+    Settings::setEmbeddedTerminal(provider == TerminalProviders::Provider::Kwi ? Settings::EnumEmbeddedTerminal::Kwi : Settings::EnumEmbeddedTerminal::Konsole);
+    Settings::self()->save();
+    const QString reason = TerminalProviders::partUnavailableReason(provider);
+    setStatus(reason.isEmpty()
+                  ? i18nc("@info %1 is a terminal application", "New terminal sessions use %1. Open sessions are unchanged.", TerminalProviders::name(provider))
+                  : reason);
+}
+
 void TerminalPanel::setStatus(const QString &text, bool informational)
 {
     m_status->setText(text);
@@ -146,6 +198,62 @@ void TerminalPanel::dismissStatus()
         m_dismissedInformationalMessages.insert(m_status->text());
     }
     m_statusRow->hide();
+}
+
+void TerminalPanel::searchHistory()
+{
+    const QString reason = Atuin::unavailableReason();
+    if (!reason.isEmpty()) {
+        setStatus(reason);
+        return;
+    }
+    QPointer<KParts::ReadOnlyPart> current;
+    for (const auto &part : std::as_const(m_parts)) {
+        if (part && part->widget() == m_tabs->currentWidget()) {
+            current = part;
+            break;
+        }
+    }
+    if (!current) {
+        setStatus(i18nc("@info", "Open a terminal session to search command history with Atuin."));
+        return;
+    }
+    sendHistorySearch(current, 0);
+}
+
+void TerminalPanel::sendHistorySearch(const QPointer<KParts::ReadOnlyPart> &part, int attempt)
+{
+    auto *terminal = part ? qobject_cast<TerminalInterface *>(part.data()) : nullptr;
+    if (!terminal) {
+        return;
+    }
+    const int shell = terminal->terminalProcessId();
+    if (shell <= 0) {
+        // A session that has just opened may not have started its shell yet.
+        if (attempt < 30) {
+            QTimer::singleShot(100, this, [this, part, attempt] {
+                sendHistorySearch(part, attempt + 1);
+            });
+        } else {
+            setStatus(i18nc("@info", "The terminal session has not started its shell, so Atuin's search was not opened."));
+        }
+        return;
+    }
+    // KonsolePart reports no foreground process while the shell itself is in the foreground.
+    const int foreground = terminal->foregroundProcessId();
+    if (foreground > 0 && foreground != shell) {
+        const QString program = terminal->foregroundProcessName();
+        setStatus(program.isEmpty()
+                      ? i18nc("@info", "The terminal session is running a program. Finish it or open another session, then search command history again.")
+                      : i18nc("@info %1 is a program name",
+                              "The terminal session is running %1. Finish it or open another session, then search command history again.",
+                              program));
+        return;
+    }
+    terminal->sendInput(Atuin::searchInput(Atuin::executable()));
+    m_tabs->setCurrentWidget(part->widget());
+    part->widget()->setFocus();
+    setStatus(i18nc("@info", "Atuin's search shows the chosen command in the terminal without running it."), true);
 }
 
 void TerminalPanel::watchGeometry()
@@ -204,7 +312,7 @@ void TerminalPanel::updateBlur()
             bool enabled = false;
             if (!QMetaObject::invokeMethod(part.data(), "isBlurEnabled", Qt::DirectConnection, Q_RETURN_ARG(bool, enabled))) {
                 if (!m_warnedBlurInterface) {
-                    qWarning("KonsolePart does not expose its profile blur setting");
+                    qWarning("The terminal component does not expose its profile blur setting");
                     m_warnedBlurInterface = true;
                 }
             } else if (enabled) {
@@ -260,6 +368,10 @@ void TerminalPanel::follow(const QUrl &folder)
         setStatus(i18nc("@info", "The active folder is not an existing local folder. The terminal has not changed."));
         return;
     }
+    if (FolderGates::instance()->isLocked(folder)) {
+        setStatus(i18nc("@info", "The active folder is protected with a password. The terminal has not changed."));
+        return;
+    }
     const QString path = QDir::cleanPath(info.absoluteFilePath());
     for (const auto &part : std::as_const(m_parts)) {
         if (!part) {
@@ -274,28 +386,76 @@ void TerminalPanel::follow(const QUrl &folder)
             return;
         }
     }
-    const KPluginMetaData metadata = KPluginMetaData::findPluginById(QStringLiteral("kf6/parts"), QStringLiteral("konsolepart"));
-    if (!metadata.isValid()) {
-        setStatus(i18nc("@info", "The Konsole terminal component is not installed."));
+    const TerminalProviders::Provider provider = embeddedProvider();
+    KParts::ReadOnlyPart *part =
+        createSession(info.fileName().isEmpty() ? path : info.fileName(),
+                      i18nc("@info:tooltip %1 is a terminal application, %2 a folder", "%1 session started in %2", TerminalProviders::name(provider), path));
+    if (!part) {
         return;
+    }
+    setStatus(Settings::terminalFollowActiveFolder()
+                  ? i18nc("@info", "Terminal sessions remain open until their tabs are closed.")
+                  : i18nc("@info", "The terminal starts in the active folder. Pane navigation does not change its directory."),
+              true);
+    qobject_cast<TerminalInterface *>(part)->showShellInDir(path);
+}
+
+bool TerminalPanel::openProgram(const QString &program, const QStringList &arguments, const QString &folder, const QString &title)
+{
+    const QFileInfo info(folder);
+    if (!info.isAbsolute() || !info.isDir()) {
+        setStatus(i18nc("@info %1 is a program", "%1 was not started because its folder is not an existing local folder.", title));
+        return false;
+    }
+    const QString path = QDir::cleanPath(info.absoluteFilePath());
+    // TerminalInterface has no working directory for programs, so the session
+    // inherits it from this process while the component creates and starts it.
+    const QString previous = QDir::currentPath();
+    QDir::setCurrent(path);
+    const auto restore = qScopeGuard([&previous] {
+        QDir::setCurrent(previous);
+    });
+    KParts::ReadOnlyPart *part = createSession(title,
+                                               i18nc("@info:tooltip %1 is a program, %2 a terminal application, %3 a folder",
+                                                     "%1 running in %2, started in %3",
+                                                     title,
+                                                     TerminalProviders::name(embeddedProvider()),
+                                                     path));
+    if (!part) {
+        return false;
+    }
+    setStatus(i18nc("@info %1 is a program", "The tab closes when %1 exits.", title), true);
+    qobject_cast<TerminalInterface *>(part)->startProgram(program, QStringList{program} + arguments);
+    part->widget()->setFocus();
+    return true;
+}
+
+KParts::ReadOnlyPart *TerminalPanel::createSession(const QString &title, const QString &toolTip)
+{
+    const TerminalProviders::Provider provider = embeddedProvider();
+    const QString providerName = TerminalProviders::name(provider);
+    const KPluginMetaData metadata = KPluginMetaData::findPluginById(QStringLiteral("kf6/parts"), TerminalProviders::partPluginId(provider));
+    if (!metadata.isValid()) {
+        setStatus(TerminalProviders::partUnavailableReason(provider));
+        return nullptr;
     }
     const auto result = KParts::PartLoader::instantiatePart<KParts::ReadOnlyPart>(metadata, this, this);
     if (!result) {
-        setStatus(i18nc("@info", "Could not load the Konsole terminal component: %1", result.errorString));
-        return;
+        setStatus(i18nc("@info %1 is a terminal application, %2 the reason", "Could not load the %1 terminal component: %2", providerName, result.errorString));
+        return nullptr;
     }
     auto *terminal = qobject_cast<TerminalInterface *>(result.plugin);
     if (!terminal || !result.plugin->widget()) {
         delete result.plugin;
-        setStatus(i18nc("@info", "The Konsole component does not provide a terminal."));
-        return;
+        setStatus(i18nc("@info %1 is a terminal application", "The %1 component does not provide a terminal.", providerName));
+        return nullptr;
     }
     auto *part = result.plugin;
     m_parts.append(part);
     const QList<QAction *> panelActions{m_panelMenu->menuAction()};
     if (!QMetaObject::invokeMethod(part, "setContextMenuAdditionalActions", Qt::DirectConnection, Q_ARG(QList<QAction *>, panelActions))
         && !m_warnedContextMenuInterface) {
-        qWarning("KonsolePart does not expose its context menu extension; use the terminal panel menu instead");
+        qWarning("The terminal component does not expose its context menu extension; use the terminal panel menu instead");
         m_warnedContextMenuInterface = true;
     }
     part->widget()->installEventFilter(this);
@@ -310,12 +470,8 @@ void TerminalPanel::follow(const QUrl &folder)
         m_parts.removeAll(QPointer<KParts::ReadOnlyPart>());
         setStatus(i18nc("@info", "Terminal session ended. Select another tab or hide and show the terminal to start another."));
     });
-    const int index = m_tabs->addTab(part->widget(), info.fileName().isEmpty() ? path : info.fileName());
-    m_tabs->setTabToolTip(index, i18nc("@info:tooltip", "Session started in %1", path));
+    const int index = m_tabs->addTab(part->widget(), title);
+    m_tabs->setTabToolTip(index, toolTip);
     m_tabs->setCurrentIndex(index);
-    setStatus(Settings::terminalFollowActiveFolder()
-                  ? i18nc("@info", "Terminal sessions remain open until their tabs are closed.")
-                  : i18nc("@info", "The terminal starts in the active folder. Pane navigation does not change its directory."),
-              true);
-    terminal->showShellInDir(path);
+    return part;
 }

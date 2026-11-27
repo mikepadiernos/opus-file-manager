@@ -3,9 +3,11 @@
 #pragma once
 
 #include "duplicatefinder.h"
+#include "operationjob.h"
 
 #include <QDialog>
 #include <QFutureWatcher>
+#include <QPointer>
 #include <QUrl>
 
 #include <atomic>
@@ -43,6 +45,7 @@ private:
     bool m_scanComplete = false;
     KIO::ListJob *m_listJob = nullptr;
     QFutureWatcher<DuplicateFinder::Result> m_watcher;
+    QPointer<OperationJob> m_job;
     QFutureWatcher<QStringList> m_validationWatcher;
     std::shared_ptr<std::atomic_bool> m_canceled;
     QStringList m_files;

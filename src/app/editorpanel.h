@@ -3,8 +3,12 @@
 #pragma once
 
 #include "draftstore.h"
+#include "notevault.h"
 
 #include <QWidget>
+
+#include <atomic>
+#include <memory>
 
 namespace KTextEditor
 {
@@ -13,12 +17,16 @@ class View;
 }
 class QLabel;
 class QComboBox;
+class QAction;
 class QHBoxLayout;
+class QListWidget;
 class QPushButton;
 class QStackedWidget;
 class QTextBrowser;
 class QTextEdit;
 class QTimer;
+class QToolButton;
+class QTreeWidget;
 class QUrl;
 
 class EditorPanel : public QWidget
@@ -34,15 +42,53 @@ public:
         Window
     };
     explicit EditorPanel(QWidget *parent = nullptr, const QString &draftDirectory = {});
+    ~EditorPanel() override;
     bool openUrl(const QUrl &url);
     bool queryClose();
+    /**
+     * Closes the document after queryClose() lets the user save or discard
+     * unsaved changes. Returns false, keeping the document, if the user keeps
+     * editing or a draft can't be written.
+     */
+    bool closeDocument();
+    /// Closes the document without asking, discarding its changes and draft.
+    void discardDocument();
+    /// Writes pending visual edits into the document; false if they can't be.
+    bool syncVisual();
     void applySettings();
     void setPanelTitleVisible(bool visible);
+    /**
+     * Sets the presentation for hosting the editor in another panel: it hides
+     * the Open, Placement and Hide buttons, whose signals the host does not
+     * handle, shows the document name below the editor and drops the minimum
+     * width.
+     */
+    void setEmbedded(bool embedded);
     KTextEditor::Document *document() const;
+    /**
+     * Sets the folder of Markdown notes that wiki links resolve against,
+     * remembers it for later sessions and scans it in the background. An
+     * empty @p root closes the vault.
+     */
+    void setVault(const QString &root);
+    /// The vault in use: the workspace vault while one is set, or the panel's own.
+    QString vaultRoot() const;
+    /**
+     * Uses @p root as the vault in every editor panel, including ones created
+     * later, while the active workspace has a vault, without remembering it
+     * or changing the open documents. An empty @p root restores each panel's
+     * own vault.
+     */
+    static void setWorkspaceVault(const QString &root);
+    static QString workspaceVault();
+    /// The last completed scan of the vault.
+    const NoteVault::Index &vaultIndex() const;
 
 Q_SIGNALS:
     void placementRequested(EditorPanel::Placement placement);
     void hideRequested();
+    /// Emitted when a vault scan completes and its results are shown.
+    void vaultScanned();
 
 private:
     void updateTitle();
@@ -51,8 +97,17 @@ private:
     void setDraftError(const QString &error);
     void setVisualMode(bool visual);
     void refreshVisual();
-    bool syncVisual();
     void updateVisualControls();
+    void refreshPreview();
+    void rescanVault();
+    /// Switches to the workspace vault or the panel's own, rescanning when it changes.
+    void applyVault();
+    void updateVaultPanel();
+    void updateVaultLinks(const QString &note);
+    void updateVaultTags(const QString &note);
+    /// The open document's canonical path when it's a local file in the vault, or empty.
+    QString currentNotePath() const;
+    void openWikiLink(const QUrl &url);
     KTextEditor::Document *m_document = nullptr;
     KTextEditor::View *m_view = nullptr;
     QLabel *m_title = nullptr;
@@ -61,8 +116,13 @@ private:
     QHBoxLayout *m_documentStatusLayout = nullptr;
     bool m_panelTitleVisible = true;
     QTextBrowser *m_preview = nullptr;
+    QPushButton *m_previewToggle = nullptr;
+    QComboBox *m_dialect = nullptr;
     QTextEdit *m_visual = nullptr;
     QStackedWidget *m_editorStack = nullptr;
+    QPushButton *m_openButton = nullptr;
+    QWidget *m_placementButton = nullptr;
+    QPushButton *m_hideButton = nullptr;
     QPushButton *m_sourceMode = nullptr;
     QPushButton *m_visualMode = nullptr;
     QPushButton *m_visualEnable = nullptr;
@@ -84,4 +144,20 @@ private:
     bool m_syncingVisual = false;
     bool m_visualPending = false;
     bool m_visualEditing = false;
+    QString m_vaultRoot;
+    QString m_ownVaultRoot;
+    NoteVault::Index m_vaultIndex;
+    bool m_vaultScanning = false;
+    quint64 m_vaultGeneration = 0;
+    std::shared_ptr<std::atomic_bool> m_vaultCanceled;
+    QWidget *m_vaultPanel = nullptr;
+    QToolButton *m_vaultButton = nullptr;
+    QLabel *m_vaultTitle = nullptr;
+    QListWidget *m_backlinks = nullptr;
+    QListWidget *m_outgoingLinks = nullptr;
+    QTreeWidget *m_tags = nullptr;
+    QAction *m_vaultChoose = nullptr;
+    QLabel *m_vaultStatus = nullptr;
+    QAction *m_vaultRescan = nullptr;
+    QAction *m_vaultClose = nullptr;
 };

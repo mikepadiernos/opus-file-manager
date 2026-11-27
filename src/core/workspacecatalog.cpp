@@ -614,6 +614,11 @@ bool validCatalog(const WorkspaceCatalog::Catalog &catalog)
             return false;
         }
     }
+    for (const auto &workspace : catalog.workspaces) {
+        if (!workspace.vaultLocationId.isEmpty() && catalog.locationAssignments.value(workspace.vaultLocationId) != workspace.id) {
+            return false;
+        }
+    }
     return true;
 }
 
@@ -668,7 +673,7 @@ bool WorkspaceCatalog::load(const KConfigGroup &group, Catalog &catalog, QString
                 valid = false;
                 break;
             }
-            Workspace workspace{id.toString(), name.toString(), label.toString(), std::nullopt, {}, {}, {}, {}};
+            Workspace workspace{id.toString(), name.toString(), label.toString(), std::nullopt, {}, {}, {}, {}, {}};
             if (!readReferenceIds(object.value(QStringLiteral("savedSearchIds")), workspace.savedSearchIds)
                 || !readReferenceIds(object.value(QStringLiteral("folderSyncProfileIds")), workspace.folderSyncProfileIds)) {
                 valid = false;
@@ -684,6 +689,14 @@ bool WorkspaceCatalog::load(const KConfigGroup &group, Catalog &catalog, QString
             if (versionNumber >= 8 && !readAppearance(object.value(QStringLiteral("appearance")), workspace.appearance)) {
                 valid = false;
                 break;
+            }
+            const QJsonValue vault = object.value(QStringLiteral("vaultLocationId"));
+            if (!vault.isUndefined()) {
+                if (versionNumber < 8 || !vault.isString() || !validId(vault.toString())) {
+                    valid = false;
+                    break;
+                }
+                workspace.vaultLocationId = vault.toString();
             }
             const QJsonValue layout = object.value(QStringLiteral("layout"));
             if (!layout.isUndefined()) {
@@ -737,6 +750,9 @@ bool WorkspaceCatalog::save(KConfigGroup group, const Catalog &catalog, QString 
         }
         if (!workspace.appearance.isEmpty()) {
             entry.insert(QStringLiteral("appearance"), writeAppearance(workspace.appearance));
+        }
+        if (!workspace.vaultLocationId.isEmpty()) {
+            entry.insert(QStringLiteral("vaultLocationId"), workspace.vaultLocationId);
         }
         entries.append(entry);
     }
@@ -809,7 +825,7 @@ bool WorkspaceCatalog::saveIfUnchanged(KConfigGroup group, const Catalog &expect
 bool WorkspaceCatalog::create(Catalog &catalog, const QString &name, const QString &shortLabel, QString &error)
 {
     Catalog updated = catalog;
-    updated.workspaces.append({QUuid::createUuid().toString(QUuid::WithoutBraces), name.trimmed(), shortLabel.trimmed(), std::nullopt, {}, {}, {}, {}});
+    updated.workspaces.append({QUuid::createUuid().toString(QUuid::WithoutBraces), name.trimmed(), shortLabel.trimmed(), std::nullopt, {}, {}, {}, {}, {}});
     if (!checkCatalog(updated, error)) {
         return false;
     }
@@ -832,6 +848,8 @@ bool WorkspaceCatalog::duplicate(Catalog &catalog, const QString &id, const QStr
     copy.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
     copy.name = name.trimmed();
     copy.shortLabel = shortLabel.trimmed();
+    // Assigned locations stay with the original workspace, so its vault does too.
+    copy.vaultLocationId.clear();
     updated.workspaces.append(copy);
     if (!checkCatalog(updated, error)) {
         return false;
@@ -973,6 +991,30 @@ bool WorkspaceCatalog::unassignLocation(Catalog &catalog, const QString &locatio
         return false;
     }
     catalog.locationAssignments.remove(locationId);
+    for (auto &workspace : catalog.workspaces) {
+        if (workspace.vaultLocationId == locationId) {
+            workspace.vaultLocationId.clear();
+        }
+    }
+    error.clear();
+    return true;
+}
+
+bool WorkspaceCatalog::setVault(Catalog &catalog, const QString &workspaceId, const QString &locationId, QString &error)
+{
+    if (!checkCatalog(catalog, error)) {
+        return false;
+    }
+    const int index = indexOf(catalog, workspaceId);
+    if (index < 0) {
+        error = i18nc("@info", "The workspace no longer exists.");
+        return false;
+    }
+    if (!locationId.isEmpty() && catalog.locationAssignments.value(locationId) != workspaceId) {
+        error = i18nc("@info", "Only a location assigned to this workspace can be its editor vault.");
+        return false;
+    }
+    catalog.workspaces[index].vaultLocationId = locationId;
     error.clear();
     return true;
 }

@@ -2,7 +2,12 @@
 
 #include "searchstoredialog.h"
 
+#include "sharedsearch.h"
+#include "taggingsettings.h"
+
+#include <KFilePlacesModel>
 #include <KLocalizedString>
+#include <KProtocolInfo>
 
 #include <QDialogButtonBox>
 #include <QHBoxLayout>
@@ -10,6 +15,7 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QPersistentModelIndex>
 #include <QPushButton>
 #include <QTabWidget>
 #include <QVBoxLayout>
@@ -27,9 +33,10 @@ auto findNamed(QList<T> &items, const QString &name)
 }
 }
 
-SearchStoreDialog::SearchStoreDialog(QWidget *parent, KSharedConfig::Ptr config)
+SearchStoreDialog::SearchStoreDialog(QWidget *parent, KSharedConfig::Ptr config, KFilePlacesModel *places)
     : QDialog(parent)
     , m_config(config ? config : KSharedConfig::openConfig())
+    , m_places(places ? places : new KFilePlacesModel(this))
     , m_searchList(new QListWidget(this))
     , m_collectionList(new QListWidget(this))
     , m_references(new QListWidget(this))
@@ -62,10 +69,14 @@ SearchStoreDialog::SearchStoreDialog(QWidget *parent, KSharedConfig::Ptr config)
     searchRename->setObjectName(QStringLiteral("managedSearchRename"));
     auto *searchDelete = new QPushButton(i18nc("@action:button", "Delete"), searchPage);
     searchDelete->setObjectName(QStringLiteral("managedSearchDelete"));
+    auto *searchShare = new QPushButton(i18nc("@action:button", "Share with KDE Places…"), searchPage);
+    searchShare->setObjectName(QStringLiteral("managedSearchShare"));
+    searchShare->setToolTip(i18nc("@info:tooltip", "Add this search to Places so Dolphin and file dialogs can open it"));
     auto *searchRefresh = new QPushButton(i18nc("@action:button", "Refresh"), searchPage);
     searchRefresh->setObjectName(QStringLiteral("managedSearchRefresh"));
     searchActions->addWidget(searchRename);
     searchActions->addWidget(searchDelete);
+    searchActions->addWidget(searchShare);
     searchActions->addWidget(searchRefresh);
     searchActions->addStretch();
     searchLayout->addLayout(searchActions);
@@ -110,6 +121,7 @@ SearchStoreDialog::SearchStoreDialog(QWidget *parent, KSharedConfig::Ptr config)
     });
     connect(searchRename, &QPushButton::clicked, this, &SearchStoreDialog::renameSearch);
     connect(searchDelete, &QPushButton::clicked, this, &SearchStoreDialog::deleteSearch);
+    connect(searchShare, &QPushButton::clicked, this, &SearchStoreDialog::shareSearch);
     connect(searchRefresh, &QPushButton::clicked, this, [this] {
         reloadSearches();
     });
@@ -262,6 +274,105 @@ void SearchStoreDialog::deleteSearch()
     }
     reloadSearches();
     m_status->setText(i18nc("@info", "Saved search deleted. No files were removed."));
+}
+
+void SearchStoreDialog::shareSearch()
+{
+    const int row = m_searchList->currentRow();
+    if (row < 0 || row >= m_searches.size()) {
+        m_status->setText(i18nc("@info", "Select a saved search."));
+        return;
+    }
+    const auto original = m_searches.at(row);
+    QString error;
+    const auto current = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &error);
+    if (!error.isEmpty()) {
+        m_status->setText(error);
+        return;
+    }
+    if (std::find(current.cbegin(), current.cend(), original) == current.cend()) {
+        m_status->setText(i18nc("@info", "This search changed elsewhere. Refresh the list."));
+        return;
+    }
+    const KConfigGroup searchSettings = m_config->group(QStringLiteral("Search"));
+    const SharedSearch::Translation translation = SharedSearch::translate(original,
+                                                                          searchSettings.readEntry("SearchFolders", QStringList()),
+                                                                          searchSettings.readEntry("SearchExclusions", QStringList()),
+                                                                          TaggingSettings::embeddedMetadataKeys());
+    if (!translation.error.isEmpty()) {
+        m_status->setText(translation.error);
+        return;
+    }
+    const QUrl url = SharedSearch::url(translation, original.name);
+    if (url.isEmpty()) {
+        m_status->setText(i18nc("@info", "Plasma Opus was built without Baloo, so it can't share searches with KDE."));
+        return;
+    }
+    if (!KProtocolInfo::isKnownProtocol(QStringLiteral("baloosearch"))) {
+        m_status->setText(
+            i18nc("@info", "KDE's indexed search location, baloosearch:/, isn't installed, so other applications couldn't open a shared search."));
+        return;
+    }
+    QPersistentModelIndex existing;
+    for (int place = 0; place < m_places->rowCount(); ++place) {
+        const QModelIndex index = m_places->index(place, 0);
+        if (SharedSearch::sameSearch(m_places->url(index), url)) {
+            m_status->setText(i18nc("@info", "“%1” is already in Places with these criteria.", original.name));
+            return;
+        }
+        if (!existing.isValid() && m_places->url(index).scheme() == QLatin1String("baloosearch") && m_places->text(index) == original.name) {
+            existing = index;
+        }
+    }
+
+    QStringList details;
+    details.append(translation.folder.isEmpty() ? i18nc("@info", "The place searches every indexed location.")
+                                                : i18nc("@info %1 is a folder", "The place searches %1 and its subfolders.", translation.folder));
+    details.append(i18nc("@info",
+                         "Other applications list what Baloo finds when the place is opened: indexed files only, matched by whole words rather than "
+                         "parts of names or text."));
+    if (!translation.omitted.isEmpty()) {
+        QStringList omitted;
+        for (const QString &criterion : translation.omitted) {
+            omitted.append(QStringLiteral("• ") + criterion);
+        }
+        details.append(i18nc("@info", "These criteria can't be carried over, so the place ignores them:") + QLatin1Char('\n')
+                       + omitted.join(QLatin1Char('\n')));
+    }
+    if (existing.isValid()) {
+        details.append(i18nc("@info", "Places already has a search named “%1” with other criteria. Replace it, or add this one beside it.", original.name));
+    }
+    details.append(
+        i18nc("@info", "The place is a copy: changing or deleting this saved search doesn't change it. Remove it from Places in any KDE application."));
+    QMessageBox box(QMessageBox::Question,
+                    i18nc("@title:window", "Share Saved Search"),
+                    i18nc("@info", "Add “%1” to Places, so Dolphin, file dialogs and other KDE applications can open it?", original.name),
+                    QMessageBox::Cancel,
+                    this);
+    box.setTextFormat(Qt::PlainText);
+    box.setInformativeText(details.join(QStringLiteral("\n\n")));
+    QPushButton *add = box.addButton(i18nc("@action:button", "Add to Places"), QMessageBox::AcceptRole);
+    add->setObjectName(QStringLiteral("shareSearchAdd"));
+    QPushButton *replace = nullptr;
+    if (existing.isValid()) {
+        replace = box.addButton(i18nc("@action:button", "Replace Existing"), QMessageBox::AcceptRole);
+        replace->setObjectName(QStringLiteral("shareSearchReplace"));
+    }
+    box.setDefaultButton(QMessageBox::Cancel);
+    box.exec();
+    const QString icon = QStringLiteral("folder-saved-search-symbolic");
+    if (replace && box.clickedButton() == replace) {
+        // Another application may have changed Places while the question was open.
+        if (!existing.isValid() || m_places->text(existing) != original.name) {
+            m_status->setText(i18nc("@info", "Places changed while the question was open. Share the search again."));
+            return;
+        }
+        m_places->editPlace(existing, original.name, url, icon);
+        m_status->setText(i18nc("@info", "Replaced “%1” in Places.", original.name));
+    } else if (box.clickedButton() == add) {
+        m_places->addPlace(original.name, url, icon);
+        m_status->setText(i18nc("@info", "Added “%1” to Places. Plasma Opus won't change or remove it.", original.name));
+    }
 }
 
 void SearchStoreDialog::renameCollection()

@@ -13,6 +13,8 @@
 #include <QUrl>
 #include <QWidget>
 
+#include <optional>
+
 class CardDelegate;
 class KDirLister;
 class KDirModel;
@@ -65,6 +67,10 @@ public:
     bool isLoading() const;
     void setUrl(const QUrl &url);
     void reload();
+    /// Whether the shown folder is a locked password-gated folder or inside one, so it is not listed.
+    bool isGateLocked() const;
+    /// Lists or hides the folder and its items again after password-gated folders change.
+    void updateGates();
 
     ViewMode viewMode() const;
     void setViewMode(ViewMode mode);
@@ -195,6 +201,8 @@ Q_SIGNALS:
     void listingReady();
     void historyExpansionFinished();
     void listingFailed(const QString &message);
+    /// Emitted when a drop is refused, with an explanation for the status bar.
+    void dropRefused(const QString &message);
     void previewsEnabledChanged(bool enabled);
     void hiddenFilesChanged(bool enabled);
     void sortingChanged();
@@ -233,6 +241,7 @@ private:
     void saveFolderFormat();
     FolderMetadata::Format currentFormat() const;
     void updatePreviews();
+    void applyPreviewPlugins();
     bool handleDrop(QAbstractItemView *view, QEvent *event);
     void finishHistoryExpansionWhenIdle();
     void queueFolderSizes(const KFileItemList &items);
@@ -284,6 +293,9 @@ private:
     bool m_markerPress = false;
     /// Generates previews for the shown view only; see updatePreviews().
     KFilePreviewGenerator *m_previews = nullptr;
+    /// The preview plugins set by the settings, before folder thumbnails are removed near locked folders.
+    std::optional<QStringList> m_previewPlugins;
+    bool m_gateBlocked = false;
     KFileItemDelegate *m_iconDelegate = nullptr;
     ViewMode m_viewMode = ViewMode::Details;
     int m_detailsIconSize = 0;

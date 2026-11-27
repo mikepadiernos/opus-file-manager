@@ -48,3 +48,8 @@ QList<ServiceMenuEntry> ServiceMenus::installed()
     });
     return entries;
 }
+
+QString ServiceMenus::downloadConfigPath()
+{
+    return QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("knsrcfiles/") + QLatin1String(DownloadConfig));
+}

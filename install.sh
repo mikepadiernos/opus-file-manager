@@ -4,6 +4,7 @@
 #
 #   ./install.sh                 build + install for the current user (~/.local)
 #   ./install.sh --default       ... and make Plasma Opus the default folder handler
+#   ./install.sh --file-chooser  ... and serve the system file chooser (XDG portal)
 #   ./install.sh --system        build + install under /usr/local (uses sudo)
 #   ./install.sh --deps          print build and optional feature dependencies
 #   ./install.sh --uninstall     remove the install and restore Dolphin
@@ -20,11 +21,12 @@ mode=install
 scope=user
 prefix=""
 make_default=0
+file_chooser=0
 build_type=Release
 jobs=""
 
 usage() {
-    sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
     cat <<EOF
 
 Options:
@@ -32,6 +34,9 @@ Options:
   --system           install under /usr/local via sudo
   --prefix DIR       install under DIR instead
   --default          register Plasma Opus as the default handler for folders
+                     and "Show in folder" (FileManager1) requests
+  --file-chooser     serve the system file chooser for applications that use
+                     the XDG portal (per user; undone by --uninstall)
   --debug            build with CMAKE_BUILD_TYPE=Debug (default: Release)
   --jobs N           parallel build jobs (default: all cores)
 
@@ -51,6 +56,7 @@ while [ $# -gt 0 ]; do
         --system) scope=system ;;
         --prefix) shift; prefix="${1:-}"; [ -n "$prefix" ] || die "--prefix needs a directory"; scope=custom ;;
         --default) make_default=1 ;;
+        --file-chooser) file_chooser=1 ;;
         --debug) build_type=Debug ;;
         --jobs) shift; jobs="${1:-}"; [ -n "$jobs" ] || die "--jobs needs a number" ;;
         --deps) mode=deps ;;
@@ -82,7 +88,7 @@ fi
 # Dependencies
 # ---------------------------------------------------------------------------
 
-KF_MODULES=(archive bookmarks config configwidgets coreaddons crash dbusaddons filemetadata guiaddons i18n iconthemes itemviews kio parts solid syntaxhighlighting texteditor widgetsaddons windowsystem xmlgui)
+KF_MODULES=(archive bookmarks config configwidgets coreaddons crash dbusaddons filemetadata globalaccel guiaddons i18n iconthemes itemviews kio newstuff parts solid statusnotifieritem syntaxhighlighting texteditor widgetsaddons windowsystem xmlgui)
 
 distro_id() {
     [ -r /etc/os-release ] || { echo unknown; return; }
@@ -109,6 +115,7 @@ print_deps() {
             pkgs=("${pkgs[@]/kkio/kio}")
             pkgs=("${pkgs[@]/ksolid/solid}")
             pkgs=("${pkgs[@]/ksyntaxhighlighting/syntax-highlighting}")
+            pkgs+=(plasma-activities)
             echo "  sudo pacman -S --needed ${pkgs[*]}" ;;
         fedora)
             pkgs=(gcc-c++ cmake ninja-build extra-cmake-modules gettext qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtmultimedia-devel libarchive-devel)
@@ -116,10 +123,12 @@ print_deps() {
             pkgs=("${pkgs[@]/kf6-kkio-devel/kf6-kio-devel}")
             pkgs=("${pkgs[@]/kf6-ksolid-devel/kf6-solid-devel}")
             pkgs=("${pkgs[@]/kf6-ksyntaxhighlighting-devel/kf6-syntax-highlighting-devel}")
+            pkgs+=(plasma-activities-devel)
             echo "  sudo dnf install ${pkgs[*]}" ;;
         debian)
             pkgs=(build-essential cmake ninja-build extra-cmake-modules gettext qt6-base-dev qt6-base-private-dev qt6-multimedia-dev libarchive-dev)
             for m in "${KF_MODULES[@]}"; do pkgs+=("libkf6$m-dev"); done
+            pkgs+=(libplasmaactivities-dev)
             echo "  sudo apt install ${pkgs[*]}" ;;
         suse)
             pkgs=(gcc-c++ cmake ninja extra-cmake-modules gettext-tools qt6-base-devel qt6-multimedia-devel libarchive-devel)
@@ -127,12 +136,13 @@ print_deps() {
             pkgs=("${pkgs[@]/kf6-kkio-devel/kf6-kio-devel}")
             pkgs=("${pkgs[@]/kf6-ksolid-devel/kf6-solid-devel}")
             pkgs=("${pkgs[@]/kf6-ksyntaxhighlighting-devel/kf6-syntax-highlighting-devel}")
+            pkgs+=(plasma6-activities-devel)
             echo "  sudo zypper install ${pkgs[*]}" ;;
         *)
             echo "  Unrecognised distro ($ids). Install a C++20 compiler, CMake >= 3.25, Ninja,"
             echo "  gettext, libarchive, Extra CMake Modules, Qt 6 (Core, Gui, Widgets, DBus,"
             echo "  Test, Concurrent, Multimedia, MultimediaWidgets, Network, Xml), and KDE"
-            echo "  Frameworks development modules: ${KF_MODULES[*]}" ;;
+            echo "  Frameworks development modules: ${KF_MODULES[*]}, and Plasma Activities" ;;
     esac
 
     echo
@@ -142,25 +152,30 @@ print_deps() {
             echo "  Indexed search, at build and runtime: sudo pacman -S --needed baloo"
             echo "  Embedded terminal: sudo pacman -S --needed konsole"
             echo "  Media metadata editing: sudo pacman -S --needed perl-image-exiftool"
+            echo "  Embedded mpv playback, at build and runtime: sudo pacman -S --needed mpv"
             echo "  Qt Vulkan headers and loader: sudo pacman -S --needed vulkan-headers vulkan-icd-loader" ;;
         fedora)
             echo "  Indexed search, at build and runtime: sudo dnf install kf6-baloo-devel"
             echo "  Embedded terminal: sudo dnf install konsole"
             echo "  Media metadata editing: sudo dnf install perl-Image-ExifTool"
+            echo "  Embedded mpv playback, at build and runtime: sudo dnf install mpv-devel"
             echo "  Qt Vulkan headers and loader: sudo dnf install vulkan-headers vulkan-loader-devel" ;;
         debian)
             echo "  Indexed search, at build and runtime: sudo apt install libkf6baloo-dev"
             echo "  Embedded terminal: sudo apt install konsole"
             echo "  Media metadata editing: sudo apt install libimage-exiftool-perl"
+            echo "  Embedded mpv playback, at build and runtime: sudo apt install libmpv-dev"
             echo "  Qt Vulkan headers and loader: sudo apt install libvulkan-dev" ;;
         suse)
             echo "  Indexed search, at build and runtime: install the KF6 Baloo development and runtime packages."
             echo "  Embedded terminal: install Konsole."
             echo "  Media metadata editing: install perl-Image-ExifTool."
+            echo "  Embedded mpv playback, at build and runtime: install mpv-devel."
             echo "  Qt Vulkan support: install Vulkan headers and loader development files." ;;
         *)
             echo "  Baloo development and runtime packages enable indexed search."
             echo "  Konsole provides the embedded terminal; ExifTool enables media metadata editing."
+            echo "  libmpv development files enable embedded mpv playback."
             echo "  Vulkan headers and the loader enable Qt's optional Vulkan integration." ;;
     esac
     echo "  Document previews and media playback may need additional KParts or Qt Multimedia backends."
@@ -189,7 +204,25 @@ refresh_desktop_db() {
     command -v kbuildsycoca6 >/dev/null && kbuildsycoca6 --noincremental >/dev/null 2>&1 || true
 }
 
+# A per-user D-Bus activation file, found before system ones, so requests such
+# as "Show in folder" start Plasma Opus when no file manager is running.
+FM1_SERVICE="${XDG_DATA_HOME:-$HOME/.local/share}/dbus-1/services/org.kde.opusfilemanager.FileManager1.service"
+
+install_file_manager_service() {
+    mkdir -p "$(dirname "$FM1_SERVICE")"
+    printf '[D-BUS Service]\nName=org.freedesktop.FileManager1\nExec=%s/bin/opus-file-manager --file-manager-service\n' "$prefix" > "$FM1_SERVICE"
+    echo "file manager service: $FM1_SERVICE"
+}
+
+remove_file_manager_service() {
+    if [ -f "$FM1_SERVICE" ] && grep -q 'opus-file-manager --file-manager-service' "$FM1_SERVICE"; then
+        rm -f -- "$FM1_SERVICE"
+        echo "file manager service: removed $FM1_SERVICE"
+    fi
+}
+
 set_default_handler() {
+    install_file_manager_service
     command -v xdg-mime >/dev/null || { echo "xdg-mime not found; skipping default handler" >&2; return; }
     for mime in "${MIME_TYPES[@]}"; do
         xdg-mime default "$DESKTOP_ID" "$mime"
@@ -197,6 +230,7 @@ set_default_handler() {
 }
 
 restore_default_handler() {
+    remove_file_manager_service
     command -v xdg-mime >/dev/null || return 0
     for mime in "${MIME_TYPES[@]}"; do
         if [ "$(xdg-mime query default "$mime" 2>/dev/null)" = "$DESKTOP_ID" ]; then
@@ -221,6 +255,10 @@ case "$mode" in
 
     uninstall)
         [ -f "$BUILD_DIR/build.ninja" ] || die "no build tree in $BUILD_DIR; nothing to uninstall"
+        # Restore the previous portal chooser while the binary still exists.
+        if [ -x "$prefix/bin/opus-file-manager" ]; then
+            "$prefix/bin/opus-file-manager" --uninstall-portal || echo "file chooser: could not restore the previous portal chooser" >&2
+        fi
         say "Removing installed files"
         "${sudo_cmd[@]}" cmake --build "$BUILD_DIR" --target uninstall
         restore_default_handler
@@ -249,6 +287,11 @@ refresh_desktop_db "$prefix/share/applications"
 if [ "$make_default" = 1 ]; then
     say "Registering Plasma Opus as the default folder handler"
     set_default_handler
+fi
+
+if [ "$file_chooser" = 1 ]; then
+    say "Serving the system file chooser"
+    "$prefix/bin/opus-file-manager" --install-portal || echo "file chooser: setup failed; applications keep their current chooser" >&2
 fi
 
 echo

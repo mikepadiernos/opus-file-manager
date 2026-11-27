@@ -11,6 +11,7 @@
 #include <QPromise>
 #include <QPushButton>
 #include <QTreeWidget>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
 
@@ -62,6 +63,9 @@ ChecksumDialog::ChecksumDialog(Mode mode, const QStringList &paths, const QStrin
         const Checksums::Result result = m_watcher.result();
         if (!result.error.isEmpty()) {
             m_status->setText(i18nc("@info", "Checksum operation failed: %1", result.error));
+            if (m_job) {
+                m_job->finish(i18nc("@info", "The checksum operation failed. Details are shown in Plasma Opus."));
+            }
             return;
         }
         int failures = 0;
@@ -77,6 +81,9 @@ ChecksumDialog::ChecksumDialog(Mode mode, const QStringList &paths, const QStrin
             m_status->setText(i18nc("@info", "Checksum file created."));
         } else if (failures) {
             m_status->setText(i18np("Verification finished: %1 file failed.", "Verification finished: %1 files failed.", failures));
+            if (m_job) {
+                m_job->finish(i18np("%1 file failed verification.", "%1 files failed verification.", failures));
+            }
         } else {
             m_status->setText(i18nc("@info", "All files verified."));
         }
@@ -91,6 +98,19 @@ ChecksumDialog::ChecksumDialog(Mode mode, const QStringList &paths, const QStrin
         };
         promise.addResult(mode == Mode::Create ? Checksums::create(paths, manifest, cancel, progress) : Checksums::verify(manifest, cancel, progress));
     }));
+    m_job = OperationJob::track(
+        new OperationJob(mode == Mode::Create ? i18nc("@title job", "Creating checksum file") : i18nc("@title job", "Verifying checksum file")),
+        &m_watcher);
+    if (mode == Mode::Create) {
+        m_job->setDestination(QUrl::fromLocalFile(manifest));
+    } else {
+        m_job->setSource(QUrl::fromLocalFile(manifest));
+    }
+    m_job->setCancelHandler([button = QPointer<QPushButton>(m_cancel)] {
+        if (button && button->isEnabled()) {
+            button->click();
+        }
+    });
 }
 
 ChecksumDialog::~ChecksumDialog()

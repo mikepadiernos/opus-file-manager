@@ -2,13 +2,17 @@
 
 #include "searchwidget.h"
 
+#include "foldergates.h"
+#include "indexbackend.h"
 #include "indexedsearch.h"
+#include "indexstatusdialog.h"
 #include "libraryregistry.h"
 #include "pathfiltereditor.h"
 #include "searchcollection.h"
 #include "searchhistory.h"
 #include "searchlocations.h"
 #include "searchquery.h"
+#include "searchranking.h"
 #include "taggingsettings.h"
 
 #include <KLocalizedString>
@@ -228,7 +232,36 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_workspaceOnly->setText(i18nc("@option:check", "Limit to saved locations assigned to the active workspace"));
     m_workspaceOnly->setToolTip(i18nc("@info:tooltip", "Clear this to search the current folder or all indexed locations outside the workspace."));
     form->addRow(QString(), m_workspaceOnly);
+    m_rank = new QCheckBox(i18nc("@option:check", "Rank results by similarity"), this);
+    m_rank->setObjectName(QStringLiteral("searchRank"));
+    m_rank->setToolTip(i18nc("@info:tooltip",
+                             "List the names closest to the search terms first: exact names, then prefixes, word starts, other matches and "
+                             "near spellings. Ranking only reorders the results found."));
+    m_rank->setChecked(m_config->group(QStringLiteral("Search")).readEntry("RankResults", false));
+    connect(m_rank, &QCheckBox::toggled, this, [this](bool checked) {
+        KConfigGroup group = m_config->group(QStringLiteral("Search"));
+        group.writeEntry("RankResults", checked);
+        group.sync();
+    });
+    form->addRow(QString(), m_rank);
     refreshWorkspaceScope();
+    m_indexNotice = new QLabel(this);
+    m_indexNotice->setObjectName(QStringLiteral("searchIndexNotice"));
+    m_indexNotice->setTextFormat(Qt::PlainText);
+    m_indexNotice->setWordWrap(true);
+    m_indexStatus = new QPushButton(QIcon::fromTheme(QStringLiteral("baloo")), i18nc("@action:button", "Indexing Status…"), this);
+    m_indexStatus->setObjectName(QStringLiteral("searchIndexStatus"));
+    m_indexStatus->setToolTip(i18nc("@info:tooltip", "Show the file indexer's state, indexed folders and coverage, and KDE's indexing controls"));
+    auto *indexRow = new QHBoxLayout;
+    indexRow->addWidget(m_indexNotice, 1);
+    indexRow->addWidget(m_indexStatus, 0, Qt::AlignTop);
+    form->addRow(QString(), indexRow);
+    connect(m_indexStatus, &QPushButton::clicked, this, [this] {
+        auto *dialog = new IndexStatusDialog(m_folder.isLocalFile() ? m_folder.toLocalFile() : QString(), m_indexBackend, this);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->show();
+    });
+    setIndexBackend(new SystemIndexBackend(this));
     layout->addLayout(form);
     layout->addWidget(m_filterEditor);
     auto *savedRow = new QHBoxLayout;
@@ -259,6 +292,15 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         m_status->setText(defaultsNotice);
     }
     resultsLayout->addWidget(m_status);
+    m_liveFallback = new QPushButton(QIcon::fromTheme(QStringLiteral("edit-find")), QString(), this);
+    m_liveFallback->setObjectName(QStringLiteral("searchLiveFallback"));
+    m_liveFallback->setToolTip(i18nc("@info:tooltip", "Run this search again by reading files directly, to find matches the index lacks"));
+    m_liveFallback->hide();
+    connect(m_liveFallback, &QPushButton::clicked, this, [this] {
+        m_scope->setCurrentIndex(CurrentFolder);
+        start();
+    });
+    resultsLayout->addWidget(m_liveFallback, 0, Qt::AlignLeft);
     QString savedError;
     m_savedSearches = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &savedError);
     updateSavedSearches();
@@ -725,10 +767,13 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     connect(m_scope, &QComboBox::currentIndexChanged, this, [this](int index) {
         m_field->setItemText(1, index == Indexed ? i18nc("@item:inlistbox", "Indexed file contents") : i18nc("@item:inlistbox", "File contents (UTF-8 text)"));
         m_status->setText(scopeStatus(index, m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
+        m_liveFallback->hide();
+        refreshIndexNotice(true);
     });
     connect(m_workspaceOnly, &QCheckBox::toggled, this, [this] {
         refreshWorkspaceScope();
         m_status->setText(scopeStatus(m_scope->currentIndex(), m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
+        refreshIndexNotice(false);
     });
     connect(m_query, &QLineEdit::returnPressed, this, &SearchWidget::start);
     // Show how an advanced query is grouped, or why it can't be run, as it is edited.
@@ -748,6 +793,13 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
                               : i18np("Searching: %1 indexed match retrieved.", "Searching: %1 indexed matches retrieved.", count));
         Q_EMIT progressChanged(m_status->text());
     });
+    connect(FolderGates::instance(), &FolderGates::changed, this, [this] {
+        for (int i = m_results->topLevelItemCount() - 1; i >= 0; --i) {
+            if (FolderGates::instance()->hidesContents(QUrl::fromLocalFile(itemPath(m_results->topLevelItem(i))))) {
+                delete m_results->takeTopLevelItem(i);
+            }
+        }
+    });
     connect(&m_watcher, &QFutureWatcher<LiveSearch::Result>::finished, this, [this] {
         const LiveSearch::Result result = m_watcher.result();
         m_search->setEnabled(true);
@@ -761,7 +813,13 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         if (m_defaultsPending) {
             applyDefaults();
         }
-        for (const QString &path : result.paths) {
+        const bool ranked = m_rank->isChecked() && result.paths.size() > 1;
+        QStringList paths = ranked ? SearchRanking::rank(result.paths, SearchRanking::terms(m_lastText, m_lastField)) : result.paths;
+        // Items inside locked password-gated folders are dropped, including through symbolic links the exclusions miss.
+        paths.removeIf([](const QString &path) {
+            return FolderGates::instance()->hidesContents(QUrl::fromLocalFile(path));
+        });
+        for (const QString &path : paths) {
             setItemPath(new QTreeWidgetItem(m_results), path);
         }
         for (const QString &error : result.errors) {
@@ -771,7 +829,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         QString status = result.canceled ? i18nc("@info", "Search canceled; results may be incomplete.")
             : result.limited             ? i18nc("@info", "Search limit reached; results may be incomplete.")
             : !result.errors.isEmpty()   ? i18nc("@info", "Search incomplete; see errors below.")
-                                         : i18np("Search finished: %1 match.", "Search finished: %1 matches.", result.paths.size());
+                                         : i18np("Search finished: %1 match.", "Search finished: %1 matches.", paths.size());
         if (result.skippedFiles) {
             status += QLatin1Char(' ')
                 + i18np("%1 binary, invalid UTF-8 or oversized file was skipped.",
@@ -780,6 +838,17 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         }
         for (const QString &notice : result.notices) {
             status += QLatin1Char(' ') + notice;
+        }
+        if (ranked) {
+            status += QLatin1Char(' ')
+                + (m_lastIndexed        ? i18nc("@info", "Results are ranked by name similarity; ranking can't add matches missing from the index.")
+                       : result.limited ? i18nc("@info", "Results are ranked by name similarity; ranking can't add matches beyond the search limit.")
+                                        : i18nc("@info", "Results are ranked by name similarity."));
+        }
+        if (m_lastIndexed && !result.canceled && (m_lastWorkspaceOnly || m_folder.isLocalFile())) {
+            m_liveFallback->setText(m_lastWorkspaceOnly ? i18nc("@action:button", "Search Workspace Locations Live")
+                                                        : i18nc("@action:button", "Search Current Folder Live"));
+            m_liveFallback->show();
         }
         m_status->setText(status);
         Q_EMIT finished(status);
@@ -808,7 +877,46 @@ bool SearchWidget::setFolder(const QUrl &folder)
     }
     m_folder = folder;
     m_folderLabel->setText(folder.toDisplayString());
+    refreshIndexNotice(false);
     return true;
+}
+
+void SearchWidget::setIndexBackend(IndexBackend *backend)
+{
+    if (m_indexBackend) {
+        disconnect(m_indexBackend, nullptr, this, nullptr);
+        if (m_indexBackend->parent() == this && m_indexBackend != backend) {
+            m_indexBackend->deleteLater();
+        }
+    }
+    m_indexBackend = backend;
+    if (m_indexBackend) {
+        connect(m_indexBackend, &IndexBackend::serviceChanged, this, [this] {
+            refreshIndexNotice(true);
+        });
+    }
+    refreshIndexNotice(true);
+}
+
+void SearchWidget::refreshIndexNotice(bool reload)
+{
+    const bool indexed = m_scope->currentIndex() == Indexed;
+    m_indexStatus->setVisible(indexed);
+    if (!indexed || !m_indexBackend) {
+        m_indexNotice->clear();
+        m_indexNotice->hide();
+        return;
+    }
+    if (reload) {
+        m_indexConfig = m_indexBackend->config();
+        m_indexService = m_indexBackend->service();
+    }
+    // Indexed search covers all indexed folders, so only report on the current folder outside a workspace.
+    const bool workspaceOnly = m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked();
+    const QString folder = !workspaceOnly && m_folder.isLocalFile() ? m_folder.toLocalFile() : QString();
+    const QStringList warnings = IndexStatus::warnings(m_indexConfig, m_indexService, folder);
+    m_indexNotice->setText(warnings.join(QLatin1Char(' ')));
+    m_indexNotice->setVisible(!warnings.isEmpty());
 }
 
 QUrl SearchWidget::folder() const
@@ -1192,6 +1300,9 @@ QString SearchWidget::locationLimitation() const
     if (searchesCurrentFolder() && !m_folder.isLocalFile()) {
         return i18nc("@info", "Live search currently supports local folders only.");
     }
+    if (searchesCurrentFolder() && FolderGates::instance()->isLocked(m_folder)) {
+        return i18nc("@info", "This folder is protected with a password. Unlock it to search it.");
+    }
     return {};
 }
 
@@ -1223,7 +1334,9 @@ bool SearchWidget::startSearch()
     }
     const auto searchSettings = m_config->group(QStringLiteral("Search"));
     const QStringList exclusions = searchSettings.readEntry("SearchExclusions", QStringList());
-    const PathFilter filter = SearchLocations::withExclusions(chosenFilter, exclusions);
+    PathFilter filter = SearchLocations::withExclusions(chosenFilter, exclusions);
+    // Searches do not enter locked password-gated folders.
+    filter.excludedFolders.append(FolderGates::instance()->lockedWithin(QUrl::fromLocalFile(QStringLiteral("/"))));
     if (!workspaceOnly && m_scope->currentIndex() == Indexed && filter.maxDepth >= 0 && !m_folder.isLocalFile()) {
         m_status->setText(i18nc("@info", "A local current folder is required to limit indexed-search depth."));
         return false;
@@ -1231,6 +1344,11 @@ bool SearchWidget::startSearch()
     m_results->clear();
     m_errors->clear();
     m_errors->hide();
+    m_liveFallback->hide();
+    m_lastText = m_query->text();
+    m_lastField = fieldAt(m_field->currentIndex());
+    m_lastIndexed = m_scope->currentIndex() == Indexed;
+    m_lastWorkspaceOnly = workspaceOnly;
     recordHistory(m_query->text());
     m_search->setEnabled(false);
     m_query->setEnabled(false);

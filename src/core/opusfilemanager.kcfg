@@ -392,6 +392,11 @@
       <default>Right</default>
     </entry>
     <entry name="PreviewMediaAutoplay" type="Bool"><default>false</default></entry>
+    <entry name="MediaBackend" type="Enum">
+      <label>Playback backend for audio and video in the preview panel and gallery</label>
+      <choices><choice name="QtMultimedia"/><choice name="Mpv"/></choices>
+      <default>QtMultimedia</default>
+    </entry>
     <entry name="PreviewFormatted" type="Bool"><default>true</default></entry>
     <entry name="PreviewLineNumbers" type="Bool"><default>true</default></entry>
     <entry name="PreviewSyntaxHighlighting" type="Bool"><default>true</default></entry>
@@ -418,6 +423,14 @@
         <choice name="Right"/>
       </choices>
       <default>Automatic</default>
+    </entry>
+    <entry name="EmbeddedTerminal" type="Enum">
+      <label>Terminal component that new embedded terminal sessions load</label>
+      <choices>
+        <choice name="Konsole"/>
+        <choice name="Kwi"/>
+      </choices>
+      <default>Konsole</default>
     </entry>
   </group>
   <group name="Search">
@@ -590,6 +603,44 @@
       <default>Ask</default>
     </entry>
   </group>
+  <group name="Tray">
+    <entry name="ShowTrayIcon" type="Bool">
+      <label>Show a system tray icon while Plasma Opus runs</label>
+      <default>true</default>
+    </entry>
+    <entry name="MinimizeToTray" type="Bool">
+      <label>Hide the window in the system tray when it is minimized</label>
+      <default>false</default>
+    </entry>
+    <entry name="CloseToTray" type="Bool">
+      <label>Hide the window in the system tray when it is closed</label>
+      <default>false</default>
+    </entry>
+  </group>
+  <group name="Activities">
+    <entry name="ActivityAssociations" type="Bool">
+      <label>Associate workspaces and default folders with Plasma Activities</label>
+      <default>false</default>
+    </entry>
+    <entry name="OfferActivityAssociation" type="Bool">
+      <label>Offer to apply an Activity's association when the current Activity changes</label>
+      <default>true</default>
+    </entry>
+    <entry name="ReportActivityUsage" type="Bool">
+      <label>Report visited folders and opened files to Plasma Activities</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="KRunner">
+    <entry name="RunnerWorkspaces" type="Bool">
+      <label>Offer saved workspaces in KRunner and Plasma Search</label>
+      <default>true</default>
+    </entry>
+    <entry name="RunnerFavorites" type="Bool">
+      <label>Offer Favorites in KRunner and Plasma Search</label>
+      <default>true</default>
+    </entry>
+  </group>
   <group name="Editor">
     <entry name="EditorOpening" type="Enum">
       <choices><choice name="Panel"/><choice name="Embedded"/><choice name="Maximized"/><choice name="Window"/></choices>
@@ -712,7 +763,7 @@
   </group>
   <group name="Archives">
     <entry name="DefaultArchiveFormat" key="DefaultFormat" type="Int">
-      <default>0</default><min>0</min><max>4</max>
+      <default>0</default><min>0</min><max>5</max>
     </entry>
     <entry name="ArchiveOtherPaneByDefault" type="Bool"><default>false</default></entry>
   </group>
@@ -1386,6 +1437,25 @@
     </entry>
     <entry name="YaziWorkspaceRestoreColumns" type="Bool">
       <label>Whether switching to a workspace whose behaviors include Yazi mode restores each pane's saved Yazi preview column, preview content, parent column and column ratios instead of keeping its current ones</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="Mcp">
+    <entry name="McpAccess" type="Enum">
+      <label>What the opus-file-manager-mcp server lets MCP clients do: nothing, read files and folders, or also change them</label>
+      <choices>
+        <choice name="Off"/>
+        <choice name="Read"/>
+        <choice name="Write"/>
+      </choices>
+      <default>Read</default>
+    </entry>
+    <entry name="McpFolders" type="StringList">
+      <label>Local folders MCP clients may use; empty for the home folder</label>
+      <default></default>
+    </entry>
+    <entry name="McpAuditLog" type="Bool">
+      <label>Whether the MCP server records each tool call, without file contents, in its audit log</label>
       <default>true</default>
     </entry>
   </group>

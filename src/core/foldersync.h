@@ -15,6 +15,8 @@ struct Options {
     bool recursive = true;
     bool compareContents = false;
     bool compareSymlinks = false;
+
+    bool operator==(const Options &other) const = default;
 };
 
 enum class Kind {
