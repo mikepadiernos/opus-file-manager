@@ -328,9 +328,16 @@ behaves like the rest of the desktop and follows the user's choices.
 
   Changes are confirmed first and never change sandbox permissions or snap
   confinement. Missing tools disable their actions with an explanation, and
-  failures show the tool's output. See
-  [Application packages](../CAVEATS.md#desktop-integration).
-  ([#281](https://github.com/mikepadiernos/plasma-opus/issues/281))
+  failures show the tool's output. Turn AppImage, Flatpak and Snap actions
+  on or off separately under **Preferences › Applications › Packages**,
+  which reports the missing tools; other packages then open like any other
+  file. The same tab turns off **Add to Application Menu**, while existing
+  entries can still be removed, and can add AppImages without running their
+  runtime to read their name and icon. See
+  [Application packages](../CAVEATS.md#desktop-integration) and
+  [Package settings](../CAVEATS.md#integration-settings).
+  ([#281](https://github.com/mikepadiernos/plasma-opus/issues/281),
+  [#296](https://github.com/mikepadiernos/plasma-opus/issues/296))
 
 - **Baloo status:** **File › Indexing Status…**, also offered by the search
   panel's **Indexing Status…** button in the **Indexed locations (Baloo)**
