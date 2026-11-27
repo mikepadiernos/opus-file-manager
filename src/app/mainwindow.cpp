@@ -6871,6 +6871,11 @@ void MainWindow::encryptSelection(FileEncryption::Operation operation)
 {
     using FileEncryption::Kind;
     using FileEncryption::Operation;
+    // Turned-off actions are hidden, but a shortcut or caller may still reach them.
+    const bool aesCrypt = operation == Operation::AesEncrypt || operation == Operation::AesDecrypt;
+    if (!(aesCrypt ? Settings::aesCryptActions() : Settings::gnuPGActions())) {
+        return;
+    }
     QStringList paths;
     for (const KFileItem &item : activePane()->view()->selectedItems()) {
         if (!item.url().isLocalFile() || item.isDir()) {
@@ -6912,6 +6917,9 @@ void MainWindow::encryptSelection(FileEncryption::Operation operation)
 void MainWindow::openSelectionInKleopatra(bool decrypt)
 {
     using FileEncryption::Kind;
+    if (!Settings::gnuPGActions()) {
+        return;
+    }
     const QString kleopatra = FileEncryption::findExecutable(FileEncryption::Tool::Kleopatra);
     if (kleopatra.isEmpty()) {
         showStatusMessage(FileEncryption::missingText(FileEncryption::Tool::Kleopatra));
@@ -6999,10 +7007,28 @@ void MainWindow::updateEncryptionActions()
         localFiles && aesCrypt,
         aesCrypt ? i18nc("@info:tooltip", "Encrypt copies of the selected files with a password, as .aes files") : noAesCrypt);
     set("aes_decrypt_files", localFiles && aesCrypt && aesFile, aesCrypt ? i18nc("@info:tooltip", "Decrypt copies of the selected .aes files") : noAesCrypt);
-    actions->action(QStringLiteral("kleopatra_encrypt_sign"))->setVisible(kleopatra);
+    actions->action(QStringLiteral("kleopatra_encrypt_sign"))->setVisible(kleopatra && Settings::gnuPGActions());
     actions->action(QStringLiteral("kleopatra_encrypt_sign"))->setEnabled(localFiles);
-    actions->action(QStringLiteral("kleopatra_decrypt_verify"))->setVisible(kleopatra);
+    actions->action(QStringLiteral("kleopatra_decrypt_verify"))->setVisible(kleopatra && Settings::gnuPGActions());
     actions->action(QStringLiteral("kleopatra_decrypt_verify"))->setEnabled(localFiles && (openPgp || verifiable));
+}
+
+void MainWindow::applyEncryptionSettings()
+{
+    KActionCollection *actions = actionCollection();
+    const bool gnupg = Settings::gnuPGActions();
+    const bool aesCrypt = Settings::aesCryptActions();
+    // Hiding an action also turns off its shortcut; Kleopatra's actions also need Kleopatra.
+    for (const char *name : {"encrypt_files", "decrypt_files", "sign_files", "verify_signatures"}) {
+        actions->action(QLatin1String(name))->setVisible(gnupg);
+    }
+    for (const char *name : {"kleopatra_encrypt_sign", "kleopatra_decrypt_verify"}) {
+        actions->action(QLatin1String(name))->setVisible(gnupg && !FileEncryption::findExecutable(FileEncryption::Tool::Kleopatra).isEmpty());
+    }
+    for (const char *name : {"aes_encrypt_files", "aes_decrypt_files"}) {
+        actions->action(QLatin1String(name))->setVisible(aesCrypt);
+    }
+    actions->action(QStringLiteral("encryption"))->setVisible(gnupg || aesCrypt);
 }
 
 void MainWindow::compareFoldersFiltered()
@@ -8263,6 +8289,7 @@ void MainWindow::applySettings()
     actionCollection()->action(QStringLiteral("network_locations"))->setVisible(Settings::remoteShowNetwork());
     actionCollection()->action(QStringLiteral("cloud_storage"))->setVisible(Settings::rcloneEnabled());
     actionCollection()->action(QStringLiteral("plasma_vaults"))->setVisible(Settings::plasmaVaultMenu());
+    applyEncryptionSettings();
     if (m_remoteMounts) {
         // Mounts already in place keep their folder and stay or stop at quit as they were started.
         m_remoteMounts->setMountFolder(RemoteMounts::defaultsFromSettings().folder);

@@ -17,6 +17,7 @@
 #include "editorproviders.h"
 #include "favoritesmodel.h"
 #include "filechooser.h"
+#include "fileencryption.h"
 #include "filemanagerservice.h"
 #include "filetypeplaces.h"
 #include "foldergatedialog.h"
@@ -3779,6 +3780,7 @@ QWidget *SettingsDialog::createEncryptionIntegrationPage()
     page->setObjectName(QStringLiteral("encryptionIntegrationPage"));
     auto *layout = new QVBoxLayout(page);
     layout->addWidget(createPlasmaVaultGroup(), 1);
+    layout->addWidget(createFileEncryptionGroup());
     return page;
 }
 
@@ -3884,5 +3886,75 @@ QGroupBox *SettingsDialog::createPlasmaVaultGroup()
         connect(client, &VaultClient::changed, group, follow);
         connect(client, &VaultClient::vaultChanged, group, follow);
     }
+    return group;
+}
+
+QGroupBox *SettingsDialog::createFileEncryptionGroup()
+{
+    using FileEncryption::Tool;
+    auto *group = new StatusGroup(i18nc("@title:group", "Files"));
+    group->setObjectName(QStringLiteral("fileEncryptionGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *gnupg = checkBox(QStringLiteral("GnuPGActions"),
+                           i18nc("@option:check", "Offer GnuPG's encrypt, decrypt, sign and verify actions, and Kleopatra's, in File › Encryption"));
+    layout->addWidget(gnupg);
+    auto *aesCrypt = checkBox(QStringLiteral("AesCryptActions"), i18nc("@option:check", "Offer AES Crypt's encrypt and decrypt actions in File › Encryption"));
+    layout->addWidget(aesCrypt);
+    auto *armor = checkBox(QStringLiteral("EncryptionArmor"), i18nc("@option:check", "Save encrypted files and signatures as text (.asc) unless changed"));
+    armor->setToolTip(i18nc("@info:tooltip", "Chooses the text option when GnuPG's Encrypt and Sign windows open; text files can be pasted into emails"));
+    layout->addWidget(armor);
+    auto *form = new QFormLayout;
+    auto *suffix = comboBox(QStringLiteral("EncryptedSuffix"),
+                            {i18nc("@item:inlistbox encrypted file name", "Add .gpg, as GnuPG does (report.pdf.gpg)"),
+                             i18nc("@item:inlistbox encrypted file name", "Add .pgp (report.pdf.pgp)")});
+    suffix->setToolTip(i18nc("@info:tooltip", "Binary files encrypted with GnuPG; text files always end in .asc and AES Crypt files in .aes"));
+    form->addRow(i18nc("@label:listbox", "Encrypted files:"), suffix);
+    auto *decrypted = comboBox(QStringLiteral("DecryptedNames"),
+                               {i18nc("@item:inlistbox decrypted file name", "Name before encryption (report.pdf)"),
+                                i18nc("@item:inlistbox decrypted file name", "Marked as decrypted (report (decrypted).pdf)")});
+    form->addRow(i18nc("@label:listbox", "Decrypted copies:"), decrypted);
+    layout->addLayout(form);
+    auto *status = statusLabel(QStringLiteral("fileEncryptionStatus"));
+    layout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Results are always new files beside the originals, which are kept. When a name is taken, a number is "
+                                  "added, as in report (1).pdf. Signatures end in .sig, or .asc as text. Kleopatra's own windows name "
+                                  "their files themselves, and the information panel names encrypted files whichever actions are offered."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+
+    const auto update = [gnupg, aesCrypt, armor, suffix, decrypted, status] {
+        armor->setEnabled(gnupg->isChecked());
+        suffix->setEnabled(gnupg->isChecked());
+        decrypted->setEnabled(gnupg->isChecked() || aesCrypt->isChecked());
+        if (!gnupg->isChecked() && !aesCrypt->isChecked()) {
+            status->setText(i18nc("@info", "File › Encryption is hidden, together with any shortcuts for its actions."));
+            return;
+        }
+        QStringList lines;
+        if (gnupg->isChecked()) {
+            if (const QString gpg = FileEncryption::findExecutable(Tool::GnuPG); gpg.isEmpty()) {
+                lines.append(FileEncryption::missingText(Tool::GnuPG));
+            } else {
+                lines.append(i18nc("@info %1 is a program's path", "GnuPG: %1", QDir::toNativeSeparators(gpg)));
+            }
+            if (FileEncryption::findExecutable(Tool::Kleopatra).isEmpty()) {
+                lines.append(i18nc("@info", "Kleopatra is not installed, so its actions are hidden."));
+            }
+        }
+        if (aesCrypt->isChecked()) {
+            if (const QString aes = FileEncryption::findExecutable(Tool::AesCrypt); aes.isEmpty()) {
+                lines.append(FileEncryption::missingText(Tool::AesCrypt));
+            } else {
+                lines.append(i18nc("@info %1 is a program's path", "AES Crypt: %1", QDir::toNativeSeparators(aes)));
+            }
+        }
+        status->setText(lines.join(QLatin1Char('\n')));
+    };
+    // Tools installed while Preferences is open are found when the tab is shown again.
+    group->refresh = update;
+    connect(gnupg, &QCheckBox::toggled, group, update);
+    connect(aesCrypt, &QCheckBox::toggled, group, update);
+    update();
     return group;
 }

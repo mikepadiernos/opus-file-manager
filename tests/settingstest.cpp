@@ -1353,6 +1353,13 @@ private Q_SLOTS:
         for (const QString &entry : {QStringLiteral("PlasmaVaultMenu"), QStringLiteral("PlasmaVaultHidden"), QStringLiteral("PlasmaVaultShowState")}) {
             QCOMPARE(tabOf(entry), QStringLiteral("Encryption"));
         }
+        for (const QString &entry : {QStringLiteral("GnuPGActions"),
+                                     QStringLiteral("AesCryptActions"),
+                                     QStringLiteral("EncryptionArmor"),
+                                     QStringLiteral("EncryptedSuffix"),
+                                     QStringLiteral("DecryptedNames")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Encryption"));
+        }
         QCOMPARE(tabOf(QStringLiteral("SeparateTerminal")), QStringLiteral("Terminal"));
         QCOMPARE(tabOf(QStringLiteral("EmbeddedTerminal")), QStringLiteral("Terminal"));
         QCOMPARE(tabOf(QStringLiteral("AtuinHistory")), QStringLiteral("Terminal"));

@@ -5,6 +5,7 @@
 #include "informationpanel.h"
 #include "mainwindow.h"
 #include "pane.h"
+#include "settings.h"
 
 #include <KActionCollection>
 #include <KActionMenu>
@@ -21,6 +22,7 @@
 #include <QMenu>
 #include <QProcess>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -215,6 +217,52 @@ private Q_SLOTS:
         QSignalSpy verified(&verify, &FileEncryptionDialog::finished);
         QVERIFY(verified.wait(60000));
         QVERIFY(child<QTreeWidget>(&verify, "encryptionResults")->topLevelItem(0)->text(1).startsWith(QStringLiteral("Good signature")));
+    }
+
+    void namesFilesAsChosenInPreferences()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+        });
+        Settings::setEncryptionArmor(true);
+        Settings::setEncryptedSuffix(Settings::EnumEncryptedSuffix::Pgp);
+        Settings::setDecryptedNames(Settings::EnumDecryptedNames::Marked);
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString aes = dir.filePath(QStringLiteral("photo.jpg.aes"));
+        QVERIFY(writeFile(aes, QByteArray("AES\x02\x00", 5)));
+        FileEncryptionDialog aesDecrypt(Operation::AesDecrypt, {aes});
+        child<KPasswordLineEdit>(&aesDecrypt, "encryptionPasswordEdit")->setPassword(QStringLiteral("correct horse"));
+        QSignalSpy aesFinished(&aesDecrypt, &FileEncryptionDialog::finished);
+        child<QPushButton>(&aesDecrypt, "encryptionStart")->click();
+        QVERIFY(aesFinished.wait(30000));
+        QCOMPARE(readFile(dir.filePath(QStringLiteral("photo (decrypted).jpg"))), QByteArray("AES\x02\x00", 5));
+
+        if (findExecutable(Tool::GnuPG).isEmpty()) {
+            QSKIP("GnuPG is not installed");
+        }
+        QVERIFY(createKey());
+        const QString plain = dir.filePath(QStringLiteral("notes.txt"));
+        QVERIFY(writeFile(plain, "secret\n"));
+        FileEncryptionDialog encrypt(Operation::Encrypt, {plain});
+        auto *keys = child<QTreeWidget>(&encrypt, "encryptionKeys");
+        auto *armor = child<QCheckBox>(&encrypt, "encryptionArmor");
+        QVERIFY(armor->isChecked());
+        armor->setChecked(false);
+        QTRY_COMPARE_WITH_TIMEOUT(keys->topLevelItemCount(), 1, 30000);
+        keys->topLevelItem(0)->setCheckState(0, Qt::Checked);
+        QSignalSpy finished(&encrypt, &FileEncryptionDialog::finished);
+        child<QPushButton>(&encrypt, "encryptionStart")->click();
+        QVERIFY(finished.wait(60000));
+        const QString encrypted = plain + QStringLiteral(".pgp");
+        QCOMPARE(identifyFile(encrypted), Kind::Encrypted);
+
+        // The original is kept, and the decrypted copy is marked beside it.
+        FileEncryptionDialog decrypt(Operation::Decrypt, {encrypted});
+        QSignalSpy decrypted(&decrypt, &FileEncryptionDialog::finished);
+        QVERIFY(decrypted.wait(60000));
+        QCOMPARE(readFile(dir.filePath(QStringLiteral("notes (decrypted).txt"))), QByteArray("secret\n"));
+        QCOMPARE(readFile(plain), QByteArray("secret\n"));
     }
 
     void showsTheEncryptionOfAFile()

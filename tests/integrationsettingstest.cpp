@@ -18,6 +18,7 @@
 #include "editorproviders.h"
 #include "favoritesmodel.h"
 #include "filechooser.h"
+#include "fileencryptiondialog.h"
 #include "filetypeplaces.h"
 #include "foldergates.h"
 #include "foldersyncdialog.h"
@@ -3988,6 +3989,106 @@ private Q_SLOTS:
         enabled->setChecked(true);
         dialog.button(QDialogButtonBox::Apply)->click();
         QVERIFY(vaultsAction->isVisible());
+    }
+
+    void encryptionTabChoosesTheFileActionsAndNames()
+    {
+        const auto config = KSharedConfig::openConfig();
+        const auto restore = qScopeGuard([config] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            config->reparseConfiguration();
+        });
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString notes = dir.filePath(QStringLiteral("notes.txt"));
+        QFile file(notes);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("notes");
+        file.close();
+        MainWindow window;
+        Pane *pane = window.activePane();
+        pane->setUrl(QUrl::fromLocalFile(dir.path()));
+        QTRY_COMPARE(pane->view()->itemCount(), 1);
+        pane->view()->selectUrls({QUrl::fromLocalFile(notes)});
+        QTRY_COMPARE(pane->view()->selectedItems().size(), 1);
+        KActionCollection *actions = window.actionCollection();
+        const auto action = [actions](const char *name) {
+            return actions->action(QLatin1String(name));
+        };
+        QVERIFY(action("encryption")->isVisible());
+        QVERIFY(action("encrypt_files")->isVisible());
+        QVERIFY(action("aes_encrypt_files")->isVisible());
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *group = dialog.findChild<QGroupBox *>(QStringLiteral("fileEncryptionGroup"));
+        auto *gnupg = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_GnuPGActions"));
+        auto *aesCrypt = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_AesCryptActions"));
+        auto *armor = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_EncryptionArmor"));
+        auto *suffix = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_EncryptedSuffix"));
+        auto *decrypted = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DecryptedNames"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("fileEncryptionStatus"));
+        QVERIFY(group && gnupg && aesCrypt && armor && suffix && decrypted && status);
+        QCOMPARE(tabTitleOf(gnupg), QStringLiteral("Encryption"));
+        QVERIFY(gnupg->isChecked() && aesCrypt->isChecked() && !armor->isChecked());
+        QCOMPARE(suffix->currentIndex(), 0);
+        QCOMPARE(decrypted->currentIndex(), 0);
+        QVERIFY2(status->text().contains(QStringLiteral("GnuPG")) && status->text().contains(QStringLiteral("aescrypt")), qPrintable(status->text()));
+
+        // The text format and names are used by the next encryption window.
+        armor->setChecked(true);
+        suffix->setCurrentIndex(1);
+        decrypted->setCurrentIndex(1);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::encryptionArmor());
+        QCOMPARE(Settings::encryptedSuffix(), int(Settings::EnumEncryptedSuffix::Pgp));
+        QCOMPARE(Settings::decryptedNames(), int(Settings::EnumDecryptedNames::Marked));
+        {
+            // Without GnuPG in PATH, the window only shows its options rather than reading keys.
+            const QByteArray path = qgetenv("PATH");
+            qputenv("PATH", dir.filePath(QStringLiteral("empty")).toLocal8Bit());
+            FileEncryptionDialog encrypt(FileEncryption::Operation::Encrypt, {notes});
+            qputenv("PATH", path);
+            auto *encryptArmor = encrypt.findChild<QCheckBox *>(QStringLiteral("encryptionArmor"));
+            QVERIFY(encryptArmor && encryptArmor->isChecked());
+        }
+
+        // Turning off AES Crypt hides only its actions, and its shortcuts do nothing.
+        aesCrypt->setChecked(false);
+        QVERIFY(suffix->isEnabled() && decrypted->isEnabled());
+        QVERIFY(!status->text().contains(QStringLiteral("aescrypt")));
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::aesCryptActions());
+        QVERIFY(!action("aes_encrypt_files")->isVisible());
+        QVERIFY(!action("aes_decrypt_files")->isVisible());
+        QVERIFY(action("encrypt_files")->isVisible());
+        QVERIFY(action("encryption")->isVisible());
+        action("aes_encrypt_files")->trigger();
+        QVERIFY(!window.findChild<FileEncryptionDialog *>());
+
+        // Turning off both hides File › Encryption.
+        gnupg->setChecked(false);
+        QVERIFY(!armor->isEnabled() && !suffix->isEnabled() && !decrypted->isEnabled());
+        QVERIFY2(status->text().contains(QStringLiteral("hidden")), qPrintable(status->text()));
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!action("encryption")->isVisible());
+        for (const char *name : {"encrypt_files", "decrypt_files", "sign_files", "verify_signatures", "kleopatra_encrypt_sign", "kleopatra_decrypt_verify"}) {
+            QVERIFY2(!action(name)->isVisible(), name);
+        }
+        action("encrypt_files")->trigger();
+        QVERIFY(!window.findChild<FileEncryptionDialog *>());
+
+        gnupg->setChecked(true);
+        aesCrypt->setChecked(true);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(action("encryption")->isVisible());
+        QVERIFY(action("encrypt_files")->isVisible());
+        QVERIFY(action("aes_encrypt_files")->isVisible());
+        action("aes_encrypt_files")->trigger();
+        auto *opened = window.findChild<FileEncryptionDialog *>();
+        QVERIFY(opened);
+        opened->close();
     }
 };
 

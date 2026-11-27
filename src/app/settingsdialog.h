@@ -455,6 +455,8 @@ private:
     QWidget *createEncryptionIntegrationPage();
     /// The Plasma Vault group of Security › Encryption.
     QGroupBox *createPlasmaVaultGroup();
+    /// The Files group of Security › Encryption.
+    QGroupBox *createFileEncryptionGroup();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

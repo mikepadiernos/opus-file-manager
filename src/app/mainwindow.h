@@ -501,6 +501,8 @@ private:
     void openSelectionInKleopatra(bool decrypt);
     /// Enables the Encryption menu's entries for the selection and the installed tools.
     void updateEncryptionActions();
+    /// Shows the GnuPG and AES Crypt actions chosen in Preferences, and File › Encryption when either is shown.
+    void applyEncryptionSettings();
     void setupEditor();
     void setEditorPlacement(EditorPanel::Placement placement);
     void setPreviewPlacement(PreviewPanel::Placement placement);
