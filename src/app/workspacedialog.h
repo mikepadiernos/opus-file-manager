@@ -93,6 +93,8 @@ private:
     void assignSelectedLocation();
     /// Removes the selected saved location's assignment.
     void unassignSelectedLocation();
+    /// Uses the selected local location as its workspace's editor vault, or stops using it.
+    void toggleSelectedVault();
 
     KConfigGroup m_group;
     CaptureLayout m_capture;

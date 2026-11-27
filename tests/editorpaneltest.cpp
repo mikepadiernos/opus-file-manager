@@ -28,6 +28,7 @@
 #include <QTextBrowser>
 #include <QTextEdit>
 #include <QTimer>
+#include <QTreeWidget>
 
 class EditorPanelTest : public QObject
 {
@@ -508,6 +509,109 @@ private Q_SLOTS:
         editor.setVault({});
         QVERIFY(panel->isHidden());
         QVERIFY(!KSharedConfig::openStateConfig()->group(QStringLiteral("EditorVault")).hasKey(QStringLiteral("Root")));
+    }
+
+    void vaultListsOutgoingLinksAndTags()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString root = QFileInfo(directory.path()).canonicalFilePath() + QStringLiteral("/Vault");
+        const auto write = [](const QString &path, const QByteArray &contents) {
+            QDir().mkpath(QFileInfo(path).absolutePath());
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write(contents);
+        };
+        const QString home = root + QStringLiteral("/Home.md");
+        const QString plan = root + QStringLiteral("/Plan.md");
+        const QString old = root + QStringLiteral("/Archive/Old.md");
+        write(home, "---\ntags: [project]\n---\nSee [[Plan]], [[plan]], [[Missing]] and ![[image.png]]. #idea\n");
+        write(plan, "#project/active plan\n");
+        write(old, "#project old\n");
+        write(root + QStringLiteral("/image.png"), "png");
+
+        EditorPanel editor(nullptr, directory.filePath(QStringLiteral("drafts")));
+        editor.show();
+        auto *links = editor.findChild<QListWidget *>(QStringLiteral("editorOutgoingLinks"));
+        auto *tags = editor.findChild<QTreeWidget *>(QStringLiteral("editorTags"));
+        QVERIFY(links && tags);
+        QSignalSpy scanned(&editor, &EditorPanel::vaultScanned);
+        editor.setVault(root);
+        QTRY_COMPARE_WITH_TIMEOUT(scanned.size(), 1, 10000);
+        QVERIFY(editor.openUrl(QUrl::fromLocalFile(home)));
+        QTRY_COMPARE(links->count(), 3);
+        QVERIFY2(links->item(0)->text().contains(QStringLiteral("Plan.md")), qPrintable(links->item(0)->text()));
+        QVERIFY2(links->item(1)->text().contains(QStringLiteral("not found")), qPrintable(links->item(1)->text()));
+        QVERIFY2(links->item(2)->text().contains(QStringLiteral("attachment")), qPrintable(links->item(2)->text()));
+
+        QCOMPARE(tags->topLevelItemCount(), 2);
+        QTreeWidgetItem *project = tags->topLevelItem(0);
+        QCOMPARE(project->data(0, Qt::UserRole + 1).toString(), QStringLiteral("project"));
+        QCOMPARE(project->childCount(), 2);
+        QCOMPARE(project->child(0)->data(0, Qt::UserRole).toString(), old);
+        QCOMPARE(project->child(1)->data(0, Qt::UserRole).toString(), plan);
+        QCOMPARE(tags->topLevelItem(1)->childCount(), 0);
+
+        Q_EMIT links->itemActivated(links->item(0));
+        QTRY_COMPARE(editor.document()->url(), QUrl::fromLocalFile(plan));
+        QTRY_COMPARE(tags->topLevelItemCount(), 1);
+        QCOMPARE(tags->topLevelItem(0)->data(0, Qt::UserRole + 1).toString(), QStringLiteral("project/active"));
+        QCOMPARE(tags->topLevelItem(0)->childCount(), 0);
+        editor.openUrl(QUrl::fromLocalFile(home));
+        QTRY_COMPARE(tags->topLevelItemCount(), 2);
+        Q_EMIT tags->itemActivated(tags->topLevelItem(0)->child(0), 0);
+        QTRY_COMPARE(editor.document()->url(), QUrl::fromLocalFile(old));
+        editor.setVault({});
+    }
+
+    void workspaceVaultOverridesWithoutForgettingTheOwnVault()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString own = QFileInfo(directory.path()).canonicalFilePath() + QStringLiteral("/Own");
+        const QString workspace = QFileInfo(directory.path()).canonicalFilePath() + QStringLiteral("/Workspace");
+        QVERIFY(QDir().mkpath(own));
+        QVERIFY(QDir().mkpath(workspace));
+        const QString note = workspace + QStringLiteral("/Note.md");
+        QFile file(note);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("A note.\n");
+        file.close();
+
+        EditorPanel editor(nullptr, directory.filePath(QStringLiteral("drafts")));
+        editor.show();
+        auto *choose = editor.findChild<QAction *>(QStringLiteral("editorVaultChoose"));
+        auto *close = editor.findChild<QAction *>(QStringLiteral("editorVaultClose"));
+        auto *title = editor.findChild<QLabel *>(QStringLiteral("editorVaultTitle"));
+        QVERIFY(choose && close && title);
+        editor.setVault(own);
+        QVERIFY(editor.openUrl(QUrl::fromLocalFile(note)));
+        QTRY_COMPARE(editor.document()->text(), QStringLiteral("A note.\n"));
+
+        QSignalSpy scanned(&editor, &EditorPanel::vaultScanned);
+        EditorPanel::setWorkspaceVault(workspace);
+        QCOMPARE(EditorPanel::workspaceVault(), workspace);
+        QCOMPARE(editor.vaultRoot(), workspace);
+        QVERIFY(!choose->isEnabled());
+        QVERIFY(!close->isEnabled());
+        QVERIFY2(title->text().contains(QStringLiteral("Workspace vault")), qPrintable(title->text()));
+        QTRY_VERIFY_WITH_TIMEOUT(!scanned.isEmpty(), 10000);
+        QCOMPARE(editor.vaultIndex().notes.size(), 1);
+        QCOMPARE(editor.document()->url(), QUrl::fromLocalFile(note));
+        QCOMPARE(KSharedConfig::openStateConfig()->group(QStringLiteral("EditorVault")).readEntry(QStringLiteral("Root")), own);
+
+        {
+            EditorPanel later(nullptr, directory.filePath(QStringLiteral("drafts")));
+            QCOMPARE(later.vaultRoot(), workspace);
+        }
+
+        EditorPanel::setWorkspaceVault({});
+        QCOMPARE(editor.vaultRoot(), own);
+        QVERIFY(choose->isEnabled());
+        QVERIFY(close->isEnabled());
+        QVERIFY2(title->text().startsWith(QStringLiteral("Vault")), qPrintable(title->text()));
+        QCOMPARE(editor.document()->url(), QUrl::fromLocalFile(note));
+        editor.setVault({});
     }
 };
 

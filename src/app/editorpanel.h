@@ -25,6 +25,8 @@ class QStackedWidget;
 class QTextBrowser;
 class QTextEdit;
 class QTimer;
+class QToolButton;
+class QTreeWidget;
 class QUrl;
 
 class EditorPanel : public QWidget
@@ -69,7 +71,16 @@ public:
      * empty @p root closes the vault.
      */
     void setVault(const QString &root);
+    /// The vault in use: the workspace vault while one is set, or the panel's own.
     QString vaultRoot() const;
+    /**
+     * Uses @p root as the vault in every editor panel, including ones created
+     * later, while the active workspace has a vault, without remembering it
+     * or changing the open documents. An empty @p root restores each panel's
+     * own vault.
+     */
+    static void setWorkspaceVault(const QString &root);
+    static QString workspaceVault();
     /// The last completed scan of the vault.
     const NoteVault::Index &vaultIndex() const;
 
@@ -89,7 +100,11 @@ private:
     void updateVisualControls();
     void refreshPreview();
     void rescanVault();
+    /// Switches to the workspace vault or the panel's own, rescanning when it changes.
+    void applyVault();
     void updateVaultPanel();
+    void updateVaultLinks(const QString &note);
+    void updateVaultTags(const QString &note);
     /// The open document's canonical path when it's a local file in the vault, or empty.
     QString currentNotePath() const;
     void openWikiLink(const QUrl &url);
@@ -130,12 +145,18 @@ private:
     bool m_visualPending = false;
     bool m_visualEditing = false;
     QString m_vaultRoot;
+    QString m_ownVaultRoot;
     NoteVault::Index m_vaultIndex;
     bool m_vaultScanning = false;
     quint64 m_vaultGeneration = 0;
     std::shared_ptr<std::atomic_bool> m_vaultCanceled;
     QWidget *m_vaultPanel = nullptr;
+    QToolButton *m_vaultButton = nullptr;
+    QLabel *m_vaultTitle = nullptr;
     QListWidget *m_backlinks = nullptr;
+    QListWidget *m_outgoingLinks = nullptr;
+    QTreeWidget *m_tags = nullptr;
+    QAction *m_vaultChoose = nullptr;
     QLabel *m_vaultStatus = nullptr;
     QAction *m_vaultRescan = nullptr;
     QAction *m_vaultClose = nullptr;

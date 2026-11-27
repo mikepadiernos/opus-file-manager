@@ -10,6 +10,7 @@
 #include "customcommands.h"
 #include "diskimagebackend.h"
 #include "duplicatefinderdialog.h"
+#include "editorpanel.h"
 #include "effectiveappearance.h"
 #include "favoritesmodel.h"
 #include "fieldeditdialog.h"
@@ -1101,6 +1102,50 @@ private Q_SLOTS:
         QAction *selector = window.actionCollection()->action(QStringLiteral("workspace_selector"));
         QVERIFY(selector);
         QTRY_VERIFY(selector->text().contains(QStringLiteral("Runner")));
+    }
+
+    void appliesTheActiveWorkspaceVaultToEditors()
+    {
+        QTemporaryDir directory;
+        const auto config = KSharedConfig::openConfig();
+        const auto backup = KSharedConfig::openConfig(directory.filePath(QStringLiteral("backup")));
+        KConfigGroup favorites = config->group(QStringLiteral("Favorites"));
+        KConfigGroup workspaces = config->group(QStringLiteral("Workspaces"));
+        KConfigGroup savedFavorites = backup->group(QStringLiteral("Favorites"));
+        KConfigGroup savedWorkspaces = backup->group(QStringLiteral("Workspaces"));
+        favorites.copyTo(&savedFavorites);
+        workspaces.copyTo(&savedWorkspaces);
+        favorites.deleteGroup();
+        workspaces.deleteGroup();
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Notes"), QStringLiteral("N"), error));
+        const QString id = catalog.workspaces.first().id;
+        QVERIFY(WorkspaceCatalog::assignLocation(catalog, WorkspaceCatalog::locationId(m_a), id, error));
+        QVERIFY(WorkspaceCatalog::setVault(catalog, id, WorkspaceCatalog::locationId(m_a), error));
+        QVERIFY(WorkspaceCatalog::activate(catalog, id, error));
+        QVERIFY2(WorkspaceCatalog::save(workspaces, catalog, error), qPrintable(error));
+        QVERIFY(config->sync());
+        const auto restore = qScopeGuard([config, savedFavorites, savedWorkspaces]() mutable {
+            config->reparseConfiguration();
+            auto favorites = config->group(QStringLiteral("Favorites"));
+            auto workspaces = config->group(QStringLiteral("Workspaces"));
+            favorites.deleteGroup();
+            workspaces.deleteGroup();
+            savedFavorites.copyTo(&favorites);
+            savedWorkspaces.copyTo(&workspaces);
+            config->sync();
+        });
+        {
+            MainWindow window;
+            QVERIFY(window.favorites()->add(m_a));
+            QTRY_COMPARE(EditorPanel::workspaceVault(), QDir::cleanPath(m_a.toLocalFile()));
+            QVERIFY(window.favorites()->remove(m_a));
+            QTRY_VERIFY(EditorPanel::workspaceVault().isEmpty());
+            QVERIFY(window.favorites()->add(m_a));
+            QTRY_VERIFY(!EditorPanel::workspaceVault().isEmpty());
+        }
+        QVERIFY(EditorPanel::workspaceVault().isEmpty());
     }
 
     void switchesAndRestoresWorkspaceLocationVisibility()

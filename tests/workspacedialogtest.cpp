@@ -1281,6 +1281,89 @@ private Q_SLOTS:
         QVERIFY(!catalog.locationAssignments.contains(locationId));
         QCOMPARE(favorites.urls(), QList<QUrl>({url}));
     }
+
+    void usesAnAssignedLocalLocationAsTheEditorVault()
+    {
+        QTemporaryDir directory;
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        FavoritesModel favorites(config.group(QStringLiteral("Favorites")));
+        KFilePlacesModel places;
+        const QUrl local = QUrl::fromLocalFile(directory.filePath(QStringLiteral("notes")));
+        const QUrl remote(QStringLiteral("sftp://example.invalid/notes"));
+        QVERIFY(favorites.add(local));
+        QVERIFY(favorites.add(remote));
+        WorkspaceLocations locations(&favorites, &places);
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        const QString workId = catalog.workspaces.first().id;
+        const QString localId = WorkspaceCatalog::locationId(local);
+        const QString remoteId = WorkspaceCatalog::locationId(remote);
+        QVERIFY(WorkspaceCatalog::assignLocation(catalog, remoteId, workId, error));
+        QVERIFY(WorkspaceCatalog::save(group, catalog, error));
+        WorkspaceDialog dialog(
+            group,
+            [](WorkspaceCatalog::Layout &, QString &) {
+                return true;
+            },
+            [](const WorkspaceCatalog::Layout &, QString &) {
+                return true;
+            },
+            workId,
+            nullptr,
+            &locations);
+        auto *workspaces = dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *savedLocations = dialog.findChild<QListWidget *>(QStringLiteral("workspaceLocationList"));
+        auto *assign = dialog.findChild<QPushButton *>(QStringLiteral("workspaceAssignLocation"));
+        auto *unassign = dialog.findChild<QPushButton *>(QStringLiteral("workspaceUnassignLocation"));
+        auto *vault = dialog.findChild<QPushButton *>(QStringLiteral("workspaceUseAsVault"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("workspaceStatus"));
+        QVERIFY(workspaces && savedLocations && assign && unassign && vault && status);
+        const auto select = [&](const QString &id) -> QListWidgetItem * {
+            for (int row = 0; row < savedLocations->count(); ++row) {
+                if (savedLocations->item(row)->data(Qt::UserRole).toString() == id) {
+                    savedLocations->setCurrentRow(row);
+                    return savedLocations->item(row);
+                }
+            }
+            return nullptr;
+        };
+        const auto stored = [&] {
+            WorkspaceCatalog::Catalog loaded;
+            QString problem;
+            WorkspaceCatalog::load(group, loaded, problem);
+            return loaded.workspaces.value(0).vaultLocationId;
+        };
+        workspaces->setCurrentRow(0);
+
+        QVERIFY(select(localId));
+        vault->click();
+        QVERIFY(stored().isEmpty());
+        QVERIFY(!status->text().isEmpty());
+
+        QVERIFY(select(remoteId));
+        vault->click();
+        QVERIFY(stored().isEmpty());
+        QVERIFY(!status->text().isEmpty());
+
+        QVERIFY(select(localId));
+        assign->click();
+        QVERIFY(select(localId));
+        vault->click();
+        QCOMPARE(stored(), localId);
+        QVERIFY2(select(localId)->text().contains(QStringLiteral("editor vault")), qPrintable(select(localId)->text()));
+
+        vault->click();
+        QVERIFY(stored().isEmpty());
+        QVERIFY(!select(localId)->text().contains(QStringLiteral("editor vault")));
+
+        vault->click();
+        QCOMPARE(stored(), localId);
+        unassign->click();
+        QVERIFY(stored().isEmpty());
+        QCOMPARE(favorites.urls(), QList<QUrl>({local, remote}));
+    }
 };
 
 QTEST_MAIN(WorkspaceDialogTest)

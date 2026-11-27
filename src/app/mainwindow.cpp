@@ -916,6 +916,7 @@ void MainWindow::childEvent(QChildEvent *event)
 MainWindow::~MainWindow()
 {
     delete findChild<WorkspaceDialog *>(QStringLiteral("workspaceDialog"));
+    EditorPanel::setWorkspaceVault({});
     if (m_toolbarCustomizer) {
         m_toolbarCustomizer->setEditing(false);
     }
@@ -1270,7 +1271,24 @@ void MainWindow::refreshWorkspaceLocations()
         const bool workspaceVisible = m_workspaceLocations->isVisible(m_placesModel->url(index), m_workspaceCatalog, m_currentWorkspaceId);
         m_placesView->setRowHidden(row, !nativeVisible || !workspaceVisible);
     }
+    EditorPanel::setWorkspaceVault(workspaceVaultRoot());
     scheduleWorkspaceSelectorRefresh();
+}
+
+QString MainWindow::workspaceVaultRoot() const
+{
+    const auto workspace = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [this](const auto &entry) {
+        return entry.id == m_currentWorkspaceId;
+    });
+    if (workspace == m_workspaceCatalog.workspaces.cend() || workspace->vaultLocationId.isEmpty()) {
+        return {};
+    }
+    for (const auto &location : m_workspaceLocations->locations()) {
+        if (location.id == workspace->vaultLocationId && !location.ambiguous && location.url.isLocalFile()) {
+            return location.url.toLocalFile();
+        }
+    }
+    return {};
 }
 
 void MainWindow::watchWorkspaceCatalog()

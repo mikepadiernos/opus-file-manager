@@ -170,8 +170,14 @@ WorkspaceDialog::WorkspaceDialog(KConfigGroup group,
         auto *unassign = new QPushButton(i18nc("@action:button", "Unassign"), this);
         unassign->setObjectName(QStringLiteral("workspaceUnassignLocation"));
         connect(unassign, &QPushButton::clicked, this, &WorkspaceDialog::unassignSelectedLocation);
+        auto *vault = new QPushButton(i18nc("@action:button", "Use as Editor Vault"), this);
+        vault->setObjectName(QStringLiteral("workspaceUseAsVault"));
+        vault->setToolTip(
+            i18nc("@info:tooltip", "Use the selected local location as the built-in editor's Markdown vault while its workspace is active, or stop using it"));
+        connect(vault, &QPushButton::clicked, this, &WorkspaceDialog::toggleSelectedVault);
         assignmentButtons->addWidget(assign);
         assignmentButtons->addWidget(unassign);
+        assignmentButtons->addWidget(vault);
         layout->addLayout(assignmentButtons);
         connect(m_locations, &WorkspaceLocations::changed, this, &WorkspaceDialog::refreshLocations);
     }
@@ -206,7 +212,7 @@ void WorkspaceDialog::refreshLocations()
         const QString owner = m_catalog.locationAssignments.value(id);
         for (const auto &workspace : m_catalog.workspaces) {
             if (workspace.id == owner) {
-                return workspace.name;
+                return workspace.vaultLocationId == id ? i18nc("@item:inlistbox workspace name", "%1, editor vault", workspace.name) : workspace.name;
             }
         }
         return i18nc("@item:inlistbox location without a workspace", "Unassigned");
@@ -216,6 +222,7 @@ void WorkspaceDialog::refreshLocations()
         auto *item = new QListWidgetItem(i18nc("@item:inlistbox location and workspace", "%1 — %2", location.title, state), m_locationList);
         item->setData(Qt::UserRole, location.id);
         item->setData(Qt::UserRole + 1, location.ambiguous);
+        item->setData(Qt::UserRole + 3, location.url.isLocalFile());
         item->setToolTip(location.url.adjusted(QUrl::RemoveUserInfo | QUrl::RemoveQuery | QUrl::RemoveFragment).toDisplayString(QUrl::PreferLocalFile));
         seen.insert(location.id);
         if (location.id == selected) {
@@ -347,6 +354,38 @@ void WorkspaceDialog::unassignSelectedLocation()
         m_status->setText(error);
     } else if (commit(updated)) {
         reload(selectedId());
+    }
+}
+
+void WorkspaceDialog::toggleSelectedVault()
+{
+    const auto *item = m_locationList->currentItem();
+    if (!item) {
+        m_status->setText(i18nc("@info", "Select a saved location first."));
+        return;
+    }
+    const QString id = item->data(Qt::UserRole).toString();
+    const QString owner = m_catalog.locationAssignments.value(id);
+    if (owner.isEmpty()) {
+        m_status->setText(i18nc("@info", "Assign this location to a workspace before using it as the workspace's editor vault."));
+        return;
+    }
+    const auto workspace = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [&owner](const auto &entry) {
+        return entry.id == owner;
+    });
+    const bool current = workspace != m_catalog.workspaces.cend() && workspace->vaultLocationId == id;
+    if (!current && (!item->data(Qt::UserRole + 3).toBool() || item->data(Qt::UserRole + 1).toBool())) {
+        m_status->setText(i18nc("@info", "Only an available, unambiguous local folder can be an editor vault."));
+        return;
+    }
+    auto updated = m_catalog;
+    QString error;
+    if (!WorkspaceCatalog::setVault(updated, owner, current ? QString() : id, error)) {
+        m_status->setText(error);
+    } else if (commit(updated)) {
+        reload(selectedId());
+        m_status->setText(current ? i18nc("@info", "The location is no longer the workspace's editor vault. No files were changed.")
+                                  : i18nc("@info", "The location is now the workspace's editor vault. No files were changed."));
     }
 }
 
