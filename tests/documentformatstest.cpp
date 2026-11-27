@@ -79,6 +79,34 @@ private Q_SLOTS:
         QVERIFY(DocumentFormats::previewEnabled(Kind::Pdf));
         QVERIFY(DocumentFormats::previewDisabledMessage(Kind::Office).contains(QStringLiteral("Preferences › Applications › Office")));
         QVERIFY(DocumentFormats::previewDisabledMessage(Kind::Pdf).isEmpty());
+
+        // Ebooks and DjVu documents share a setting; comics, help files and fonts have their own.
+        const QList<std::pair<Kind, void (*)(bool)>> kinds{
+            {Kind::Ebook, &Settings::setEbookPreviews},
+            {Kind::DjVu, &Settings::setEbookPreviews},
+            {Kind::Comic, &Settings::setComicPreviews},
+            {Kind::HelpFile, &Settings::setHelpFilePreviews},
+            {Kind::Font, &Settings::setFontPreviews},
+        };
+        for (const auto &[kind, set] : kinds) {
+            QVERIFY(DocumentFormats::previewEnabled(kind));
+            QVERIFY(DocumentFormats::previewDisabledMessage(kind).contains(QStringLiteral("Preferences › Applications › Ebooks and Fonts")));
+            set(false);
+            QVERIFY(!DocumentFormats::previewEnabled(kind));
+            set(true);
+        }
+        Settings::setComicPreviews(false);
+        QVERIFY(DocumentFormats::previewEnabled(Kind::Ebook));
+        QVERIFY(DocumentFormats::previewEnabled(Kind::Font));
+    }
+
+    void usesTheSampleTextSetting()
+    {
+        QCOMPARE(DocumentFormats::sampleText(), DocumentFormats::defaultSampleText());
+        Settings::setFontSampleText(QStringLiteral("Sphinx of black quartz"));
+        QCOMPARE(DocumentFormats::sampleText(), QStringLiteral("Sphinx of black quartz"));
+        Settings::setFontSampleText(QString());
+        QCOMPARE(DocumentFormats::sampleText(), DocumentFormats::defaultSampleText());
     }
 
     void findsTheFontInstaller()

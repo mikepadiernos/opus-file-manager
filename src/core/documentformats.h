@@ -39,8 +39,10 @@ QString previewDisabledMessage(Kind kind);
 constexpr qint64 FontPreviewLimit = 64 * 1024 * 1024;
 /// Whether Plasma's font installer accepts @p mimeType; web fonts are only previewed.
 bool isInstallableFont(const QString &mimeType);
-/// The sample text shown before the user edits it.
+/// The sample text shown when none is set.
 QString defaultSampleText();
+/// The sample text that font previews show, as set under Preferences › Applications › Ebooks and Fonts.
+QString sampleText();
 /// Plasma's kfontinst font installer, or an empty string when it isn't in PATH.
 QString findFontInstaller();
 /// Why fonts can't be installed, or an empty string when they can.

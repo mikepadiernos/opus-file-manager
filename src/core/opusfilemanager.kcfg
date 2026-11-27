@@ -424,6 +424,26 @@
       <label>Maximum text preview size in KiB</label>
       <default>1024</default><min>1</min><max>16384</max>
     </entry>
+    <entry name="EbookPreviews" type="Bool">
+      <label>Whether the preview panel shows ebooks and DjVu documents with an installed document viewer part</label>
+      <default>true</default>
+    </entry>
+    <entry name="ComicPreviews" type="Bool">
+      <label>Whether the preview panel shows comic book archives with an installed document viewer part</label>
+      <default>true</default>
+    </entry>
+    <entry name="HelpFilePreviews" type="Bool">
+      <label>Whether the preview panel shows compiled help files with an installed document viewer part</label>
+      <default>true</default>
+    </entry>
+    <entry name="FontPreviews" type="Bool">
+      <label>Whether the preview panel shows font files</label>
+      <default>true</default>
+    </entry>
+    <entry name="FontSampleText" type="String">
+      <label>Sample text of font previews; empty for the translated default</label>
+      <default></default>
+    </entry>
   </group>
   <group name="Terminal">
     <entry name="TerminalFollowActiveFolder" type="Bool"><default>true</default></entry>

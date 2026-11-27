@@ -107,9 +107,20 @@ bool previewEnabled(Kind kind)
     switch (kind) {
     case Kind::Office:
         return Settings::officePreviews();
-    default:
-        return true;
+    case Kind::Ebook:
+    case Kind::DjVu:
+        return Settings::ebookPreviews();
+    case Kind::Comic:
+        return Settings::comicPreviews();
+    case Kind::HelpFile:
+        return Settings::helpFilePreviews();
+    case Kind::Font:
+        return Settings::fontPreviews();
+    case Kind::Pdf:
+    case Kind::None:
+        break;
     }
+    return true;
 }
 
 QString previewDisabledMessage(Kind kind)
@@ -119,9 +130,20 @@ QString previewDisabledMessage(Kind kind)
         return i18nc("@info",
                      "Office document previews are off. Turn them on under Preferences › Applications › Office, or use Open in Office "
                      "Application.");
-    default:
-        return {};
+    case Kind::Ebook:
+    case Kind::DjVu:
+        return i18nc("@info", "Ebook and DjVu previews are off. Turn them on under Preferences › Applications › Ebooks and Fonts.");
+    case Kind::Comic:
+        return i18nc("@info", "Comic book previews are off. Turn them on under Preferences › Applications › Ebooks and Fonts.");
+    case Kind::HelpFile:
+        return i18nc("@info", "Help file previews are off. Turn them on under Preferences › Applications › Ebooks and Fonts.");
+    case Kind::Font:
+        return i18nc("@info", "Font previews are off. Turn them on under Preferences › Applications › Ebooks and Fonts.");
+    case Kind::Pdf:
+    case Kind::None:
+        break;
     }
+    return {};
 }
 
 bool isInstallableFont(const QString &mimeType)
@@ -141,6 +163,12 @@ bool isInstallableFont(const QString &mimeType)
 QString defaultSampleText()
 {
     return i18nc("@info font sample text; use a pangram in your language", "The quick brown fox jumps over the lazy dog 0123456789");
+}
+
+QString sampleText()
+{
+    const QString text = Settings::fontSampleText();
+    return text.isEmpty() ? defaultSampleText() : text;
 }
 
 QString findFontInstaller()
