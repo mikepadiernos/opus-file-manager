@@ -139,6 +139,7 @@ ecm_add_tests(
     metadataeditortest.cpp
     metadataimporttest.cpp
     navigationhistorytest.cpp
+    notevaulttest.cpp
     officeappstest.cpp
     operationjobtest.cpp
     previewcontenttest.cpp
@@ -170,6 +171,7 @@ ecm_add_tests(
     transferqueuetest.cpp
     traypolicytest.cpp
     viewsettingstest.cpp
+    wikilinkstest.cpp
     workspaceappearancetest.cpp
     workspacecatalogtest.cpp
     workspacerestoretest.cpp

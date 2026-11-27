@@ -145,6 +145,8 @@ add_library(opusfm_core STATIC
     imageediting.h
     navigationhistory.cpp
     namefilter.cpp
+    notevault.cpp
+    notevault.h
     namefilter.h
     officeapps.cpp
     officeapps.h
@@ -225,6 +227,8 @@ add_library(opusfm_core STATIC
     traypolicy.h
     viewsettings.cpp
     viewsettings.h
+    wikilinks.cpp
+    wikilinks.h
     workspacecatalog.cpp
     workspacecatalog.h
     workspaceappearance.cpp
