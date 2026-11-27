@@ -21,7 +21,7 @@ Board statuses were last confirmed on 2026-11-26.
 | Handoff                                                                     | Milestone                                                                      | Issues         | Board status                                                                                                                                        |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [mpv integration](#mpv-integration-563)                                     | [M27](ROADMAP.md#m27-integrations)                                             | [#563]         | ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square)                                                                           |
-| [Markdown editor and backlinks](#markdown-editor-and-backlinks-564)         | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square)                                                                           |
+| [Markdown editor and backlinks](#markdown-editor-and-backlinks-564)         | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
 | [Workspace vault editing](#workspace-vault-editing-565)                     | [M27](ROADMAP.md#m27-integrations), [M28](ROADMAP.md#m28-integration-settings) | [#565], [#566] | ![Defined](https://img.shields.io/badge/Defined-6e7781?style=flat-square) ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square) |
 | [System file chooser on Plasma](#system-file-chooser-on-plasma-286)         | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Mount manager on Plasma](#mount-manager-on-plasma-703)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
@@ -64,35 +64,38 @@ Board statuses were last confirmed on 2026-11-26.
 ## Markdown editor and backlinks (#564)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#564]
-  (Backlog).
-- **Blocker:** No source-preserving Markdown parser and renderer has been
-  chosen. Qt's rich-text renderer supports only a subset of Markdown, so
-  CommonMark conformance is unverified.
-- **Confirmed state:** `main` has the partial work, merged from
-  `feature/M27-integrations`: a **CommonMark** preview dialect alongside the
-  existing **GitHub Markdown** dialect, selectable while the editor's Markdown
-  preview is shown. It does not change visual editing or PDF export. Backlinks,
-  vault selection and wiki-link navigation are not implemented.
+  (Review).
+- **Resolved blocker:** The source stays untouched in KTextEditor, so no
+  source-preserving rewriter is needed. The preview keeps Qt's md4c-based
+  Markdown renderer with its **CommonMark** and **GitHub Markdown** dialects,
+  and wiki links come from a code-aware scanner in `src/core/wikilinks.cpp`
+  that skips code blocks, code spans, HTML comments and escapes.
+- **Confirmed state:** `feature/M27-integrations` adds the editor's **Vault**
+  menu, a background index of the chosen folder in `src/core/notevault.cpp`,
+  clickable wiki links in the preview of notes inside the vault, and a
+  **Backlinks** list with missing, ambiguous, out-of-vault, unreadable and
+  incomplete-scan reports. `notevaulttest`, `wikilinkstest` and
+  `editorpaneltest` cover duplicate names, headings, aliases, embeds, code
+  and escaped markup, invalid UTF-8, symbolic links, vault boundaries,
+  rescans and draft-preserving navigation. Raw HTML, footnotes and math stay
+  unrendered; see [Markdown vault links](CAVEATS.md#desktop-integration).
 
 **Steps to resume:**
 
-1. Verify CommonMark conformance before claiming full support.
-2. Choose and test a source-preserving parser and renderer.
-3. Implement local-vault selection, safe link resolution, and responsive
-   backlink indexing with visible errors.
-4. Test duplicate names, fragments, aliases, code and escaped markup,
-   inaccessible files, symlinks, updates, unsaved edits and vault boundaries;
-   preserve existing draft and external-resource protections.
-5. Do not mark the issue complete until the editing and backlink workflows are
-   implemented and verified.
+1. On Plasma, choose a real Obsidian vault through **Vault › Choose Vault
+   Folder…** and check that its `.obsidian` folder and notes are unchanged.
+2. Follow links between notes with unsaved changes and confirm the drafts
+   are offered again when returning.
+3. Open an attachment link and confirm it opens in its registered
+   application.
 
 ## Workspace vault editing (#565)
 
 - **Milestone and issues:** [M27](ROADMAP.md#m27-integrations), [#565]
   (Defined); its settings belong to
   [M28](ROADMAP.md#m28-integration-settings), [#566] (Backlog).
-- **Blocker:** Depends on the built-in Markdown and backlinks feature, [#564]
-  (Backlog), whose vault and backlink workflows remain unimplemented.
+- **Blocker:** Depended on the built-in Markdown and backlinks feature,
+  [#564], which is now in Review.
 - **Confirmed state:** Workspace profiles and location assignments ([#200] and
   [#201]) are merged. Vault editing is not implemented.
 
