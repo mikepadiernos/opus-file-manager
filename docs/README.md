@@ -92,8 +92,8 @@ These plans extend [M27](ROADMAP.md#m27-integrations),
 [M28](ROADMAP.md#m28-integration-settings) and the Nextcloud milestones
 [M29](ROADMAP.md#m29-nextcloud-integration) and
 [M30](ROADMAP.md#m30-nextcloud-settings). Each plan marks what is already
-implemented, such as the KDE foundations and the M27 integrations; the rest is
-not implemented yet.
+implemented, such as the KDE foundations, the merged M27 integrations and the
+M28 settings completed so far; the rest is not implemented yet.
 
 | Plan                                                   | What it covers                                  |
 | ------------------------------------------------------ | ----------------------------------------------- |

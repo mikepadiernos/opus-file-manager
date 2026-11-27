@@ -41,8 +41,9 @@
 > (M15–M16), themes (M17–M18), branding (M19–M20), advanced search (M21–M22),
 > native tagging (M23–M24) and Yazi mode (M25–M26), each followed by a settings
 > milestone, and desktop integrations (M27). Features marked with a milestone
-> badge below are on `main` but not in v0.2.0. See the
-> [roadmap](docs/ROADMAP.md#at-a-glance) for status and the planned M28–M32.
+> badge below are on `main` but not in v0.2.0. Integration settings (M28) are
+> in development. See the [roadmap](docs/ROADMAP.md#at-a-glance) for status and
+> the planned M29–M32.
 
 ## Features
 
@@ -256,8 +257,11 @@ Preferences also include
 [language and regional formats](docs/ROADMAP.md#m14-translation-settings),
 [workspace settings](docs/ROADMAP.md#m16-workspace-settings),
 [advanced search settings](docs/ROADMAP.md#m22-advanced-search-settings),
-[tagging settings](docs/tagging.md#settings) and
-[Yazi mode settings](docs/yazi-mode.md#settings).
+[tagging settings](docs/tagging.md#settings),
+[Yazi mode settings](docs/yazi-mode.md#settings) and, in development,
+[integration settings](docs/integrations/kde-plasma.md) on the **KDE Plasma**
+and **Applications** pages
+([M28](docs/ROADMAP.md#m28-integration-settings)).
 
 > [!IMPORTANT]
 > Path-filter, saved-search, collection, rename-preset and automation management
