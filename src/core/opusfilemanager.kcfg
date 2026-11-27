@@ -972,6 +972,10 @@
       </choices>
       <default>Ask</default>
     </entry>
+    <entry name="MailPreviews" type="Bool">
+      <label>Whether the preview panel shows mail files (.eml) as messages, rather than as plain text</label>
+      <default>true</default>
+    </entry>
   </group>
   <group name="Gallery">
     <entry name="ImageBackground" type="Enum">
