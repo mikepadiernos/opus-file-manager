@@ -3881,6 +3881,20 @@ The M29 Nextcloud integration has these limits
   Wallet or Plasma session
   ([real-server check](TODO.md#nextcloud-accounts-on-a-real-server-588)).
   ([#588](https://github.com/mikepadiernos/plasma-opus/issues/588))
+- **⛅ Nextcloud browsing:** Server permissions are read with a separate
+  `PROPFIND` once a folder's listing finishes, so actions stay enabled until
+  it answers, and changes made on the server apply only after the folder is
+  reloaded. Only the folder shown and its direct items are checked: items in
+  expanded subfolders and flat views aren't. Only the main window's actions
+  and their shortcuts are disabled; drag and drop and other ways of starting
+  an operation aren't checked, so the server refuses them and KIO reports
+  each failed item, usually as a generic access error without Nextcloud's
+  reason. When the permissions can't be read, for example when KDE's
+  password server has no app password for an account from KDE Online
+  Accounts, nothing is disabled. Accounts aren't added to Places. Checked
+  only against a fake server
+  ([real-server check](TODO.md#nextcloud-browsing-on-a-real-server-365)).
+  ([#365](https://github.com/mikepadiernos/plasma-opus/issues/365))
 
 - **Recommendation:**
   - **Nextcloud accounts:** Sign in under **Go › Nextcloud › Manage
@@ -3891,6 +3905,13 @@ The M29 Nextcloud integration has these limits
     on, and let KDE Wallet remember it. Choose **Check** when files stop
     opening, and sign in again when it reports expired access. To remove an
     account, choose **Revoke and Remove** so its app password stops working.
+  - **Nextcloud browsing:** Open files from **Go › Nextcloud**, and read a
+    disabled action's tooltip as the server's answer: ask the share's owner
+    for more access, or copy the items to a folder you own. Reload the folder
+    after its sharing changes. If nothing is disabled in a read-only share,
+    choose **Check** under **Manage Nextcloud Accounts…** and sign in again
+    so the permissions can be read. Prefer the menu actions to drag and drop
+    in shared folders, and read KIO's error report when some items fail.
   - Comment:
     [#767.7225982354](https://github.com/mikepadiernos/plasma-opus/issues/767#issuecomment-7225982354)
 - **Proposed improvements:**
@@ -3898,6 +3919,9 @@ The M29 Nextcloud integration has these limits
     in to accounts from KDE Online Accounts through their own credentials,
     offer to trust a self-signed certificate after showing it, confirm file
     search with a `SEARCH` request, and add accounts to Places.
+  - Check drag and drop against the same permissions, read them for flat
+    views and expanded subfolders, and show Nextcloud's own reason for a
+    refusal from the server's error response.
 
 ## Embedded terminal
 
