@@ -617,16 +617,22 @@ behaves like the rest of the desktop and follows the user's choices.
   vault passwords or settings, and reports a missing Plasma Vault in the
   menu. See [Plasma Vault](../CAVEATS.md#desktop-integration).
   ([#654](https://github.com/mikepadiernos/plasma-opus/issues/654))
+- **File encryption:** **File › Encryption**, also in the context menu,
+  encrypts selected files for OpenPGP keys or with a password, decrypts
+  them, saves detached signatures and verifies signed files through GnuPG.
+  When Kleopatra is installed, **Sign and Encrypt with Kleopatra…** and
+  **Decrypt and Verify with Kleopatra…** open its own file dialogs. AES Crypt
+  (`.aes`) files are encrypted and decrypted through an installed `aescrypt`
+  tool, which reads the password from a private file rather than the command
+  line. Results are new files beside the originals, and the information
+  panel names encrypted, signed and signature files. Keys and key passwords
+  stay with GnuPG and Kleopatra. See
+  [File encryption](../CAVEATS.md#desktop-integration).
+  ([#655](https://github.com/mikepadiernos/plasma-opus/issues/655))
 
 ## Planned features
 
-Grouped by the [M27](../ROADMAP.md#m27-integrations) subsection that tracks
-them.
-
-### M27.07 Access control and automation
-
-- **File encryption:** Reuse GnuPG and Kleopatra to encrypt, decrypt, sign
-  and verify files. Leave keys and passwords to those tools.
+Grouped by the milestone that tracks them.
 
 ### M29 Nextcloud
 
