@@ -2074,7 +2074,10 @@ considered Calendar, Maps, Deck and Notes workflows.
       [#588]
 - [ ] Browse Nextcloud files in either pane and reuse supported KIO operations,
       confirmations, cancellation and error reporting. Respect server
-      permissions and report unsupported operations and partial failures. [#365]
+      permissions and report unsupported operations and partial failures.
+      Real-server verification is a
+      [pending handoff](TODO.md#nextcloud-browsing-on-a-real-server-365).
+      [#365]
 - [ ] Preview supported remote digital assets and inspect available server
       metadata, respecting existing preview limits and remote-download policy.
       [#589]

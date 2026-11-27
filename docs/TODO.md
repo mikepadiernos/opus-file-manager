@@ -58,6 +58,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Plasma Vault settings on Plasma](#plasma-vault-settings-on-plasma-669)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#669]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [File encryption settings on Plasma](#file-encryption-settings-on-plasma-670)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#670]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Nextcloud accounts on a real server](#nextcloud-accounts-on-a-real-server-588)     | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#588]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Nextcloud browsing on a real server](#nextcloud-browsing-on-a-real-server-365)     | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#365]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1359,6 +1360,47 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
    its roadmap link.
 
+## Nextcloud browsing on a real server (#365)
+
+- **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#365]
+  (Development).
+- **Blocker:** The development container has no Nextcloud server, KDE Wallet
+  or Plasma session, so browsing and server permissions are tested only
+  against a local fake server that answers `PROPFIND` without
+  authentication.
+- **Confirmed state:** `MainWindow` in `src/app/mainwindow.cpp` reads the
+  `oc:permissions` of a Nextcloud folder with
+  `NextcloudClient::fetchPermissions` after each listing, and
+  `Nextcloud::deniedReason` in `src/core/nextcloudclient.cpp` decides which
+  of **Rename…**, **Delete Permanently**, **Cut**, **Paste**, **Create New**,
+  **New Folder…**, **Copy to Other Pane** and **Move to Other Pane** to
+  disable, with the reason as the tooltip. `nextcloudclienttest` and
+  `nextcloudaccountsdialogtest` pass in the container. See
+  [Nextcloud integration](CAVEATS.md#nextcloud-integration).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, KDE Wallet
+   enabled and a disposable Nextcloud server with two synthetic users, sign
+   in as the first user under **Go › Nextcloud › Manage Nextcloud
+   Accounts…**. As the second user, share a folder with the first user
+   read-only and another with every permission.
+2. Open the account in each pane from **Go › Nextcloud**. Copy, move,
+   rename and delete files in the user's own folders, cancel a large
+   transfer, and check KIO's confirmations, progress and error reports.
+3. Open the read-only share and check that **Paste**, **Create New** and
+   **New Folder…** are disabled with the server's reason, that the status
+   bar reports it, and that **Rename…**, **Delete Permanently** and **Cut**
+   are disabled for its items. Check that **Copy to Other Pane** is disabled
+   when the other pane shows it.
+4. Drag files into the read-only share and check how KIO reports the
+   refusal. Change the share to allow editing, reload the folder and check
+   that the actions are enabled again.
+5. Repeat with a Nextcloud account from KDE Online Accounts, and note
+   whether the permissions can be read. Record any differences in
+   [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
+   its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1368,6 +1410,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#292]: https://github.com/mikepadiernos/plasma-opus/issues/292
 [#293]: https://github.com/mikepadiernos/plasma-opus/issues/293
 [#297]: https://github.com/mikepadiernos/plasma-opus/issues/297
+[#365]: https://github.com/mikepadiernos/plasma-opus/issues/365
 [#366]: https://github.com/mikepadiernos/plasma-opus/issues/366
 [#371]: https://github.com/mikepadiernos/plasma-opus/issues/371
 [#391]: https://github.com/mikepadiernos/plasma-opus/issues/391
