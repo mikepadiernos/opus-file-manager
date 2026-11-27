@@ -61,6 +61,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Nextcloud browsing on a real server](#nextcloud-browsing-on-a-real-server-365)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#365]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Nextcloud previews on a real server](#nextcloud-previews-on-a-real-server-589)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#589]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Nextcloud asset search on a real server](#nextcloud-asset-search-on-a-real-server-590) | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#590]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Nextcloud Photos on a real server](#nextcloud-photos-on-a-real-server-671)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#671]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1481,6 +1482,51 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
    its roadmap link.
 
+## Nextcloud Photos on a real server (#671)
+
+- **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#671]
+  (Development).
+- **Blocker:** The development container has no Nextcloud server, Photos app,
+  KDE Wallet or Plasma session, so albums, shared albums and places are tested
+  only against a local fake server. The `places` or `locations` collection,
+  the album entry names, the `nc:metadata-photos-*` properties and the
+  permissions of shared albums are unverified against a real server.
+- **Confirmed state:** `NextcloudClient::listPhotoCollections`,
+  `NextcloudClient::listPhotos`, `NextcloudClient::addToAlbum`,
+  `NextcloudClient::removeFromAlbum` and `NextcloudClient::createAlbum` in
+  `src/core/nextcloudphotos.cpp` send `PROPFIND`, `COPY`, `DELETE` and `MKCOL`
+  requests through KIO, and `Nextcloud::albumEntryUrl` refuses any `DELETE`
+  target but a photo directly in an album. `NextcloudPhotosDialog` and
+  `NextcloudAddToAlbumDialog` in `src/app/nextcloudphotosdialog.cpp` provide
+  **Go › Nextcloud › *account* › Photos…** and **Nextcloud › Add to
+  Nextcloud Album…**. `nextcloudphotostest` and `nextcloudphotosdialogtest`
+  pass in the container. See
+  [Nextcloud integration](CAVEATS.md#nextcloud-integration).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, KDE Wallet
+   enabled and a disposable Nextcloud server with the Photos app and two
+   synthetic users, upload photos with EXIF dates and GPS data and a photo
+   without them as the first user, and sign in under **Go › Nextcloud ›
+   Manage Nextcloud Accounts…**.
+2. Open **Go › Nextcloud › *account* › Photos…**, create an album with **New
+   Album…**, and add photos to it from a pane with **Nextcloud › Add to
+   Nextcloud Album…**. Check that the album lists them, sorted and grouped by
+   capture date and place, and that the undated photo is listed last.
+3. Select a photo and choose **Remove from Album…**. Check that the album no
+   longer lists it and that the file is still in its folder, in the web
+   interface's Files and in other albums.
+4. Show **Places** and check that the server's places are listed and
+   read-only. Share an album with the second user, read-only and with
+   adding allowed, and sign in as that user to check **Shared albums**, the
+   disabled **Remove from Album…** and the albums offered by **Add to
+   Nextcloud Album…**.
+5. Disable the Photos app and check that the window says Photos is
+   unavailable. Record any differences in
+   [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
+   its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1517,6 +1563,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#666]: https://github.com/mikepadiernos/plasma-opus/issues/666
 [#669]: https://github.com/mikepadiernos/plasma-opus/issues/669
 [#670]: https://github.com/mikepadiernos/plasma-opus/issues/670
+[#671]: https://github.com/mikepadiernos/plasma-opus/issues/671
 [#676]: https://github.com/mikepadiernos/plasma-opus/issues/676
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
 [#704]: https://github.com/mikepadiernos/plasma-opus/issues/704
