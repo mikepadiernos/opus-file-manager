@@ -14,10 +14,10 @@ interfaces it would use, and ideas considered beyond the roadmap.
 [Plasma Impresario](plasma-impresario.md)
 
 > [!NOTE]
-> **Implemented:** Nextcloud accounts, browsing and previews from M29,
-> described under [Implemented features](#implemented-features). **Planned:**
-> the rest of [M29](../ROADMAP.md#m29-nextcloud-integration) and its settings in
-> [M30](../ROADMAP.md#m30-nextcloud-settings), summarized under
+> **Implemented:** Nextcloud accounts, browsing, previews and asset search
+> from M29, described under [Implemented features](#implemented-features).
+> **Planned:** the rest of [M29](../ROADMAP.md#m29-nextcloud-integration) and
+> its settings in [M30](../ROADMAP.md#m30-nextcloud-settings), summarized under
 > [Planned features](#planned-features); of the app workflows, only
 > [Photos](#photos) is on the roadmap. Everything under
 > [Considered features](#considered-features) is outside the roadmap.
@@ -152,11 +152,46 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
   ([#589](https://github.com/mikepadiernos/plasma-opus/issues/589))
 
+- **Search and organize:** **Go › Nextcloud › *account* › Search and
+  Organize…** searches the account's files on the server by name, kind and
+  favourites, lists your favourites, or lists the files with a server tag.
+  Results show the folder, modification time, favourite and server tags, newest
+  first, up to 500 at a time. **Show in Pane**, or a double-click, opens a
+  folder or reveals a file. The context menu of items in one Nextcloud account
+  adds a **Nextcloud** submenu with the same dialog.
+  - **Favourites:** **Add to Nextcloud Favourites** and **Remove from Nextcloud
+    Favourites** in the context menu, or the favourite button in the dialog,
+    change the server's favourites, which Nextcloud's web interface and apps
+    show. They are separate from the **Places** panel.
+  - **Tags:** **Nextcloud Tags…** assigns or removes the server's
+    collaborative tags. A tag on only some of the items is partly checked, and
+    a tag you can't assign is disabled. **Create Tag…** asks for confirmation
+    before creating a tag, because the server creates it at once and shows it
+    to every user. Choosing **OK** saves only the changes, and lists any that
+    fail.
+  - **Separate from local tags:** server tags are labelled **Nextcloud tags
+    (server)** and kept apart from [Plasma Opus tags](../tagging.md); they
+    aren't stored locally or listed in the **Tag Panel**.
+  - **Availability:** search needs WebDAV search, from Nextcloud 15, and tags
+    need the Collaborative tags app; the dialog disables a feature the server
+    lacks and says why. The status line says when only the first 500 results
+    are listed, when the server withheld results or properties, and which
+    items couldn't be changed.
+  - **Server interfaces:** `SEARCH` with `d:basicsearch` on `remote.php/dav/`
+    scoped to `/files/<user>`, `REPORT` with `oc:filter-files` for favourites
+    and tags, `PROPPATCH` of `oc:favorite`, `PROPFIND` of
+    `remote.php/dav/systemtags/` and
+    `remote.php/dav/systemtags-relations/files/<fileid>/`, `PUT` and `DELETE`
+    of `…/<fileid>/<tagid>`, and a JSON `POST` to `remote.php/dav/systemtags`
+    to create a tag.
+
+  See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
+  ([#590](https://github.com/mikepadiernos/plasma-opus/issues/590))
+
 ## Planned features
 
 | Feature         | Plan                                                                                                                                                        | Milestone                                      |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Asset search    | Search and organize assets by server metadata, tags and favorites, keeping server tags distinct from native local tags.                                     | [M29](../ROADMAP.md#m29-nextcloud-integration) |
 | Photos          | Albums, shared albums and places as virtual folders; see [Photos](#photos).                                                                                 | [M29](../ROADMAP.md#m29-nextcloud-integration) |
 | Shares          | View and manage shares with explicit authorization; send a reviewed share link through the M27 **Send by Email** action.                                    | [M29](../ROADMAP.md#m29-nextcloud-integration) |
 | Sync folders    | Open configured local sync folders and the desktop client, showing remote, local, offline and unknown state; never start a second sync engine.              | [M29](../ROADMAP.md#m29-nextcloud-integration) |
