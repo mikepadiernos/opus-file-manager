@@ -1958,15 +1958,19 @@ Settings for M27 integrations, stored in KConfig.
   - [ ] **Sync pairs:** manage two-way sync pairs and their mode, filters,
         deletion handling and default conflict choice; choose whether to sync
         from login or on metered connections, and how often to check remotes
-        that do not report changes [#720]
+        that do not report changes. Plasma-session verification is a
+        [pending handoff](TODO.md#cloud-sync-settings-on-plasma-720). [#720]
   - [ ] **Transfers and cache:** set the bandwidth limit, parallel transfers,
         cache size and offline retention for mounted remotes, and whether to
-        show the tray activity panel [#721]
+        show the tray activity panel. Plasma-session verification is a
+        [pending handoff](TODO.md#transfer-and-cache-settings-on-plasma-721).
+        [#721]
 
 - **LAN sharing**
 
   - [ ] **Defaults:** protocol, TLS, network interfaces, port, timeout and
-        whether uploads are allowed [#664]
+        whether uploads are allowed. Plasma-session verification is a
+        [pending handoff](TODO.md#lan-sharing-settings-on-plasma-664). [#664]
 
 - **Online accounts**
 
@@ -1989,8 +1993,9 @@ Settings for M27 integrations, stored in KConfig.
 - **rsync**
 
   - [ ] **Backend:** enable the optional backend and choose safe sync defaults;
-        reuse M10 profiles and preserve preview and confirmation requirements
-        [#366]
+        reuse M10 profiles and preserve preview and confirmation requirements.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#rsync-settings-on-plasma-366). [#366]
 
 - **Atuin**
 
