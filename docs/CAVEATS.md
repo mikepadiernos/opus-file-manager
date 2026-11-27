@@ -2163,6 +2163,22 @@ The M27 desktop integrations have these limits
   Opus. The audit log records paths but no contents, and grows until it is
   deleted.
   ([#287](https://github.com/mikepadiernos/plasma-opus/issues/287))
+- **🔐 Plasma Vault:** **Go › Plasma Vaults** needs Plasma Vault and its
+  kded6 module, and reports Plasma Vault as unavailable without them; opening
+  the menu may start kded6. Passwords, creating, configuring and closing are
+  left to Plasma Vault and its dialogs, so its errors appear only as its own
+  message in the status bar and the menu. Importing and deleting vaults are
+  not offered, and vaults limited to other Activities are listed too. An
+  opened vault is shown in the active pane only when it was opened from
+  Plasma Opus; if Plasma Vault's password prompt is cancelled without a
+  status change, the vault is still shown when it is later opened elsewhere.
+  Before closing, Plasma Opus lists this user's processes whose working
+  folder or open files are inside the vault, but not memory-mapped files or
+  other users' processes, and tabs still showing the vault list a missing
+  folder after it closes. Plasma Opus never forces a vault closed. The
+  container used for development has no Plasma Vault, so the real service
+  awaits [verification on Plasma](TODO.md#plasma-vault-on-plasma-654).
+  ([#654](https://github.com/mikepadiernos/plasma-opus/issues/654))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2361,6 +2377,11 @@ The M27 desktop integrations have these limits
     Check `~/.local/state/opus-file-manager/mcp-audit.log` to see what a
     client did, restore items from the trash, and move large files between
     drives yourself.
+  - **Plasma Vault:** Install Plasma Vault and a backend such as gocryptfs
+    from Discover or your distribution. Close files and terminals in a vault
+    before **Close Vault**; if Plasma Vault still refuses, use its system
+    tray applet to force the vault closed. Leave other tabs showing a vault
+    before closing it.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2375,6 +2396,9 @@ The M27 desktop integrations have these limits
   - A job action that raises the dialog that started the operation.
   - An M28 **System tray** setting for starting hidden, with a notice when
     the global shortcut could not be assigned.
+  - Show only the current Activity's vaults, move tabs showing a vault away
+    when it closes, and show or hide vaults in the M28 **Encryption**
+    settings.
   - Reuse an open tab showing an Activity's default folder instead of
     opening another, and offer the current Activity's association at start
     as an option.
