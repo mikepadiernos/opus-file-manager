@@ -2977,6 +2977,22 @@ The M28 integration settings have these limits
   Terminal**, where the panel's placement and folder following remain, and
   like the panel menu's **Terminal Component** applies to new sessions only.
   ([#295](https://github.com/mikepadiernos/plasma-opus/issues/295))
+- **📜 Atuin history settings:** Clearing **Offer Search Command History
+  with Atuin** under **Preferences › Applications › Terminal** hides the
+  action, with its shortcut and any toolbar button, and the terminal panel's
+  entry after **Apply** or **OK**. **Search in** chooses the current session,
+  a new one when the current session is running a program, or always a new
+  one. A new session starts in the active pane's folder, or in the current
+  session's folder when the search is chosen from the panel's menu, and stays
+  open afterwards; a session opened by showing the panel for the search
+  counts as the new one. Whether a session is busy comes from the terminal
+  component, so a busy Kwi session can still receive the search, and a new
+  session that is already busy, for example because the shell profile starts
+  a program, is reported rather than replaced. The tab reports whether Atuin,
+  its history and the embedded terminal component are found each time it is
+  shown. Plasma Opus never changes Atuin's history, sync, key binding or
+  shell settings.
+  ([#367](https://github.com/mikepadiernos/plasma-opus/issues/367))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3079,6 +3095,13 @@ The M28 integration settings have these limits
     the tab doesn't mark as not installed, and use **Tools › Open Terminal
     With** for a one-off choice. Choose **Embedded terminal** there as well,
     then open a new session in the terminal panel.
+  - **Atuin history settings:** Choose **The current session, or a new one
+    when it is busy** under **Preferences › Applications › Terminal** to
+    search history while a long command runs, or **A new session** to keep
+    each search apart from your work. Clear **Offer Search Command History
+    with Atuin** if you use Atuin's own key binding, such as Ctrl+R, in the
+    shell instead, and change Atuin's history and sync settings with `atuin`
+    and its `config.toml`.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3130,6 +3153,9 @@ The M28 integration settings have these limits
   - Fall back to KDE's default terminal when the chosen one is removed, use
     the separate terminal for executables run in a terminal as well, and
     follow terminals installed or removed while the **Terminal** tab is open.
+  - Close a session opened only for the search once it ends, place the chosen
+    command at the prompt rather than printing it, and offer the search in a
+    separate terminal as well as the embedded one.
 
 ## Embedded terminal
 
@@ -3139,14 +3165,16 @@ these limits
 
 - **Terminal component:** **Terminal Component** in the panel's menu, like
   **Embedded terminal** under **Preferences › Applications › Terminal**,
-  applies to new sessions; open sessions keep the component they started with. When
-  the chosen component isn't installed, the panel says so instead of loading
-  the other. Kwi's component doesn't report its blur setting, so the panel
-  isn't blurred behind it.
-- **Atuin history search:** The search is typed into the current session's
-  shell, so it needs the shell to be idle and to accept `atuin search
---interactive`; a session running another program is refused, but a
-  prompt with half-typed text gets the search appended to it. The chosen
+  applies to new sessions; open sessions keep the component they started
+  with. When the chosen component isn't installed, the panel says so instead
+  of loading the other. Kwi's component doesn't report its blur setting, so
+  the panel isn't blurred behind it.
+- **Atuin history search:** The search is typed into the shell of the
+  current session, or of a new one when chosen under **Preferences ›
+  Applications › Terminal**, so it needs the shell to be idle and to accept
+  `atuin search --interactive`; a session running another program is
+  refused unless a new session is chosen for it, but a prompt with
+  half-typed text gets the search appended to it. The chosen
   command is printed, not placed at the prompt, unless the shell's own Atuin
   key binding is used. Plasma Opus only checks that the history database
   file exists, honouring `ATUIN_DB_PATH`, `ATUIN_DATA_DIR`,
@@ -3171,14 +3199,14 @@ these limits
   sessions; on Arch Linux it is supplied by the `konsole` package. To use Kwi
   instead, install it and choose **Kwi** under the panel menu's **Terminal
   Component** or **Preferences › Applications › Terminal**, then open a new
-  session. For remote
-  locations, connect using a suitable terminal tool or use a separate terminal
-  configured for that service. Check the terminal working directory before
-  running commands, close unneeded session tabs, and finish or safely stop
-  programs before closing a tab or the window. Before searching history with
-  Atuin, clear the prompt and finish running programs; to edit a chosen
-  command at the prompt instead, use the key binding from `atuin init`, such
-  as Ctrl+R, in the shell.
+  session. For remote locations, connect using a suitable terminal tool or
+  use a separate terminal configured for that service. Check the terminal
+  working directory before running commands, close unneeded session tabs,
+  and finish or safely stop programs before closing a tab or the window.
+  Before searching history with Atuin, clear the prompt and finish running
+  programs, or choose a new session for the search under **Preferences ›
+  Applications › Terminal**; to edit a chosen command at the prompt instead,
+  use the key binding from `atuin init`, such as Ctrl+R, in the shell.
   - Comment: [#321.7022392302][comment-321]
 - **Alternative:** Use a terminal multiplexer for independently retained
   sessions.
