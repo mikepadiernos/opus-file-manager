@@ -2,6 +2,8 @@
 
 #include "settingsdialog.h"
 
+#include "activityassociationseditor.h"
+#include "activitycontroller.h"
 #include "appidentity.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
@@ -589,6 +591,72 @@ QWidget *SettingsDialog::createShortcutsIntegrationPage()
 
     connect(configure, &QPushButton::clicked, page, [message] {
         openSettingsModule(QStringLiteral("kcm_keys"), i18nc("@info", "Plasma's Shortcuts settings are not installed."), message);
+    });
+    return page;
+}
+
+ActivityController *SettingsDialog::activityController() const
+{
+    return parentWidget() ? parentWidget()->findChild<ActivityController *>() : nullptr;
+}
+
+QWidget *SettingsDialog::createActivitiesIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("workspaceActivitiesPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *associations = new QGroupBox(i18nc("@title:group", "Workspaces and Folders"));
+    associations->setObjectName(QStringLiteral("activityAssociationsGroup"));
+    auto *associationsLayout = new QVBoxLayout(associations);
+    auto *enabled = checkBox(QStringLiteral("ActivityAssociations"), i18nc("@option:check", "Associate workspaces and default folders with Plasma Activities"));
+    auto *offer = checkBox(QStringLiteral("OfferActivityAssociation"),
+                           i18nc("@option:check", "Offer to apply an Activity's association when the current Activity changes"));
+    associationsLayout->addWidget(enabled);
+    associationsLayout->addWidget(offer);
+    m_activityAssociations = new ActivityAssociationsEditor;
+    if (const ActivityController *controller = activityController()) {
+        m_activityAssociations->setSource(controller->source());
+    }
+    associationsLayout->addWidget(m_activityAssociations);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Each Activity can name a workspace, the workspace behaviors to use when switching to it and a default "
+                                  "folder for each pane. Associations are only offered, never applied without asking; View › Apply "
+                                  "Activity Association applies the current one at any time. Plasma Opus never creates, removes or switches "
+                                  "Activities, nor changes their settings."));
+    note->setWordWrap(true);
+    associationsLayout->addWidget(note);
+    auto *configure = actionButton(QStringLiteral("openActivitySettings"), i18nc("@action:button", "Configure Plasma Activities…"));
+    configure->setIcon(QIcon::fromTheme(QStringLiteral("activities")));
+    configure->setToolTip(i18nc("@info:tooltip", "Open Plasma's Activities settings in System Settings to create, rename or remove Activities"));
+    auto *message = messageWidget(QStringLiteral("activitiesMessage"));
+    associationsLayout->addLayout(buttonRow({configure}));
+    associationsLayout->addWidget(message);
+    layout->addWidget(associations, 1);
+
+    auto *usage = new QGroupBox(i18nc("@title:group", "Recent Files"));
+    usage->setObjectName(QStringLiteral("activityUsageGroup"));
+    auto *usageLayout = new QVBoxLayout(usage);
+    usageLayout->addWidget(
+        checkBox(QStringLiteral("ReportActivityUsage"), i18nc("@option:check", "Report visited folders and opened files to Plasma Activities")));
+    auto *usageNote = new QLabel(i18nc("@info",
+                                       "Plasma lists them in the current Activity's recent files and locations, where other applications, "
+                                       "such as Plasma Impresario, can offer them too. Temporary files, encrypted vaults, searches and "
+                                       "administrator locations are never reported. Choose what Plasma remembers, or clear it, in System "
+                                       "Settings › Recent Files."));
+    usageNote->setWordWrap(true);
+    usageLayout->addWidget(usageNote);
+    layout->addWidget(usage);
+
+    const auto update = [this, enabled, offer] {
+        offer->setEnabled(enabled->isChecked());
+        m_activityAssociations->setEditable(enabled->isChecked());
+    };
+    connect(enabled, &QCheckBox::toggled, page, update);
+    update();
+    connect(m_activityAssociations, &ActivityAssociationsEditor::changed, this, &SettingsDialog::updateButtons);
+    connect(configure, &QPushButton::clicked, page, [message] {
+        openSettingsModule(QStringLiteral("kcm_activities"), i18nc("@info", "Plasma's Activities settings are not installed."), message);
     });
     return page;
 }

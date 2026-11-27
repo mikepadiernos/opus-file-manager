@@ -1,6 +1,6 @@
 add_library(opusfm_app STATIC
-    activityassociationsdialog.cpp
-    activityassociationsdialog.h
+    activityassociationseditor.cpp
+    activityassociationseditor.h
     activitycontroller.cpp
     activitycontroller.h
     activityreporting.cpp

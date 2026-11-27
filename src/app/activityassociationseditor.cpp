@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "activityassociationsdialog.h"
+#include "activityassociationseditor.h"
 #include "activitycontroller.h"
-#include "settings.h"
 
 #include <KFile>
 #include <KLocalizedString>
@@ -11,13 +10,13 @@
 
 #include <QCheckBox>
 #include <QComboBox>
-#include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
+#include <QScopedValueRollback>
 #include <QSignalBlocker>
 #include <QVBoxLayout>
 
@@ -26,15 +25,12 @@ namespace
 constexpr int InheritBehaviors = -1;
 }
 
-ActivityAssociationsDialog::ActivityAssociationsDialog(ActivityController *controller, const WorkspaceCatalog::Catalog &catalog, QWidget *parent)
-    : QDialog(parent)
-    , m_controller(controller)
-    , m_catalog(catalog)
-    , m_associations(controller->associations())
+ActivityAssociationsEditor::ActivityAssociationsEditor(QWidget *parent)
+    : QWidget(parent)
 {
-    setObjectName(QStringLiteral("activityAssociationsDialog"));
-    setWindowTitle(i18nc("@title:window", "Activity Associations"));
+    setObjectName(QStringLiteral("activityAssociationsEditor"));
     auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins({});
 
     m_message = new KMessageWidget(this);
     m_message->setObjectName(QStringLiteral("activityServiceUnavailable"));
@@ -45,15 +41,12 @@ ActivityAssociationsDialog::ActivityAssociationsDialog(ActivityController *contr
                              "The Plasma Activities service is not running. Saved associations are kept and can be edited, and apply again once "
                              "the service is back."));
     layout->addWidget(m_message);
-
-    m_enabled = new QCheckBox(i18nc("@option:check", "Associate workspaces and default folders with Plasma Activities"), this);
-    m_enabled->setObjectName(QStringLiteral("activityAssociationsEnabled"));
-    m_enabled->setChecked(Settings::activityAssociations());
-    layout->addWidget(m_enabled);
-    m_offer = new QCheckBox(i18nc("@option:check", "Offer to apply an Activity's association when the current Activity changes"), this);
-    m_offer->setObjectName(QStringLiteral("activityAssociationsOffer"));
-    m_offer->setChecked(Settings::offerActivityAssociation());
-    layout->addWidget(m_offer);
+    m_error = new KMessageWidget(this);
+    m_error->setObjectName(QStringLiteral("activityAssociationError"));
+    m_error->setMessageType(KMessageWidget::Error);
+    m_error->setWordWrap(true);
+    m_error->hide();
+    layout->addWidget(m_error);
 
     auto *body = new QHBoxLayout;
     m_activities = new QListWidget(this);
@@ -72,15 +65,19 @@ ActivityAssociationsDialog::ActivityAssociationsDialog(ActivityController *contr
     m_behaviorMode->addItem(i18nc("@item:inlistbox workspace behaviors", "All"), int(WorkspaceCatalog::BehaviorMode::All));
     m_behaviorMode->addItem(i18nc("@item:inlistbox workspace behaviors", "Selected"), int(WorkspaceCatalog::BehaviorMode::Selected));
     m_behaviorMode->addItem(i18nc("@item:inlistbox workspace behaviors", "None"), int(WorkspaceCatalog::BehaviorMode::None));
+    m_behaviorMode->setToolTip(i18nc("@info:tooltip",
+                                     "The workspace behaviors to use when switching to the workspace for this Activity: those the workspace "
+                                     "itself uses, or all, selected or none of them"));
     form->addRow(i18nc("@label:listbox", "Behaviors:"), m_behaviorMode);
     editor->addLayout(form);
 
     auto *behaviorGroup = new QGroupBox(i18nc("@title:group", "Selected Behaviors"), this);
     auto *behaviorLayout = new QVBoxLayout(behaviorGroup);
-    const auto addBehavior = [behaviorGroup, behaviorLayout](const QString &name, const QString &text) {
+    const auto addBehavior = [this, behaviorGroup, behaviorLayout](const QString &name, const QString &text) {
         auto *check = new QCheckBox(text, behaviorGroup);
         check->setObjectName(name);
         behaviorLayout->addWidget(check);
+        connect(check, &QCheckBox::toggled, this, &ActivityAssociationsEditor::edited);
         return check;
     };
     m_locationPresentation = addBehavior(QStringLiteral("activityLocationPresentation"), i18nc("@option:check", "Location presentation"));
@@ -98,6 +95,7 @@ ActivityAssociationsDialog::ActivityAssociationsDialog(ActivityController *contr
         requester->setMode(KFile::Directory | KFile::ExistingOnly);
         requester->setPlaceholderText(i18nc("@info:placeholder", "None"));
         folders->addRow(label, requester);
+        connect(requester, &KUrlRequester::textChanged, this, &ActivityAssociationsEditor::edited);
         return requester;
     };
     m_primaryFolder = addFolder(QStringLiteral("activityPrimaryFolder"), i18nc("@label:chooser", "First pane folder:"));
@@ -107,9 +105,9 @@ ActivityAssociationsDialog::ActivityAssociationsDialog(ActivityController *contr
     foldersNote->setWordWrap(true);
     editor->addWidget(foldersNote);
 
-    auto *clear = new QPushButton(i18nc("@action:button", "Clear Association"), this);
-    clear->setObjectName(QStringLiteral("activityClearAssociation"));
-    connect(clear, &QPushButton::clicked, this, [this] {
+    m_clear = new QPushButton(i18nc("@action:button", "Clear Association"), this);
+    m_clear->setObjectName(QStringLiteral("activityClearAssociation"));
+    connect(m_clear, &QPushButton::clicked, this, [this] {
         if (m_formId.isEmpty()) {
             return;
         }
@@ -117,56 +115,76 @@ ActivityAssociationsDialog::ActivityAssociationsDialog(ActivityController *contr
         const QString id = m_formId;
         m_formId.clear();
         populate();
-        int selected = m_activities->count() > 0 ? 0 : -1;
-        for (int row = 0; row < m_activities->count(); ++row) {
-            if (m_activities->item(row)->data(Qt::UserRole).toString() == id) {
-                selected = row;
-            }
-        }
-        m_activities->setCurrentRow(selected);
-        loadForm(selectedId());
+        select(id);
+        Q_EMIT changed();
     });
-    editor->addWidget(clear);
+    editor->addWidget(m_clear);
     editor->addStretch();
     body->addLayout(editor, 2);
     layout->addLayout(body);
-
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
-    connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
-    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    layout->addWidget(buttons);
 
     connect(m_activities, &QListWidget::currentRowChanged, this, [this] {
         storeForm();
         loadForm(selectedId());
     });
-    connect(m_enabled, &QCheckBox::toggled, this, &ActivityAssociationsDialog::updateEnabled);
-    connect(m_behaviorMode, &QComboBox::currentIndexChanged, this, &ActivityAssociationsDialog::updateEnabled);
-    connect(m_workspace, &QComboBox::currentIndexChanged, this, &ActivityAssociationsDialog::updateEnabled);
+    connect(m_behaviorMode, &QComboBox::currentIndexChanged, this, &ActivityAssociationsEditor::edited);
+    connect(m_workspace, &QComboBox::currentIndexChanged, this, &ActivityAssociationsEditor::edited);
 
     populate();
-    const QString current = m_controller->source() ? m_controller->source()->currentActivity() : QString();
-    for (int row = 0; row < m_activities->count(); ++row) {
-        if (m_activities->item(row)->data(Qt::UserRole).toString() == current) {
-            m_activities->setCurrentRow(row);
-        }
-    }
-    if (m_activities->currentRow() < 0 && m_activities->count() > 0) {
-        m_activities->setCurrentRow(0);
-    }
-    loadForm(selectedId());
-    updateEnabled();
-    resize(sizeHint().expandedTo(QSize(720, 480)));
+    select({});
 }
 
-void ActivityAssociationsDialog::populate()
+void ActivityAssociationsEditor::setSource(ActivitySource *source)
+{
+    if (m_source) {
+        disconnect(m_source, nullptr, this, nullptr);
+    }
+    m_source = source;
+    if (m_source) {
+        connect(m_source, &ActivitySource::availabilityChanged, this, &ActivityAssociationsEditor::refresh);
+        connect(m_source, &ActivitySource::activitiesChanged, this, &ActivityAssociationsEditor::refresh);
+    }
+    refresh();
+}
+
+void ActivityAssociationsEditor::setCatalog(const WorkspaceCatalog::Catalog &catalog)
+{
+    storeForm();
+    m_catalog = catalog;
+    loadForm(m_formId);
+}
+
+void ActivityAssociationsEditor::setAssociations(const QList<ActivityAssociations::Association> &associations)
+{
+    m_associations = associations;
+    m_formId.clear();
+    m_error->hide();
+    populate();
+    select({});
+}
+
+void ActivityAssociationsEditor::setEditable(bool editable)
+{
+    m_editable = editable;
+    updateEnabled();
+}
+
+void ActivityAssociationsEditor::refresh()
+{
+    storeForm();
+    const QString id = m_formId;
+    m_formId.clear();
+    populate();
+    select(id);
+}
+
+void ActivityAssociationsEditor::populate()
 {
     const QSignalBlocker blocker(m_activities);
-    ActivitySource *source = m_controller->source();
-    const bool available = source && source->isAvailable();
+    const bool available = m_source && m_source->isAvailable();
     m_message->setVisible(!available);
-    m_names = available ? source->activities() : QMap<QString, QString>{};
-    const QString current = available ? source->currentActivity() : QString();
+    m_names = available ? m_source->activities() : QMap<QString, QString>{};
+    const QString current = available ? m_source->currentActivity() : QString();
     m_activities->clear();
     QStringList ids = m_names.keys();
     for (const auto &association : std::as_const(m_associations)) {
@@ -195,19 +213,42 @@ void ActivityAssociationsDialog::populate()
     }
 }
 
-QString ActivityAssociationsDialog::selectedId() const
+void ActivityAssociationsEditor::select(const QString &activityId)
+{
+    const QString current = m_source && m_source->isAvailable() ? m_source->currentActivity() : QString();
+    int requested = -1;
+    int currentRow = -1;
+    for (int row = 0; row < m_activities->count(); ++row) {
+        const QString id = m_activities->item(row)->data(Qt::UserRole).toString();
+        if (!activityId.isEmpty() && id == activityId) {
+            requested = row;
+        }
+        if (!current.isEmpty() && id == current) {
+            currentRow = row;
+        }
+    }
+    if (requested < 0) {
+        requested = currentRow >= 0 ? currentRow : (m_activities->count() > 0 ? 0 : -1);
+    }
+    {
+        const QSignalBlocker blocker(m_activities);
+        m_activities->setCurrentRow(requested);
+    }
+    loadForm(selectedId());
+}
+
+QString ActivityAssociationsEditor::selectedId() const
 {
     const QListWidgetItem *item = m_activities->currentItem();
     return item ? item->data(Qt::UserRole).toString() : QString();
 }
 
-void ActivityAssociationsDialog::loadForm(const QString &activityId)
+void ActivityAssociationsEditor::loadForm(const QString &activityId)
 {
+    const QScopedValueRollback loading(m_loading, true);
     m_formId = activityId;
     const auto *found = ActivityAssociations::find(m_associations, activityId);
     const ActivityAssociations::Association association = found ? *found : ActivityAssociations::Association{};
-    const QSignalBlocker workspaceBlocker(m_workspace);
-    const QSignalBlocker modeBlocker(m_behaviorMode);
     m_workspace->clear();
     m_workspace->addItem(i18nc("@item:inlistbox", "No workspace"), QString());
     for (const auto &workspace : std::as_const(m_catalog.workspaces)) {
@@ -230,9 +271,9 @@ void ActivityAssociationsDialog::loadForm(const QString &activityId)
     updateEnabled();
 }
 
-void ActivityAssociationsDialog::storeForm()
+void ActivityAssociationsEditor::storeForm()
 {
-    if (m_formId.isEmpty()) {
+    if (m_formId.isEmpty() || m_loading) {
         return;
     }
     const auto *found = ActivityAssociations::find(m_associations, m_formId);
@@ -255,25 +296,33 @@ void ActivityAssociationsDialog::storeForm()
     association.primaryFolder = m_primaryFolder->url().adjusted(QUrl::NormalizePathSegments);
     association.secondaryFolder = m_secondaryFolder->url().adjusted(QUrl::NormalizePathSegments);
     QString error;
-    if (!ActivityAssociations::set(m_associations, association, error)) {
-        m_message->setText(error);
-        m_message->setMessageType(KMessageWidget::Error);
-        m_message->show();
+    if (ActivityAssociations::set(m_associations, association, error)) {
+        m_error->hide();
+    } else {
+        m_error->setText(error);
+        m_error->show();
     }
 }
 
-QList<ActivityAssociations::Association> ActivityAssociationsDialog::associations()
+QList<ActivityAssociations::Association> ActivityAssociationsEditor::associations()
 {
     storeForm();
     return m_associations;
 }
 
-void ActivityAssociationsDialog::updateEnabled()
+void ActivityAssociationsEditor::edited()
 {
-    const bool enabled = m_enabled->isChecked();
-    m_offer->setEnabled(enabled);
-    const bool selected = enabled && !m_formId.isEmpty();
-    m_activities->setEnabled(enabled);
+    if (m_loading) {
+        return;
+    }
+    updateEnabled();
+    Q_EMIT changed();
+}
+
+void ActivityAssociationsEditor::updateEnabled()
+{
+    const bool selected = m_editable && !m_formId.isEmpty();
+    m_activities->setEnabled(m_editable);
     for (QWidget *widget : std::initializer_list<QWidget *>{m_workspace, m_behaviorMode, m_primaryFolder, m_secondaryFolder}) {
         widget->setEnabled(selected);
     }
@@ -282,15 +331,5 @@ void ActivityAssociationsDialog::updateEnabled()
     for (QCheckBox *check : {m_locationPresentation, m_searchScope, m_layoutBehavior, m_paneTabRestoration, m_appearanceBehavior, m_yaziBehavior}) {
         check->setEnabled(behaviors);
     }
-}
-
-void ActivityAssociationsDialog::accept()
-{
-    const QList<ActivityAssociations::Association> edited = associations();
-    Settings::setActivityAssociations(m_enabled->isChecked());
-    Settings::setOfferActivityAssociation(m_offer->isChecked());
-    Settings::self()->save();
-    m_controller->setAssociations(edited);
-    m_controller->applySettings();
-    QDialog::accept();
+    m_clear->setEnabled(selected);
 }

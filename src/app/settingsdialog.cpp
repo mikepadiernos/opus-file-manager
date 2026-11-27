@@ -2,6 +2,7 @@
 
 #include "settingsdialog.h"
 
+#include "activityassociationseditor.h"
 #include "appearancedefaults.h"
 #include "batchrenamedialog.h"
 #include "colorschemes.h"
@@ -344,8 +345,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                      {createWorkspaceIndicatorsPage(), i18nc("@title:tab", "Indicators")},
                                      {createWorkspaceLocationBarsPage(), i18nc("@title:tab", "Location Bars")},
                                      {createWorkspaceBehaviorsPage(), i18nc("@title:tab", "Behaviors")},
-                                     {createWorkspacePortabilityPage(), i18nc("@title:tab", "Portability")},
-                                     {createWorkspaceActivitiesPage(), i18nc("@title:tab", "Activities")}},
+                                     {createWorkspacePortabilityPage(), i18nc("@title:tab", "Portability")}},
                                     i18nc("@title:group", "Workspaces"),
                                     QStringLiteral("view-grid"),
                                     &m_workspaceTabs);
@@ -384,12 +384,16 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createMetadataEditorPage(), i18nc("@title:tab", "Metadata Editor")}},
                   i18nc("@title:group", "Tools"),
                   QStringLiteral("utilities-terminal"));
-    addTabbedPage({{createFileManagerIntegrationPage(), i18nc("@title:tab", "File Manager")},
-                   {createNotificationsIntegrationPage(), i18nc("@title:tab", "Notifications")},
-                   {createSystemTrayPage(), i18nc("@title:tab", "System Tray")},
-                   {createShortcutsIntegrationPage(), i18nc("@title:tab", "Shortcuts")}},
-                  i18nc("@title:group", "KDE Plasma"),
-                  QStringLiteral("plasma"));
+    m_plasmaPage = addTabbedPage({{createFileManagerIntegrationPage(), i18nc("@title:tab", "File Manager")},
+                                  {createNotificationsIntegrationPage(), i18nc("@title:tab", "Notifications")},
+                                  {createSystemTrayPage(), i18nc("@title:tab", "System Tray")},
+                                  {createShortcutsIntegrationPage(), i18nc("@title:tab", "Shortcuts")},
+                                  {createActivitiesIntegrationPage(), i18nc("@title:tab", "Activities")}},
+                                 i18nc("@title:group", "KDE Plasma"),
+                                 QStringLiteral("plasma"),
+                                 &m_plasmaTabs);
+    // The Activities tab offers the workspaces too.
+    reloadWorkspaces();
     applySidebarStyle();
     connect(this, &KConfigDialog::settingsChanged, this, [this] {
         applySidebarStyle();
@@ -452,6 +456,12 @@ void SettingsDialog::showToolbarPage()
 {
     setCurrentPage(m_toolbarPage);
     m_toolbarTabs->setCurrentIndex(0);
+}
+
+void SettingsDialog::showActivitiesPage()
+{
+    setCurrentPage(m_plasmaPage);
+    m_plasmaTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("workspaceActivitiesPage")));
 }
 
 void SettingsDialog::applySidebarStyle()
@@ -540,39 +550,6 @@ QWidget *SettingsDialog::createPlasmaSearchPage()
     note->setWordWrap(true);
     layout->addWidget(note);
     layout->addStretch();
-    return page;
-}
-
-QWidget *SettingsDialog::createWorkspaceActivitiesPage()
-{
-    auto *page = new QWidget;
-    page->setObjectName(QStringLiteral("workspaceActivitiesPage"));
-    auto *layout = new QVBoxLayout(page);
-    auto *enabled = checkBox(QStringLiteral("ActivityAssociations"), i18nc("@option:check", "Associate workspaces and default folders with Plasma Activities"));
-    auto *offer = checkBox(QStringLiteral("OfferActivityAssociation"),
-                           i18nc("@option:check", "Offer to apply an Activity's association when the current Activity changes"));
-    layout->addWidget(enabled);
-    layout->addWidget(offer);
-    auto *note = new QLabel(i18nc("@info",
-                                  "Choose each Activity's workspace, behaviors and default folders in View › Activity Associations. "
-                                  "Associations are only offered, never applied without asking, and Plasma Opus never creates, removes "
-                                  "or switches Activities."),
-                            page);
-    note->setWordWrap(true);
-    layout->addWidget(note);
-    auto *report = checkBox(QStringLiteral("ReportActivityUsage"), i18nc("@option:check", "Report visited folders and opened files to Plasma Activities"));
-    layout->addWidget(report);
-    auto *reportNote = new QLabel(i18nc("@info",
-                                        "Plasma lists them in the current Activity's recent files and locations, where other applications, "
-                                        "such as Plasma Impresario, can offer them too. Temporary files, encrypted vaults, searches and "
-                                        "administrator locations are never reported. Choose what Plasma remembers, or clear it, in System "
-                                        "Settings › Recent Files."),
-                                  page);
-    reportNote->setWordWrap(true);
-    layout->addWidget(reportNote);
-    layout->addStretch();
-    connect(enabled, &QCheckBox::toggled, offer, &QWidget::setEnabled);
-    offer->setEnabled(enabled->isChecked());
     return page;
 }
 
@@ -1071,6 +1048,9 @@ void SettingsDialog::reloadWorkspaces()
         names.append({workspace.id, i18nc("@item:inlistbox workspace name and short label", "%1 (%2)", workspace.name, workspace.shortLabel)});
     }
     m_startupWorkspace->setWorkspaces(names);
+    if (m_activityAssociations) {
+        m_activityAssociations->setCatalog(catalog);
+    }
 }
 
 void SettingsDialog::createSettingsBackup()
@@ -4309,6 +4289,12 @@ void SettingsDialog::updateSettings()
     for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
         toggle.write(toggle.check->isChecked());
     }
+    if (const auto associations = m_activityAssociations->associations(); associations != m_savedActivityAssociations) {
+        const KSharedConfigPtr config = KSharedConfig::openConfig();
+        ActivityAssociations::save(config->group(QLatin1String(ActivityAssociations::Group)), associations);
+        config->sync();
+        m_savedActivityAssociations = associations;
+    }
     if (DesktopTray *tray = desktopTray(); tray && m_globalShortcutKey->keySequence() != tray->globalShortcut()) {
         // Before the main window applies the settings, so a shortcut turned on
         // at the same time gets the chosen key.
@@ -4337,6 +4323,12 @@ void SettingsDialog::updateWidgets()
     }
     if (const DesktopTray *tray = desktopTray()) {
         m_globalShortcutKey->setKeySequence(tray->globalShortcut());
+    }
+    // Activity associations are user data like workspaces, so Restore Defaults leaves them alone.
+    {
+        const KSharedConfigPtr config = KSharedConfig::openConfig();
+        m_activityAssociations->setAssociations(ActivityAssociations::load(config->group(QLatin1String(ActivityAssociations::Group))));
+        m_savedActivityAssociations = m_activityAssociations->associations();
     }
     // Libraries may have been added or removed from the Tags menu since the dialog was shown.
     reloadLibraries();
@@ -4367,7 +4359,7 @@ bool SettingsDialog::hasChanged()
 {
     const DesktopTray *tray = desktopTray();
     return m_yaziResetPending || m_selectionFilters->rules() != m_savedSelectionFilters
-        || (tray && m_globalShortcutKey->keySequence() != tray->globalShortcut())
+        || (tray && m_globalShortcutKey->keySequence() != tray->globalShortcut()) || m_activityAssociations->associations() != m_savedActivityAssociations
         || std::any_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
                return toggle.check->isChecked() != toggle.read();
            });

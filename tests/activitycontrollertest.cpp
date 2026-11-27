@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "activitycontroller.h"
-#include "activityassociationsdialog.h"
+#include "activityassociationseditor.h"
 #include "activityreporting.h"
 #include "mainwindow.h"
 #include "pane.h"
@@ -238,7 +238,7 @@ private Q_SLOTS:
         QCOMPARE(stored.at(0).workspaceId, WorkId);
     }
 
-    void dialogEditsAndSavesAssociations()
+    void editorEditsAssociations()
     {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
@@ -246,13 +246,16 @@ private Q_SLOTS:
         makeController(fixture);
         auto removed = association(QStringLiteral("old"), PlayId);
         removed.activityName = QStringLiteral("Retired");
-        fixture.controller->setAssociations({removed});
 
-        ActivityAssociationsDialog dialog(fixture.controller, m_catalog);
-        auto *list = dialog.findChild<QListWidget *>(QStringLiteral("activityList"));
+        ActivityAssociationsEditor editor;
+        editor.setSource(fixture.source);
+        editor.setCatalog(m_catalog);
+        editor.setAssociations({removed});
+        QSignalSpy changed(&editor, &ActivityAssociationsEditor::changed);
+        auto *list = editor.findChild<QListWidget *>(QStringLiteral("activityList"));
         QVERIFY(list);
         QCOMPARE(list->count(), 3);
-        QVERIFY(dialog.findChild<KMessageWidget *>(QStringLiteral("activityServiceUnavailable"))->isHidden());
+        QVERIFY(editor.findChild<KMessageWidget *>(QStringLiteral("activityServiceUnavailable"))->isHidden());
         QStringList texts;
         for (int row = 0; row < list->count(); ++row) {
             texts.append(list->item(row)->text());
@@ -260,16 +263,17 @@ private Q_SLOTS:
         QVERIFY(texts.contains(QStringLiteral("Home (current)")));
         QVERIFY(texts.contains(QStringLiteral("Retired (removed)")));
         QCOMPARE(list->currentItem()->data(Qt::UserRole).toString(), QStringLiteral("home"));
+        QVERIFY(changed.isEmpty());
 
-        auto *workspace = dialog.findChild<QComboBox *>(QStringLiteral("activityWorkspace"));
+        auto *workspace = editor.findChild<QComboBox *>(QStringLiteral("activityWorkspace"));
         workspace->setCurrentIndex(workspace->findData(WorkId));
-        auto *mode = dialog.findChild<QComboBox *>(QStringLiteral("activityBehaviorMode"));
+        auto *mode = editor.findChild<QComboBox *>(QStringLiteral("activityBehaviorMode"));
         mode->setCurrentIndex(mode->findData(int(WorkspaceCatalog::BehaviorMode::Selected)));
-        auto *appearance = dialog.findChild<QCheckBox *>(QStringLiteral("activityAppearanceBehavior"));
+        auto *appearance = editor.findChild<QCheckBox *>(QStringLiteral("activityAppearanceBehavior"));
         QVERIFY(appearance->isEnabled());
         appearance->setChecked(false);
-        dialog.findChild<KUrlRequester *>(QStringLiteral("activityPrimaryFolder"))->setUrl(QUrl::fromLocalFile(dir.path()));
-        dialog.findChild<QCheckBox *>(QStringLiteral("activityAssociationsOffer"))->setChecked(false);
+        editor.findChild<KUrlRequester *>(QStringLiteral("activityPrimaryFolder"))->setUrl(QUrl::fromLocalFile(dir.path()));
+        QVERIFY(!changed.isEmpty());
 
         // Clearing the removed Activity's association drops it from the list.
         for (int row = 0; row < list->count(); ++row) {
@@ -277,12 +281,10 @@ private Q_SLOTS:
                 list->setCurrentRow(row);
             }
         }
-        dialog.findChild<QPushButton *>(QStringLiteral("activityClearAssociation"))->click();
+        editor.findChild<QPushButton *>(QStringLiteral("activityClearAssociation"))->click();
         QCOMPARE(list->count(), 2);
-        dialog.accept();
 
-        QVERIFY(!Settings::offerActivityAssociation());
-        const auto stored = fixture.controller->associations();
+        const auto stored = editor.associations();
         QCOMPARE(stored.size(), 1);
         QCOMPARE(stored.at(0).activityId, QStringLiteral("home"));
         QCOMPARE(stored.at(0).activityName, QStringLiteral("Home"));
@@ -292,21 +294,39 @@ private Q_SLOTS:
         QVERIFY(!stored.at(0).behaviors.appearance);
         QVERIFY(stored.at(0).behaviors.layout);
         QCOMPARE(stored.at(0).primaryFolder, QUrl::fromLocalFile(dir.path()));
+
+        // Turned off, nothing can be edited.
+        editor.setEditable(false);
+        QVERIFY(!list->isEnabled());
+        QVERIFY(!workspace->isEnabled());
+        QVERIFY(!appearance->isEnabled());
     }
 
-    void dialogKeepsAssociationsWithoutTheService()
+    void editorKeepsAssociationsWithoutTheService()
     {
         Fixture fixture;
         makeController(fixture);
         fixture.source->available = false;
-        fixture.controller->setAssociations({association(QStringLiteral("work"), WorkId)});
-        ActivityAssociationsDialog dialog(fixture.controller, m_catalog);
-        QVERIFY(!dialog.findChild<KMessageWidget *>(QStringLiteral("activityServiceUnavailable"))->isHidden());
-        auto *list = dialog.findChild<QListWidget *>(QStringLiteral("activityList"));
+        ActivityAssociationsEditor editor;
+        editor.setSource(fixture.source);
+        editor.setCatalog(m_catalog);
+        editor.setAssociations({association(QStringLiteral("work"), WorkId)});
+        QVERIFY(!editor.findChild<KMessageWidget *>(QStringLiteral("activityServiceUnavailable"))->isHidden());
+        auto *list = editor.findChild<QListWidget *>(QStringLiteral("activityList"));
         QCOMPARE(list->count(), 1);
         QCOMPARE(list->item(0)->text(), QStringLiteral("work"));
-        dialog.accept();
-        QCOMPARE(fixture.controller->associations(), QList<ActivityAssociations::Association>{association(QStringLiteral("work"), WorkId)});
+        QCOMPARE(editor.associations(), QList<ActivityAssociations::Association>{association(QStringLiteral("work"), WorkId)});
+
+        // The list follows the service once it is back.
+        fixture.source->available = true;
+        Q_EMIT fixture.source->availabilityChanged();
+        QVERIFY(editor.findChild<KMessageWidget *>(QStringLiteral("activityServiceUnavailable"))->isHidden());
+        QCOMPARE(list->count(), 2);
+        QCOMPARE(list->currentItem()->data(Qt::UserRole).toString(), QStringLiteral("work"));
+        const auto stored = editor.associations();
+        QCOMPARE(stored.size(), 1);
+        QCOMPARE(stored.at(0).workspaceId, WorkId);
+        QCOMPARE(stored.at(0).activityName, QStringLiteral("Work"));
     }
 
     void windowOpensDefaultFoldersInNewTabs()

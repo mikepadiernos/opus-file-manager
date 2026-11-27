@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "activityassociations.h"
+#include "activityassociationseditor.h"
+#include "activitycontroller.h"
 #include "appidentity.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
@@ -20,6 +23,7 @@
 #include <KService>
 #include <KSharedConfig>
 #include <KSycoca>
+#include <KUrlRequester>
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -29,6 +33,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QLabel>
+#include <QListWidget>
 #include <QPushButton>
 #include <QScopeGuard>
 #include <QStandardPaths>
@@ -36,6 +41,29 @@
 #include <QTest>
 
 extern KSERVICE_EXPORT int ksycoca_ms_between_checks;
+
+namespace
+{
+class FakeActivities : public ActivitySource
+{
+public:
+    QString current;
+    QMap<QString, QString> names;
+
+    bool isAvailable() const override
+    {
+        return true;
+    }
+    QString currentActivity() const override
+    {
+        return current;
+    }
+    QMap<QString, QString> activities() const override
+    {
+        return names;
+    }
+};
+}
 
 class IntegrationSettingsTest : public QObject
 {
@@ -503,6 +531,99 @@ private Q_SLOTS:
         auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("shortcutsMessage"));
         QCOMPARE(message->messageType(), KMessageWidget::Error);
         QVERIFY(message->text().contains(QStringLiteral("Shortcuts settings are not installed")));
+    }
+
+    void activitiesTabEditsTheAssociations()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            KSharedConfig::openConfig()->deleteGroup(QLatin1String(ActivityAssociations::Group));
+        });
+        const QUrl folder = QUrl::fromLocalFile(QDir::tempPath());
+        ActivityAssociations::Association work;
+        work.activityId = QStringLiteral("work");
+        work.activityName = QStringLiteral("Work");
+        work.secondaryFolder = folder;
+        ActivityAssociations::save(KSharedConfig::openConfig()->group(QLatin1String(ActivityAssociations::Group)), {work});
+
+        MainWindow window;
+        auto *source = new FakeActivities;
+        source->current = QStringLiteral("home");
+        source->names = {{QStringLiteral("home"), QStringLiteral("Home")}, {QStringLiteral("work"), QStringLiteral("Work")}};
+        window.activityController()->setSource(source);
+        // View › Activity Associations opens the tab.
+        window.showActivityAssociations();
+        auto *dialog = qobject_cast<SettingsDialog *>(KConfigDialog::exists(QLatin1String(SettingsDialog::Name)));
+        QVERIFY(dialog);
+        auto *page = dialog->findChild<QWidget *>(QStringLiteral("workspaceActivitiesPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QCOMPARE(tabs->currentWidget(), page);
+        QCOMPARE(tabs->indexOf(page), 4);
+        QCOMPARE(tabs->tabText(4), QStringLiteral("Activities"));
+        QCOMPARE(tabs->widget(0)->objectName(), QStringLiteral("fileManagerIntegrationPage"));
+
+        auto *enabled = dialog->findChild<QCheckBox *>(QStringLiteral("kcfg_ActivityAssociations"));
+        auto *offer = dialog->findChild<QCheckBox *>(QStringLiteral("kcfg_OfferActivityAssociation"));
+        auto *list = page->findChild<QListWidget *>(QStringLiteral("activityList"));
+        auto *mode = page->findChild<QComboBox *>(QStringLiteral("activityBehaviorMode"));
+        auto *apply = dialog->button(QDialogButtonBox::Apply);
+        QVERIFY(!enabled->isChecked());
+        QVERIFY(!offer->isEnabled());
+        QVERIFY(!list->isEnabled());
+        enabled->setChecked(true);
+        QVERIFY(offer->isEnabled());
+        QVERIFY(list->isEnabled());
+        QCOMPARE(list->count(), 2);
+        QCOMPARE(list->currentItem()->data(Qt::UserRole).toString(), QStringLiteral("home"));
+
+        // Edits apply with the other settings.
+        apply->click();
+        QVERIFY(Settings::activityAssociations());
+        QVERIFY(!apply->isEnabled());
+        page->findChild<KUrlRequester *>(QStringLiteral("activityPrimaryFolder"))->setUrl(folder);
+        mode->setCurrentIndex(mode->findData(int(WorkspaceCatalog::BehaviorMode::None)));
+        QVERIFY(apply->isEnabled());
+        apply->click();
+        QVERIFY(!apply->isEnabled());
+        auto stored = ActivityAssociations::load(KSharedConfig::openConfig()->group(QLatin1String(ActivityAssociations::Group)));
+        QCOMPARE(stored.size(), 2);
+        const auto *home = ActivityAssociations::find(stored, QStringLiteral("home"));
+        QVERIFY(home);
+        QCOMPARE(home->primaryFolder, folder);
+        QVERIFY(!home->inheritBehaviors);
+        QCOMPARE(home->behaviors.mode, WorkspaceCatalog::BehaviorMode::None);
+        QCOMPARE(ActivityAssociations::find(stored, QStringLiteral("work"))->secondaryFolder, folder);
+
+        // Restore Defaults turns associations off but keeps them, like workspaces.
+        dialog->button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(!enabled->isChecked());
+        QVERIFY(!list->isEnabled());
+        QCOMPARE(page->findChild<ActivityAssociationsEditor *>()->associations().size(), 2);
+
+        // Clearing an association saves its removal.
+        enabled->setChecked(true);
+        list->setCurrentRow(list->currentRow() == 0 ? 1 : 0);
+        QCOMPARE(list->currentItem()->data(Qt::UserRole).toString(), QStringLiteral("work"));
+        page->findChild<QPushButton *>(QStringLiteral("activityClearAssociation"))->click();
+        apply->click();
+        stored = ActivityAssociations::load(KSharedConfig::openConfig()->group(QLatin1String(ActivityAssociations::Group)));
+        QCOMPARE(stored.size(), 1);
+        QCOMPARE(stored.at(0).activityId, QStringLiteral("home"));
+    }
+
+    void reportsMissingActivitySettings()
+    {
+        if (KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), QStringLiteral("kcm_activities")).isValid()) {
+            QSKIP("Plasma's Activities settings are installed on this system.");
+        }
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        dialog.findChild<QPushButton *>(QStringLiteral("openActivitySettings"))->click();
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("activitiesMessage"));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QVERIFY(message->text().contains(QStringLiteral("Activities settings are not installed")));
     }
 };
 

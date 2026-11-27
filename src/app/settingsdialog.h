@@ -2,12 +2,16 @@
 
 #pragma once
 
+#include "activityassociations.h"
+
 #include <KConfigDialog>
 #include <KFilePlacesModel>
 
 #include <functional>
 
 class AccentColorChooser;
+class ActivityAssociationsEditor;
+class ActivityController;
 class ColorSchemeCombo;
 class DesktopTray;
 class EmbeddedMetadataKeyList;
@@ -61,6 +65,8 @@ public:
      */
     SettingsDialog(KFilePlacesModel *places, QWidget *parent);
     void showToolbarPage();
+    /// Shows the KDE Plasma › Activities tab, where Activity associations are edited.
+    void showActivitiesPage();
     /**
      * Sets the appearance options in the dialog to Plasma's defaults, except
      * AppearanceDefaults::keptEntries(). Nothing is saved until they are
@@ -276,7 +282,6 @@ private:
     QWidget *createWorkspaceLocationBarsPage();
     QWidget *createWorkspaceBehaviorsPage();
     QWidget *createWorkspacePortabilityPage();
-    QWidget *createWorkspaceActivitiesPage();
     /// The KDE Plasma › File Manager tab: the default file manager and the system file chooser.
     QWidget *createFileManagerIntegrationPage();
     QGroupBox *createDefaultFileManagerGroup();
@@ -287,6 +292,13 @@ private:
     QWidget *createShortcutsIntegrationPage();
     /// The main window's tray, which owns the global shortcut, if the dialog has one.
     DesktopTray *desktopTray() const;
+    /**
+     * The KDE Plasma › Activities tab: whether Activity associations are used
+     * and offered, each Activity's association, and Activity usage reports.
+     */
+    QWidget *createActivitiesIntegrationPage();
+    /// The main window's Activity controller, which reads the Activities, if the dialog has one.
+    ActivityController *activityController() const;
     void createSettingsBackup();
     void restoreSettingsBackup();
     void exportWorkspaceProfiles();
@@ -303,6 +315,11 @@ private:
     QTabWidget *m_toolbarTabs = nullptr;
     KPageWidgetItem *m_workspacePage = nullptr;
     QTabWidget *m_workspaceTabs = nullptr;
+    KPageWidgetItem *m_plasmaPage = nullptr;
+    QTabWidget *m_plasmaTabs = nullptr;
+    ActivityAssociationsEditor *m_activityAssociations = nullptr;
+    /// The Activity associations when they were last loaded or saved, to tell whether the dialog changed them.
+    QList<ActivityAssociations::Association> m_savedActivityAssociations;
     QLabel *m_yaziWorkspaceDefault = nullptr;
     QListWidget *m_workspaceSummary = nullptr;
     StartupWorkspaceCombo *m_startupWorkspace = nullptr;

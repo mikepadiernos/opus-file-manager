@@ -3,7 +3,6 @@
 #include "mainwindow.h"
 #include "metadataeditdialog.h"
 
-#include "activityassociationsdialog.h"
 #include "activitycontroller.h"
 #include "activityreporting.h"
 #include "adminmode.h"
@@ -1018,11 +1017,10 @@ ActivityController *MainWindow::activityController() const
 
 void MainWindow::showActivityAssociations()
 {
-    reloadWorkspaceCatalog();
-    auto *dialog = new ActivityAssociationsDialog(m_activityController, m_workspaceCatalog, this);
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->setModal(true);
-    dialog->show();
+    showSettings();
+    if (auto *dialog = qobject_cast<SettingsDialog *>(KConfigDialog::exists(QLatin1String(SettingsDialog::Name)))) {
+        dialog->showActivitiesPage();
+    }
 }
 
 void MainWindow::applyActivityPlan(const ActivityAssociations::Plan &plan)

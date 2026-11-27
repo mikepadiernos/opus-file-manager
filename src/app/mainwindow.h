@@ -108,7 +108,7 @@ public:
     Pane *inactivePane() const;
 
     ActivityController *activityController() const;
-    /// Shows the dialog that associates Plasma Activities with workspaces and default folders.
+    /// Opens Preferences › KDE Plasma › Activities, where Plasma Activities are associated with workspaces and default folders.
     void showActivityAssociations();
     /**
      * Applies an Activity association the user chose to apply: switches to its
