@@ -151,7 +151,13 @@ action.
 > [!TIP]
 > **Implemented:** local `.eml` files show their headers, plain-text body and
 > attachments in the preview panel; **Extract All**, **Extract Selected** and
-> **Open** act on the attachments only when asked.
+> **Open** act on the attachments only when asked. Clear **Preview mail files
+> (.eml) in the preview panel** under **Preferences › Applications › Mail** to
+> show them as plain text instead
+> ([#668](https://github.com/mikepadiernos/plasma-opus/issues/668)). Its
+> limits are recorded under
+> [Desktop integration](../CAVEATS.md#desktop-integration) and
+> [Integration settings](../CAVEATS.md#integration-settings).
 
 - Preview local `.eml` (`message/rfc822`) files in the preview panel as plain
   text: show headers, the plain-text body or a sanitized text rendering, and
