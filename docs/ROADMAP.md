@@ -1753,7 +1753,10 @@ for some features are recorded in [pending tasks](TODO.md).
         installed, and write new files without replacing the originals.
         Identify encrypted and signed files. Support AES Crypt (`.aes`) files,
         as used by MiXplorer, only through an installed `aescrypt` tool and
-        without exposing passwords in command lines. (MiXplorer) [#655]
+        without exposing passwords in command lines. Plasma-session
+        verification is a
+        [pending handoff](TODO.md#file-encryption-on-plasma-655). (MiXplorer)
+        [#655]
 
 - **M27.08: Development tooling**
 

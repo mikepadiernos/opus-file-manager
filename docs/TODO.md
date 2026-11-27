@@ -28,6 +28,7 @@ Board statuses were last confirmed on 2026-11-26.
 | [KWin script on Plasma](#kwin-script-on-plasma-707-708)             | [M27](ROADMAP.md#m27-integrations)                                             | [#707], [#708] | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Administrator mode on Plasma](#administrator-mode-on-plasma-288)   | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Plasma Vault on Plasma](#plasma-vault-on-plasma-654)               | [M27](ROADMAP.md#m27-integrations)                                             | [#654]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
+| [File encryption on Plasma](#file-encryption-on-plasma-655)         | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                   |
 
 ## mpv integration (#563)
 
@@ -245,6 +246,40 @@ Board statuses were last confirmed on 2026-11-26.
    as unavailable. Record any differences in [CAVEATS](CAVEATS.md), then
    remove this entry and its roadmap link.
 
+## File encryption on Plasma (#655)
+
+- **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#655]
+  (Development).
+- **Blocker:** The development container has no `aescrypt` tool, no
+  Kleopatra and no pinentry program, so AES Crypt files, Kleopatra's dialogs
+  and GnuPG's password prompt cannot be tried there.
+- **Confirmed state:** **File › Encryption**, the encryption dialog and the
+  information panel row are implemented and pass their tests in the
+  container. Encrypting, decrypting, signing and verifying run against real
+  GnuPG with a key that has no password; AES Crypt and Kleopatra run
+  against fake programs that record their arguments. This verification does
+  not block the feature; it is recorded as a caveat under
+  [Desktop integration](CAVEATS.md#desktop-integration).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with GnuPG, `pinentry-qt` and Kleopatra
+   installed, create a key with a password in Kleopatra. Select a file,
+   choose **File › Encryption › Encrypt…**, pick the key and check a `.gpg`
+   file appears beside it. Choose **Decrypt** on that file and check
+   GnuPG's password prompt appears and the decrypted copy matches.
+2. Choose **Sign…** and then **Verify Signature** on the file, and check
+   the result names the key. Edit the file and verify again, checking the
+   signature is reported as bad.
+3. Choose **Sign and Encrypt with Kleopatra…** and **Decrypt and Verify
+   with Kleopatra…** and check Kleopatra's own dialogs open for the
+   selected files.
+4. Install `aescrypt`, encrypt a file with **Encrypt with AES Crypt…**,
+   decrypt it once with a wrong password and once with the right one, and
+   check the results and that no key file remains under
+   `$XDG_RUNTIME_DIR`. Record any differences in [CAVEATS](CAVEATS.md),
+   then remove this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -254,6 +289,7 @@ Board statuses were last confirmed on 2026-11-26.
 [#565]: https://github.com/mikepadiernos/plasma-opus/issues/565
 [#566]: https://github.com/mikepadiernos/plasma-opus/issues/566
 [#654]: https://github.com/mikepadiernos/plasma-opus/issues/654
+[#655]: https://github.com/mikepadiernos/plasma-opus/issues/655
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
 [#707]: https://github.com/mikepadiernos/plasma-opus/issues/707
 [#708]: https://github.com/mikepadiernos/plasma-opus/issues/708
