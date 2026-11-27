@@ -4,6 +4,7 @@
 #include "activityassociationseditor.h"
 #include "activitycontroller.h"
 #include "appidentity.h"
+#include "atuin.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
 #include "favoritesmodel.h"
@@ -1728,6 +1729,86 @@ private Q_SLOTS:
         auto *placement = dialog.findChild<QWidget *>(QStringLiteral("terminalSettingsPage"));
         QTRY_VERIFY(placement->isVisible());
         QCOMPARE(tabTitleOf(placement->findChild<QWidget *>(QStringLiteral("kcfg_TerminalPlacement"))), QStringLiteral("Embedded Terminal"));
+    }
+
+    void terminalTabChoosesTheAtuinHistory()
+    {
+        QTemporaryDir bin;
+        QTemporaryDir data;
+        QVERIFY(bin.isValid() && data.isValid());
+        const QByteArray path = qgetenv("PATH");
+        const bool hadDatabasePath = qEnvironmentVariableIsSet("ATUIN_DB_PATH");
+        const QByteArray databasePath = qgetenv("ATUIN_DB_PATH");
+        const auto restore = qScopeGuard([&] {
+            qputenv("PATH", path);
+            if (hadDatabasePath) {
+                qputenv("ATUIN_DB_PATH", databasePath);
+            } else {
+                qunsetenv("ATUIN_DB_PATH");
+            }
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        qputenv("PATH", bin.path().toLocal8Bit());
+        const QString database = data.filePath(QStringLiteral("history.db"));
+        qputenv("ATUIN_DB_PATH", database.toLocal8Bit());
+        QFile atuin(bin.filePath(QStringLiteral("atuin")));
+        QVERIFY(atuin.open(QIODevice::WriteOnly));
+        atuin.write("#!/bin/sh\n");
+        atuin.close();
+        QVERIFY(atuin.setPermissions(atuin.permissions() | QFileDevice::ExeOwner));
+
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *group = dialog.findChild<QGroupBox *>(QStringLiteral("atuinHistoryGroup"));
+        QVERIFY(group);
+        QCOMPARE(tabTitleOf(group), QStringLiteral("Terminal"));
+        auto *enabled = group->findChild<QCheckBox *>(QStringLiteral("kcfg_AtuinHistory"));
+        auto *session = group->findChild<QComboBox *>(QStringLiteral("kcfg_AtuinSession"));
+        auto *status = group->findChild<QLabel *>(QStringLiteral("atuinHistoryStatus"));
+        auto *embedded = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_EmbeddedTerminal"));
+        QVERIFY(enabled && session && status && embedded);
+        QVERIFY(enabled->isChecked());
+        QCOMPARE(session->currentIndex(), 0);
+        QCOMPARE(session->count(), 3);
+        QVERIFY(session->isEnabled());
+        QVERIFY(status->text().contains(QStringLiteral("Atuin has no command history at ") + database));
+
+        QFile history(database);
+        QVERIFY(history.open(QIODevice::WriteOnly));
+        history.close();
+        // The status is read again when the group is shown or the option toggled.
+        enabled->click();
+        enabled->click();
+        const bool konsoleInstalled = TerminalProviders::isPartInstalled(TerminalProviders::Provider::Konsole);
+        QCOMPARE(status->text().contains(QStringLiteral("Atuin is installed and has command history at ") + database), konsoleInstalled);
+        if (!TerminalProviders::isPartInstalled(TerminalProviders::Provider::Kwi)) {
+            embedded->setCurrentIndex(1);
+            QVERIFY(status->text().contains(QStringLiteral("Kwi")));
+            QVERIFY(status->text().contains(QStringLiteral("not installed")));
+            embedded->setCurrentIndex(0);
+        }
+
+        QAction *search = window.actionCollection()->action(QStringLiteral("search_terminal_history"));
+        QVERIFY(search->isVisible() && search->isEnabled());
+        enabled->click();
+        QVERIFY(!session->isEnabled());
+        QCOMPARE(status->text(), QStringLiteral("Search Command History with Atuin is hidden."));
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::atuinHistory());
+        QVERIFY(!search->isVisible() && !search->isEnabled());
+
+        enabled->click();
+        session->setCurrentIndex(1);
+        // The dialog tracks user selection in plain combo boxes.
+        Q_EMIT session->activated(1);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::atuinHistory());
+        QCOMPARE(Settings::atuinSession(), int(Settings::EnumAtuinSession::NewWhenBusy));
+        QCOMPARE(Atuin::sessionMode(), Atuin::SessionMode::NewWhenBusy);
+        QVERIFY(search->isVisible() && search->isEnabled());
     }
 };
 

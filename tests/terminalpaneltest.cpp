@@ -189,6 +189,89 @@ private Q_SLOTS:
         QVERIFY(!QFile::exists(marker));
     }
 
+    void historySearchFollowsTheSessionSetting()
+    {
+        const QString home = QDir::homePath();
+        const QString atuin = home + QStringLiteral("/.atuin/bin/atuin");
+        const QString marker = home + QStringLiteral("/atuin-arguments");
+        const auto cleanup = qScopeGuard([&home, &marker] {
+            QDir(home + QStringLiteral("/.atuin")).removeRecursively();
+            QFile::remove(Atuin::databasePath());
+            QFile::remove(marker);
+            Settings::self()->setDefaults();
+        });
+        QVERIFY(QDir().mkpath(QFileInfo(atuin).absolutePath()));
+        QFile script(atuin);
+        QVERIFY(script.open(QIODevice::WriteOnly));
+        script.write("#!/bin/sh\nprintf '%s\\n' \"$@\" > '" + marker.toLocal8Bit() + "'\n");
+        script.close();
+        QVERIFY(script.setPermissions(script.permissions() | QFileDevice::ExeOwner));
+        QVERIFY(QDir().mkpath(QFileInfo(Atuin::databasePath()).absolutePath()));
+        QFile database(Atuin::databasePath());
+        QVERIFY(database.open(QIODevice::WriteOnly));
+        database.close();
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        TerminalPanel panel;
+        panel.resize(600, 300);
+        panel.show();
+        auto *status = panel.findChild<QLabel *>(QStringLiteral("terminalPanelStatus"));
+        auto *action = panel.findChild<QAction *>(QStringLiteral("terminalPanelAtuinAction"));
+        auto *menu = qobject_cast<QMenu *>(action->parent());
+        QVERIFY(status && action && menu);
+
+        // Turned off, the menu hides the action and a request is refused.
+        Settings::setAtuinHistory(false);
+        Q_EMIT menu->aboutToShow();
+        QVERIFY(!action->isVisible());
+        panel.searchHistory();
+        QVERIFY(status->text().contains(QStringLiteral("turned off")));
+        Settings::setAtuinHistory(true);
+        Q_EMIT menu->aboutToShow();
+        QVERIFY(action->isVisible());
+
+        // Without a session, only the current-session mode refuses to open one.
+        panel.searchHistory();
+        QVERIFY(status->text().contains(QStringLiteral("Open a terminal session")));
+        QVERIFY(!panel.hasSessions());
+        Settings::setAtuinSession(Settings::EnumAtuinSession::NewWhenBusy);
+        panel.searchHistory(QUrl::fromLocalFile(folder.path()));
+        if (!panel.hasSessions()) {
+            QSKIP("KonsolePart is not available in this environment");
+        }
+        QCOMPARE(panel.sessionCount(), 1);
+        QTRY_VERIFY2(QFile::exists(marker) && QFileInfo(marker).size() > 0, qPrintable(status->text()));
+        auto *tabs = panel.findChild<QTabWidget *>(QStringLiteral("terminalSessions"));
+        QVERIFY(tabs->tabToolTip(0).endsWith(QDir::cleanPath(folder.path())));
+
+        // A busy session gets a new one beside it.
+        auto *terminal = qobject_cast<TerminalInterface *>(panel.findChild<KParts::ReadOnlyPart *>());
+        QVERIFY(terminal);
+        const auto busy = [terminal] {
+            const int foreground = terminal->foregroundProcessId();
+            return foreground > 0 && foreground != terminal->terminalProcessId();
+        };
+        QTRY_VERIFY(!busy());
+        terminal->sendInput(QStringLiteral("sleep 30\n"));
+        QTRY_VERIFY(busy());
+        QVERIFY(QFile::remove(marker));
+        panel.searchHistory();
+        QTRY_COMPARE(panel.sessionCount(), 2);
+        QTRY_VERIFY2(QFile::exists(marker) && QFileInfo(marker).size() > 0, qPrintable(status->text()));
+        QCOMPARE(tabs->currentIndex(), 1);
+
+        // The new-session mode opens one even beside an idle session, unless it has just been opened.
+        Settings::setAtuinSession(Settings::EnumAtuinSession::New);
+        QVERIFY(QFile::remove(marker));
+        panel.searchHistory(QUrl::fromLocalFile(folder.path()), true);
+        QTRY_VERIFY2(QFile::exists(marker) && QFileInfo(marker).size() > 0, qPrintable(status->text()));
+        QCOMPARE(panel.sessionCount(), 2);
+        QVERIFY(QFile::remove(marker));
+        panel.searchHistory(QUrl::fromLocalFile(folder.path()));
+        QCOMPARE(panel.sessionCount(), 3);
+        QTRY_VERIFY2(QFile::exists(marker) && QFileInfo(marker).size() > 0, qPrintable(status->text()));
+    }
+
     void terminalEditorsRunInTheirOwnSession()
     {
         QTemporaryDir bin;

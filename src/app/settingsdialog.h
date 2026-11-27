@@ -353,6 +353,9 @@ private:
     QWidget *createTerminalIntegrationPage();
     /// The Provider group of the Terminal tab: the terminals for Open Terminal Here and the embedded terminal.
     QGroupBox *createTerminalProviderGroup();
+    /// The Atuin group of the Terminal tab: the history search action and the session it opens in.
+    /// @p embedded is the embedded terminal choice, whose component the search needs.
+    QGroupBox *createAtuinHistoryGroup(QComboBox *embedded);
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
     ActivityController *activityController() const;
     void createSettingsBackup();

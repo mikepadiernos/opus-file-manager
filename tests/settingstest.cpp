@@ -1347,6 +1347,8 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("FileChooserStartFolder")), QStringLiteral("File Manager"));
         QCOMPARE(tabOf(QStringLiteral("SeparateTerminal")), QStringLiteral("Terminal"));
         QCOMPARE(tabOf(QStringLiteral("EmbeddedTerminal")), QStringLiteral("Terminal"));
+        QCOMPARE(tabOf(QStringLiteral("AtuinHistory")), QStringLiteral("Terminal"));
+        QCOMPARE(tabOf(QStringLiteral("AtuinSession")), QStringLiteral("Terminal"));
         for (const QString &entry : {QStringLiteral("NotifyChecksums"),
                                      QStringLiteral("NotifyFolderSync"),
                                      QStringLiteral("NotifyDuplicateFinder"),

@@ -5,6 +5,7 @@
 #include "activityassociationseditor.h"
 #include "activitycontroller.h"
 #include "appidentity.h"
+#include "atuin.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
 #include "favoritesmodel.h"
@@ -1467,7 +1468,9 @@ QWidget *SettingsDialog::createTerminalIntegrationPage()
     auto *page = new QWidget;
     page->setObjectName(QStringLiteral("terminalIntegrationPage"));
     auto *layout = new QVBoxLayout(page);
-    layout->addWidget(createTerminalProviderGroup());
+    QGroupBox *providers = createTerminalProviderGroup();
+    layout->addWidget(providers);
+    layout->addWidget(createAtuinHistoryGroup(providers->findChild<QComboBox *>(QStringLiteral("kcfg_EmbeddedTerminal"))));
     layout->addStretch();
     return page;
 }
@@ -1552,5 +1555,60 @@ QGroupBox *SettingsDialog::createTerminalProviderGroup()
         setCurrentPage(m_toolsPage);
         m_toolsTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("terminalSettingsPage")));
     });
+    return group;
+}
+
+QGroupBox *SettingsDialog::createAtuinHistoryGroup(QComboBox *embedded)
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Atuin"));
+    group->setObjectName(QStringLiteral("atuinHistoryGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *enabled = checkBox(QStringLiteral("AtuinHistory"), i18nc("@option:check", "Offer Search Command History with Atuin"));
+    enabled->setToolTip(i18nc("@info:tooltip", "Shows Search Command History with Atuin in the Tools menu and the terminal panel's menu"));
+    layout->addWidget(enabled);
+    auto *form = new QFormLayout;
+    auto *session = comboBox(QStringLiteral("AtuinSession"),
+                             {i18nc("@item:inlistbox", "The current session"),
+                              i18nc("@item:inlistbox", "The current session, or a new one when it is busy"),
+                              i18nc("@item:inlistbox", "A new session")});
+    session->setToolTip(i18nc("@info:tooltip",
+                              "The embedded terminal session that Atuin's search is typed into. A busy session is running a program "
+                              "rather than waiting at the shell prompt."));
+    form->addRow(i18nc("@label:listbox", "Search in:"), session);
+    layout->addLayout(form);
+    auto *status = statusLabel(QStringLiteral("atuinHistoryStatus"));
+    layout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "The search runs in the embedded terminal, with the Konsole or Kwi component chosen above. Plasma "
+                                  "Opus never reads Atuin's history or changes its history, sync or shell settings."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+
+    const auto refresh = [enabled, session, status, embedded] {
+        session->setEnabled(enabled->isChecked());
+        if (!enabled->isChecked()) {
+            status->setText(i18nc("@info", "Search Command History with Atuin is hidden."));
+            return;
+        }
+        QStringList lines;
+        if (const QString reason = Atuin::unavailableReason(); !reason.isEmpty()) {
+            lines.append(reason);
+        }
+        const QList<TerminalProviders::Provider> providers = TerminalProviders::embeddedProviders();
+        const TerminalProviders::Provider provider = providers.value(embedded ? embedded->currentIndex() : 0, TerminalProviders::Provider::Konsole);
+        if (const QString reason = TerminalProviders::partUnavailableReason(provider); !reason.isEmpty()) {
+            lines.append(reason);
+        }
+        if (lines.isEmpty()) {
+            lines.append(i18nc("@info %1 is a file path", "Atuin is installed and has command history at %1.", Atuin::databasePath()));
+        }
+        status->setText(lines.join(QLatin1Char('\n')));
+    };
+    group->refresh = refresh;
+    connect(enabled, &QCheckBox::toggled, group, refresh);
+    if (embedded) {
+        connect(embedded, &QComboBox::currentIndexChanged, group, refresh);
+    }
+    refresh();
     return group;
 }

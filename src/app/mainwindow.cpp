@@ -3444,10 +3444,12 @@ void MainWindow::setupActions()
         updateTerminalPanelVisibility();
     });
     QAction *terminalHistory = actions->addAction(QStringLiteral("search_terminal_history"), this, [this] {
+        const int sessions = m_terminalPanel->sessionCount();
         if (!m_terminalPanelAction->isChecked()) {
             m_terminalPanelAction->setChecked(true);
         }
-        m_terminalPanel->searchHistory();
+        // Showing the panel may have opened a session for the search already.
+        m_terminalPanel->searchHistory(activePane()->url(), m_terminalPanel->sessionCount() > sessions);
     });
     terminalHistory->setText(i18nc("@action", "Search Command History with Atuin"));
     terminalHistory->setToolTip(i18nc("@info:tooltip", "Open Atuin's command history search in the embedded terminal without running the chosen command"));
@@ -8094,6 +8096,9 @@ void MainWindow::applySettings()
     syncFileTypePlaces();
     actionCollection()->action(QStringLiteral("kdeconnect_send"))->setVisible(Settings::kdeConnectSharing());
     actionCollection()->action(QStringLiteral("online_accounts"))->setVisible(Settings::onlineAccountsEnabled());
+    QAction *terminalHistory = actionCollection()->action(QStringLiteral("search_terminal_history"));
+    terminalHistory->setVisible(Settings::atuinHistory());
+    terminalHistory->setEnabled(Settings::atuinHistory());
     if (m_mountBackend) {
         // Lists system file systems, or leaves them out, as now chosen.
         m_mountBackend->refresh();
