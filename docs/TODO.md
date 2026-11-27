@@ -51,6 +51,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Remote connection settings on Plasma](#remote-connection-settings-on-plasma-297) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#297]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 | [rclone settings on Plasma](#rclone-settings-on-plasma-663)                       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#663]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 | [Remote drive settings on Plasma](#remote-drive-settings-on-plasma-704)           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#704]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
+| [Cloud sync settings on Plasma](#cloud-sync-settings-on-plasma-720)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#720]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 
 ## mpv integration (#563)
 
@@ -1080,6 +1081,51 @@ Board statuses were last confirmed on 2026-11-27.
    Record any differences in [CAVEATS](CAVEATS.md#integration-settings), then
    remove this entry and its roadmap link.
 
+## Cloud sync settings on Plasma (#720)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#720]
+  (Development).
+- **Blocker:** The development container has no Plasma session, system tray,
+  NetworkManager or rclone, so starting at login, pausing on metered
+  connections and rclone's `--conflict-resolve` are tested only with a
+  test-mode autostart folder, a fake metered check and the generated rclone
+  arguments.
+- **Confirmed state:** `SettingsDialog::createSyncIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` embeds `CloudSyncPairsWidget` from
+  `src/app/cloudsyncdialog.cpp`, the pair list of **File › Cloud Sync…**, and
+  stores the `CloudSync` group's `CloudSyncAtLogin`, `CloudSyncPauseOnMetered`
+  and `CloudSyncCheckInterval`. `MainWindow::applySettings()` writes or removes
+  `autostart/org.kde.opusfilemanager-cloud-sync.desktop`, which starts
+  `--background-sync`, and `CloudSync::Scheduler` reads the metered and
+  interval keys. Pairs store `DefaultInterval` and `ConflictChoice`;
+  `CloudSync::Runner::planRun()` applies the choice to automatic runs and
+  `CloudSync::rcloneArguments()` passes it to bisync. `cloudsynctest`,
+  `cloudsyncrunnertest`, `cloudsyncdialogtest` and `integrationsettingstest`
+  pass in the container. See
+  [Cloud sync settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, add a pair under **Preferences › Remote and Cloud › Sync**, check
+   that it appears in **File › Cloud Sync…** at once, and that cancelling
+   Preferences keeps it.
+2. Check **Start Plasma Opus in the system tray at login to synchronize pairs
+   in the background**, apply, and check that **Open Autostart Settings…**
+   lists the entry. Log out and in, and check that Plasma Opus starts in the
+   tray without a window and synchronizes the pair on the default interval.
+   With **Start Plasma Opus in the system tray at login** under **Remote
+   Drives** also checked, check that a single tray instance starts. Clear the
+   setting and check that the entry is removed.
+3. With NetworkManager, mark the connection as metered (`nmcli connection
+   modify ID connection.metered yes`), check that the tab reports it and that
+   background runs wait, then clear **Pause background synchronization on
+   metered connections** and check that they run.
+4. With rclone 1.66 or later, give an rclone pair **Keep Local Version**,
+   change a file on both sides, and check that **Sync Now** keeps the local
+   version and bisync keeps the remote one under a conflict name. Record any
+   differences in [CAVEATS](CAVEATS.md#integration-settings), then remove this
+   entry.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1115,4 +1161,5 @@ Board statuses were last confirmed on 2026-11-27.
 [#708]: https://github.com/mikepadiernos/plasma-opus/issues/708
 [#709]: https://github.com/mikepadiernos/plasma-opus/issues/709
 [#710]: https://github.com/mikepadiernos/plasma-opus/issues/710
+[#720]: https://github.com/mikepadiernos/plasma-opus/issues/720
 [#750]: https://github.com/mikepadiernos/plasma-opus/issues/750
