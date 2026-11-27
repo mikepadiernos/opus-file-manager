@@ -455,7 +455,10 @@ behaves like the rest of the desktop and follows the user's choices.
   absolute paths, without a shell; terminal editors start in the first
   file's folder and their tab closes when they exit. KWrite and Kate also
   open remote files, while terminal editors report them, as they do folders.
-  **Open Editor** still opens the built-in editor. See
+  **Open Editor** still opens the built-in editor. Choose whether terminal
+  editors run in the embedded terminal or in a separate window of KDE's
+  default terminal under **Preferences › Applications › Editor**
+  ([#320](https://github.com/mikepadiernos/plasma-opus/issues/320)). See
   [Editor integrations](../CAVEATS.md#desktop-integration).
   ([#319](https://github.com/mikepadiernos/plasma-opus/issues/319))
 - **Office documents:** The preview panel shows OpenDocument and Microsoft
@@ -483,7 +486,13 @@ behaves like the rest of the desktop and follows the user's choices.
   [Tenacity](https://tenacityaudio.org/). It uses the first installed tool
   in that order, and its tooltip names the tool or the tools to install.
   Files that can be viewed but not edited, such as videos and PDF documents,
-  leave it disabled. See [Edit action](../CAVEATS.md#desktop-integration).
+  leave it disabled. Choose KWrite, Kate, Neovim, Rune, micro or nano for
+  text files instead of the built-in editor under
+  **Preferences › Applications › Editor**, which marks the editors that
+  aren't installed; a chosen editor that isn't installed is reported rather
+  than replaced
+  ([#320](https://github.com/mikepadiernos/plasma-opus/issues/320)). See
+  [Edit action](../CAVEATS.md#desktop-integration).
   ([#675](https://github.com/mikepadiernos/plasma-opus/issues/675))
 - **Editing in the preview:** When the preview panel shows a text file,
   **Edit** switches it in place to the built-in KTextEditor editor with the
