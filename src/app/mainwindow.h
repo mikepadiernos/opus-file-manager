@@ -25,8 +25,10 @@
 #include <QHash>
 #include <QList>
 #include <QPointer>
+#include <QSet>
 #include <QUrl>
 #include <memory>
+#include <optional>
 
 class ActivityController;
 class CloudActivityDialog;
@@ -218,6 +220,8 @@ public:
     void showNextcloudAccounts();
     /// Opens the files of @p account in the active pane, or in the other pane when @p otherPane is set.
     void openNextcloudAccount(const NextcloudAccounts::Account &account, bool otherPane);
+    /// The server permissions of the Nextcloud folder @p url, when they have been read.
+    std::optional<Nextcloud::FolderPermissions> nextcloudPermissions(const QUrl &url) const;
     /// Opens @p profile in the active pane, or in the other pane when @p otherPane is set.
     void openRemoteProfile(const RemoteProfiles::Profile &profile, bool otherPane);
     /// Opens an SSH session for @p profile in the terminal panel.
@@ -409,6 +413,12 @@ private:
     void setActivePane(Pane *pane);
     void connectPane(Pane *pane);
     void updateActions();
+    /// Reads the server permissions of the folder shown in @p pane when it belongs to a Nextcloud account.
+    void fetchNextcloudPermissions(Pane *pane);
+    /// Stores the permissions of @p folder and applies them to the actions.
+    void nextcloudPermissionsFetched(const QUrl &folder, const Nextcloud::FolderPermissions &permissions, const QString &error);
+    /// Disables the actions that the Nextcloud server forbids for @p selected, explaining why.
+    void applyNextcloudPermissions(const KFileItemList &selected);
     void updateFolderGateActions();
     void updateStatusBarIndicatorOrder();
     void updateStatusBar();
@@ -634,6 +644,13 @@ private:
     /// The Nextcloud accounts as last listed, to recognize their folders.
     QList<NextcloudAccounts::Account> m_nextcloudAccounts;
     std::unique_ptr<Nextcloud::PasswordServerStore> m_nextcloudStore;
+    /// Whether m_nextcloudAccounts has been read.
+    bool m_nextcloudAccountsLoaded = false;
+    NextcloudClient *m_nextcloudClient = nullptr;
+    /// The server permissions of the Nextcloud folders shown in the panes, by folder.
+    QHash<QString, Nextcloud::FolderPermissions> m_nextcloudPermissions;
+    /// The folders whose permissions are being read.
+    QSet<QString> m_nextcloudPermissionsPending;
     PlasmaVaultMenu *m_plasmaVaultMenu = nullptr;
     QList<Rclone::Remote> m_rcloneRemotes;
     QString m_rcloneError;

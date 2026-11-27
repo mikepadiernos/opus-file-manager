@@ -1773,6 +1773,9 @@ void MainWindow::connectPane(Pane *pane)
     });
     connect(pane, &Pane::tabCountChanged, this, &MainWindow::updateTabBars);
     connect(pane, &Pane::statusMessage, this, &MainWindow::showStatusMessage);
+    connect(pane->view(), &FolderView::listingReady, this, [this, pane] {
+        fetchNextcloudPermissions(pane);
+    });
     connect(pane->view(), &FolderView::itemActivated, this, [this, pane](const KFileItem &item) {
         activatePaneItem(pane, item);
     });
@@ -4561,6 +4564,7 @@ void MainWindow::updateActions()
     if (!pasteText.isEmpty()) {
         m_pasteAction->setText(pasteText);
     }
+    applyNextcloudPermissions(selected);
 
     actions->action(stdName(KStandardAction::Back))->setEnabled(activePane()->tabs()->canGoBack());
     actions->action(stdName(KStandardAction::Forward))->setEnabled(activePane()->tabs()->canGoForward());
@@ -6433,6 +6437,7 @@ void MainWindow::populateNextcloud()
 {
     QString error;
     m_nextcloudAccounts = nextcloudAccounts(&error);
+    m_nextcloudAccountsLoaded = true;
     NextcloudMenu::populate(m_nextcloudMenu,
                             m_nextcloudAccounts,
                             error,
@@ -6461,6 +6466,7 @@ void MainWindow::showNextcloudAccounts()
     connect(dialog, &NextcloudAccountsDialog::openRequested, this, &MainWindow::openNextcloudAccount);
     connect(dialog, &NextcloudAccountsDialog::accountsChanged, this, [this] {
         m_nextcloudAccounts = nextcloudAccounts();
+        m_nextcloudAccountsLoaded = true;
     });
     dialog->show();
 }
@@ -6475,12 +6481,141 @@ void MainWindow::openNextcloudAccount(const NextcloudAccounts::Account &account,
     const QUrl url = NextcloudAccounts::filesUrl(account);
     if (!m_nextcloudAccounts.contains(account)) {
         m_nextcloudAccounts = nextcloudAccounts();
+        m_nextcloudAccountsLoaded = true;
     }
     if (otherPane && isDualLayout() && !inactivePane()->isHidden()) {
         inactivePane()->setUrl(url);
         return;
     }
     activePane()->setUrl(url);
+}
+
+namespace
+{
+/// Identifies a folder in MainWindow::m_nextcloudPermissions.
+QString nextcloudFolderKey(const QUrl &url)
+{
+    return url.adjusted(QUrl::RemoveUserInfo | QUrl::StripTrailingSlash).toString();
+}
+
+/// Whether @p url may be a folder of a Nextcloud account, checked before looking for its account.
+bool mayBeNextcloudFolder(const QUrl &url)
+{
+    return (url.scheme() == QLatin1String("webdavs") || url.scheme() == QLatin1String("webdav"))
+        && url.path().contains(QLatin1String("/remote.php/dav/files/"));
+}
+}
+
+std::optional<Nextcloud::FolderPermissions> MainWindow::nextcloudPermissions(const QUrl &url) const
+{
+    const auto permissions = m_nextcloudPermissions.constFind(nextcloudFolderKey(url));
+    if (permissions == m_nextcloudPermissions.cend()) {
+        return std::nullopt;
+    }
+    return *permissions;
+}
+
+void MainWindow::fetchNextcloudPermissions(Pane *pane)
+{
+    const QUrl folder = pane->url();
+    if (!mayBeNextcloudFolder(folder) || pane->view()->isFlat()) {
+        return;
+    }
+    std::optional<NextcloudAccounts::Account> account = NextcloudAccounts::accountForUrl(m_nextcloudAccounts, folder);
+    if (!account && !m_nextcloudAccountsLoaded) {
+        m_nextcloudAccounts = nextcloudAccounts();
+        m_nextcloudAccountsLoaded = true;
+        account = NextcloudAccounts::accountForUrl(m_nextcloudAccounts, folder);
+    }
+    const QString key = nextcloudFolderKey(folder);
+    if (!account || m_nextcloudPermissionsPending.contains(key)) {
+        return;
+    }
+    if (!m_nextcloudClient) {
+        if (!m_nextcloudStore) {
+            m_nextcloudStore = std::make_unique<Nextcloud::PasswordServerStore>(winId());
+        }
+        m_nextcloudClient = new NextcloudClient(this);
+        m_nextcloudClient->setCredentialStore(m_nextcloudStore.get());
+        connect(m_nextcloudClient, &NextcloudClient::permissionsFetched, this, &MainWindow::nextcloudPermissionsFetched);
+    }
+    m_nextcloudPermissionsPending.insert(key);
+    m_nextcloudClient->fetchPermissions(*account, folder);
+}
+
+void MainWindow::nextcloudPermissionsFetched(const QUrl &folder, const Nextcloud::FolderPermissions &permissions, const QString &error)
+{
+    const QString key = nextcloudFolderKey(folder);
+    m_nextcloudPermissionsPending.remove(key);
+    // Keep only the folders still shown, so that permissions never outlive their listing.
+    QSet<QString> shown{nextcloudFolderKey(activePane()->url())};
+    if (isDualLayout() && !inactivePane()->isHidden()) {
+        shown.insert(nextcloudFolderKey(inactivePane()->url()));
+    }
+    m_nextcloudPermissions.removeIf([&shown](const auto &entry) {
+        return !shown.contains(entry.key());
+    });
+    // Without permissions, nothing is disabled and the server reports what it refuses.
+    if (!error.isEmpty() || !shown.contains(key)) {
+        m_nextcloudPermissions.remove(key);
+        updateActions();
+        return;
+    }
+    m_nextcloudPermissions.insert(key, permissions);
+    updateActions();
+    if (key == nextcloudFolderKey(activePane()->url()) && !Nextcloud::deniedReason(Nextcloud::Operation::Create, permissions, {}).isEmpty()) {
+        showStatusMessage(i18nc("@info:status", "The Nextcloud server doesn't allow adding items to this folder."));
+    }
+}
+
+void MainWindow::applyNextcloudPermissions(const KFileItemList &selected)
+{
+    const std::optional<Nextcloud::FolderPermissions> active = nextcloudPermissions(activePane()->url());
+    std::optional<Nextcloud::FolderPermissions> other;
+    if (isDualLayout() && !inactivePane()->isHidden()) {
+        other = nextcloudPermissions(inactivePane()->url());
+    }
+    // Only the folder's own items have permissions; a flat list also shows deeper ones.
+    QStringList names;
+    const QUrl folder = activePane()->url().adjusted(QUrl::StripTrailingSlash);
+    for (const KFileItem &item : selected) {
+        if (item.url().adjusted(QUrl::RemoveFilename | QUrl::StripTrailingSlash).matches(folder, QUrl::RemoveUserInfo)) {
+            names.append(item.name());
+        }
+    }
+    auto denied = [&names](const std::optional<Nextcloud::FolderPermissions> &permissions, Nextcloud::Operation operation) {
+        return permissions ? Nextcloud::deniedReason(operation, *permissions, names) : QString();
+    };
+    const char *defaultToolTip = "opusDefaultToolTip";
+    const char *deniedToolTip = "opusNextcloudToolTip";
+    auto restrict = [&](QAction *action, const QString &reason) {
+        if (!action->property(defaultToolTip).isValid()) {
+            action->setProperty(defaultToolTip, action->toolTip());
+        }
+        if (reason.isEmpty()) {
+            // Restore the tooltip only if nothing else changed it since.
+            const QString shown = action->property(deniedToolTip).toString();
+            if (!shown.isEmpty() && action->toolTip() == shown) {
+                action->setToolTip(action->property(defaultToolTip).toString());
+            }
+            action->setProperty(deniedToolTip, QString());
+            return;
+        }
+        action->setEnabled(false);
+        action->setToolTip(reason);
+        action->setProperty(deniedToolTip, reason);
+    };
+    KActionCollection *actions = actionCollection();
+    const QString move = denied(active, Nextcloud::Operation::Move);
+    const QString intoOther = denied(other, Nextcloud::Operation::Create);
+    restrict(actions->action(QStringLiteral("rename")), denied(active, Nextcloud::Operation::Rename));
+    restrict(actions->action(QStringLiteral("delete")), denied(active, Nextcloud::Operation::Delete));
+    restrict(actions->action(stdName(KStandardAction::Cut)), move);
+    restrict(actions->action(QStringLiteral("move_to_other_pane")), !move.isEmpty() ? move : intoOther);
+    restrict(actions->action(QStringLiteral("copy_to_other_pane")), intoOther);
+    restrict(m_pasteAction, denied(active, Nextcloud::Operation::Create));
+    restrict(actions->action(QStringLiteral("new_menu")), denied(active, Nextcloud::Operation::Create));
+    restrict(actions->action(QStringLiteral("new_folder")), denied(active, Nextcloud::Operation::CreateFolder));
 }
 
 void MainWindow::showRemoteConnections()

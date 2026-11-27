@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "nextcloudaccountsdialog.h"
+#include "folderview.h"
 #include "mainwindow.h"
 #include "nextcloudmenu.h"
+#include "pane.h"
 #include "settings.h"
 
 #include <KActionCollection>
 #include <KActionMenu>
 #include <KConfig>
 #include <KConfigGroup>
+#include <KProtocolInfo>
 #include <KSharedConfig>
 
 #include <QAction>
@@ -59,10 +62,21 @@ bool knownProtocol(const QString &)
     return true;
 }
 
-QByteArray reply(const QByteArray &status, const QByteArray &body)
+QByteArray reply(const QByteArray &status, const QByteArray &body, const QByteArray &type = "application/json")
 {
-    return "HTTP/1.1 " + status + "\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: " + QByteArray::number(body.size())
+    return "HTTP/1.1 " + status + "\r\nContent-Type: " + type + "; charset=utf-8\r\nContent-Length: " + QByteArray::number(body.size())
         + "\r\nConnection: close\r\n\r\n" + body;
+}
+
+/// A WebDAV response for @p href, a folder when @p size is negative.
+QByteArray davResponse(const QByteArray &href, const QByteArray &permissions, int size = -1)
+{
+    const QByteArray type = size < 0
+        ? QByteArray("<d:resourcetype><d:collection/></d:resourcetype>")
+        : "<d:resourcetype/><d:getcontentlength>" + QByteArray::number(size) + "</d:getcontentlength><d:getcontenttype>text/plain</d:getcontenttype>";
+    return "<d:response><d:href>" + href + "</d:href><d:propstat><d:prop>" + type
+        + "<d:getlastmodified>Tue, 03 Nov 2026 10:00:00 GMT</d:getlastmodified><oc:permissions>" + permissions
+        + "</oc:permissions></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>";
 }
 }
 
@@ -146,6 +160,14 @@ private:
             return reply("200 OK",
                          "{\"server\":\"" + base().toString().toUtf8() + "\",\"loginName\":\"alice@example.com\",\"appPassword\":\"" + appPassword.toUtf8()
                              + "\"}");
+        }
+        if (method == "PROPFIND" && (path == "/remote.php/dav/files/alice" || path == "/remote.php/dav/files/alice/")) {
+            // A shared folder that allows neither new files nor folders, with one read-only file.
+            const QByteArray folder = "/remote.php/dav/files/alice/";
+            return reply("207 Multi-Status",
+                         "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\" xmlns:oc=\"http://owncloud.org/ns\">" + davResponse(folder, "SGDNV")
+                             + davResponse(folder + "Locked.txt", "SG", 5) + davResponse(folder + "Open.txt", "GDNVW", 4) + "</d:multistatus>",
+                         "application/xml");
         }
         if (method == "DELETE" && path == "/ocs/v2.php/core/apppassword" && authorized) {
             ++m_revocations;
@@ -477,6 +499,50 @@ private Q_SLOTS:
         QVERIFY(dialog);
         QCOMPARE(dialog->accounts().size(), 1);
         dialog->close();
+    }
+
+    void browsingRespectsServerPermissions()
+    {
+        if (!KProtocolInfo::isKnownProtocol(QStringLiteral("webdav"))) {
+            QSKIP("The KIO WebDAV worker isn't installed.");
+        }
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            KSharedConfig::openConfig()->deleteGroup(NextcloudAccounts::groupName());
+        });
+        QList<Account> accounts;
+        Account account;
+        account.server = base();
+        account.user = QStringLiteral("alice");
+        accounts.append(account);
+        QVERIFY(NextcloudAccounts::save(KSharedConfig::openConfig()->group(NextcloudAccounts::groupName()), accounts));
+        account = NextcloudAccounts::load(KSharedConfig::openConfig()->group(NextcloudAccounts::groupName())).value(0);
+        QVERIFY(!account.id.isEmpty());
+
+        MainWindow window;
+        window.openNextcloudAccount(account, false);
+        const QUrl folder = NextcloudAccounts::filesUrl(account);
+        QCOMPARE(window.activePane()->url().adjusted(QUrl::StripTrailingSlash), folder.adjusted(QUrl::StripTrailingSlash));
+        QTRY_VERIFY_WITH_TIMEOUT(window.nextcloudPermissions(folder).has_value(), 20000);
+
+        KActionCollection *actions = window.actionCollection();
+        QAction *rename = actions->action(QStringLiteral("rename"));
+        QAction *remove = actions->action(QStringLiteral("delete"));
+        QAction *newFolder = actions->action(QStringLiteral("new_folder"));
+        QVERIFY(!newFolder->isEnabled());
+        QVERIFY(newFolder->toolTip().contains(QStringLiteral("Nextcloud server")));
+
+        FolderView *view = window.activePane()->view();
+        view->selectUrls({folder.resolved(QUrl(QStringLiteral("Locked.txt")))});
+        QTRY_VERIFY(!rename->isEnabled());
+        QVERIFY(!remove->isEnabled());
+        QVERIFY(rename->toolTip().contains(QStringLiteral("renaming")));
+        QVERIFY(remove->toolTip().contains(QStringLiteral("deleting")));
+
+        view->selectUrls({folder.resolved(QUrl(QStringLiteral("Open.txt")))});
+        QTRY_VERIFY(rename->isEnabled());
+        QVERIFY(remove->isEnabled());
+        QVERIFY(!rename->toolTip().contains(QStringLiteral("renaming")));
     }
 };
 
