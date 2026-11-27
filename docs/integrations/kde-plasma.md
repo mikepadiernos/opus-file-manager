@@ -641,9 +641,20 @@ behaves like the rest of the desktop and follows the user's choices.
   Plasma Opus only reads remote names and types: it never reads, stores or
   changes rclone's configuration or credentials, and rclone reports an
   error instead of asking for a configuration password. Missing rclone,
-  listing and mount errors are reported. See
-  [rclone cloud storage](../CAVEATS.md#desktop-integration).
-  ([#652](https://github.com/mikepadiernos/plasma-opus/issues/652))
+  listing and mount errors are reported.
+  Under **Preferences › Remote and Cloud › rclone**, turn the integration off to
+  hide **Go › Cloud Storage** and its shortcut, clear the remotes the menu
+  leaves out, and choose to serve remotes over WebDAV instead of mounting them.
+  A served remote runs `rclone serve webdav` on 127.0.0.1, at a port derived
+  from its name, and opens through KIO's WebDAV worker; it needs no FUSE. Its
+  password is created once, passed to rclone in its environment rather than on
+  the command line, and kept by KDE's password server, in KDE Wallet when it's
+  enabled, so KIO signs in without asking and the location shows no password.
+  Served remotes are checked too, and the menu's **Stop Serving** section stops
+  them. See [rclone cloud storage](../CAVEATS.md#desktop-integration) and
+  [rclone settings](../CAVEATS.md#integration-settings).
+  ([#652](https://github.com/mikepadiernos/plasma-opus/issues/652),
+  [#663](https://github.com/mikepadiernos/plasma-opus/issues/663))
 - **Remote drives:** each saved connection in **Go › Remote Connections**
   offers **Mount as Folder**, which mounts it as a local folder that
   applications without KIO support can open and save in, opens it in the
