@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "terminalproviders.h"
+#include "settings.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -46,6 +47,21 @@ private Q_SLOTS:
         QCOMPARE(TerminalProviders::partPluginId(Provider::Kwi), QStringLiteral("kwipart"));
         QVERIFY(TerminalProviders::partPluginId(Provider::Yakuake).isEmpty());
         QVERIFY(TerminalProviders::partPluginId(Provider::SystemDefault).isEmpty());
+    }
+
+    void readsTheSeparateProvider()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+        });
+        Settings::self()->setDefaults();
+        QCOMPARE(TerminalProviders::separateProvider(), Provider::SystemDefault);
+        // The setting's choices follow separateProviders().
+        const QList<Provider> separate = TerminalProviders::separateProviders();
+        for (int choice = 0; choice < separate.size(); ++choice) {
+            Settings::setSeparateTerminal(static_cast<Settings::EnumSeparateTerminal::type>(choice));
+            QCOMPARE(TerminalProviders::separateProvider(), separate.at(choice));
+        }
     }
 
     void buildsLaunchArguments()

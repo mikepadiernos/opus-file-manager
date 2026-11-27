@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "terminalproviders.h"
+#include "settings.h"
 
 #include <KLocalizedString>
 #include <KPluginMetaData>
@@ -21,6 +22,20 @@ QList<Provider> separateProviders()
 QList<Provider> embeddedProviders()
 {
     return {Provider::Konsole, Provider::Kwi};
+}
+
+Provider separateProvider()
+{
+    switch (Settings::separateTerminal()) {
+    case Settings::EnumSeparateTerminal::Konsole:
+        return Provider::Konsole;
+    case Settings::EnumSeparateTerminal::Yakuake:
+        return Provider::Yakuake;
+    case Settings::EnumSeparateTerminal::Kwi:
+        return Provider::Kwi;
+    default:
+        return Provider::SystemDefault;
+    }
 }
 
 QString id(Provider provider)

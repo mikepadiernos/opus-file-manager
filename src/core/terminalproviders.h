@@ -27,6 +27,9 @@ QList<Provider> separateProviders();
 /// Providers whose terminal component can be embedded in the terminal panel.
 QList<Provider> embeddedProviders();
 
+/// The provider Open Terminal Here uses, from the SeparateTerminal setting.
+Provider separateProvider();
+
 /// A stable identifier, such as "konsole".
 QString id(Provider provider);
 /// The translated name shown in menus and messages.

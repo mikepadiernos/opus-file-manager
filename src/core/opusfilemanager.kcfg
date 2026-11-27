@@ -432,6 +432,16 @@
       </choices>
       <default>Konsole</default>
     </entry>
+    <entry name="SeparateTerminal" type="Enum">
+      <label>Terminal application that Open Terminal Here opens the active folder in</label>
+      <choices>
+        <choice name="SystemDefault"/>
+        <choice name="Konsole"/>
+        <choice name="Yakuake"/>
+        <choice name="Kwi"/>
+      </choices>
+      <default>SystemDefault</default>
+    </entry>
   </group>
   <group name="Search">
     <entry name="DefaultSearchScope" type="Enum">
