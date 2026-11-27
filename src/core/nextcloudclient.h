@@ -3,12 +3,14 @@
 #pragma once
 
 #include "nextcloudaccount.h"
+#include "nextcloudassets.h"
 
 #include <KIO/AuthInfo>
 
 #include <QByteArray>
 #include <QFlags>
 #include <QHash>
+#include <QImage>
 #include <QObject>
 #include <QPointer>
 #include <QString>
@@ -150,6 +152,8 @@ QString deniedReason(Operation operation, const FolderPermissions &permissions, 
 
 /// Whether a failed request means the saved sign-in no longer works.
 bool isAccessExpired(int kioError, int httpStatus);
+/// The HTTP status of a finished KIO job, or 0 when it has none.
+int httpStatus(KJob *job);
 /// A message for a failed request, from its KIO error, HTTP status and error text.
 QString errorMessage(int kioError, int httpStatus, const QString &errorText);
 /// One line per finding of @p status, for showing to the user.
@@ -219,6 +223,14 @@ public:
     void fetchPermissions(const NextcloudAccounts::Account &account, const QUrl &folder);
     /// Asks the server to delete the account's app password.
     void revokeAppPassword(const NextcloudAccounts::Account &account);
+    /// Reads the server's properties and metadata of the file or folder @p item.
+    void fetchMetadata(const NextcloudAccounts::Account &account, const QUrl &item);
+    /**
+     * Asks the server for its preview of the file @p fileId, shown at @p size,
+     * instead of downloading the file. Fails when the server has no preview or
+     * it is larger than Nextcloud::PreviewByteLimit.
+     */
+    void fetchPreview(const NextcloudAccounts::Account &account, const QString &fileId, const QSize &size, const QUrl &item);
 
 Q_SIGNALS:
     void checked(const QString &accountId, const Nextcloud::Status &status);
@@ -228,6 +240,9 @@ Q_SIGNALS:
     void loginFailed(const QString &error);
     void permissionsFetched(const QUrl &folder, const Nextcloud::FolderPermissions &permissions, const QString &error);
     void revoked(const QString &accountId, const QString &error);
+    void metadataFetched(const QUrl &item, const Nextcloud::FileMetadata &metadata, const QString &error);
+    /// The server's preview of @p item, or a null image and why there is none.
+    void previewFetched(const QUrl &item, const QImage &image, const QString &error);
 
 private:
     struct Check;

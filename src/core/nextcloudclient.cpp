@@ -337,6 +337,11 @@ bool Nextcloud::isAccessExpired(int kioError, int httpStatus)
     return kioError == KIO::ERR_ACCESS_DENIED || kioError == KIO::ERR_CANNOT_AUTHENTICATE || kioError == KIO::ERR_CANNOT_LOGIN;
 }
 
+int Nextcloud::httpStatus(KJob *job)
+{
+    return responseCode(job);
+}
+
 QString Nextcloud::errorMessage(int kioError, int httpStatus, const QString &errorText)
 {
     if (isAccessExpired(kioError, httpStatus)) {
