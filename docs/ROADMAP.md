@@ -1817,7 +1817,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **File manager**
 
-  - [ ] **Default:** show the current desktop file-manager association and offer
+  - [x] **Default:** show the current desktop file-manager association and offer
         an explicit action to set Plasma Opus as the user default; report
         failures. Plasma-session verification is a
         [pending handoff](TODO.md#default-file-manager-on-plasma-293). [#293]
