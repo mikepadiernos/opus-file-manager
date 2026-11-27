@@ -6280,10 +6280,11 @@ void MainWindow::populateRemoteConnections()
 void MainWindow::populateOnlineAccounts()
 {
     QString error;
-    const QList<OnlineAccounts::Account> accounts = OnlineAccounts::readAccounts(&error);
+    // The accounts are read only after opting in.
+    const QList<OnlineAccounts::Account> accounts = Settings::onlineAccountsEnabled() ? OnlineAccounts::readAccounts(&error) : QList<OnlineAccounts::Account>();
     OnlineAccountsMenu::populate(
         m_onlineAccountsMenu,
-        accounts,
+        OnlineAccounts::shownAccounts(accounts, Settings::onlineAccountsHidden()),
         error,
         [](const QString &protocol) {
             return KProtocolInfo::isKnownProtocol(protocol);
@@ -8028,6 +8029,7 @@ void MainWindow::applySettings()
     m_desktopTray->applySettings();
     m_activityController->applySettings();
     actionCollection()->action(QStringLiteral("kdeconnect_send"))->setVisible(Settings::kdeConnectSharing());
+    actionCollection()->action(QStringLiteral("online_accounts"))->setVisible(Settings::onlineAccountsEnabled());
     if (!Settings::kdeConnectRememberDevice()) {
         KdeConnectShare::forgetDevice();
     }

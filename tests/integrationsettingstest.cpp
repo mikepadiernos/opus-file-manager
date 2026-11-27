@@ -9,6 +9,7 @@
 #include "favoritesmodel.h"
 #include "filechooser.h"
 #include "mainwindow.h"
+#include "onlineaccounts.h"
 #include "operationjob.h"
 #include "portalsetup.h"
 #include "runnermatches.h"
@@ -16,6 +17,7 @@
 #include "settingsdialog.h"
 
 #include <KActionCollection>
+#include <KActionMenu>
 #include <KConfig>
 #include <KConfigGroup>
 #include <KFilePlacesModel>
@@ -38,11 +40,19 @@
 #include <QFileInfo>
 #include <QLabel>
 #include <QListWidget>
+#include <QMenu>
 #include <QPushButton>
 #include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTabWidget>
+#include <QTemporaryDir>
 #include <QTest>
+
+#ifdef OPUSFM_HAVE_ACCOUNTS
+#include <Accounts/Account>
+#include <Accounts/Manager>
+#include <Accounts/Service>
+#endif
 
 extern KSERVICE_EXPORT int ksycoca_ms_between_checks;
 
@@ -154,6 +164,7 @@ private:
 
     int m_restarts = 0;
     QStringList m_questions;
+    QTemporaryDir m_accountsDir;
 
 private Q_SLOTS:
     void initTestCase()
@@ -164,6 +175,11 @@ private Q_SLOTS:
         m_configHome = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
         // The desktop-specific list of the developer's session must not apply.
         qputenv("XDG_CURRENT_DESKTOP", "KDE");
+        // Keep libaccounts away from the real account database.
+        QVERIFY(m_accountsDir.isValid());
+        qputenv("ACCOUNTS", m_accountsDir.path().toUtf8());
+        qputenv("AG_PROVIDERS", m_accountsDir.path().toUtf8());
+        qputenv("AG_SERVICES", m_accountsDir.path().toUtf8());
     }
 
     void init()
@@ -787,6 +803,130 @@ private Q_SLOTS:
         auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("plasmaSearchMessage"));
         QCOMPARE(message->messageType(), KMessageWidget::Error);
         QVERIFY(message->text().contains(QStringLiteral("search settings are not installed")));
+    }
+
+    void onlineAccountsTabChoosesTheShownAccounts()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+#ifdef OPUSFM_HAVE_ACCOUNTS
+        const auto write = [this](const QString &name, const QByteArray &content) {
+            QFile file(m_accountsDir.filePath(name));
+            return file.open(QIODevice::WriteOnly) && file.write(content) == content.size();
+        };
+        QVERIFY(write(QStringLiteral("nextcloud.provider"), "<?xml version=\"1.0\"?><provider id=\"nextcloud\"><name>Nextcloud</name></provider>"));
+        QVERIFY(write(QStringLiteral("google.provider"), "<?xml version=\"1.0\"?><provider id=\"google\"><name>Google</name></provider>"));
+        QVERIFY(write(QStringLiteral("mail.provider"), "<?xml version=\"1.0\"?><provider id=\"mail\"><name>Mail</name></provider>"));
+        QVERIFY(write(QStringLiteral("nextcloud-storage.service"),
+                      "<?xml version=\"1.0\"?><service id=\"nextcloud-storage\"><type>dav-storage</type><name>Storage</name>"
+                      "<provider>nextcloud</provider></service>"));
+        QVERIFY(write(QStringLiteral("google-drive.service"),
+                      "<?xml version=\"1.0\"?><service id=\"google-drive\"><type>google-drive</type><name>Drive</name>"
+                      "<provider>google</provider></service>"));
+        QString googleId;
+        {
+            Accounts::Manager manager(Accounts::Manager::DisableNotifications);
+            const Accounts::AccountIdList existing = manager.accountList();
+            for (const Accounts::AccountId id : existing) {
+                manager.account(id)->remove();
+                QVERIFY(manager.account(id)->syncAndBlock());
+            }
+            Accounts::Account *nextcloud = manager.createAccount(QStringLiteral("nextcloud"));
+            nextcloud->setDisplayName(QStringLiteral("alex"));
+            nextcloud->setEnabled(true);
+            nextcloud->setValue(QStringLiteral("dav/host"), QStringLiteral("cloud.example.org"));
+            QVERIFY(nextcloud->syncAndBlock());
+            Accounts::Account *google = manager.createAccount(QStringLiteral("google"));
+            google->setDisplayName(QStringLiteral("someone@gmail.com"));
+            google->setEnabled(true);
+            QVERIFY(google->syncAndBlock());
+            googleId = QString::number(google->id());
+            Accounts::Account *mail = manager.createAccount(QStringLiteral("mail"));
+            mail->setDisplayName(QStringLiteral("letters"));
+            QVERIFY(mail->syncAndBlock());
+        }
+#endif
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("onlineAccountsIntegrationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QCOMPARE(tabs->indexOf(page), 7);
+        QCOMPARE(tabs->tabText(7), QStringLiteral("Online Accounts"));
+
+        auto *menu = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("online_accounts")));
+        auto *enabled = page->findChild<QCheckBox *>(QStringLiteral("kcfg_OnlineAccountsEnabled"));
+        auto *accounts = page->findChild<QListWidget *>(QStringLiteral("kcfg_OnlineAccountsHidden"));
+        auto *refresh = page->findChild<QPushButton *>(QStringLiteral("refreshOnlineAccounts"));
+        auto *status = page->findChild<QLabel *>(QStringLiteral("onlineAccountsStatus"));
+        auto *apply = dialog.button(QDialogButtonBox::Apply);
+        // Nothing is read or offered before opting in.
+        QVERIFY(!enabled->isChecked());
+        QVERIFY(!accounts->isEnabled());
+        QVERIFY(!refresh->isEnabled());
+        QCOMPARE(accounts->count(), 0);
+        QVERIFY(!menu->isVisible());
+
+        enabled->setChecked(true);
+        QVERIFY(accounts->isEnabled());
+        QVERIFY(refresh->isEnabled());
+        apply->click();
+        QVERIFY(Settings::onlineAccountsEnabled());
+        QVERIFY(menu->isVisible());
+#ifdef OPUSFM_HAVE_ACCOUNTS
+        // Only the accounts with file storage are listed, in provider order.
+        QCOMPARE(accounts->count(), 2);
+        QCOMPARE(accounts->item(0)->text(), QStringLiteral("someone@gmail.com (Google)"));
+        QCOMPARE(accounts->item(0)->data(Qt::UserRole).toString(), googleId);
+        QCOMPARE(accounts->item(1)->text(), QStringLiteral("alex (Nextcloud)"));
+        QVERIFY(status->text().contains(QStringLiteral("letters")));
+
+        accounts->item(0)->setCheckState(Qt::Unchecked);
+        apply->click();
+        QCOMPARE(Settings::onlineAccountsHidden(), QStringList{googleId});
+        Q_EMIT menu->menu()->aboutToShow();
+        QStringList sections;
+        for (const QAction *action : menu->menu()->actions()) {
+            if (action->isSeparator() && !action->text().isEmpty()) {
+                sections.append(action->text());
+            }
+        }
+        QCOMPARE(sections, QStringList{QStringLiteral("alex (Nextcloud)")});
+        // Hiding an account leaves it in KDE Online Accounts.
+        QString error;
+        QCOMPARE(OnlineAccounts::readAccounts(&error).size(), 3);
+
+        // Refreshing keeps the choice.
+        refresh->click();
+        QCOMPARE(accounts->item(0)->checkState(), Qt::Unchecked);
+#else
+        QVERIFY(status->text().contains(QStringLiteral("without KDE Online Accounts support")));
+#endif
+
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(!enabled->isChecked());
+        QVERIFY(!accounts->isEnabled());
+        apply->click();
+        QVERIFY(!menu->isVisible());
+        QVERIFY(Settings::onlineAccountsHidden().isEmpty());
+    }
+
+    void reportsMissingOnlineAccountsSettings()
+    {
+        for (const QString &kind : {QStringLiteral("systemsettings"), QStringLiteral("systemsettings_qwidgets")}) {
+            if (KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/") + kind, QStringLiteral("kcm_kaccounts")).isValid()) {
+                QSKIP("KDE's Online Accounts settings are installed on this system.");
+            }
+        }
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        dialog.findChild<QPushButton *>(QStringLiteral("openOnlineAccountsSettings"))->click();
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("onlineAccountsMessage"));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QVERIFY(message->text().contains(QStringLiteral("Online Accounts settings are not installed")));
     }
 };
 

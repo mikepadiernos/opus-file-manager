@@ -388,7 +388,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                   {createShortcutsIntegrationPage(), i18nc("@title:tab", "Shortcuts")},
                                   {createActivitiesIntegrationPage(), i18nc("@title:tab", "Activities")},
                                   {createKdeConnectIntegrationPage(), i18nc("@title:tab", "KDE Connect")},
-                                  {createKRunnerIntegrationPage(), i18nc("@title:tab", "KRunner")}},
+                                  {createKRunnerIntegrationPage(), i18nc("@title:tab", "KRunner")},
+                                  {createOnlineAccountsIntegrationPage(), i18nc("@title:tab", "Online Accounts")}},
                                  i18nc("@title:group", "KDE Plasma"),
                                  QStringLiteral("plasma"),
                                  &m_plasmaTabs);

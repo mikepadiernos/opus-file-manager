@@ -305,6 +305,11 @@ private:
     QWidget *createKRunnerIntegrationPage();
     /// Lists the Favorites again in the KRunner tab after they change.
     void reloadRunnerFavorites();
+    /**
+     * The KDE Plasma › Online Accounts tab: whether Plasma Opus shows KDE
+     * Online Accounts at all, and which of the accounts with file storage.
+     */
+    QWidget *createOnlineAccountsIntegrationPage();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
     ActivityController *activityController() const;
     void createSettingsBackup();

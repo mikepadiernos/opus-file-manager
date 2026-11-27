@@ -4,6 +4,7 @@
 
 #include "appidentity.h"
 #include "onlineaccounts.h"
+#include "settings.h"
 #include "symbolicicon.h"
 
 #include <KFile>
@@ -129,6 +130,7 @@ CloudSyncPairDialog::CloudSyncPairDialog(const Pair &pair, const QList<Pair> &ot
     accountsMenu->setToolTipsVisible(true);
     m_accounts->setMenu(accountsMenu);
     connect(accountsMenu, &QMenu::aboutToShow, this, &CloudSyncPairDialog::populateAccounts);
+    m_accounts->setHidden(!Settings::onlineAccountsEnabled());
     auto *remoteLayout = new QHBoxLayout(m_remoteRow);
     remoteLayout->setContentsMargins({});
     remoteLayout->addWidget(m_remote, 1);
@@ -388,7 +390,7 @@ void CloudSyncPairDialog::populateAccounts()
     QMenu *menu = m_accounts->menu();
     menu->clear();
     QString error;
-    const QList<OnlineAccounts::Account> accounts = OnlineAccounts::readAccounts(&error);
+    const QList<OnlineAccounts::Account> accounts = OnlineAccounts::shownAccounts(OnlineAccounts::readAccounts(&error), Settings::onlineAccountsHidden());
     const OnlineAccounts::ProtocolCheck known = [](const QString &protocol) {
         return KProtocolInfo::isKnownProtocol(protocol);
     };
@@ -413,7 +415,7 @@ void CloudSyncPairDialog::populateAccounts()
         }
     }
     if (accounts.isEmpty() && error.isEmpty()) {
-        menu->addAction(i18nc("@action:inmenu", "No online accounts"))->setEnabled(false);
+        menu->addAction(i18nc("@action:inmenu", "No accounts to show"))->setEnabled(false);
     }
     if (!error.isEmpty()) {
         menu->addAction(SymbolicIcon::fromTheme(QStringLiteral("dialog-warning")), menuText(error))->setEnabled(false);

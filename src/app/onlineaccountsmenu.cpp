@@ -62,7 +62,11 @@ void populate(QMenu *menu,
         }
     }
     if (accounts.isEmpty() && error.isEmpty()) {
-        menu->addAction(i18nc("@action:inmenu", "No online accounts"))->setEnabled(false);
+        QAction *none = menu->addAction(i18nc("@action:inmenu", "No accounts to show"));
+        none->setEnabled(false);
+        none->setToolTip(i18nc("@info:tooltip",
+                               "Add accounts with file storage in KDE's Online Accounts settings, and choose the accounts to show under "
+                               "Preferences › KDE Plasma › Online Accounts."));
     }
     if (!error.isEmpty()) {
         QAction *problem = menu->addAction(SymbolicIcon::fromTheme(QStringLiteral("dialog-warning")), menuText(error));

@@ -439,6 +439,11 @@ ecm_add_test(integrationsettingstest.cpp
     NAME_PREFIX "opusfm-"
     GUI
 )
+if(AccountsQt6_FOUND)
+    target_compile_definitions(integrationsettingstest PRIVATE OPUSFM_HAVE_ACCOUNTS)
+    target_include_directories(integrationsettingstest SYSTEM PRIVATE ${ACCOUNTSQT_INCLUDE_DIRS})
+    target_link_libraries(integrationsettingstest ${ACCOUNTSQT_LIBRARIES})
+endif()
 
 ecm_add_test(lansharedialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test

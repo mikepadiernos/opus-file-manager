@@ -10,6 +10,7 @@
 #include "favoritesmodel.h"
 #include "filechooser.h"
 #include "filemanagerservice.h"
+#include "onlineaccounts.h"
 #include "portalsetup.h"
 #include "runnermatches.h"
 #include "settingswidgets.h"
@@ -23,6 +24,7 @@
 #include <KMessageBox>
 #include <KMessageWidget>
 #include <KPluginMetaData>
+#include <KProtocolInfo>
 #include <KService>
 #include <KSharedConfig>
 
@@ -34,6 +36,7 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLocale>
 #include <QPushButton>
 #include <QStandardPaths>
 #include <QTimer>
@@ -810,4 +813,119 @@ void SettingsDialog::reloadRunnerFavorites()
     const auto shared = KSharedConfig::openConfig();
     KConfig config(shared->name(), shared->openFlags(), shared->locationType());
     list(FavoritesModel(config.group(QStringLiteral("Favorites"))));
+}
+
+QWidget *SettingsDialog::createOnlineAccountsIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("onlineAccountsIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *access = new StatusGroup(i18nc("@title:group", "Access"));
+    access->setObjectName(QStringLiteral("onlineAccountsAccessGroup"));
+    auto *accessLayout = new QVBoxLayout(access);
+    auto *enabled = checkBox(QStringLiteral("OnlineAccountsEnabled"), i18nc("@option:check", "Show the folders of KDE Online Accounts in Plasma Opus"));
+    accessLayout->addWidget(enabled);
+    auto *listLabel = new QLabel(i18nc("@label", "Show these accounts:"));
+    accessLayout->addWidget(listLabel);
+    auto *accounts = bound(new HiddenItemsList, QStringLiteral("OnlineAccountsHidden"), "hiddenItems");
+    accessLayout->addWidget(accounts, 1);
+    auto *status = statusLabel(QStringLiteral("onlineAccountsStatus"));
+    accessLayout->addWidget(status);
+    auto *refresh = actionButton(QStringLiteral("refreshOnlineAccounts"), i18nc("@action:button", "Refresh List"));
+    refresh->setIcon(QIcon::fromTheme(QStringLiteral("view-refresh")));
+    refresh->setToolTip(i18nc("@info:tooltip", "Read the accounts from KDE Online Accounts again"));
+    accessLayout->addLayout(buttonRow({refresh}));
+    auto *note = new QLabel(i18nc("@info",
+                                  "Plasma Opus reads the account list only while this is checked, and never reads, logs or stores "
+                                  "passwords or access tokens. Go › Online Accounts and the cloud sync accounts menu offer the checked "
+                                  "accounts with file storage. Clearing an account only hides it in Plasma Opus; it stays in KDE Online "
+                                  "Accounts for other applications. Accounts added later are shown until they are cleared here."));
+    note->setWordWrap(true);
+    accessLayout->addWidget(note);
+    layout->addWidget(access, 1);
+
+    auto *manage = new QGroupBox(i18nc("@title:group", "KDE Online Accounts"));
+    manage->setObjectName(QStringLiteral("onlineAccountsManageGroup"));
+    auto *manageLayout = new QVBoxLayout(manage);
+    auto *manageNote = new QLabel(i18nc("@info",
+                                        "Plasma Opus never adds, removes or signs in to accounts. Do that, and choose the services each "
+                                        "account offers, in KDE's Online Accounts settings."));
+    manageNote->setWordWrap(true);
+    auto *configure = actionButton(QStringLiteral("openOnlineAccountsSettings"), i18nc("@action:button", "Manage Online Accounts…"));
+    configure->setIcon(QIcon::fromTheme(QStringLiteral("internet-services")));
+    configure->setToolTip(i18nc("@info:tooltip", "Open KDE's Online Accounts settings in System Settings to add, remove or sign in to accounts"));
+    auto *message = messageWidget(QStringLiteral("onlineAccountsMessage"));
+    manageLayout->addWidget(manageNote);
+    manageLayout->addLayout(buttonRow({configure}));
+    manageLayout->addWidget(message);
+    layout->addWidget(manage);
+
+    // The accounts are read only after opting in, as in the main window.
+    const auto reload = [enabled, accounts, status] {
+        if (!enabled->isChecked()) {
+            status->setText(i18nc("@info", "Plasma Opus does not read KDE Online Accounts."));
+            return;
+        }
+        QString error;
+        const QList<OnlineAccounts::Account> all = OnlineAccounts::readAccounts(&error);
+        if (!error.isEmpty()) {
+            status->setText(error);
+            return;
+        }
+        const QList<OnlineAccounts::Account> storage = OnlineAccounts::shownAccounts(all, {});
+        QList<std::pair<QString, QString>> items;
+        for (const OnlineAccounts::Account &account : storage) {
+            items.append({OnlineAccounts::settingsId(account),
+                          account.providerDisplayName.isEmpty()
+                              ? account.displayName
+                              : i18nc("@item %1 is an account name, %2 its provider", "%1 (%2)", account.displayName, account.providerDisplayName)});
+        }
+        accounts->setItems(items);
+        const OnlineAccounts::ProtocolCheck known = [](const QString &protocol) {
+            return KProtocolInfo::isKnownProtocol(protocol);
+        };
+        for (int row = 0; row < accounts->count(); ++row) {
+            const OnlineAccounts::Account &account = storage.at(row);
+            accounts->item(row)->setIcon(QIcon::fromTheme(account.iconName, QIcon::fromTheme(QStringLiteral("internet-services"))));
+            QStringList folders;
+            for (const OnlineAccounts::Location &location : OnlineAccounts::locations(account, known)) {
+                folders.append(location.isAvailable() ? location.title
+                                                      : i18nc("@info:tooltip %1 is a folder, %2 why it cannot be opened",
+                                                              "%1 (unavailable: %2)",
+                                                              location.title,
+                                                              location.unavailableReason));
+            }
+            accounts->item(row)->setToolTip(folders.join(QLatin1Char('\n')));
+        }
+        QStringList others;
+        for (const OnlineAccounts::Account &account : all) {
+            if (!OnlineAccounts::hasFileStorage(account)) {
+                others.append(account.displayName);
+            }
+        }
+        QString text = storage.isEmpty() ? i18nc("@info", "No account offers file storage. Add one in KDE's Online Accounts settings.")
+                                         : i18ncp("@info", "One account offers file storage.", "%1 accounts offer file storage.", storage.size());
+        if (!others.isEmpty()) {
+            text += QLatin1Char(' ')
+                + i18nc("@info %1 is a list of account names", "Accounts without file storage are not listed: %1.", QLocale().createSeparatedList(others));
+        }
+        status->setText(text);
+    };
+    const auto update = [enabled, accounts, listLabel, refresh] {
+        listLabel->setEnabled(enabled->isChecked());
+        accounts->setEnabled(enabled->isChecked());
+        refresh->setEnabled(enabled->isChecked());
+    };
+    access->refresh = reload;
+    connect(enabled, &QCheckBox::toggled, page, [update, reload] {
+        update();
+        reload();
+    });
+    update();
+    connect(refresh, &QPushButton::clicked, page, reload);
+    connect(configure, &QPushButton::clicked, page, [message] {
+        openSettingsModule(QStringLiteral("kcm_kaccounts"), i18nc("@info", "KDE's Online Accounts settings are not installed."), message);
+    });
+    return page;
 }
