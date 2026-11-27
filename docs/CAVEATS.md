@@ -2642,9 +2642,8 @@ allow PORT/tcp`, removing the ufw rule afterwards. For paired phones, KDE
   - Watch `plasma-localerc` and offer a restart when Plasma's language list
     changes.
   - A job action that raises the dialog that started the operation.
-  - Show only the current Activity's vaults, move tabs showing a vault away
-    when it closes, and show or hide vaults in the M28 **Encryption**
-    settings.
+  - Show only the current Activity's vaults, and move tabs showing a vault
+    away when it closes.
   - Encrypt folders through an archive, offer to remove originals after a
     checked encryption, pass AES Crypt passwords through a pipe where the
     tool allows it, and the M28 **Encryption** settings to choose the
@@ -3427,6 +3426,19 @@ The M28 integration settings have these limits
   contain it can't be protected, and the state and passwords apply only inside
   Plasma Opus; see [Password-gated folders](#password-gated-folders).
   ([#403](https://github.com/mikepadiernos/plasma-opus/issues/403))
+- **🏦 Plasma Vault settings:** **Preferences › Security › Encryption**
+  reads Plasma Vault's vaults when the tab is shown, so Plasma Vault and kded6
+  may start then, and a cleared vault stays cleared by its encrypted data
+  folder, even after it is renamed. Clearing a vault or the menu changes only
+  Plasma Opus and hides the vault's messages from its status bar: the vault
+  stays open or closed, and Plasma Vault's applet and other applications
+  still list it. Leaving out the state removes it from the names and
+  icons of open and closed vaults only; each vault's submenu still offers
+  **Open Vault…** or **Close Vault** by its state, and errors and missing
+  vaults are always shown. The development container has no Plasma Vault, so
+  the real service awaits
+  [verification on Plasma](TODO.md#plasma-vault-settings-on-plasma-669).
+  ([#669](https://github.com/mikepadiernos/plasma-opus/issues/669))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3676,6 +3688,11 @@ The M28 integration settings have these limits
     before leaving the desktop. Choose **Remove Protection…** before deleting
     or moving a protected folder outside Plasma Opus, and keep confidential
     files in a Plasma Vault instead.
+  - **Plasma Vault settings:** Clear the vaults you open only from Plasma
+    Vault's applet under **Preferences › Security › Encryption**, and turn
+    off the state while sharing your screen. Clear **Offer Plasma
+    Vault's encrypted vaults in Go › Plasma Vaults** if you don't use Plasma
+    Vault.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3798,6 +3815,8 @@ The M28 integration settings have these limits
     audit log and view it in Preferences.
   - Hide locked folders from the folder choosers in Preferences, offer to
     remove the protection of a missing folder, and set an idle auto-lock there.
+  - Close or open a vault from Preferences, forget cleared vaults that Plasma
+    Vault no longer has, and leave out vaults of other Activities.
 
 ## Embedded terminal
 
