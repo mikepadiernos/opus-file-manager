@@ -296,9 +296,14 @@ behaves like the rest of the desktop and follows the user's choices.
   compression levels and multi-volume archives where Ark's backends support
   them. **File › Add to Archive…** adds the selection to an existing archive
   Ark can write, after a confirmation, and refuses formats the installed
-  backends can only extract, such as RAR without `rar`. See
-  [Split archives](../CAVEATS.md#archives).
-  ([#647](https://github.com/mikepadiernos/plasma-opus/issues/647))
+  backends can only extract, such as RAR without `rar`. Set the default
+  format, whether to split into volumes and their size, and whether to offer
+  a ZIP password under **Preferences › Archives › Defaults**, which also
+  reports whether Ark can write encrypted 7z archives. See
+  [Split archives](../CAVEATS.md#archives) and
+  [Archive settings](../CAVEATS.md#integration-settings).
+  ([#647](https://github.com/mikepadiernos/plasma-opus/issues/647),
+  [#665](https://github.com/mikepadiernos/plasma-opus/issues/665))
 - **Disk images:** **File › Mount Disk Image** and **Unmount Disk Image**
   mount and unmount the selected ISO or raw disk image through the Mount ISO
   action from Dolphin's plugins, which asks UDisks2 to attach a loop device
