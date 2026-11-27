@@ -2015,7 +2015,7 @@ Settings for M27 integrations, stored in KConfig.
         [#666]
   - [x] **Remote files:** choose whether Send by Email asks before preparing
         local copies of remote files, without allowing silent downloads [#667]
-  - [ ] **Mail file preview:** enable or disable `.eml` previews, within the
+  - [x] **Mail file preview:** enable or disable `.eml` previews, within the
         existing preview size limits [#668]
 
 - **KDE Connect**
