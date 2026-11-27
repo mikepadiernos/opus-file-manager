@@ -2196,6 +2196,25 @@ The M27 desktop integrations have these limits
   Kleopatra, so both await
   [verification on Plasma](TODO.md#file-encryption-on-plasma-655).
   ([#655](https://github.com/mikepadiernos/plasma-opus/issues/655))
+- **📧 Send by Email:** **File › Send by Email…** opens a new message in
+  the default mail client, chosen in System Settings › Default
+  Applications, and never sends it. Folders and missing, unreadable or
+  special files are listed and skipped. A remote file is attached only
+  after you allow a private local copy, which is downloaded into a temporary
+  folder that only you can read and kept until Plasma Opus quits, because
+  the mail client may read it later. Most clients receive the files as
+  `attach` parameters in a `mailto:` URL, and Thunderbird through its own
+  command line; whether they are attached is up to the client, so Plasma
+  Opus reports that the composer opened, not what it attached. A client
+  that is registered but fails to start is not reported. Plasma Impresario
+  currently ignores attachments from other applications, so Plasma Opus
+  warns before and after opening it and doesn't offer local copies. Inside
+  a Flatpak or Snap sandbox, the XDG Email portal attaches the files
+  instead, and Plasma Opus reports only that the portal accepted the
+  request. The container used for development has no mail client or
+  portal, so both await
+  [verification on Plasma](TODO.md#send-by-email-on-plasma-656).
+  ([#656](https://github.com/mikepadiernos/plasma-opus/issues/656))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2405,6 +2424,12 @@ The M27 desktop integrations have these limits
     delete the original yourself once you have checked the encrypted copy.
     Keep a signature beside the file it signs, with the same name plus `.sig`
     or `.asc`.
+  - **Send by Email:** Choose a client that accepts attachments, such as
+    KMail or Thunderbird, under **System Settings › Default Applications ›
+    Email client**. With Plasma Impresario, drag the files from Plasma Opus
+    into its composer instead. Send a message that uses local copies of
+    remote files before quitting Plasma Opus, or copy the files into a local
+    folder first.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2426,6 +2451,11 @@ The M27 desktop integrations have these limits
     checked encryption, pass AES Crypt passwords through a pipe where the
     tool allows it, and the M28 **Encryption** settings to choose the
     default key and the text format.
+  - Offer to compress a selected folder and attach the archive, ask the
+    XDG Email portal for its response to report cancelled requests, and the
+    M28 **Mail** settings to choose the client and when to prepare local
+    copies ([#666](https://github.com/mikepadiernos/plasma-opus/issues/666),
+    [#667](https://github.com/mikepadiernos/plasma-opus/issues/667)).
   - Reuse an open tab showing an Activity's default folder instead of
     opening another, and offer the current Activity's association at start
     as an option.
