@@ -31,7 +31,7 @@ Board statuses were last confirmed on 2026-11-26.
 | [File encryption on Plasma](#file-encryption-on-plasma-655)                 | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Send by Email on Plasma](#send-by-email-on-plasma-656)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#656]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Mail attachments on Plasma](#mail-attachments-on-plasma-657)               | [M27](ROADMAP.md#m27-integrations)                                             | [#657]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
-| [Mail file preview on Plasma](#mail-file-preview-on-plasma-658)             | [M27](ROADMAP.md#m27-integrations)                                             | [#658]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
+| [Mail file preview on Plasma](#mail-file-preview-on-plasma-658)             | [M27](ROADMAP.md#m27-integrations)                                             | [#658]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Shared Activity context on Plasma](#shared-activity-context-on-plasma-659) | [M27](ROADMAP.md#m27-integrations)                                             | [#659]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
 
 ## mpv integration (#563)
@@ -350,7 +350,7 @@ Board statuses were last confirmed on 2026-11-26.
 ## Mail file preview on Plasma (#658)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#658]
-  (Review).
+  (Completed).
 - **Blocker:** The development container has no registered applications, no
   mail client and no Plasma session, so opening an attachment through its
   application and the preview's layout in a real window cannot be tried
