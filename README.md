@@ -116,9 +116,9 @@ preview. Both behaviours can be changed in Preferences.
   mpv playback.
 - **Remote and secure access:** named SSH, SFTP, WebDAV, SMB and FTP
   connections, rclone and KDE Online Accounts, Nextcloud accounts with
-  Login Flow sign-in, temporary LAN sharing,
-  administrator mode, Plasma Vault, file encryption and password-gated
-  folders.
+  Login Flow sign-in and browsing that respects server permissions,
+  temporary LAN sharing, administrator mode, Plasma Vault, file encryption
+  and password-gated folders.
 
 ### Personalize
 
