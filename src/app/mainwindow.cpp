@@ -72,6 +72,7 @@
 #include "nextcloudassetsdialog.h"
 #include "nextcloudmenu.h"
 #include "nextcloudphotosdialog.h"
+#include "nextcloudsharesdialog.h"
 #include "nextcloudtagsdialog.h"
 #include "onlineaccountsmenu.h"
 #include "packagetools.h"
@@ -6468,8 +6469,11 @@ void MainWindow::populateNextcloud()
             showNextcloudAssets(account);
         },
         NextcloudMenu::AccountHandlers{[this](const NextcloudAccounts::Account &account) {
-            showNextcloudPhotos(account);
-        }});
+                                           showNextcloudPhotos(account);
+                                       },
+                                       [this](const NextcloudAccounts::Account &account) {
+                                           showNextcloudShares(account);
+                                       }});
 }
 
 void MainWindow::showNextcloudAccounts()
@@ -6771,6 +6775,30 @@ void MainWindow::showNextcloudPhotos(const NextcloudAccounts::Account &account)
     dialog->show();
 }
 
+void MainWindow::showNextcloudShares(const NextcloudAccounts::Account &account, const std::optional<QUrl> &item, bool itemIsFolder)
+{
+    const QString unavailable = RemoteProfiles::unavailableReason(RemoteProfiles::Protocol::WebDavs);
+    if (!unavailable.isEmpty()) {
+        showStatusMessage(unavailable);
+        return;
+    }
+    if (!m_nextcloudStore) {
+        m_nextcloudStore = std::make_unique<Nextcloud::PasswordServerStore>(winId());
+    }
+    auto *dialog = new NextcloudSharesDialog(account, m_nextcloudStore.get(), item, itemIsFolder, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    // Links are offered for Send by Email only when the user hasn't turned it off.
+    dialog->setSendByEmailEnabled(Settings::sendByEmail());
+    connect(dialog, &NextcloudSharesDialog::showRequested, this, [this](const QUrl &url, bool folder) {
+        if (folder) {
+            activePane()->setUrl(url);
+        } else {
+            activePane()->revealUrls(url.adjusted(QUrl::RemoveFilename), {url});
+        }
+    });
+    dialog->show();
+}
+
 void MainWindow::addToNextcloudAlbum(const QList<QUrl> &urls)
 {
     const std::optional<NextcloudAccounts::Account> account = urls.isEmpty() ? std::nullopt : nextcloudAccountFor(urls.first());
@@ -6878,6 +6906,11 @@ void MainWindow::addNextcloudItemMenu(QMenu *menu, const KFileItemList &items)
         })) {
         handlers.addToAlbum = [this, urls] {
             addToNextcloudAlbum(urls);
+        };
+    }
+    if (items.size() == 1 && !Nextcloud::sharePath(*account, items.first().url()).isEmpty()) {
+        handlers.shares = [this, account = *account, url = items.first().url(), folder = items.first().isDir()] {
+            showNextcloudShares(account, url, folder);
         };
     }
     NextcloudMenu::addItemMenu(menu, known ? favorite : std::nullopt, this, handlers);

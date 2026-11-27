@@ -224,6 +224,8 @@ public:
     void showNextcloudAssets(const NextcloudAccounts::Account &account);
     /// Shows the albums, shared albums and places of Nextcloud Photos of @p account.
     void showNextcloudPhotos(const NextcloudAccounts::Account &account);
+    /// Opens the Nextcloud shares of @p account, starting with those of @p item when set.
+    void showNextcloudShares(const NextcloudAccounts::Account &account, const std::optional<QUrl> &item = std::nullopt, bool itemIsFolder = false);
     /// Asks for a Nextcloud Photos album to add the Nextcloud files @p urls to.
     void addToNextcloudAlbum(const QList<QUrl> &urls);
     /// Reports in the status bar how many files were added to @p album.

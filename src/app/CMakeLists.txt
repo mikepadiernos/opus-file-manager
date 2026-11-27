@@ -139,6 +139,8 @@ add_library(opusfm_app STATIC
     nextcloudmenu.h
     nextcloudphotosdialog.cpp
     nextcloudphotosdialog.h
+    nextcloudsharesdialog.cpp
+    nextcloudsharesdialog.h
     nextcloudtagsdialog.cpp
     nextcloudtagsdialog.h
     onlineaccountsmenu.cpp

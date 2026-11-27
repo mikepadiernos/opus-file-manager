@@ -507,6 +507,12 @@ ecm_add_test(nextcloudphotosdialogtest.cpp
     GUI
 )
 
+ecm_add_test(nextcloudsharesdialogtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
 ecm_add_test(remoteprofilesdialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"

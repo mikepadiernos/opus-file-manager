@@ -33,12 +33,16 @@ struct ItemHandlers {
     std::function<void()> organize;
     /// Adds the items to a Nextcloud Photos album; offered only when set.
     std::function<void()> addToAlbum;
+    /// Lists and manages the Nextcloud shares of the item; offered only when set.
+    std::function<void()> shares;
 };
 
 /// What else each account's submenu offers; an entry is shown only when its handler is set.
 struct AccountHandlers {
     /// Opens the account's Nextcloud Photos albums, shared albums and places.
     OrganizeHandler photos;
+    /// Lists and manages the account's Nextcloud shares.
+    OrganizeHandler shares;
 };
 
 /// Replaces the contents of @p menu with a submenu per account in

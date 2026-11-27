@@ -82,6 +82,19 @@ void populate(QMenu *menu,
             photos->setObjectName(QStringLiteral("nextcloudPhotos"));
             photos->setToolTip(i18nc("@info:tooltip", "Browse the albums, shared albums and places of Nextcloud Photos"));
         }
+        if (more.shares) {
+            if (!organize && !more.photos) {
+                submenu->addSeparator();
+            }
+            QAction *shares = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("folder-publicshare")),
+                                                 i18nc("@action:inmenu", "Shares…"),
+                                                 context,
+                                                 [handler = more.shares, account] {
+                                                     handler(account);
+                                                 });
+            shares->setObjectName(QStringLiteral("nextcloudShares"));
+            shares->setToolTip(i18nc("@info:tooltip", "List what you shared and what others shared with you, and change or revoke your shares"));
+        }
     }
     if (accounts.isEmpty()) {
         QAction *none = menu->addAction(i18nc("@action:inmenu", "No Nextcloud accounts"));
@@ -136,6 +149,14 @@ QMenu *addItemMenu(QMenu *menu, std::optional<bool> favorite, QObject *context, 
                                             handlers.addToAlbum);
         album->setObjectName(QStringLiteral("nextcloudAddToAlbum"));
         album->setToolTip(i18nc("@info:tooltip", "List the files in a Nextcloud Photos album; the files stay where they are"));
+    }
+    if (handlers.shares) {
+        QAction *shares = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("folder-publicshare")),
+                                             i18nc("@action:inmenu", "Nextcloud Shares…"),
+                                             context,
+                                             handlers.shares);
+        shares->setObjectName(QStringLiteral("nextcloudItemShares"));
+        shares->setToolTip(i18nc("@info:tooltip", "Share with a public link, a user or a group, and change or revoke the item's shares"));
     }
     return submenu;
 }
