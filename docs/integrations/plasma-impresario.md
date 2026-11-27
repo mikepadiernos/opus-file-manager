@@ -23,8 +23,8 @@ IMAP mail client formerly named Plasma Mail, and other mail clients.
 > already provide file URLs. **Planned:** the other workflows under
 > [Planned features](#planned-features), in M27.09 Plasma Impresario and
 > mail. They are not commitments by Plasma Impresario. Everything under
-> [Considered features](#considered-features), including theme sharing, is
-> outside the roadmap.
+> [Considered features](#considered-features), including theme, Vim mode and
+> shortcut sharing, is outside the roadmap.
 
 ## Contents
 
@@ -198,8 +198,10 @@ inspired by TagSpaces'
 [Kanban](https://docs.tagspaces.org/perspectives/kanban) perspectives. Notes and
 journal capture correspond to Plasma Impresario's planned
 [mail-to-notes workflow](https://github.com/mikepadiernos/plasma-impresario/blob/main/docs/integrations/plasma-opus.md#notes-and-journal).
-Theme sharing builds on the existing M17 theme profiles. Add a feature to the
-roadmap, with its issue, before implementing it.
+Theme sharing builds on the existing M17 theme profiles, and Vim mode sharing on
+the M25 Vim-style movement and the planned
+[M31 keyboard shortcut settings](../ROADMAP.md#m31-keyboard-shortcut-settings).
+Add a feature to the roadmap, with its issue, before implementing it.
 
 Each view presents existing files and metadata without moving them into a
 private store, and makes missing metadata or unavailable providers clear. The
@@ -293,6 +295,30 @@ views could also work with Nextcloud Calendar, Maps, Deck and Notes.
 - Exchange profiles through export and import files or a documented shared
   location; neither application writes the other's configuration.
 
+### Share Vim mode and shortcuts
+
+- Carry Vim mode and shared shortcut settings over in both directions, so
+  keyboard navigation behaves the same in both applications. Plasma Opus
+  already offers Vim-style movement in [Yazi mode](../ROADMAP.md#m25-yazi-mode)
+  and plans Vim mode settings, a which-key style hint panel and shortcut import
+  and export in [M31](../ROADMAP.md#m31-keyboard-shortcut-settings). Plasma
+  Impresario plans the same optional Vim mode
+  ([plasma-impresario#437](https://github.com/mikepadiernos/plasma-impresario/issues/437))
+  and tracks syncing in
+  [plasma-impresario#438](https://github.com/mikepadiernos/plasma-impresario/issues/438).
+- Agree on a versioned keymap profile covering Vim mode enablement, the hint
+  panel's enablement and delay, the leader key and bindings for shared actions
+  such as movement, search, selection, panes and tabs. File-only actions stay
+  in Plasma Opus and mail-only actions in Plasma Impresario.
+- Import the Plasma Impresario profile once or follow later changes, and export
+  ours for Plasma Impresario to import. Keep syncing opt-in, with a conflict
+  preview and a way to revert, and offer the choice in M31 shortcut settings.
+  Validate imported profiles, ignore unknown actions, never execute commands
+  from imported files and never intercept typing in text fields or the
+  embedded terminal. Keep the local settings without Plasma Impresario.
+- Exchange profiles through export and import files or a documented shared
+  location; neither application writes the other's configuration.
+
 ### Rejected approaches
 
 - Hard-coding Plasma Impresario instead of respecting the user's configured
@@ -310,9 +336,11 @@ Test with isolated files and synthetic messages; never send a real message as
 part of an automated test. Standard desktop handoffs should continue to work
 with other mail clients.
 
-If theme sharing is added to the roadmap, verify import, export, following
-changes, invalid and missing profiles, and use without Plasma Impresario
-installed, using isolated configuration.
+If theme or Vim mode sharing is added to the roadmap, verify import, export,
+following changes, invalid and missing profiles, and use without Plasma
+Impresario installed, using isolated configuration. For Vim mode, also verify
+conflicts with existing single-key shortcuts and that typing in text fields and
+the embedded terminal passes through.
 
 ### Plasma Impresario dependencies
 
@@ -328,6 +356,9 @@ roadmap:
   cards should link back to messages.
 - Import and export theme profiles in the agreed shared format
   ([#268](https://github.com/mikepadiernos/plasma-impresario/issues/268)).
+- Offer the optional Vim mode and import and export keymap profiles in the
+  agreed shared format ([#437](https://github.com/mikepadiernos/plasma-impresario/issues/437),
+  [#438](https://github.com/mikepadiernos/plasma-impresario/issues/438)).
 
 Any Plasma Impresario-specific capability remains optional until its interface
 and availability are confirmed.
