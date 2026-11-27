@@ -4,6 +4,7 @@
 
 #include "nextcloudaccount.h"
 #include "nextcloudassets.h"
+#include "nextcloudorganize.h"
 
 #include <KIO/AuthInfo>
 
@@ -231,6 +232,22 @@ public:
      * it is larger than Nextcloud::PreviewByteLimit.
      */
     void fetchPreview(const NextcloudAccounts::Account &account, const QString &fileId, const QSize &size, const QUrl &item);
+    /// Marks @p item as one of the user's favourites on the server, or no longer one.
+    void setFavorite(const NextcloudAccounts::Account &account, const QUrl &item, bool favorite);
+    /// Lists the server's collaborative tags that the user can see.
+    void fetchSystemTags(const NextcloudAccounts::Account &account);
+    /// Lists the collaborative tags of the file or folder @p fileId.
+    void fetchFileTags(const NextcloudAccounts::Account &account, const QString &fileId);
+    /// Assigns the tag @p tagId to @p fileId, or removes it when @p assign is false.
+    void setFileTag(const NextcloudAccounts::Account &account, const QString &fileId, const QString &tagId, bool assign);
+    /// Creates a collaborative tag, or finds the existing one. Ask the user before calling this.
+    void createTag(const NextcloudAccounts::Account &account, const QString &name);
+    /// Lists the user's favourites, at most @p limit. Returns the ID that assetsListed() reports.
+    int listFavorites(const NextcloudAccounts::Account &account, int limit);
+    /// Lists the user's files with the tag @p tagId, at most @p limit. Returns the ID that assetsListed() reports.
+    int listTagged(const NextcloudAccounts::Account &account, const QString &tagId, int limit);
+    /// Searches the user's files on the server. Returns the ID that assetsListed() reports.
+    int search(const NextcloudAccounts::Account &account, const Nextcloud::SearchQuery &query);
 
 Q_SIGNALS:
     void checked(const QString &accountId, const Nextcloud::Status &status);
@@ -243,6 +260,14 @@ Q_SIGNALS:
     void metadataFetched(const QUrl &item, const Nextcloud::FileMetadata &metadata, const QString &error);
     /// The server's preview of @p item, or a null image and why there is none.
     void previewFetched(const QUrl &item, const QImage &image, const QString &error);
+    void favoriteSet(const QUrl &item, bool favorite, const QString &error);
+    void systemTagsFetched(const QString &accountId, const QList<Nextcloud::SystemTag> &tags, const QString &error);
+    void fileTagsFetched(const QString &fileId, const QList<Nextcloud::SystemTag> &tags, const QString &error);
+    void fileTagSet(const QString &fileId, const QString &tagId, bool assigned, const QString &error);
+    /// A tag was created or already existed; @p tag has no ID when @p error says why it couldn't be.
+    void tagCreated(const QString &accountId, const Nextcloud::SystemTag &tag, const QString &error);
+    /// The results of the listing or search that returned @p request.
+    void assetsListed(int request, const Nextcloud::AssetResults &results);
 
 private:
     struct Check;
@@ -253,6 +278,7 @@ private:
     KIO::Job *ocsGet(const QUrl &url, const QString &loginName, const QString &password);
     void prepare(KIO::Job *job, const QString &loginName, const QString &password);
     std::optional<QString> password(const NextcloudAccounts::Account &account) const;
+    int listFiles(const NextcloudAccounts::Account &account, const QString &tagId, int limit);
 
     Nextcloud::CredentialStore *m_store = nullptr;
     int m_pollInterval = 2000;
@@ -263,4 +289,5 @@ private:
     qint64 m_loginDeadline = 0;
     QPointer<KJob> m_loginJob;
     int m_loginGeneration = 0;
+    int m_lastRequest = 0;
 };
