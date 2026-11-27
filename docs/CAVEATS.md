@@ -670,6 +670,18 @@ have these limits
   the scope to the live search before running it, so later searches stay
   live until the scope is changed back.
   ([#442](https://github.com/mikepadiernos/plasma-opus/issues/442))
+- **Shared searches:** A saved search shared with KDE Places is a Baloo
+  search, so Dolphin and file dialogs list only indexed files, match whole
+  words rather than parts of names or text, and use the MIME types and
+  dates Baloo recorded. Top-level criteria Baloo can't express are dropped
+  rather than approximated, so the place may list more files than the saved
+  search: sizes, extensions, paths, tags, metadata numbers, NOT terms, name
+  wildcards and exact names, today and yesterday, depth limits, path filters
+  and exclusions. A search of several search folders covers every indexed
+  location, since Baloo limits a search to one folder, and remote folders
+  can't be shared. The place doesn't follow later changes to the saved
+  search, and renaming or deleting the saved search leaves it in Places.
+  ([#734](https://github.com/mikepadiernos/plasma-opus/issues/734))
 - **Selection and exclusions:** Path-selection filters apply only to local
   top-level listings or the visible flat list, not expanded child rows. Excluded
   folders are entered one per line, so paths containing newlines cannot be
@@ -767,21 +779,20 @@ have these limits
 - **Recommendation:** Check Baloo's indexing configuration and status in
   **File › Indexing Status…**, and use **Check Index Coverage** to confirm
   that a folder's files are indexed, or `balooctl6 status` for details Baloo
-  doesn't expose to applications; use live
-  search for a current local folder, or **Search Current Folder Live** after
-  an indexed search, search smaller folders, inspect errors and
-  repeat searches after files change. Use whole words in indexed `meta:`
-  terms, and add a name term or search live for numbers, dates or partial
-  words. Turn ranking off to keep the order in which results were found. Use
-  flat view when selecting nested local
-  items by path, and verify the resulting selection. Use GNU `find` for other
-  local filename searches or ripgrep (`rg`) for content searches when Plasma
-  Opus limits are unsuitable; check each tool's hidden-file, ignore, encoding
-  and symbolic-link behaviour. If a revealed result is hidden or filtered,
-  adjust the pane's visibility settings. Re-run saved searches and check
-  collection references after files change. Use KDE File Search settings to
-  change what Baloo indexes for every application. When pressing
-  <kbd>Shift</kbd> twice is unavailable, use the Search shortcut
+  doesn't expose to applications; use live search for a current local folder,
+  or **Search Current Folder Live** after an indexed search, search smaller
+  folders, inspect errors and repeat searches after files change. Use whole
+  words in indexed `meta:` terms, and add a name term or search live for
+  numbers, dates or partial words. Turn ranking off to keep the order in which
+  results were found. Use flat view when selecting nested local items by path,
+  and verify the resulting selection. Use GNU `find` for other local filename
+  searches or ripgrep (`rg`) for content searches when Plasma Opus limits are
+  unsuitable; check each tool's hidden-file, ignore, encoding and
+  symbolic-link behaviour. If a revealed result is hidden or filtered, adjust
+  the pane's visibility settings. Re-run saved searches and check collection
+  references after files change. Use KDE File Search settings to change what
+  Baloo indexes for every application. When pressing <kbd>Shift</kbd> twice is
+  unavailable, use the Search shortcut
   (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> by default), which can be
   changed in Configure Keyboard Shortcuts. To search another folder from the
   search panel, use Search from that pane's toolbar or the Search shortcut
@@ -794,14 +805,17 @@ have these limits
   folder or search folders when an advanced query has no required name,
   content or meta term. Search live when recently changed or misnamed files
   must match an indexed type or date, and add a name or content term when an
-  indexed search reaches the 200,000-match limit. After renaming or deleting a shared path filter, choose the
-  default path filter again on Preferences' Search page. With several windows
-  open, hide the search panel in the last window you use if it should stay
-  closed at the next startup. Turn off Remember recent search queries before
-  searching for sensitive text, or use Clear Search History afterwards. Choose
-  Names and folders when long paths make results hard to scan. When toolbar
-  searches leave the panel hidden, press <kbd>Down</kbd> in the field after a
-  search to check its errors and results.
+  indexed search reaches the 200,000-match limit. Read the criteria listed
+  before sharing a search with KDE Places, share it again after changing it,
+  and remove stale places from Places in any KDE application. After renaming
+  or deleting a shared path filter, choose the default path filter again on
+  Preferences' Search page. With several windows open, hide the search panel
+  in the last window you use if it should stay closed at the next startup.
+  Turn off Remember recent search queries before searching for sensitive text,
+  or use Clear Search History afterwards. Choose Names and folders when long
+  paths make results hard to scan. When toolbar searches leave the panel
+  hidden, press <kbd>Down</kbd> in the field after a search to check its
+  errors and results.
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment:
