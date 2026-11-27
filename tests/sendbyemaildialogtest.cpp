@@ -120,8 +120,14 @@ private Q_SLOTS:
         auto *summary = dialog->findChild<QLabel *>(QStringLiteral("mailSummary"));
         QVERIFY(summary->text().contains(QStringLiteral("skipped")));
 
+        auto *compose = dialog->findChild<QPushButton *>(QStringLiteral("mailCompose"));
+        QSignalSpy prepared(dialog, &SendByEmailDialog::copiesPrepared);
         consent->setChecked(true);
         QVERIFY(!summary->text().contains(QStringLiteral("skipped")));
+        // Ticking the box starts downloading; Compose waits for the copies.
+        QVERIFY(prepared.count() == 1 || !compose->isEnabled());
+        QVERIFY(prepared.count() == 1 || prepared.wait(20000));
+        QVERIFY(compose->isEnabled());
         QSignalSpy finished(dialog, &SendByEmailDialog::composeFinished);
         dialog->compose();
         QVERIFY(finished.wait(20000));
@@ -131,9 +137,9 @@ private Q_SLOTS:
         QVERIFY(!copies.isEmpty());
         QCOMPARE(QFileInfo(copies).permissions() & (QFileDevice::ReadGroup | QFileDevice::ReadOther), QFileDevice::Permissions());
         const QString copy = copies + QStringLiteral("/1/remote.txt");
-        QFile prepared(copy);
-        QVERIFY(prepared.open(QIODevice::ReadOnly));
-        QCOMPARE(prepared.readAll(), QByteArray("remote"));
+        QFile preparedCopy(copy);
+        QVERIFY(preparedCopy.open(QIODevice::ReadOnly));
+        QCOMPARE(preparedCopy.readAll(), QByteArray("remote"));
         const QString arguments = composerArguments();
         QVERIFY2(arguments.contains(QStringLiteral("report.txt")), qPrintable(arguments));
         QVERIFY2(arguments.contains(QStringLiteral("remote.txt")), qPrintable(arguments));
@@ -151,14 +157,15 @@ private Q_SLOTS:
         SendByEmailDialog dialog({KFileItem(missing, QStringLiteral("text/plain"), S_IFREG)});
         auto *compose = dialog.findChild<QPushButton *>(QStringLiteral("mailCompose"));
         QVERIFY(!compose->isEnabled());
-        dialog.findChild<QCheckBox *>(QStringLiteral("mailPrepareCopies"))->setChecked(true);
-        QVERIFY(compose->isEnabled());
-        compose->click();
+        auto *consent = dialog.findChild<QCheckBox *>(QStringLiteral("mailPrepareCopies"));
+        consent->setChecked(true);
         auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("mailMessage"));
         QTRY_COMPARE_WITH_TIMEOUT(message->messageType(), KMessageWidget::Error, 20000);
         QVERIFY(message->text().contains(QStringLiteral("missing.txt")));
+        QVERIFY(!consent->isChecked());
         QVERIFY(dialog.copiesPath().isEmpty());
-        QVERIFY(compose->isEnabled());
+        QVERIFY(!compose->isEnabled());
+        dialog.compose();
         QTest::qWait(200);
         QVERIFY(!QFile::exists(m_output));
     }
@@ -172,7 +179,9 @@ private Q_SLOTS:
         QVERIFY(!message->isHidden());
         QCOMPARE(message->messageType(), KMessageWidget::Warning);
         QVERIFY(message->text().contains(QStringLiteral("Plasma Impresario")));
-        QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("mailPrepareCopies"))->isEnabled());
+        QVERIFY(message->text().contains(QStringLiteral("drag")));
+        // Local copies can still be prepared, to drag into its composer.
+        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("mailPrepareCopies"))->isEnabled());
 
         QSignalSpy finished(&dialog, &SendByEmailDialog::composeFinished);
         dialog.compose();
@@ -181,6 +190,58 @@ private Q_SLOTS:
         QVERIFY(message->text().contains(QStringLiteral("nothing was attached")));
         QVERIFY(dialog.copiesPath().isEmpty());
         QVERIFY(composerArguments().startsWith(QStringLiteral("mailto:")));
+    }
+
+    void dragsLocalFilesAndPreparedCopies()
+    {
+        installClient(QStringLiteral("fakemail.desktop"), QStringLiteral("Fake Mail"));
+        const QUrl remote = archiveMember(QStringLiteral("remote.txt"));
+        const QString folder = m_dir.filePath(QStringLiteral("folder"));
+        QVERIFY(QDir().mkpath(folder));
+        auto *dialog = new SendByEmailDialog(
+            {KFileItem(QUrl::fromLocalFile(m_file)), KFileItem(remote, QStringLiteral("text/plain"), S_IFREG), KFileItem(QUrl::fromLocalFile(folder))});
+        auto *items = dialog->findChild<QListWidget *>(QStringLiteral("mailItems"));
+        QCOMPARE(items->count(), 3);
+        QCOMPARE(items->dragDropMode(), QAbstractItemView::DragOnly);
+        QVERIFY(items->item(0)->flags() & Qt::ItemIsDragEnabled);
+        QVERIFY(!(items->item(1)->flags() & Qt::ItemIsDragEnabled));
+        QVERIFY(!(items->item(2)->flags() & Qt::ItemIsDragEnabled));
+        const QList<QListWidgetItem *> all{items->item(0), items->item(1), items->item(2)};
+        QCOMPARE(dialog->dragUrls(all), QList<QUrl>{QUrl::fromLocalFile(m_file)});
+
+        QSignalSpy prepared(dialog, &SendByEmailDialog::copiesPrepared);
+        dialog->findChild<QCheckBox *>(QStringLiteral("mailPrepareCopies"))->setChecked(true);
+        QVERIFY(prepared.count() == 1 || prepared.wait(20000));
+        QVERIFY(items->item(1)->flags() & Qt::ItemIsDragEnabled);
+        const QString copy = dialog->copiesPath() + QStringLiteral("/1/remote.txt");
+        QCOMPARE(dialog->dragUrls(all), (QList<QUrl>{QUrl::fromLocalFile(m_file), QUrl::fromLocalFile(copy)}));
+
+        // The drop target may read a dragged copy after the dialog closes.
+        delete dialog;
+        QVERIFY(QFile::exists(copy));
+    }
+
+    void discardsCopiesThatWereNeitherAttachedNorDragged()
+    {
+        installClient(QStringLiteral("fakemail.desktop"), QStringLiteral("Fake Mail"));
+        const QUrl remote = archiveMember(QStringLiteral("remote.txt"));
+        auto *dialog = new SendByEmailDialog({KFileItem(remote, QStringLiteral("text/plain"), S_IFREG)});
+        QSignalSpy prepared(dialog, &SendByEmailDialog::copiesPrepared);
+        auto *consent = dialog->findChild<QCheckBox *>(QStringLiteral("mailPrepareCopies"));
+        consent->setChecked(true);
+        QVERIFY(prepared.count() == 1 || prepared.wait(20000));
+        const QString copies = dialog->copiesPath();
+        QVERIFY(QFileInfo::exists(copies));
+        consent->setChecked(false);
+        QVERIFY(dialog->copiesPath().isEmpty());
+        QVERIFY(!QFileInfo::exists(copies));
+
+        consent->setChecked(true);
+        QVERIFY(prepared.count() == 2 || prepared.wait(20000));
+        const QString again = dialog->copiesPath();
+        QVERIFY(QFileInfo::exists(again));
+        delete dialog;
+        QVERIFY(!QFileInfo::exists(again));
     }
 
     void windowActionNeedsAFile()
