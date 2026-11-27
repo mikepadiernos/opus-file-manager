@@ -230,17 +230,23 @@ behaves like the rest of the desktop and follows the user's choices.
   ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
 - **Mount manager:** **File › Mount Manager…** lists mounted and
   fstab-defined file systems with their name, state, device, type, mount
-  point, size, free space and a usage bar, optionally only removable devices.
-  Pseudo, snap, container and other system file systems are hidden; network
-  and FUSE mounts, such as remote drives, are included. Activating an entry
-  opens it in the active pane, mounting it first when needed. Mount, unmount
-  and eject go through Solid and UDisks2, with Plasma's authorization prompts,
-  and fall back to `mount`, `umount` and `fusermount` for fstab entries marked
-  `user` or `users` and for FUSE mounts. Busy devices, denied authorization,
-  cancelled prompts and failures are reported. **Go › Mount Points**, also on
-  the toolbar, lists each file system with a check mark when mounted and opens
-  or mounts it. Partitioning, formatting and fstab editing are left to KDE
-  Partition Manager, which the dialog opens when installed.
+  point, size, free space and a usage bar. Network and FUSE mounts, such as
+  remote drives, are included. Activating an entry opens it in the active
+  pane, mounting it first when needed. Mount, unmount and eject go through
+  Solid and UDisks2, with Plasma's authorization prompts, and fall back to
+  `mount`, `umount` and `fusermount` for fstab entries marked `user` or
+  `users` and for FUSE mounts. Busy devices, denied authorization,
+  cancelled prompts and failures are reported. **Go › Mount Points** lists
+  each file system with a check mark when mounted and opens or mounts it.
+  Partitioning, formatting and fstab editing are left to KDE Partition
+  Manager, which the dialog opens when installed. Under **Preferences › KDE
+  Plasma › Mount Manager**, **Show only removable devices**, on by default,
+  limits **Go › Mount Points** to removable devices and is how the dialog's
+  own checkbox starts each time it opens; **Hide pseudo, snap and other system
+  file systems**, also on by default, can be cleared to list them, though
+  Plasma Opus never mounts or unmounts them; and **Show the Mount Points menu
+  on the main toolbar** adds or removes the toolbar menu
+  ([#705](https://github.com/mikepadiernos/plasma-opus/issues/705)).
   ([#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
 - **KWin script:** **Settings › Configure KWin Integration…** installs,
   updates, enables, disables or removes an optional Plasma Opus KWin script,
