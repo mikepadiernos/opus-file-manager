@@ -69,8 +69,12 @@ action.
 
 > [!TIP]
 > **Implemented** as **File › Send by Email…**, also in the context menu.
+> **Preferences › Applications › Mail** shows the default mail client, opens
+> Plasma's Default Applications settings to change it, and turns the action
+> on or off ([#666](https://github.com/mikepadiernos/plasma-opus/issues/666)).
 > Its limits are recorded under
-> [Desktop integration](../CAVEATS.md#desktop-integration).
+> [Desktop integration](../CAVEATS.md#desktop-integration) and
+> [Integration settings](../CAVEATS.md#integration-settings).
 
 - Offer an explicit **Send by Email** action for selected files. Use KIO's
   `KEMailClientLauncherJob`, which starts the user's preferred `mailto:`
