@@ -26,7 +26,8 @@ void populate(QMenu *menu,
               bool otherPaneAvailable,
               QAction *manage,
               QObject *context,
-              const OpenHandler &open)
+              const OpenHandler &open,
+              const OrganizeHandler &organize)
 {
     menu->clear();
     menu->setToolTipsVisible(true);
@@ -56,6 +57,17 @@ void populate(QMenu *menu,
                                                 open(account, true);
                                             });
         other->setEnabled(otherPaneAvailable);
+        if (organize) {
+            submenu->addSeparator();
+            QAction *search = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("system-search")),
+                                                 i18nc("@action:inmenu", "Search and Organize…"),
+                                                 context,
+                                                 [organize, account] {
+                                                     organize(account);
+                                                 });
+            search->setObjectName(QStringLiteral("nextcloudOrganize"));
+            search->setToolTip(i18nc("@info:tooltip", "Search the server and list your favourites and files with a Nextcloud tag"));
+        }
     }
     if (accounts.isEmpty()) {
         QAction *none = menu->addAction(i18nc("@action:inmenu", "No Nextcloud accounts"));
@@ -70,5 +82,39 @@ void populate(QMenu *menu,
         menu->addSeparator();
         menu->addAction(manage);
     }
+}
+
+QMenu *addItemMenu(QMenu *menu, std::optional<bool> favorite, QObject *context, const ItemHandlers &handlers)
+{
+    QMenu *submenu = menu->addMenu(SymbolicIcon::fromTheme(QStringLiteral("folder-cloud")), i18nc("@menu", "Nextcloud"));
+    submenu->setObjectName(QStringLiteral("nextcloudItemMenu"));
+    submenu->setToolTipsVisible(true);
+    if (favorite != true) {
+        QAction *add =
+            submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("starred")), i18nc("@action:inmenu", "Add to Nextcloud Favourites"), context, [handlers] {
+                handlers.setFavorite(true);
+            });
+        add->setObjectName(QStringLiteral("nextcloudAddFavorite"));
+        add->setToolTip(i18nc("@info:tooltip", "Mark as a favourite on the Nextcloud server, separate from the Places panel"));
+    }
+    if (favorite != false) {
+        QAction *remove = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("non-starred")),
+                                             i18nc("@action:inmenu", "Remove from Nextcloud Favourites"),
+                                             context,
+                                             [handlers] {
+                                                 handlers.setFavorite(false);
+                                             });
+        remove->setObjectName(QStringLiteral("nextcloudRemoveFavorite"));
+    }
+    QAction *tags = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("tag")), i18nc("@action:inmenu", "Nextcloud Tags…"), context, handlers.editTags);
+    tags->setObjectName(QStringLiteral("nextcloudEditTags"));
+    tags->setToolTip(i18nc("@info:tooltip", "Assign the server's collaborative tags, which are separate from Plasma Opus tags"));
+    submenu->addSeparator();
+    QAction *organize = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("system-search")),
+                                           i18nc("@action:inmenu", "Search and Organize…"),
+                                           context,
+                                           handlers.organize);
+    organize->setObjectName(QStringLiteral("nextcloudItemOrganize"));
+    return submenu;
 }
 }

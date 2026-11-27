@@ -8,6 +8,7 @@
 #include <QString>
 
 #include <functional>
+#include <optional>
 
 class QAction;
 class QMenu;
@@ -19,13 +20,26 @@ namespace NextcloudMenu
 /// Opens the files of @p account in the active pane, or in the other pane
 /// when @p otherPane is true.
 using OpenHandler = std::function<void(const NextcloudAccounts::Account &account, bool otherPane)>;
+/// Opens the Search and Organize dialog of @p account.
+using OrganizeHandler = std::function<void(const NextcloudAccounts::Account &account)>;
+
+/// What the Nextcloud submenu of a file's context menu does.
+struct ItemHandlers {
+    /// Marks the items as favourites on the server, or no longer.
+    std::function<void(bool favorite)> setFavorite;
+    /// Edits the items' collaborative tags on the server.
+    std::function<void()> editTags;
+    /// Opens the account's Search and Organize dialog.
+    std::function<void()> organize;
+};
 
 /// Replaces the contents of @p menu with a submenu per account in
 /// @p accounts that opens its files. When @p unavailableReason isn't empty,
 /// the accounts are disabled and explain it in their tooltip. A non-empty
 /// @p error is shown as a disabled entry. The menu ends with @p manage when
 /// it is not null. Open actions call @p open with @p context as their
-/// receiver.
+/// receiver. When @p organize is set, each account also offers Search and
+/// Organize.
 void populate(QMenu *menu,
               const QList<NextcloudAccounts::Account> &accounts,
               const QString &error,
@@ -33,5 +47,14 @@ void populate(QMenu *menu,
               bool otherPaneAvailable,
               QAction *manage,
               QObject *context,
-              const OpenHandler &open);
+              const OpenHandler &open,
+              const OrganizeHandler &organize = {});
+
+/**
+ * Adds a Nextcloud submenu to the context menu of items on a Nextcloud
+ * server. @p favorite is whether all the items are favourites, or nullopt
+ * when it's unknown or differs, which offers both adding and removing.
+ * @return the submenu
+ */
+QMenu *addItemMenu(QMenu *menu, std::optional<bool> favorite, QObject *context, const ItemHandlers &handlers);
 }

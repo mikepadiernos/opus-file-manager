@@ -493,6 +493,12 @@ ecm_add_test(nextcloudpreviewtest.cpp
     GUI
 )
 
+ecm_add_test(nextcloudorganizedialogtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
 ecm_add_test(remoteprofilesdialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"

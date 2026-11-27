@@ -69,7 +69,9 @@
 #include "mountbackend.h"
 #include "mountmanagerdialog.h"
 #include "nextcloudaccountsdialog.h"
+#include "nextcloudassetsdialog.h"
 #include "nextcloudmenu.h"
+#include "nextcloudtagsdialog.h"
 #include "onlineaccountsmenu.h"
 #include "packagetools.h"
 #include "pane.h"
@@ -5740,6 +5742,9 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
         menu.addAction(actions->action(QStringLiteral("edit_fields")));
         menu.addAction(actions->action(QStringLiteral("import_metadata")));
     }
+    if (!allLocal) {
+        addNextcloudItemMenu(&menu, items);
+    }
     if (allLocal) {
         QMenu *metadata = menu.addMenu(i18nc("@menu", "Metadata"));
         QMenu *labels = metadata->addMenu(i18nc("@menu", "Label"));
@@ -6447,16 +6452,20 @@ void MainWindow::populateNextcloud()
     QString error;
     m_nextcloudAccounts = nextcloudAccounts(&error);
     m_nextcloudAccountsLoaded = true;
-    NextcloudMenu::populate(m_nextcloudMenu,
-                            m_nextcloudAccounts,
-                            error,
-                            RemoteProfiles::unavailableReason(RemoteProfiles::Protocol::WebDavs),
-                            isDualLayout() && !inactivePane()->isHidden(),
-                            actionCollection()->action(QStringLiteral("manage_nextcloud_accounts")),
-                            this,
-                            [this](const NextcloudAccounts::Account &account, bool otherPane) {
-                                openNextcloudAccount(account, otherPane);
-                            });
+    NextcloudMenu::populate(
+        m_nextcloudMenu,
+        m_nextcloudAccounts,
+        error,
+        RemoteProfiles::unavailableReason(RemoteProfiles::Protocol::WebDavs),
+        isDualLayout() && !inactivePane()->isHidden(),
+        actionCollection()->action(QStringLiteral("manage_nextcloud_accounts")),
+        this,
+        [this](const NextcloudAccounts::Account &account, bool otherPane) {
+            openNextcloudAccount(account, otherPane);
+        },
+        [this](const NextcloudAccounts::Account &account) {
+            showNextcloudAssets(account);
+        });
 }
 
 void MainWindow::showNextcloudAccounts()
@@ -6569,6 +6578,37 @@ NextcloudClient *MainWindow::nextcloudClient()
                 m_previewPanel->showServerPreview(url, image);
             }
         });
+        connect(m_nextcloudClient, &NextcloudClient::favoriteSet, this, [this](const QUrl &url, bool favorite, const QString &error) {
+            if (!m_nextcloudFavoritesPending.remove(nextcloudFolderKey(url))) {
+                return;
+            }
+            if (error.isEmpty()) {
+                ++m_nextcloudFavoritesChanged;
+                forgetNextcloudMetadata({url});
+            } else {
+                m_nextcloudFavoriteErrors.append(
+                    i18nc("@info %1 is a file name, %2 why it failed", "%1: %2", url.adjusted(QUrl::StripTrailingSlash).fileName(), error));
+            }
+            if (!m_nextcloudFavoritesPending.isEmpty()) {
+                return;
+            }
+            if (m_nextcloudFavoriteErrors.isEmpty()) {
+                showStatusMessage(favorite ? i18ncp("@info:status",
+                                                    "Added %1 item to your Nextcloud favourites",
+                                                    "Added %1 items to your Nextcloud favourites",
+                                                    m_nextcloudFavoritesChanged)
+                                           : i18ncp("@info:status",
+                                                    "Removed %1 item from your Nextcloud favourites",
+                                                    "Removed %1 items from your Nextcloud favourites",
+                                                    m_nextcloudFavoritesChanged));
+            } else {
+                showStatusMessage(i18nc("@info:status %1 is a list of problems",
+                                        "Couldn't change Nextcloud favourites: %1",
+                                        m_nextcloudFavoriteErrors.join(QStringLiteral("; "))));
+            }
+            m_nextcloudFavoriteErrors.clear();
+            m_nextcloudFavoritesChanged = 0;
+        });
     }
     return m_nextcloudClient;
 }
@@ -6668,6 +6708,119 @@ void MainWindow::updateNextcloudInformation(const KFileItem &item)
     }
     m_informationPanel->setServerMetadata(item.url(), std::nullopt, i18nc("@info:status", "Loading server metadata…"));
     fetchNextcloudMetadata(item);
+}
+
+void MainWindow::forgetNextcloudMetadata(const QList<QUrl> &urls)
+{
+    for (const QUrl &url : urls) {
+        m_nextcloudMetadata.remove(nextcloudFolderKey(url));
+    }
+    updateInformationPanel();
+}
+
+void MainWindow::showNextcloudAssets(const NextcloudAccounts::Account &account)
+{
+    const QString unavailable = RemoteProfiles::unavailableReason(RemoteProfiles::Protocol::WebDavs);
+    if (!unavailable.isEmpty()) {
+        showStatusMessage(unavailable);
+        return;
+    }
+    if (!m_nextcloudStore) {
+        m_nextcloudStore = std::make_unique<Nextcloud::PasswordServerStore>(winId());
+    }
+    if (!m_nextcloudAccounts.contains(account)) {
+        m_nextcloudAccounts = nextcloudAccounts();
+        m_nextcloudAccountsLoaded = true;
+    }
+    auto *dialog = new NextcloudAssetsDialog(account, m_nextcloudStore.get(), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &NextcloudAssetsDialog::showRequested, this, [this](const QUrl &url, bool folder) {
+        if (folder) {
+            activePane()->setUrl(url);
+        } else {
+            activePane()->revealUrls(url.adjusted(QUrl::RemoveFilename), {url});
+        }
+    });
+    connect(dialog, &NextcloudAssetsDialog::itemsChanged, this, &MainWindow::forgetNextcloudMetadata);
+    dialog->show();
+}
+
+void MainWindow::showNextcloudTags(const QList<QUrl> &urls)
+{
+    const std::optional<NextcloudAccounts::Account> account = urls.isEmpty() ? std::nullopt : nextcloudAccountFor(urls.first());
+    if (!account) {
+        return;
+    }
+    if (!m_nextcloudStore) {
+        m_nextcloudStore = std::make_unique<Nextcloud::PasswordServerStore>(winId());
+    }
+    QList<NextcloudTagsDialog::Item> items;
+    for (const QUrl &url : urls) {
+        // File IDs never change, so even outdated metadata saves reading them again.
+        const auto cached = m_nextcloudMetadata.constFind(nextcloudFolderKey(url));
+        items.append({url, cached != m_nextcloudMetadata.cend() ? cached->metadata.fileId : QString()});
+    }
+    auto *dialog = new NextcloudTagsDialog(*account, items, m_nextcloudStore.get(), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &NextcloudTagsDialog::tagsChanged, this, &MainWindow::forgetNextcloudMetadata);
+    dialog->show();
+}
+
+void MainWindow::setNextcloudFavorite(const QList<QUrl> &urls, bool favorite)
+{
+    const std::optional<NextcloudAccounts::Account> account = urls.isEmpty() ? std::nullopt : nextcloudAccountFor(urls.first());
+    if (!account) {
+        return;
+    }
+    if (m_nextcloudFavoritesPending.isEmpty()) {
+        m_nextcloudFavoriteErrors.clear();
+        m_nextcloudFavoritesChanged = 0;
+    }
+    for (const QUrl &url : urls) {
+        const QString key = nextcloudFolderKey(url);
+        if (m_nextcloudFavoritesPending.contains(key)) {
+            continue;
+        }
+        m_nextcloudFavoritesPending.insert(key);
+        nextcloudClient()->setFavorite(*account, url, favorite);
+    }
+}
+
+void MainWindow::addNextcloudItemMenu(QMenu *menu, const KFileItemList &items)
+{
+    if (items.isEmpty() || !mayBeNextcloudFolder(items.first().url())) {
+        return;
+    }
+    const std::optional<NextcloudAccounts::Account> account = nextcloudAccountFor(items.first().url());
+    if (!account) {
+        return;
+    }
+    QList<QUrl> urls;
+    std::optional<bool> favorite;
+    bool known = true;
+    for (const KFileItem &item : items) {
+        if (NextcloudAccounts::accountForUrl({*account}, item.url()) != account) {
+            return;
+        }
+        urls.append(item.url());
+        const std::optional<Nextcloud::FileMetadata> cached = cachedNextcloudMetadata(item);
+        if (!cached || !cached->favorite || (favorite && *favorite != *cached->favorite)) {
+            known = false;
+        } else {
+            favorite = cached->favorite;
+        }
+    }
+    NextcloudMenu::ItemHandlers handlers;
+    handlers.setFavorite = [this, urls](bool add) {
+        setNextcloudFavorite(urls, add);
+    };
+    handlers.editTags = [this, urls] {
+        showNextcloudTags(urls);
+    };
+    handlers.organize = [this, account = *account] {
+        showNextcloudAssets(account);
+    };
+    NextcloudMenu::addItemMenu(menu, known ? favorite : std::nullopt, this, handlers);
 }
 
 void MainWindow::nextcloudPermissionsFetched(const QUrl &folder, const Nextcloud::FolderPermissions &permissions, const QString &error)

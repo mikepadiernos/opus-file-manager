@@ -220,6 +220,12 @@ public:
     void showNextcloudAccounts();
     /// Opens the files of @p account in the active pane, or in the other pane when @p otherPane is set.
     void openNextcloudAccount(const NextcloudAccounts::Account &account, bool otherPane);
+    /// Shows the dialog that searches the files of @p account and lists its favourites and tagged files.
+    void showNextcloudAssets(const NextcloudAccounts::Account &account);
+    /// Shows the dialog that edits the collaborative tags of the Nextcloud items @p urls on their server.
+    void showNextcloudTags(const QList<QUrl> &urls);
+    /// Marks the Nextcloud items @p urls as favourites on their server, or no longer.
+    void setNextcloudFavorite(const QList<QUrl> &urls, bool favorite);
     /// The server permissions of the Nextcloud folder @p url, when they have been read.
     std::optional<Nextcloud::FolderPermissions> nextcloudPermissions(const QUrl &url) const;
     /// Opens @p profile in the active pane, or in the other pane when @p otherPane is set.
@@ -438,6 +444,10 @@ private:
     void fetchNextcloudPreview(const QUrl &url, const Nextcloud::FileMetadata &metadata);
     /// Shows the server metadata of @p item in the information panel when it belongs to a Nextcloud account.
     void updateNextcloudInformation(const KFileItem &item);
+    /// Forgets the server metadata of @p urls, which changed on the server, and shows it again.
+    void forgetNextcloudMetadata(const QList<QUrl> &urls);
+    /// Adds the Nextcloud submenu to the context menu of @p items when they all belong to one Nextcloud account.
+    void addNextcloudItemMenu(QMenu *menu, const KFileItemList &items);
     void updateFolderGateActions();
     void updateStatusBarIndicatorOrder();
     void updateStatusBar();
@@ -682,6 +692,10 @@ private:
     QHash<QString, QDateTime> m_nextcloudMetadataPending;
     /// The items whose server preview the preview panel waits for, with their URL and the preview size.
     QHash<QString, std::pair<QUrl, QSize>> m_nextcloudPreviewsWanted;
+    /// The favourites this window is changing on Nextcloud servers, by item.
+    QSet<QString> m_nextcloudFavoritesPending;
+    QStringList m_nextcloudFavoriteErrors;
+    int m_nextcloudFavoritesChanged = 0;
     PlasmaVaultMenu *m_plasmaVaultMenu = nullptr;
     QList<Rclone::Remote> m_rcloneRemotes;
     QString m_rcloneError;
