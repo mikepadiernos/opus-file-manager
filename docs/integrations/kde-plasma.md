@@ -835,13 +835,17 @@ behaves like the rest of the desktop and follows the user's choices.
   { "mcpServers": { "plasma-opus": { "command": "opus-file-manager-mcp" } } }
   ```
 
-  Until the M28 settings page, change the access level, folders and audit log
-  in the `[Mcp]` group of `~/.config/opus-file-managerrc`, for example with
-  `kwriteconfig6 --file opus-file-managerrc --group Mcp --key McpAccess Write`
-  (`Off`, `Read` or `Write`) or `--key McpFolders ~/Projects,~/Documents`.
-  The `--read-only` option keeps one client to reading. See
-  [MCP server](../CAVEATS.md#desktop-integration).
-  ([#287](https://github.com/mikepadiernos/plasma-opus/issues/287))
+  Choose whether clients may read or also change files, or turn access off,
+  the folders they may use and whether calls are logged under
+  **Preferences › Security › MCP**, which also shows this configuration and
+  the audit log. Running servers follow the settings from the next request.
+  No access token is needed, because clients start the server themselves as
+  you and no network port is opened. The `--read-only` option keeps one
+  client to reading. See
+  [MCP server](../CAVEATS.md#desktop-integration) and
+  [MCP settings](../CAVEATS.md#integration-settings).
+  ([#287](https://github.com/mikepadiernos/plasma-opus/issues/287),
+  [#294](https://github.com/mikepadiernos/plasma-opus/issues/294))
 
 - **Password-gated folders:** **File › Password Protection › Protect with
   Password…** asks for a password before Plasma Opus shows a local folder. A
