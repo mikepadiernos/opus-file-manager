@@ -1459,4 +1459,14 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="FileChooser">
+    <entry name="FileChooserStartFolder" type="Enum">
+      <label>Folder the system file chooser starts in when the application suggests none</label>
+      <choices>
+        <choice name="Home"/>
+        <choice name="LastFolder"/>
+      </choices>
+      <default>Home</default>
+    </entry>
+  </group>
 </kcfg>

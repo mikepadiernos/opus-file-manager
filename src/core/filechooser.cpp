@@ -2,6 +2,8 @@
 
 #include "filechooser.h"
 
+#include <KConfigGroup>
+
 #include <QDBusArgument>
 #include <QDBusMetaType>
 #include <QDir>
@@ -12,6 +14,11 @@
 
 namespace
 {
+/// The last folder of applications the portal does not identify.
+const QString LastFolderKey = QStringLiteral("LastFolder");
+/// The subgroup keeping each identified application's last folder under its ID.
+const QString LastFoldersGroup = QStringLiteral("LastFolders");
+
 QString decodePath(QByteArray bytes)
 {
     while (bytes.endsWith('\0')) {
@@ -253,6 +260,54 @@ QString initialName(const Request &request)
         return request.currentName;
     }
     return request.currentFile.fileName();
+}
+
+QUrl startFolder(const Request &request)
+{
+    const QUrl initial = initialFolder(request);
+    if (initial.isValid()) {
+        return initial;
+    }
+    if (request.lastFolder.isLocalFile() && QFileInfo(request.lastFolder.toLocalFile()).isDir()) {
+        return request.lastFolder;
+    }
+    return QUrl::fromLocalFile(QDir::homePath());
+}
+
+QUrl acceptedFolder(const Request &request, const Result &result)
+{
+    if (result.urls.isEmpty() || !result.urls.constFirst().isLocalFile()) {
+        return {};
+    }
+    const QUrl &first = result.urls.constFirst();
+    if (request.mode == Mode::Open && request.directory) {
+        return first.adjusted(QUrl::StripTrailingSlash);
+    }
+    return first.adjusted(QUrl::RemoveFilename | QUrl::StripTrailingSlash);
+}
+
+QString stateGroupName()
+{
+    return QStringLiteral("FileChooser");
+}
+
+QUrl lastFolder(const KConfigGroup &group, const QString &appId)
+{
+    const QString path = appId.isEmpty() ? group.readEntry(LastFolderKey, QString()) : group.group(LastFoldersGroup).readEntry(appId, QString());
+    return QDir::isAbsolutePath(path) ? QUrl::fromLocalFile(path) : QUrl();
+}
+
+void rememberFolder(KConfigGroup &group, const QString &appId, const QUrl &folder)
+{
+    if (!folder.isLocalFile()) {
+        return;
+    }
+    if (appId.isEmpty()) {
+        group.writeEntry(LastFolderKey, folder.toLocalFile());
+    } else {
+        KConfigGroup folders = group.group(LastFoldersGroup);
+        folders.writeEntry(appId, folder.toLocalFile());
+    }
 }
 }
 

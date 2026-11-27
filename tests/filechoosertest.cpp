@@ -2,8 +2,12 @@
 
 #include "filechooser.h"
 
+#include <KConfig>
+#include <KConfigGroup>
+
 #include <QDBusMetaType>
 #include <QDir>
+#include <QTemporaryDir>
 #include <QTest>
 
 using namespace FileChooser;
@@ -195,6 +199,78 @@ private Q_SLOTS:
         QVERIFY(saveTarget(folder, QStringLiteral("  ")).isEmpty());
         QCOMPARE(saveFilesTargets(folder, {QStringLiteral("x.txt"), QStringLiteral("../y.txt")}),
                  (QList<QUrl>{QUrl::fromLocalFile(QStringLiteral("/data/docs/x.txt")), QUrl::fromLocalFile(QStringLiteral("/data/docs/y.txt"))}));
+    }
+
+    void choosesTheStartFolder()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QUrl last = QUrl::fromLocalFile(root.path());
+        const QUrl home = QUrl::fromLocalFile(QDir::homePath());
+
+        Request request;
+        QCOMPARE(startFolder(request), home);
+        request.lastFolder = last;
+        QCOMPARE(startFolder(request), last);
+        request.lastFolder = QUrl::fromLocalFile(root.filePath(QStringLiteral("missing")));
+        QCOMPARE(startFolder(request), home);
+        request.lastFolder = QUrl(QStringLiteral("sftp://host/folder"));
+        QCOMPARE(startFolder(request), home);
+
+        // A folder the application suggests comes first.
+        request.lastFolder = last;
+        request.currentFile = QUrl::fromLocalFile(QStringLiteral("/data/docs/a.txt"));
+        QCOMPARE(startFolder(request), QUrl::fromLocalFile(QStringLiteral("/data/docs")));
+        request.currentFolder = QUrl::fromLocalFile(QStringLiteral("/data"));
+        QCOMPARE(startFolder(request), request.currentFolder);
+    }
+
+    void findsTheFolderOfTheAcceptedChoice()
+    {
+        Request request;
+        Result result;
+        QVERIFY(acceptedFolder(request, result).isEmpty());
+        result.urls = {QUrl::fromLocalFile(QStringLiteral("/data/docs/a.txt")), QUrl::fromLocalFile(QStringLiteral("/other/b.txt"))};
+        QCOMPARE(acceptedFolder(request, result), QUrl::fromLocalFile(QStringLiteral("/data/docs")));
+
+        request.mode = Mode::Save;
+        result.urls = {QUrl::fromLocalFile(QStringLiteral("/data/new.txt"))};
+        QCOMPARE(acceptedFolder(request, result), QUrl::fromLocalFile(QStringLiteral("/data")));
+
+        request.mode = Mode::SaveFiles;
+        result.urls = {QUrl::fromLocalFile(QStringLiteral("/data/sub/x.txt")), QUrl::fromLocalFile(QStringLiteral("/data/sub/y.txt"))};
+        QCOMPARE(acceptedFolder(request, result), QUrl::fromLocalFile(QStringLiteral("/data/sub")));
+
+        request.mode = Mode::Open;
+        request.directory = true;
+        result.urls = {QUrl::fromLocalFile(QStringLiteral("/data/sub/"))};
+        QCOMPARE(acceptedFolder(request, result), QUrl::fromLocalFile(QStringLiteral("/data/sub")));
+
+        result.urls = {QUrl(QStringLiteral("sftp://host/data/a.txt"))};
+        QVERIFY(acceptedFolder(request, result).isEmpty());
+    }
+
+    void remembersTheLastFolderPerApplication()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        KConfig state(root.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+        KConfigGroup group = state.group(stateGroupName());
+        QVERIFY(lastFolder(group, QStringLiteral("org.example.App")).isEmpty());
+        QVERIFY(lastFolder(group, QString()).isEmpty());
+
+        rememberFolder(group, QStringLiteral("org.example.App"), QUrl::fromLocalFile(QStringLiteral("/data/app")));
+        rememberFolder(group, QString(), QUrl::fromLocalFile(QStringLiteral("/data/unknown")));
+        rememberFolder(group, QStringLiteral("org.example.Other"), QUrl());
+        rememberFolder(group, QStringLiteral("org.example.Other"), QUrl(QStringLiteral("sftp://host/data")));
+        QVERIFY(state.sync());
+
+        const KConfig reread(root.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+        const KConfigGroup saved = reread.group(stateGroupName());
+        QCOMPARE(lastFolder(saved, QStringLiteral("org.example.App")), QUrl::fromLocalFile(QStringLiteral("/data/app")));
+        QCOMPARE(lastFolder(saved, QString()), QUrl::fromLocalFile(QStringLiteral("/data/unknown")));
+        QVERIFY(lastFolder(saved, QStringLiteral("org.example.Other")).isEmpty());
+        QCOMPARE(stateGroupName(), QStringLiteral("FileChooser"));
     }
 };
 

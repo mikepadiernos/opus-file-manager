@@ -3,6 +3,10 @@
 #include "chooserdialog.h"
 #include "filechooserportal.h"
 #include "folderview.h"
+#include "settings.h"
+
+#include <KConfigGroup>
+#include <KSharedConfig>
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -250,6 +254,95 @@ private Q_SLOTS:
         dialog.accept();
         QCOMPARE(dialog.chooserResult().choices,
                  (ChoiceValues{{QStringLiteral("encoding"), QStringLiteral("utf8")}, {QStringLiteral("bom"), QStringLiteral("false")}}));
+    }
+
+    void startsInTheLastFolderWhenNoneIsSuggested()
+    {
+        Request open;
+        open.lastFolder = url(QStringLiteral("sub"));
+        ChooserDialog dialog(open);
+        QCOMPARE(dialog.folder(), url(QStringLiteral("sub")));
+
+        open.lastFolder = url(QStringLiteral("missing"));
+        ChooserDialog home(open);
+        QCOMPARE(home.folder(), QUrl::fromLocalFile(QDir::homePath()));
+
+        open.currentFolder = url();
+        open.lastFolder = url(QStringLiteral("sub"));
+        ChooserDialog suggested(open);
+        QCOMPARE(suggested.folder(), url());
+    }
+
+    void remembersTheLastFolderOnTheBus()
+    {
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        if (!bus.isConnected()) {
+            QSKIP("No session bus");
+        }
+        const KSharedConfigPtr state = KSharedConfig::openStateConfig();
+        state->deleteGroup(stateGroupName());
+        QVERIFY(state->sync());
+        Settings::self()->setDefaults();
+        Settings::setFileChooserStartFolder(Settings::EnumFileChooserStartFolder::LastFolder);
+        QVERIFY(Settings::self()->save());
+
+        FileChooserPortal portal;
+        QVERIFY(bus.registerObject(FileChooserPortal::objectPath(), &portal, QDBusConnection::ExportScriptableSlots));
+        ChooserDialog *dialog = nullptr;
+        connect(&portal, &FileChooserPortal::dialogShown, this, [&dialog](ChooserDialog *shown) {
+            dialog = shown;
+        });
+        QDBusConnection client = QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("chooser-folder-client"));
+        QVERIFY(client.isConnected());
+        const auto openFile = [&](const QString &appId, const QVariantMap &options) {
+            dialog = nullptr;
+            QDBusMessage call = QDBusMessage::createMethodCall(bus.baseService(),
+                                                               FileChooserPortal::objectPath(),
+                                                               QStringLiteral("org.freedesktop.impl.portal.FileChooser"),
+                                                               QStringLiteral("OpenFile"));
+            call << QVariant::fromValue(QDBusObjectPath(QStringLiteral("/org/freedesktop/portal/desktop/request/1_1/folder"))) << appId << QString()
+                 << QStringLiteral("Open") << options;
+            return client.asyncCall(call);
+        };
+        const QUrl home = QUrl::fromLocalFile(QDir::homePath());
+
+        // Accepting a file in a suggested folder remembers that folder for the application.
+        QDBusPendingCall pending = openFile(QStringLiteral("org.example.App"),
+                                            {{QStringLiteral("current_folder"), QByteArray(QFile::encodeName(m_root.path()) + QByteArrayView("", 1))}});
+        QTRY_VERIFY(dialog);
+        waitForItems(*dialog, 4);
+        dialog->view()->selectUrls({url(QStringLiteral("a.txt"))});
+        dialog->accept();
+        QTRY_VERIFY(pending.isFinished());
+        QCOMPARE(pending.reply().arguments().at(0).toUInt(), uint(Accepted));
+        state->reparseConfiguration();
+        QCOMPARE(lastFolder(state->group(stateGroupName()), QStringLiteral("org.example.App")), url());
+
+        pending = openFile(QStringLiteral("org.example.App"), {});
+        QTRY_VERIFY(dialog);
+        QCOMPARE(dialog->folder(), url());
+        dialog->reject();
+        QTRY_VERIFY(pending.isFinished());
+
+        pending = openFile(QStringLiteral("org.example.Other"), {});
+        QTRY_VERIFY(dialog);
+        QCOMPARE(dialog->folder(), home);
+        dialog->reject();
+        QTRY_VERIFY(pending.isFinished());
+
+        // The home folder setting neither uses nor remembers the last folder.
+        Settings::setFileChooserStartFolder(Settings::EnumFileChooserStartFolder::Home);
+        QVERIFY(Settings::self()->save());
+        pending = openFile(QStringLiteral("org.example.App"), {});
+        QTRY_VERIFY(dialog);
+        QCOMPARE(dialog->folder(), home);
+        dialog->reject();
+        QTRY_VERIFY(pending.isFinished());
+
+        bus.unregisterObject(FileChooserPortal::objectPath());
+        QDBusConnection::disconnectFromBus(QStringLiteral("chooser-folder-client"));
+        state->deleteGroup(stateGroupName());
+        QVERIFY(state->sync());
     }
 
     void answersRequestsOnTheBus()

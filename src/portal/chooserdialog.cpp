@@ -204,8 +204,7 @@ ChooserDialog::ChooserDialog(const Request &request, QWidget *parent)
     new KWindowStateSaver(this, QStringLiteral("FileChooserDialog"));
 
     applyViewFilter();
-    const QUrl initial = initialFolder(request);
-    setFolder(initial.isValid() ? initial : QUrl::fromLocalFile(QDir::homePath()));
+    setFolder(startFolder(request));
     if (m_name) {
         m_name->setFocus();
         const QString name = m_name->text();

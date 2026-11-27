@@ -3,7 +3,10 @@
 #include "filechooserportal.h"
 
 #include "chooserdialog.h"
+#include "settings.h"
 
+#include <KConfigGroup>
+#include <KSharedConfig>
 #include <KWindowSystem>
 
 #include <QDBusConnection>
@@ -57,9 +60,8 @@ uint FileChooserPortal::OpenFile(const QDBusObjectPath &handle,
                                  const QVariantMap &options,
                                  QVariantMap &results)
 {
-    Q_UNUSED(app_id)
     Q_UNUSED(results)
-    return start(FileChooser::Mode::Open, handle, parent_window, title, options);
+    return start(FileChooser::Mode::Open, handle, app_id, parent_window, title, options);
 }
 
 uint FileChooserPortal::SaveFile(const QDBusObjectPath &handle,
@@ -69,9 +71,8 @@ uint FileChooserPortal::SaveFile(const QDBusObjectPath &handle,
                                  const QVariantMap &options,
                                  QVariantMap &results)
 {
-    Q_UNUSED(app_id)
     Q_UNUSED(results)
-    return start(FileChooser::Mode::Save, handle, parent_window, title, options);
+    return start(FileChooser::Mode::Save, handle, app_id, parent_window, title, options);
 }
 
 uint FileChooserPortal::SaveFiles(const QDBusObjectPath &handle,
@@ -81,13 +82,13 @@ uint FileChooserPortal::SaveFiles(const QDBusObjectPath &handle,
                                   const QVariantMap &options,
                                   QVariantMap &results)
 {
-    Q_UNUSED(app_id)
     Q_UNUSED(results)
-    return start(FileChooser::Mode::SaveFiles, handle, parent_window, title, options);
+    return start(FileChooser::Mode::SaveFiles, handle, app_id, parent_window, title, options);
 }
 
 uint FileChooserPortal::start(FileChooser::Mode mode,
                               const QDBusObjectPath &handle,
+                              const QString &appId,
                               const QString &parentWindow,
                               const QString &title,
                               const QVariantMap &options)
@@ -98,7 +99,16 @@ uint FileChooserPortal::start(FileChooser::Mode mode,
     setDelayedReply(true);
     const QDBusMessage call = message();
     QDBusConnection bus = connection();
-    const FileChooser::Request request = FileChooser::parseRequest(mode, title, options);
+    FileChooser::Request request = FileChooser::parseRequest(mode, title, options);
+    request.appId = appId;
+    // Preferences may have changed while the backend runs.
+    Settings::self()->load();
+    const bool rememberFolder = Settings::fileChooserStartFolder() == Settings::EnumFileChooserStartFolder::LastFolder;
+    if (rememberFolder) {
+        const KSharedConfigPtr state = KSharedConfig::openStateConfig();
+        state->reparseConfiguration();
+        request.lastFolder = FileChooser::lastFolder(state->group(FileChooser::stateGroupName()), appId);
+    }
 
     auto *dialog = new ChooserDialog(request);
     auto *closer = new PortalRequest(dialog);
@@ -115,12 +125,19 @@ uint FileChooserPortal::start(FileChooser::Mode mode,
             dialog->reject();
         },
         Qt::QueuedConnection);
-    connect(dialog, &QDialog::finished, this, [this, dialog, call, bus, handlePath, closable, closed](int code) mutable {
+    connect(dialog, &QDialog::finished, this, [this, dialog, call, bus, handlePath, closable, closed, rememberFolder](int code) mutable {
         uint response = *closed ? FileChooser::Ended : FileChooser::Cancelled;
         QVariantMap results;
         if (code == QDialog::Accepted) {
             response = FileChooser::Accepted;
             results = FileChooser::results(dialog->request(), dialog->chooserResult());
+            if (rememberFolder) {
+                const KSharedConfigPtr state = KSharedConfig::openStateConfig();
+                state->reparseConfiguration();
+                KConfigGroup group = state->group(FileChooser::stateGroupName());
+                FileChooser::rememberFolder(group, dialog->request().appId, FileChooser::acceptedFolder(dialog->request(), dialog->chooserResult()));
+                state->sync();
+            }
         }
         if (closable) {
             bus.unregisterObject(handlePath);

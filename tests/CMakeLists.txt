@@ -528,7 +528,7 @@ ecm_add_test(chooserdialogtest.cpp
     GUI
 )
 if(DBUS_RUN_SESSION_EXECUTABLE)
-    add_test(NAME opusfm-chooserdialog-dbus COMMAND ${DBUS_RUN_SESSION_EXECUTABLE} $<TARGET_FILE:chooserdialogtest> answersRequestsOnTheBus)
+    add_test(NAME opusfm-chooserdialog-dbus COMMAND ${DBUS_RUN_SESSION_EXECUTABLE} $<TARGET_FILE:chooserdialogtest> answersRequestsOnTheBus remembersTheLastFolderOnTheBus)
     set_tests_properties(opusfm-chooserdialog-dbus PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 endif()
 
