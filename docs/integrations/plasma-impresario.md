@@ -137,6 +137,11 @@ action.
 
 ### Preview and open mail files
 
+> [!TIP]
+> **Implemented:** local `.eml` files show their headers, plain-text body and
+> attachments in the preview panel; **Extract All**, **Extract Selected** and
+> **Open** act on the attachments only when asked.
+
 - Preview local `.eml` (`message/rfc822`) files in the preview panel as plain
   text: show headers, the plain-text body or a sanitized text rendering, and
   the attachment list. Never load remote content, run scripts or decrypt
