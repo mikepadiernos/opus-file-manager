@@ -54,6 +54,7 @@ are in [reported bugs](BUGS.md), and untested scenarios in
   [translation format overrides](#translation-format-overrides)
 - **🛠️ Setup and tools:** [Desktop integration](#desktop-integration),
   [integration settings](#integration-settings),
+  [Nextcloud integration](#nextcloud-integration),
   [embedded terminal](#embedded-terminal),
   [settings backups](#settings-backups),
   [build and installation](#build-installation-and-references),
@@ -2101,7 +2102,11 @@ The M27 desktop integrations have these limits
   service aren't listed as folders. Plasma Opus doesn't pass account
   credentials to KIO, so WebDAV storage asks for the password the first
   time unless Plasma's Online Accounts integration has already given it to
-  KDE's password server. Expired sign-ins and denied access appear as KIO
+  KDE's password server. Since M29, a Nextcloud account signed in under
+  **Go › Nextcloud › Manage Nextcloud Accounts…** gives KDE's password
+  server an app password instead
+  ([Nextcloud integration](#nextcloud-integration)). Expired sign-ins and
+  denied access appear as KIO
   errors in the pane, not in the menu. Accounts aren't shown in Places or
   offered as remote drives, and the menu reads accounts only when it opens,
   and only after opting in under **Preferences › KDE Plasma › Online
@@ -2548,8 +2553,10 @@ allow PORT/tcp`, removing the ufw rule afterwards. For paired phones, KDE
     KDE Online Accounts in Plasma Opus** under **Preferences › KDE Plasma ›
     Online Accounts**. When KIO reports an expired
     sign-in, sign in again on that page. For WebDAV storage, let KWallet
-    remember the password when KIO asks. For providers without a KDE file
-    service, use **Go › Cloud Storage** with rclone.
+    remember the password when KIO asks, or, for Nextcloud, sign in under
+    **Go › Nextcloud › Manage Nextcloud Accounts…** to use an app password.
+    For providers without a KDE file service, use **Go › Cloud Storage**
+    with rclone.
   - **rsync backend:** Install rsync on both computers. Use SSH keys with an
     agent, or install `ksshaskpass`, and connect to the host once in a
     terminal to accept its host key. Plan one direction per run, read rsync's
@@ -2724,8 +2731,9 @@ allow PORT/tcp`, removing the ufw rule afterwards. For paired phones, KDE
     keep connections alive, create folders over WebDAV, and refresh
     addresses when the network changes.
   - Show online account folders in Places, mount them as remote drives,
-    refresh the menu when accounts change, and hand Nextcloud app passwords
-    to KIO with consent.
+    refresh the menu when accounts change, and hand the app passwords of
+    Online Accounts' Nextcloud accounts to KIO with consent, as **Go ›
+    Nextcloud** already does for accounts signed in there.
   - Share one SSH connection between rsync runs, offer to keep permissions
     and links, and delete folders missing from the source.
   - Detect folder renames, compare checksums where the remote offers them,
@@ -3841,6 +3849,55 @@ The M28 integration settings have these limits
     Vault no longer has, and leave out vaults of other Activities.
   - Choose the default keys to encrypt for and sign with, decrypt into a
     chosen folder, and follow Kleopatra's own file name settings.
+
+## Nextcloud integration
+
+The M29 Nextcloud integration has these limits
+([#767](https://github.com/mikepadiernos/plasma-opus/issues/767)):
+
+- **🎫 Nextcloud accounts:** **Go › Nextcloud › Manage Nextcloud Accounts…**
+  adds accounts only with Nextcloud's Login Flow in a web browser; there is
+  no form for a user name and password. The app password goes to KDE's
+  password server, `kpasswdserver`, filed under the account's WebDAV address
+  and the realm that the server's theming name suggests, `Nextcloud` by
+  default. KIO's WebDAV worker finds it only when that realm matches the
+  server's `WWW-Authenticate` realm; otherwise KIO asks for the password once.
+  Nextcloud's OCS endpoints send no authentication challenge, so the dialog's
+  own requests send the app password themselves, through KIO, as a Basic
+  `Authorization` header. Those requests verify the certificate without
+  offering to accept an invalid one, so a self-signed server fails in the
+  dialog. Unencrypted `http` is allowed only for servers on the same
+  computer, and Login Flow is refused when the server's polling address is
+  unencrypted or on another host, as behind some reverse proxies. Sign-in
+  waits at most 20 minutes. Accounts from KDE Online Accounts are listed but
+  their credentials aren't handed to KIO, so **Check** sees only what the
+  server shows anonymously, and KIO asks for the password when their files
+  open. Photos is detected by reading its WebDAV folder, collaborative tags
+  and sharing from the capabilities, and file search is assumed from the
+  `dav` app on Nextcloud 15 or later without trying a search. **Remove…**
+  asks `kpasswdserver` to forget the app password; whether that also removes
+  the KDE Wallet entry is unverified. Accounts aren't added to Places, and
+  their settings wait for M30. The container has no Nextcloud server, KDE
+  Wallet or Plasma session
+  ([real-server check](TODO.md#nextcloud-accounts-on-a-real-server-588)).
+  ([#588](https://github.com/mikepadiernos/plasma-opus/issues/588))
+
+- **Recommendation:**
+  - **Nextcloud accounts:** Sign in under **Go › Nextcloud › Manage
+    Nextcloud Accounts…** with an `https` address whose certificate the
+    system trusts, and keep KDE Wallet enabled so the app password survives
+    restarts. If KIO asks for a password when the files open, enter the
+    Nextcloud password, or an app password when two-factor authentication is
+    on, and let KDE Wallet remember it. Choose **Check** when files stop
+    opening, and sign in again when it reports expired access. To remove an
+    account, choose **Revoke and Remove** so its app password stops working.
+  - Comment:
+    [#767.7225982354](https://github.com/mikepadiernos/plasma-opus/issues/767#issuecomment-7225982354)
+- **Proposed improvements:**
+  - Hand the app password to KIO under the realm the server announces, sign
+    in to accounts from KDE Online Accounts through their own credentials,
+    offer to trust a self-signed certificate after showing it, confirm file
+    search with a `SEARCH` request, and add accounts to Places.
 
 ## Embedded terminal
 
