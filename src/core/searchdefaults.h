@@ -28,6 +28,10 @@ struct Defaults {
     /// Name of the shared saved path filter applied initially; empty for none.
     QString pathFilter;
     Presentation presentation = Presentation::FullPaths;
+    /// Whether the search panel offers ranking results by similarity.
+    bool offerRanking = true;
+    /// Whether a finished indexed search offers to repeat it live.
+    bool offerLiveFallback = true;
     bool operator==(const Defaults &other) const = default;
 };
 

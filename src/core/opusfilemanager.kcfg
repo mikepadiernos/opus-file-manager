@@ -501,6 +501,14 @@
       <label>Open search by pressing Shift twice</label>
       <default>true</default>
     </entry>
+    <entry name="SearchOfferRanking" type="Bool">
+      <label>Offer ranking search results by similarity in the search panel</label>
+      <default>true</default>
+    </entry>
+    <entry name="SearchOfferLiveFallback" type="Bool">
+      <label>Offer to repeat an indexed search live when it finishes</label>
+      <default>true</default>
+    </entry>
   </group>
   <group name="DuplicateFinder">
     <entry name="DuplicateRequireSameFileName" type="Bool">
