@@ -37,12 +37,12 @@
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. Since then, `main` has gained M15–M26: workspaces
+> released after M14. Since then, `main` has gained M15–M27: workspaces
 > (M15–M16), themes (M17–M18), branding (M19–M20), advanced search (M21–M22),
 > native tagging (M23–M24) and Yazi mode (M25–M26), each followed by a settings
-> milestone. Features marked with a milestone badge below are on `main` but not
-> in v0.2.0. See the [roadmap](docs/ROADMAP.md#at-a-glance) for status and the
-> planned M27–M32.
+> milestone, and desktop integrations (M27). Features marked with a milestone
+> badge below are on `main` but not in v0.2.0. See the
+> [roadmap](docs/ROADMAP.md#at-a-glance) for status and the planned M28–M32.
 
 ## Features
 
@@ -100,6 +100,22 @@ preview. Both behaviours can be changed in Preferences.
   named workspaces with assigned locations, saved layouts, explicit pane and
   tab snapshots, workspace-scoped search, a startup choice, recovery options
   and profile import or export.
+
+### Integrate with Plasma
+
+- **Desktop services**
+  [![M27](https://img.shields.io/badge/M27-8957e5?style=flat-square)](docs/integrations/kde-plasma.md):
+  register as the default file manager, report progress through Plasma
+  notifications, and offer a system tray icon, a global shortcut, a drop-down
+  window, KRunner, KDE Connect, Activities and an optional system file chooser.
+- **Files and applications:** Ark archives, disk images, AppImage, Flatpak and
+  Snap packages, Baloo search, office and ebook previews, editing in suitable
+  applications, Markdown vaults with wiki links and tags, and optional embedded
+  mpv playback.
+- **Remote and secure access:** named SSH, SFTP, WebDAV, SMB and FTP
+  connections, rclone and KDE Online Accounts, temporary LAN sharing,
+  administrator mode, Plasma Vault, file encryption and password-gated
+  folders.
 
 ### Personalize
 
