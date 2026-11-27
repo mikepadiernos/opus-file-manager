@@ -43,6 +43,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [KDE Connect settings on Plasma](#kde-connect-settings-on-plasma-393)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#393]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [KRunner settings on Plasma](#krunner-settings-on-plasma-394)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#394]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [Online account settings on Plasma](#online-account-settings-on-plasma-371) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#371]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
+| [KWin script settings on Plasma](#kwin-script-settings-on-plasma-709)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#709]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -767,6 +768,44 @@ Board statuses were last confirmed on 2026-11-27.
    Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
    then remove this entry and its roadmap link.
 
+## KWin script settings on Plasma (#709)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#709]
+  (Development).
+- **Blocker:** The development container has no KWin, KGlobalAccel daemon or
+  System Settings, so the script cannot be installed, enabled or removed there,
+  and **Configure KWin Scripts…** and **Configure Window Rules…** cannot open
+  KWin's settings.
+- **Confirmed state:** `SettingsDialog::createKWinIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` drives the main window's
+  `KWinIntegration` to install, update, enable, disable and remove the script,
+  stores the window management options in the `KWinScript` group and the
+  virtual desktop assignments in `KWinVirtualDesktops`, and opens the
+  `kcm_kwin_scripts` and `kcm_kwinrules` modules through `kcmshell6` or System
+  Settings. The actions, their reports and the options sent to the script pass
+  `kwinscripttest` and `integrationsettingstest` in the container against a
+  fake KWin backend. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Opus installed by `./install.sh`, open
+   **Preferences › KDE Plasma › KWin**, choose **Install and Enable**, and
+   check that the tab reports the script as running and that it appears,
+   enabled, under **Configure KWin Scripts…**.
+2. Clear **Restore the window's screen, virtual desktop, size, tile and
+   keep-above state with each workspace**, apply, and check that applying a
+   workspace no longer moves the window; check it again and confirm the
+   placement is restored. Check **Place detached previews, editors and panes
+   beside the main window** and detach a preview.
+3. Check **Apply the workspace assigned to the virtual desktop that becomes
+   current**, assign a workspace to a virtual desktop, apply, and switch to
+   that desktop. Choose **Disable** and **Enable**, then **Remove…**, and check
+   KWin's script settings after each. Choose **Configure Window Rules…** and
+   check that KWin's window rules open.
+   Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
+   then remove this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -794,4 +833,5 @@ Board statuses were last confirmed on 2026-11-27.
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
 [#707]: https://github.com/mikepadiernos/plasma-opus/issues/707
 [#708]: https://github.com/mikepadiernos/plasma-opus/issues/708
+[#709]: https://github.com/mikepadiernos/plasma-opus/issues/709
 [#750]: https://github.com/mikepadiernos/plasma-opus/issues/750

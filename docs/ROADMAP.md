@@ -1853,7 +1853,9 @@ Settings for M27 integrations, stored in KConfig.
         installed and enabled, with explicit actions to install, update,
         disable or remove it; choose which behaviours it applies, such as
         workspace window restoration, tiling opened windows and following
-        virtual desktops, and open KWin's settings for shared window rules
+        virtual desktops, and open KWin's settings for shared window rules.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#kwin-script-settings-on-plasma-709).
         [#709]
   - [ ] **Drop-down window:** enable it and choose its screen edge, width,
         height, screen, animation and trigger, and whether it hides when it
