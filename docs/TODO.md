@@ -31,6 +31,7 @@ Board statuses were last confirmed on 2026-11-26.
 | [File encryption on Plasma](#file-encryption-on-plasma-655)         | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Send by Email on Plasma](#send-by-email-on-plasma-656)             | [M27](ROADMAP.md#m27-integrations)                                             | [#656]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Mail attachments on Plasma](#mail-attachments-on-plasma-657)       | [M27](ROADMAP.md#m27-integrations)                                             | [#657]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
+| [Mail file preview on Plasma](#mail-file-preview-on-plasma-658)     | [M27](ROADMAP.md#m27-integrations)                                             | [#658]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
 
 ## mpv integration (#563)
 
@@ -345,6 +346,34 @@ Board statuses were last confirmed on 2026-11-26.
    and saves the content. Record any differences in [CAVEATS](CAVEATS.md),
    then remove this entry and its roadmap link.
 
+## Mail file preview on Plasma (#658)
+
+- **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#658]
+  (Review).
+- **Blocker:** The development container has no registered applications, no
+  mail client and no Plasma session, so opening an attachment through its
+  application and the preview's layout in a real window cannot be tried
+  there.
+- **Confirmed state:** Parsing headers, bodies, encodings, multipart,
+  signed, encrypted and forwarded messages, extraction beside the message,
+  the changed-message error and read-only private copies pass their tests in
+  the container. This verification does not block the feature; it is
+  recorded as a caveat under [Desktop integration](CAVEATS.md#desktop-integration).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session, save a message with a PDF and an image attached
+   from KMail or Thunderbird as an `.eml` file, and select it with the
+   preview panel shown.
+2. Check the headers, body and attachment list fit the panel, and that an
+   HTML-only newsletter shows as plain text without loading images.
+3. Select the PDF and press **Open**; check Okular or the PDF handler opens
+   a read-only copy. Save a `.desktop` or shell script attachment and check
+   **Open** doesn't run it.
+4. Press **Extract All** twice and check KIO asks how to handle the existing
+   files. Record any differences in [CAVEATS](CAVEATS.md), then remove this
+   entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -357,6 +386,7 @@ Board statuses were last confirmed on 2026-11-26.
 [#655]: https://github.com/mikepadiernos/plasma-opus/issues/655
 [#656]: https://github.com/mikepadiernos/plasma-opus/issues/656
 [#657]: https://github.com/mikepadiernos/plasma-opus/issues/657
+[#658]: https://github.com/mikepadiernos/plasma-opus/issues/658
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
 [#707]: https://github.com/mikepadiernos/plasma-opus/issues/707
 [#708]: https://github.com/mikepadiernos/plasma-opus/issues/708
