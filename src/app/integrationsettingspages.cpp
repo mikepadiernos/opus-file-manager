@@ -19,6 +19,7 @@
 #include "filechooser.h"
 #include "filemanagerservice.h"
 #include "filetypeplaces.h"
+#include "foldergatedialog.h"
 #include "foldergates.h"
 #include "indexbackend.h"
 #include "indexstatus.h"
@@ -76,12 +77,14 @@
 #include <QClipboard>
 #include <QComboBox>
 #include <QDir>
+#include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QGuiApplication>
 #include <QHBoxLayout>
+#include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
 #include <QLocale>
@@ -91,6 +94,7 @@
 #include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QTreeWidget>
 #include <QUrl>
 #include <QVBoxLayout>
 
@@ -3599,5 +3603,170 @@ QWidget *SettingsDialog::createMcpIntegrationPage()
     refreshAccess();
     refreshFolders();
     refreshAudit();
+    return page;
+}
+
+void SettingsDialog::setFolderGateChooser(std::function<QString()> choose)
+{
+    m_chooseGateFolder = std::move(choose);
+}
+
+QWidget *SettingsDialog::createFolderGatesIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("folderGatesIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *warning = new KMessageWidget(i18nc("@info",
+                                             "Password protection applies only inside Plasma Opus and is not encryption. Other applications, "
+                                             "terminals and file sharing still open protected folders, and their files and permissions don't "
+                                             "change. Keep private files in a Plasma Vault or encrypt them instead."));
+    warning->setObjectName(QStringLiteral("folderGatesWarning"));
+    warning->setMessageType(KMessageWidget::Warning);
+    warning->setWordWrap(true);
+    warning->setCloseButtonVisible(false);
+    layout->addWidget(warning);
+
+    auto *gatesGroup = new StatusGroup(i18nc("@title:group", "Protected Folders"));
+    gatesGroup->setObjectName(QStringLiteral("folderGatesGroup"));
+    auto *gatesLayout = new QVBoxLayout(gatesGroup);
+    auto *list = new QTreeWidget;
+    list->setObjectName(QStringLiteral("folderGatesList"));
+    list->setRootIsDecorated(false);
+    list->setHeaderLabels({i18nc("@title:column", "Folder"), i18nc("@title:column", "State")});
+    list->header()->setStretchLastSection(false);
+    list->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    list->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    gatesLayout->addWidget(list, 1);
+    auto *protect = actionButton(QStringLiteral("folderGatesProtect"), i18nc("@action:button", "Protect Folder…"));
+    protect->setIcon(SymbolicIcon::fromTheme(QStringLiteral("folder-locked")));
+    auto *unlock = actionButton(QStringLiteral("folderGatesUnlock"), i18nc("@action:button", "Unlock…"));
+    unlock->setIcon(SymbolicIcon::fromTheme(QStringLiteral("object-unlocked")));
+    auto *lock = actionButton(QStringLiteral("folderGatesLock"), i18nc("@action:button", "Lock"));
+    lock->setIcon(SymbolicIcon::fromTheme(QStringLiteral("object-locked")));
+    auto *lockAll = actionButton(QStringLiteral("folderGatesLockAll"), i18nc("@action:button", "Lock All"));
+    auto *change = actionButton(QStringLiteral("folderGatesChangePassword"), i18nc("@action:button", "Change Password…"));
+    change->setIcon(SymbolicIcon::fromTheme(QStringLiteral("lock-edit")));
+    auto *remove = actionButton(QStringLiteral("folderGatesRemove"), i18nc("@action:button", "Remove Protection…"));
+    remove->setIcon(SymbolicIcon::fromTheme(QStringLiteral("edit-delete-remove")));
+    gatesLayout->addLayout(buttonRow({protect, unlock, lock, lockAll}));
+    gatesLayout->addLayout(buttonRow({change, remove}));
+    auto *status = statusLabel(QStringLiteral("folderGatesStatus"));
+    gatesLayout->addWidget(status);
+    layout->addWidget(gatesGroup, 1);
+
+    auto *note = new QLabel(i18nc("@info",
+                                  "Changes here take effect immediately in every Plasma Opus window, even if Preferences is cancelled. "
+                                  "Plasma Opus stores only a salted verifier of each password, never the password, so a forgotten "
+                                  "password can't be recovered. Protected folders start locked each time Plasma Opus starts, and MCP "
+                                  "clients are always refused them."));
+    note->setObjectName(QStringLiteral("folderGatesNote"));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+
+    const auto selectedGate = [list] {
+        const QTreeWidgetItem *item = list->currentItem();
+        return item ? item->data(0, Qt::UserRole).toString() : QString();
+    };
+    const auto updateButtons = [selectedGate, unlock, lock, lockAll, change, remove] {
+        FolderGates *gates = FolderGates::instance();
+        const QString gate = selectedGate();
+        const bool selected = !gate.isEmpty() && gates->isGate(gate);
+        unlock->setEnabled(selected && gates->isGateLocked(gate));
+        lock->setEnabled(selected && !gates->isGateLocked(gate));
+        change->setEnabled(selected);
+        remove->setEnabled(selected);
+        lockAll->setEnabled(gates->hasUnlocked());
+    };
+    const auto reload = [list, status, selectedGate, updateButtons] {
+        FolderGates *gates = FolderGates::instance();
+        const QString current = selectedGate();
+        const QStringList folders = gates->folders();
+        list->clear();
+        int unlocked = 0;
+        QStringList missing;
+        for (const QString &folder : folders) {
+            const bool locked = gates->isGateLocked(folder);
+            const bool exists = QFileInfo(folder).isDir();
+            QString state = locked ? i18nc("@item password-gated folder state", "Locked") : i18nc("@item password-gated folder state", "Unlocked");
+            if (!exists) {
+                state = i18nc("@item password-gated folder state, %1 is Locked or Unlocked", "%1, missing", state);
+                missing.append(QDir::toNativeSeparators(folder));
+            }
+            auto *item = new QTreeWidgetItem(list, {QDir::toNativeSeparators(folder), state});
+            item->setIcon(0, SymbolicIcon::fromTheme(locked ? QStringLiteral("object-locked") : QStringLiteral("object-unlocked")));
+            item->setData(0, Qt::UserRole, folder);
+            if (folder == current) {
+                list->setCurrentItem(item);
+            }
+            unlocked += locked ? 0 : 1;
+        }
+        QStringList lines;
+        if (folders.isEmpty()) {
+            lines.append(i18nc("@info", "No folders are protected with a password."));
+        } else {
+            lines.append(i18ncp("@info", "%1 folder is protected.", "%1 folders are protected.", folders.size()));
+            if (unlocked > 0) {
+                lines.append(i18ncp("@info",
+                                    "%1 is unlocked until it is locked again or Plasma Opus quits.",
+                                    "%1 are unlocked until they are locked again or Plasma Opus quits.",
+                                    unlocked));
+            }
+        }
+        if (!missing.isEmpty()) {
+            lines.append(i18ncp("@info %2 is a list of folders",
+                                "%2 no longer exists. Its protection is kept and applies to a new folder created there.",
+                                "%2 no longer exist. Their protection is kept and applies to new folders created there.",
+                                missing.size(),
+                                QLocale().createSeparatedList(missing)));
+        }
+        status->setText(lines.join(QLatin1Char('\n')));
+        updateButtons();
+    };
+    gatesGroup->refresh = reload;
+    connect(list, &QTreeWidget::currentItemChanged, page, updateButtons);
+    connect(FolderGates::instance(), &FolderGates::changed, page, reload);
+    connect(protect, &QPushButton::clicked, this, [this, list, status] {
+        const QString folder = m_chooseGateFolder
+            ? m_chooseGateFolder()
+            : QFileDialog::getExistingDirectory(this, i18nc("@title:window", "Choose a Folder to Protect"), QDir::homePath());
+        if (folder.isEmpty()) {
+            return;
+        }
+        // Select a folder that is already protected rather than asking for a password that would be refused.
+        const QString gate = FolderGates::canonicalPath(folder);
+        if (FolderGates::instance()->isGate(gate)) {
+            for (int row = 0; row < list->topLevelItemCount(); ++row) {
+                if (list->topLevelItem(row)->data(0, Qt::UserRole).toString() == gate) {
+                    list->setCurrentItem(list->topLevelItem(row));
+                }
+            }
+            status->setText(i18nc("@info", "%1 is already protected with a password.", QDir::toNativeSeparators(gate)));
+            return;
+        }
+        FolderGateDialog::protect(this, folder);
+    });
+    connect(unlock, &QPushButton::clicked, this, [this, selectedGate] {
+        if (const QString gate = selectedGate(); !gate.isEmpty()) {
+            FolderGateDialog::unlock(this, gate);
+        }
+    });
+    connect(lock, &QPushButton::clicked, page, [selectedGate] {
+        if (const QString gate = selectedGate(); !gate.isEmpty()) {
+            FolderGates::instance()->lock(gate);
+        }
+    });
+    connect(lockAll, &QPushButton::clicked, FolderGates::instance(), &FolderGates::lockAll);
+    connect(change, &QPushButton::clicked, this, [this, selectedGate] {
+        if (const QString gate = selectedGate(); !gate.isEmpty()) {
+            FolderGateDialog::changePassword(this, gate);
+        }
+    });
+    connect(remove, &QPushButton::clicked, this, [this, selectedGate] {
+        if (const QString gate = selectedGate(); !gate.isEmpty()) {
+            FolderGateDialog::removeProtection(this, gate);
+        }
+    });
+    reload();
     return page;
 }

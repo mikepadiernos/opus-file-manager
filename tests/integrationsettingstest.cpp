@@ -61,6 +61,7 @@
 #include <KMessageWidget>
 #include <KPageWidget>
 #include <KPageWidgetModel>
+#include <KPasswordDialog>
 #include <KPluginMetaData>
 #include <KService>
 #include <KSharedConfig>
@@ -86,6 +87,7 @@
 #include <QListWidget>
 #include <QMenu>
 #include <QPlainTextEdit>
+#include <QPointer>
 #include <QPushButton>
 #include <QScopeGuard>
 #include <QSignalSpy>
@@ -3713,6 +3715,147 @@ private Q_SLOTS:
         showLog->click();
         QCOMPARE(shown.size(), 1);
         QCOMPARE(shown.at(0).at(0).value<QList<QUrl>>(), QList<QUrl>{QUrl::fromLocalFile(log)});
+    }
+
+    void passwordGatedFoldersTabManagesProtectionImmediately()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString secret = QFileInfo(root.path()).canonicalFilePath() + QStringLiteral("/secret");
+        QVERIFY(QDir().mkpath(secret));
+        FolderGates *gates = FolderGates::instance();
+        gates->setIterations(10);
+        const auto cleanup = qScopeGuard([gates, secret] {
+            for (const QString &password : {QStringLiteral("first password 1"), QStringLiteral("second password 2")}) {
+                gates->removeProtection(secret, password);
+            }
+        });
+        QVERIFY(!gates->isGate(secret));
+
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        dialog.setFolderGateChooser([secret] {
+            return secret;
+        });
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("folderGatesIntegrationPage"));
+        QVERIFY(page);
+        QCOMPARE(tabTitleOf(page->findChild<QWidget *>(QStringLiteral("folderGatesGroup"))), QStringLiteral("Password-Gated Folders"));
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QCOMPARE(tabs->indexOf(page), 1);
+        auto *warning = page->findChild<KMessageWidget *>(QStringLiteral("folderGatesWarning"));
+        auto *list = page->findChild<QTreeWidget *>(QStringLiteral("folderGatesList"));
+        auto *status = page->findChild<QLabel *>(QStringLiteral("folderGatesStatus"));
+        auto *note = page->findChild<QLabel *>(QStringLiteral("folderGatesNote"));
+        const auto button = [page](const char *name) {
+            return page->findChild<QPushButton *>(QLatin1String(name));
+        };
+        QVERIFY(warning && list && status && note);
+        for (const char *name :
+             {"folderGatesProtect", "folderGatesUnlock", "folderGatesLock", "folderGatesLockAll", "folderGatesChangePassword", "folderGatesRemove"}) {
+            QVERIFY2(button(name), name);
+        }
+        QCOMPARE(warning->messageType(), KMessageWidget::Warning);
+        QVERIFY(warning->text().contains(QStringLiteral("only inside Plasma Opus")));
+        QVERIFY(warning->text().contains(QStringLiteral("not encryption")));
+        QVERIFY(note->text().contains(QStringLiteral("immediately")));
+        QCOMPARE(list->topLevelItemCount(), 0);
+        QVERIFY2(status->text().contains(QStringLiteral("No folders")), qPrintable(status->text()));
+        QVERIFY(button("folderGatesProtect")->isEnabled());
+        for (const char *name : {"folderGatesUnlock", "folderGatesLock", "folderGatesLockAll", "folderGatesChangePassword", "folderGatesRemove"}) {
+            QVERIFY2(!button(name)->isEnabled(), name);
+        }
+
+        const auto findDialog = [&dialog](const QString &name) -> QDialog * {
+            const QList<QDialog *> dialogs = dialog.findChildren<QDialog *>(name);
+            for (QDialog *candidate : dialogs) {
+                if (candidate->isVisible()) {
+                    return candidate;
+                }
+            }
+            return nullptr;
+        };
+        const auto enterNewPassword = [&findDialog](const QString &name, const QString &password) {
+            QDialog *newPassword = nullptr;
+            QTRY_VERIFY((newPassword = findDialog(name)));
+            const QList<QLineEdit *> edits = newPassword->findChildren<QLineEdit *>();
+            QCOMPARE(edits.size(), 2);
+            for (QLineEdit *edit : edits) {
+                edit->setText(password);
+            }
+            const QPointer<QDialog> guard(newPassword);
+            newPassword->accept();
+            QTRY_VERIFY(guard.isNull());
+        };
+        const auto enterPassword = [&findDialog](const QString &name, const QString &password, bool accepted) {
+            auto *prompt = qobject_cast<KPasswordDialog *>(findDialog(name));
+            QVERIFY(prompt);
+            const QPointer<QDialog> guard(prompt);
+            prompt->setPassword(password);
+            prompt->accept();
+            if (accepted) {
+                QTRY_VERIFY(guard.isNull());
+            } else {
+                QTest::qWait(50);
+                QVERIFY(guard && guard->isVisible());
+            }
+        };
+
+        // Protect Folder… asks for a folder and a new password, and the gate applies at once.
+        button("folderGatesProtect")->click();
+        enterNewPassword(QStringLiteral("folderGateProtectDialog"), QStringLiteral("first password 1"));
+        QVERIFY(gates->isGate(secret));
+        QVERIFY(gates->isGateLocked(secret));
+        QCOMPARE(list->topLevelItemCount(), 1);
+        QCOMPARE(list->topLevelItem(0)->data(0, Qt::UserRole).toString(), secret);
+        QCOMPARE(list->topLevelItem(0)->text(1), QStringLiteral("Locked"));
+        QVERIFY2(status->text().contains(QStringLiteral("1 folder is protected")), qPrintable(status->text()));
+
+        // Choosing a protected folder again selects it instead of asking for a password.
+        list->setCurrentItem(nullptr);
+        button("folderGatesProtect")->click();
+        QVERIFY(!findDialog(QStringLiteral("folderGateProtectDialog")));
+        QCOMPARE(list->currentItem(), list->topLevelItem(0));
+        QVERIFY2(status->text().contains(QStringLiteral("already protected")), qPrintable(status->text()));
+
+        // Unlocking keeps the prompt open after a wrong password, and unlocks every window.
+        list->setCurrentItem(list->topLevelItem(0));
+        QVERIFY(button("folderGatesUnlock")->isEnabled());
+        QVERIFY(!button("folderGatesLock")->isEnabled());
+        button("folderGatesUnlock")->click();
+        enterPassword(QStringLiteral("folderGateUnlockDialog"), QStringLiteral("wrong"), false);
+        QVERIFY(gates->isGateLocked(secret));
+        enterPassword(QStringLiteral("folderGateUnlockDialog"), QStringLiteral("first password 1"), true);
+        QVERIFY(!gates->isGateLocked(secret));
+        QCOMPARE(list->topLevelItem(0)->text(1), QStringLiteral("Unlocked"));
+        QVERIFY(window.actionCollection()->action(QStringLiteral("lock_protected_folders"))->isEnabled());
+        QVERIFY(button("folderGatesLock")->isEnabled());
+        QVERIFY(button("folderGatesLockAll")->isEnabled());
+        button("folderGatesLock")->click();
+        QVERIFY(gates->isGateLocked(secret));
+        QVERIFY(!button("folderGatesLockAll")->isEnabled());
+        QCOMPARE(gates->unlock(secret, QStringLiteral("first password 1")), FolderGates::Check::Unlocked);
+        QVERIFY(button("folderGatesLockAll")->isEnabled());
+        button("folderGatesLockAll")->click();
+        QVERIFY(gates->isGateLocked(secret));
+
+        // Change Password… checks the current password, then asks for a new one.
+        list->setCurrentItem(list->topLevelItem(0));
+        button("folderGatesChangePassword")->click();
+        enterPassword(QStringLiteral("folderGateChangeDialog"), QStringLiteral("first password 1"), true);
+        enterNewPassword(QStringLiteral("folderGateNewPasswordDialog"), QStringLiteral("second password 2"));
+        QCOMPARE(gates->checkPassword(secret, QStringLiteral("second password 2")), QString());
+
+        // Cancelling Preferences keeps the changes, which only store a verifier.
+        dialog.reject();
+        const QString stored = KSharedConfig::openConfig()->group(QStringLiteral("FolderGates")).readEntry("Gates", QStringList()).join(u'\n');
+        QVERIFY(gates->isGate(secret));
+        QVERIFY(!stored.contains(QStringLiteral("second password 2")));
+
+        list->setCurrentItem(list->topLevelItem(0));
+        button("folderGatesRemove")->click();
+        enterPassword(QStringLiteral("folderGateRemoveDialog"), QStringLiteral("second password 2"), true);
+        QVERIFY(!gates->isGate(secret));
+        QCOMPARE(list->topLevelItemCount(), 0);
     }
 };
 

@@ -118,6 +118,8 @@ public:
      * global shortcut, for tests, and loads the shortcut again.
      */
     void setDropDownShortcutHooks(std::function<QKeySequence()> read, std::function<void(const QKeySequence &)> write);
+    /// Replaces the folder chooser of Security › Password-Gated Folders, for tests; it returns an empty path when canceled.
+    void setFolderGateChooser(std::function<QString()> choose);
     /// The theme profile options shown in the dialog, which may not be applied yet.
     QVariantMap appearanceValues() const;
     /// Shows Themes options in the dialog without applying them.
@@ -441,6 +443,11 @@ private:
      * clients do, the folders they may use and its audit log.
      */
     QWidget *createMcpIntegrationPage();
+    /**
+     * The Security › Password-Gated Folders tab: the folders that Plasma Opus
+     * shows only after their password is entered, managed immediately.
+     */
+    QWidget *createFolderGatesIntegrationPage();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
@@ -495,6 +502,7 @@ private:
     std::function<bool(const QString &)> m_confirm;
     std::function<bool(const LibraryConfirmations::Confirmation &)> m_confirmLibrary;
     std::function<QString()> m_chooseLibraryFolder;
+    std::function<QString()> m_chooseGateFolder;
     QTreeWidget *m_libraries = nullptr;
     QPushButton *m_removeLibrary = nullptr;
     QPushButton *m_moveLibraryDocument = nullptr;
