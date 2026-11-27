@@ -1960,7 +1960,7 @@ Settings for M27 integrations, stored in KConfig.
         from login or on metered connections, and how often to check remotes
         that do not report changes. Plasma-session verification is a
         [pending handoff](TODO.md#cloud-sync-settings-on-plasma-720). [#720]
-  - [ ] **Transfers and cache:** set the bandwidth limit, parallel transfers,
+  - [x] **Transfers and cache:** set the bandwidth limit, parallel transfers,
         cache size and offline retention for mounted remotes, and whether to
         show the tray activity panel. Plasma-session verification is a
         [pending handoff](TODO.md#transfer-and-cache-settings-on-plasma-721).
