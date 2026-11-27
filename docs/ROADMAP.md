@@ -1760,7 +1760,7 @@ for some features are recorded in [pending tasks](TODO.md).
 
 - **M27.08: Development tooling**
 
-  - [ ] Use [mise](https://mise.jdx.dev/) for development tooling: manage
+  - [x] Use [mise](https://mise.jdx.dev/) for development tooling: manage
         project tool versions and provide configure, build, test and formatting
         tasks. Document setup and system-provided Qt, KDE and other
         dependencies, including versions needed to reproduce builds; keep the
