@@ -35,6 +35,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Shared Activity context on Plasma](#shared-activity-context-on-plasma-659) | [M27](ROADMAP.md#m27-integrations)                                             | [#659]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
 | [Default file manager on Plasma](#default-file-manager-on-plasma-293)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#293]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [File chooser settings on Plasma](#file-chooser-settings-on-plasma-292)     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#292]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
+| [Chooser start folder on Plasma](#chooser-start-folder-on-plasma-750)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#750]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -498,6 +499,37 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
    its roadmap link.
 
+## Chooser start folder on Plasma (#750)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#750]
+  (Development).
+- **Blocker:** The development container has no xdg-desktop-portal, so the
+  application IDs it passes for sandboxed and unsandboxed applications
+  cannot be seen there.
+- **Confirmed state:** `FileChooser::startFolder()`, `acceptedFolder()`,
+  `lastFolder()` and `rememberFolder()` in `src/core/filechooser.cpp` choose
+  and remember the folder; `FileChooserPortal` applies **Start folder** from
+  **Preferences › KDE Plasma › File Manager**. `filechoosertest`,
+  `chooserdialogtest`, including requests over a private session bus, and
+  `integrationsettingstest` pass in the container. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with the Plasma Opus file chooser set up, set
+   **Start folder** to **Folder of the last choice** and apply.
+2. In a Flatpak application, open a file from a folder other than home,
+   then open the dialog again without a suggested folder and check that it
+   starts there. Check that another Flatpak application still starts in the
+   home folder.
+3. Repeat with an unsandboxed portal application, such as a GTK
+   application with `GTK_USE_PORTAL=1`, and check which application ID
+   `~/.local/state/opus-file-managerstaterc` records under `[FileChooser]`.
+4. Choose **Forget Remembered Folders** and check that the dialogs start in
+   the home folder again. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
+   its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -518,3 +550,4 @@ Board statuses were last confirmed on 2026-11-27.
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
 [#707]: https://github.com/mikepadiernos/plasma-opus/issues/707
 [#708]: https://github.com/mikepadiernos/plasma-opus/issues/708
+[#750]: https://github.com/mikepadiernos/plasma-opus/issues/750
