@@ -2172,7 +2172,7 @@ using KDE shortcut facilities where supported.
       intercept typing in text fields or the embedded terminal.
       Plasma-session verification is a
       [pending handoff](TODO.md#vim-style-navigation-on-plasma-228). [#228]
-- [ ] Show the active Vim-style mode and provide a clear way to enter filtering
+- [x] Show the active Vim-style mode and provide a clear way to enter filtering
       or text without conflicting with navigation keys. Plasma-session
       verification is a
       [pending handoff](TODO.md#vim-style-mode-indicator-on-plasma-229).
