@@ -103,11 +103,12 @@ context and avoid intercepting text entry or terminal input; see the
   **Tags › Manage Tags…**. See the [tagging guide](../tagging.md).
 
 - **Sliding panes** (target) can be revealed or hidden independently of the
-  fixed regions. The planned which-key-inspired shortcut hints and toolbar
+  fixed regions. The which-key-inspired shortcut hints and the planned toolbar
   action reference can be shown as sliding panes.
 - **Floating panes** (target) can be positioned independently of the fixed
-  regions. The shortcut hints and toolbar action reference can also be shown as
-  floating panes.
+  regions. The [shortcut hints](../keyboard.md#shortcut-hints) already float
+  over the active pane while a key sequence waits, sliding up into place
+  when animations are on.
 
 For any file that can be viewed, offer editing when a suitable editing tool is
 available. Use a supported embedded provider or open a separate application;

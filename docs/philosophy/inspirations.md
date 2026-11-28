@@ -54,7 +54,7 @@ interface or implementation.
 | [TagSpaces](#tagspaces--focused-workspaces)                                                   | Workspaces that scope locations and search                     | M15                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
 | [TagStudio](#tagstudio--native-tagging)                                                       | Native tag libraries                                           | M23                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
 | [Yazi](#yazi--keyboard-first-browsing)                                                        | Keyboard-first browsing mode                                   | M25                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
-| [which-key.nvim](#which-keynvim--shortcut-discovery)                                          | Shortcut hint pane                                             | M31                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
+| [which-key.nvim](#which-keynvim--shortcut-discovery)                                          | Shortcut hint pane                                             | M31                                               | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                                     |
 
 ## Max File Manager — origin and behaviour reference
 
@@ -225,11 +225,14 @@ matching, counts and commands to the panes outside Yazi mode.
 
 ## which-key.nvim — shortcut discovery
 
-[which-key.nvim](https://github.com/folke/which-key.nvim) inspires the planned
-native sliding or floating hint pane in
-[shortcut settings](../ROADMAP.md#m31-keyboard-shortcut-settings). It will show
-available continuations and action descriptions for pending key sequences in the
-applicable context.
+[which-key.nvim](https://github.com/folke/which-key.nvim) inspires the
+[shortcut hints](../keyboard.md#shortcut-hints) of
+[shortcut settings](../ROADMAP.md#m31-keyboard-shortcut-settings): while a
+Vim-style, Yazi mode or window shortcut sequence waits for its next key, a
+floating popup over the pane lists the keys that can follow it, grouped, with
+what they do. Like which-key.nvim, it appears after a short delay, merges
+keys that begin longer sequences into one entry and pages long lists, but it
+never takes the keyboard focus.
 
 ---
 
