@@ -4324,6 +4324,25 @@ The M31 keyboard shortcut settings have these limits
   in Plasma themes and Orca's announcements are unverified
   ([Plasma check](TODO.md#vim-style-mode-indicator-on-plasma-229)).
   ([#229](https://github.com/mikepadiernos/plasma-opus/issues/229))
+- **💬 Shortcut hints:** The hint popup lists only what can follow a
+  Vim-style or Yazi mode sequence or count and the first key combinations of
+  window shortcuts of several; it doesn't list the keys text fields, lists,
+  the gallery, the search panel or the embedded terminal keep, or global
+  shortcuts. It floats at the bottom of the active pane, even when the
+  sequence was begun in another panel, and there is no sliding side pane.
+  Qt matches window shortcut sequences without saying that one is pending,
+  so Plasma Opus infers it from the key events it sees: a key combination
+  held until it repeats, or a modifier released before its key in a sequence
+  of three or more, can make the popup list the wrong keys or close early,
+  though Qt still runs the shortcut typed. While a window sequence waits, Qt
+  takes every key, so only scrolling turns the popup's pages; moving the
+  focus ends Qt's sequence through a function Qt exports for its own tests,
+  which a later Qt could change. Window shortcuts are grouped by their menu
+  bar menu and described by their names, so actions in no menu are under
+  **Other actions**. The popup's place, look and motion in Plasma
+  themes and Orca's announcements are unverified
+  ([Plasma check](TODO.md#shortcut-hints-on-plasma-234)).
+  ([#234](https://github.com/mikepadiernos/plasma-opus/issues/234))
 
 - **Recommendation:**
   - **Shortcut settings:** Change shortcuts in **Configure Keyboard
@@ -4411,6 +4430,14 @@ The M31 keyboard shortcut settings have these limits
     click the file view or press <kbd>Escape</kbd> in the field that has the
     focus. Use the filter bar or **Find by key** in the keyboard map rather
     than the indicator to see the filter's text or a key's command.
+  - **Shortcut hints:** Pause after the first key of a sequence, such as
+    <kbd>g</kbd> or <kbd>Ctrl</kbd>+<kbd>K</kbd>, to see what can follow it,
+    and press <kbd>Escape</kbd> to cancel it. Turn the popup's pages with
+    <kbd>Page Up</kbd> and <kbd>Page Down</kbd>, or scroll over it while a
+    count or a window shortcut waits. Type window shortcuts of several key
+    combinations without holding keys until they repeat; if the popup lists
+    keys that don't fit, press <kbd>Escape</kbd> and type the shortcut again.
+    For keys the popup doesn't list, use **Help › Keyboard Map…**.
   - Comment:
     [#771.7231940238](https://github.com/mikepadiernos/plasma-opus/issues/771#issuecomment-7231940238)
 - **Proposed improvements:**
@@ -4446,6 +4473,10 @@ The M31 keyboard shortcut settings have these limits
   - Add visual and command modes, show the filter's text and the mode in the
     window's status bar, let the indicator be hidden, and let
     <kbd>Escape</kbd> in the filter bar be set to clear the filter.
+  - Ask Qt to report pending window shortcut sequences rather than inferring
+    them, let keys turn the popup's pages while one waits, list the keys
+    text fields, lists, the gallery and the search panel keep, and offer the
+    hints as a sliding side pane as well.
 
 ## Embedded terminal
 
