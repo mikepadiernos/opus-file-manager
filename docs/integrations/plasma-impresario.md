@@ -317,8 +317,9 @@ views could also work with Nextcloud Calendar, Maps, Deck and Notes.
 - Carry Vim mode and shared shortcut settings over in both directions, so
   keyboard navigation behaves the same in both applications. Plasma Opus
   already offers Vim-style movement in [Yazi mode](../ROADMAP.md#m25-yazi-mode)
-  and plans Vim mode settings and a which-key style hint panel in
-  [M31](../ROADMAP.md#m31-keyboard-shortcut-settings), whose shortcut import
+  and, in [M31](../ROADMAP.md#m31-keyboard-shortcut-settings), optional
+  [Vim-style navigation](../keyboard.md#vim-style-navigation) and which-key
+  style [shortcut hints](../keyboard.md#shortcut-hints); its shortcut import
   and export uses a versioned, documented
   [keymap file](../keyboard.md#keymap-files). Plasma
   Impresario plans the same optional Vim mode
