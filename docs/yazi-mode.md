@@ -489,6 +489,9 @@ added to a toolbar:
   own shortcuts, and the filtering, search, sorting and tab keys use the
   pane's filter bar, the search panel, the pane's sort menu and the pane's
   tabs, which have their own menus and shortcuts too.
+- **Preferences › Keyboard › Shortcuts** lists these actions once they have
+  shortcuts, with any conflicts, and its **Yazi Mode Keys** button opens
+  **Yazi Mode › Keyboard**; see [Keyboard shortcuts](keyboard.md).
 
 ## Selection and file actions
 

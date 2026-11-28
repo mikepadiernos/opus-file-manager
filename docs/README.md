@@ -25,6 +25,7 @@ How Plasma Opus works today and how to set it up.
 | [Project README](../README.md)       | Features, installation, customization and safety                | [M01–M30](ROADMAP.md#at-a-glance)                                                               |
 | [Native tagging](tagging.md)         | Library format, tags, fields, search, backups and settings      | [M23](ROADMAP.md#m23-native-tagging)–[M24](ROADMAP.md#m24-tagging-settings)                     |
 | [Yazi mode](yazi-mode.md)            | Per-pane column browsing, keys, what it keeps, persistence      | [M25](ROADMAP.md#m25-yazi-mode)–[M26](ROADMAP.md#m26-yazi-mode-settings)                        |
+| [Keyboard shortcuts](keyboard.md)    | Shortcut editor, conflicts, defaults, search and global keys    | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                                                |
 | [Translations](../po/README.md)      | Language settings, catalogue extraction, installation, fallback | [M13](ROADMAP.md#m13-translations)–[M14](ROADMAP.md#m14-translation-settings)                   |
 | [Branding](BRANDING.md)              | Name, logo, icons, startup presentation and asset licensing     | [M19](ROADMAP.md#m19-branding)–[M20](ROADMAP.md#m20-branding-settings)                          |
 | [Screenshots](screenshots/README.md) | Captured views and how they were made                           | Captured after [M18](ROADMAP.md#m18-theme-settings) and [M20](ROADMAP.md#m20-branding-settings) |

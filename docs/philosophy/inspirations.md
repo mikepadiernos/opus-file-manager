@@ -79,8 +79,10 @@ Directory Opus sets the benchmark for power-user depth: dual panes, tabs,
 viewers, flat browsing, automation and metadata. Its workflows inform
 [folder formats and navigation history](../ROADMAP.md#m03-listing-depth),
 [collections and duplicate selection](../ROADMAP.md#m09-tools),
-[layout customization](../ROADMAP.md#m11-ui-customizations) and the planned
-[shortcut settings](../ROADMAP.md#m31-keyboard-shortcut-settings). Its
+[layout customization](../ROADMAP.md#m11-ui-customizations) and the
+[shortcut settings](../ROADMAP.md#m31-keyboard-shortcut-settings), which
+summarize customized and conflicting shortcuts around KDE's editor; see
+[Keyboard shortcuts](../keyboard.md). Its
 [manual](https://docs.dopus.com/doku.php?id=introduction) also informs planned
 [interface refinements](../ROADMAP.md#m32-refinements), such as contextual help,
 filter visibility and discoverable customization. These are adapted to Linux and

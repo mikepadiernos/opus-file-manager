@@ -132,8 +132,11 @@ behaves like the rest of the desktop and follows the user's choices.
   shown as usual.
   ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285),
   [#290](https://github.com/mikepadiernos/plasma-opus/issues/290),
-  [#291](https://github.com/mikepadiernos/plasma-opus/issues/291); more
-  shortcut settings in [M31](../ROADMAP.md#m31-keyboard-shortcut-settings))
+  [#291](https://github.com/mikepadiernos/plasma-opus/issues/291)).
+  **Preferences › Keyboard › Shortcuts** shows the global shortcuts with the
+  window's own and lists conflicts between them; see
+  [Keyboard shortcuts](../keyboard.md) and
+  [M31](../ROADMAP.md#m31-keyboard-shortcut-settings).
 - **Plasma Activities:** each Activity can name a workspace and a default folder
   for each pane under **Preferences › KDE Plasma › Activities**, once
   **Associate workspaces and default folders with Plasma Activities** is checked
