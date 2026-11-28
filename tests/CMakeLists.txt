@@ -190,6 +190,7 @@ ecm_add_tests(
     workspacecatalogtest.cpp
     workspacerestoretest.cpp
     workspacestartuptest.cpp
+    vimnavigationtest.cpp
     yazimodetest.cpp
     LINK_LIBRARIES opusfm_core Qt6::Test KF6::ConfigCore
     NAME_PREFIX "opusfm-"
@@ -213,6 +214,12 @@ ecm_add_test(mcpsettingstest.cpp
 )
 add_dependencies(mcpsettingstest opus-file-manager-mcp)
 target_compile_definitions(mcpsettingstest PRIVATE OPUSFM_MCP_EXECUTABLE="$<TARGET_FILE:opus-file-manager-mcp>")
+
+ecm_add_test(vimnavigationuitest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
 
 ecm_add_test(yazimodeuitest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test

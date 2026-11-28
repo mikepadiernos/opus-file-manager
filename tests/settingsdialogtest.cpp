@@ -19,6 +19,7 @@
 #include "libraryscan.h"
 #include "mainwindow.h"
 #include "navigationshortcuts.h"
+#include "pane.h"
 #include "pathfilterpresetsdialog.h"
 #include "savedpathfilters.h"
 #include "searchhistory.h"
@@ -42,6 +43,7 @@
 #include <KConfigGroup>
 #include <KEditListWidget>
 #include <KFilePlacesModel>
+#include <KLocalizedString>
 #include <KNSCore/Entry>
 #include <KNSWidgets/Button>
 #include <KPageWidget>
@@ -86,6 +88,7 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItemIterator>
 
+#include <algorithm>
 #include <array>
 
 class SettingsDialogTest : public QObject
@@ -2581,13 +2584,13 @@ private Q_SLOTS:
         state.writeEntry(CommandPalette::HistoryKey, QStringList{QStringLiteral("Select &All"), QStringLiteral("&New Folder…"), QStringLiteral("Select All")});
         SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
 
-        // Command Palette is the third tab of Keyboard.
+        // Command Palette is the fourth tab of Keyboard, after Vim Mode.
         auto *page = dialog.findChild<QWidget *>(QStringLiteral("keyboardCommandPalettePage"));
         QVERIFY(page);
         auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
         QVERIFY(tabs);
-        QCOMPARE(tabs->indexOf(page), 2);
-        QCOMPARE(tabs->tabText(2), QStringLiteral("Command Palette"));
+        QCOMPARE(tabs->indexOf(page), 3);
+        QCOMPARE(tabs->tabText(3), QStringLiteral("Command Palette"));
         auto *savedCommands = page->findChild<QCheckBox *>(QStringLiteral("kcfg_CommandPaletteSavedCommands"));
         auto *shortcut = page->findChild<QLabel *>(QStringLiteral("keyboardCommandPaletteShortcut"));
         auto *history = page->findChild<QListWidget *>(QStringLiteral("keyboardCommandPaletteHistory"));
@@ -2624,6 +2627,93 @@ private Q_SLOTS:
         QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
         dialog.button(QDialogButtonBox::Apply)->click();
         QVERIFY(!Settings::commandPaletteSavedCommands());
+    }
+
+    void keyboardVimModeListsKeysAndConflicts()
+    {
+        MainWindow window;
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        QVERIFY(gallery);
+        const QList<QKeySequence> defaults = gallery->shortcuts();
+        const auto restore = qScopeGuard([&window, gallery, defaults] {
+            gallery->setShortcuts(defaults);
+            Q_EMIT window.guiFactory()->shortcutsSaved();
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+
+        // Vim Mode is the third tab of Keyboard, after Navigation.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("keyboardVimPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(page), 2);
+        QCOMPARE(tabs->tabText(2), QStringLiteral("Vim Mode"));
+        auto *enabled = page->findChild<QCheckBox *>(QStringLiteral("kcfg_VimNavigation"));
+        auto *keys = page->findChild<QTreeWidget *>(QStringLiteral("keyboardVimKeys"));
+        auto *summary = page->findChild<QLabel *>(QStringLiteral("keyboardVimConflictSummary"));
+        auto *conflicts = page->findChild<QListWidget *>(QStringLiteral("keyboardVimConflicts"));
+        auto *configure = page->findChild<QPushButton *>(QStringLiteral("keyboardVimConfigure"));
+        auto *map = page->findChild<QPushButton *>(QStringLiteral("keyboardVimMap"));
+        QVERIFY(enabled && keys && summary && conflicts && configure && map);
+        QVERIFY(!enabled->isChecked());
+        QVERIFY(configure->isEnabled());
+        QVERIFY(map->isEnabled());
+        QVERIFY(!keys->accessibleName().isEmpty());
+        QVERIFY(!conflicts->accessibleName().isEmpty());
+
+        // One row per command, with all its keys.
+        QStringList commands;
+        for (int i = 0; i < keys->topLevelItemCount(); ++i) {
+            commands.append(keys->topLevelItem(i)->data(0, Qt::UserRole).toString());
+        }
+        QCOMPARE(commands.first(), QStringLiteral("move-up"));
+        QCOMPARE(commands.removeDuplicates(), 0);
+        QTreeWidgetItem *down = keys->topLevelItem(commands.indexOf(QStringLiteral("move-down")));
+        QCOMPARE(down->text(0), QStringLiteral("j"));
+        QTreeWidgetItem *halfDown = keys->topLevelItem(commands.indexOf(QStringLiteral("half-page-down")));
+        QVERIFY2(halfDown->text(0).contains(QStringLiteral("J")), qPrintable(halfDown->text(0)));
+        QVERIFY(commands.contains(QStringLiteral("filter")));
+        QVERIFY(commands.contains(QStringLiteral("clear-filter")));
+
+        // Ctrl+D keeps running Add to Favorites, and that is listed.
+        const auto texts = [conflicts] {
+            QStringList found;
+            for (int i = 0; i < conflicts->count(); ++i) {
+                found.append(conflicts->item(i)->text());
+            }
+            return found;
+        };
+        QStringList listed = texts();
+        QVERIFY2(std::any_of(listed.cbegin(),
+                             listed.cend(),
+                             [](const QString &text) {
+                                 return text.contains(QStringLiteral("Add to Favorites")) && text.contains(QStringLiteral("half a page down"));
+                             }),
+                 qPrintable(listed.join(QLatin1Char('\n'))));
+        const int before = listed.size();
+        QVERIFY(summary->text().contains(QString::number(before)) || before == 1);
+
+        // A plain-key window shortcut that the keys take over is listed once saved.
+        gallery->setShortcuts({QKeySequence(Qt::Key_G)});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        listed = texts();
+        QCOMPARE(listed.size(), before + 1);
+        QVERIFY2(std::any_of(listed.cbegin(),
+                             listed.cend(),
+                             [gallery](const QString &text) {
+                                 return text.contains(KLocalizedString::removeAcceleratorMarker(gallery->text())) && text.contains(QStringLiteral("gg"));
+                             }),
+                 qPrintable(listed.join(QLatin1Char('\n'))));
+
+        // The setting is saved like the others, and the window applies it to its panes.
+        enabled->setChecked(true);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::vimNavigation());
+        window.applySettings();
+        QVERIFY(window.activePane()->vimNavigationActive());
     }
 
     void keyboardShortcutsReportKeysThatTextFieldsAndListsKeep()

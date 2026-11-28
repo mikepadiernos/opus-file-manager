@@ -136,10 +136,12 @@ private Q_SLOTS:
         Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
         Settings::setExtraNavigationShortcuts(true);
         Settings::setDoubleShiftSearch(false);
+        Settings::setVimNavigation(true);
         KeymapFile::Keymap keymap;
         keymap.actions = {{QStringLiteral("open_gallery"), {f9, ctrlKG}}, {QStringLiteral("search_folder"), {}}};
         keymap.settings = KeymapFile::settingValues(Settings::self());
         QCOMPARE(keymap.settings.value(QStringLiteral("YaziKeyPreset")), QVariant(1));
+        QCOMPARE(keymap.settings.value(QStringLiteral("VimNavigation")), QVariant(true));
         QCOMPARE(keymap.settings.value(QStringLiteral("ExtraNavigationShortcuts")), QVariant(true));
         QCOMPARE(keymap.settings.value(QStringLiteral("DoubleShiftSearch")), QVariant(false));
         QCOMPARE(keymap.settings.value(QStringLiteral("TabSwitchesPanes")), QVariant(true));
@@ -158,6 +160,7 @@ private Q_SLOTS:
         const QJsonObject settings = object.value(QStringLiteral("settings")).toObject();
         QCOMPARE(settings.value(QStringLiteral("YaziKeyPreset")).toString(), QStringLiteral("Vim"));
         QCOMPARE(settings.value(QStringLiteral("ExtraNavigationShortcuts")).toBool(false), true);
+        QCOMPARE(settings.value(QStringLiteral("VimNavigation")).toBool(false), true);
 
         QString error;
         QStringList warnings;
@@ -173,7 +176,7 @@ private Q_SLOTS:
         const auto withoutSettings = KeymapFile::fromJson(text, nullptr, &error, &warnings);
         QVERIFY(withoutSettings);
         QVERIFY(withoutSettings->settings.isEmpty());
-        QCOMPARE(warnings.size(), 4);
+        QCOMPARE(warnings.size(), 5);
     }
 
     void filesThatArentValidKeymapsAreRejected()
