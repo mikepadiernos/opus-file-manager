@@ -2124,7 +2124,7 @@ Settings for M29 Nextcloud integration, stored in KConfig without credentials.
       features and retain safe defaults. Real-server and Plasma verification
       is a [pending handoff](TODO.md#nextcloud-settings-on-plasma-368).
       [#368]
-- [ ] Show or hide Photos albums, shared albums and places, choose their
+- [x] Show or hide Photos albums, shared albums and places, choose their
       default grouping and whether to confirm album changes. Real-server
       verification is a
       [pending handoff](TODO.md#nextcloud-photos-settings-on-a-real-server-672).
