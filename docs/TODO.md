@@ -74,6 +74,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Navigation shortcuts on Plasma](#navigation-shortcuts-on-plasma-236)                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#236]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Keymap files on Plasma](#keymap-files-on-plasma-237)                                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#237]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Command palette on Plasma](#command-palette-on-plasma-761)                                   | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#761]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Vim-style navigation on Plasma](#vim-style-navigation-on-plasma-228)                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#228]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1995,8 +1996,48 @@ modify ID connection.metered yes`), check that the tab reports it and that
    differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this
    entry and its roadmap link.
 
+## Vim-style navigation on Plasma (#228)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#228] (Development).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, input method or screen reader,
+  so real keyboards and layouts, input methods composing text in a file view,
+  the embedded terminal and the announcements are unverified.
+- **Confirmed state:** `VimNavigation` in `src/core/vimnavigation.cpp` binds
+  the keys to Yazi mode's commands, and `Pane` in `src/app/pane.cpp` matches
+  them with a `YaziKeys` filter on the file view, only outside Yazi mode and
+  never while an item is renamed, and runs them in `Pane::runVimCommand`.
+  **Preferences › Keyboard › Vim Mode** (`createKeyboardVimPage` in
+  `src/app/keyboardsettingspages.cpp`) and **View › Vim-Style Navigation**
+  set `VimNavigation`. `vimnavigationtest`, `vimnavigationuitest`,
+  `settingsdialogtest`, `keymapfiletest`, `keyboardmaptest`,
+  `mainwindowtest` and the Yazi mode and pane tests pass in the container.
+  See [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, turn on **View ›
+   Vim-Style Navigation** and, on X11 and Wayland, press <kbd>j</kbd>,
+   <kbd>k</kbd>, <kbd>5</kbd> <kbd>j</kbd>, <kbd>g</kbd> <kbd>g</kbd>,
+   <kbd>G</kbd>, <kbd>J</kbd>, <kbd>K</kbd>, <kbd>h</kbd>, <kbd>l</kbd>,
+   <kbd>H</kbd>, <kbd>L</kbd>, <kbd>g</kbd> <kbd>t</kbd> and <kbd>/</kbd> in
+   each view mode of both panes, with a US and a German layout.
+2. Type the same letters in the location bar, the filter bar, a search field,
+   an inline rename editor and the embedded terminal, and check that they are
+   typed, not run. With Fcitx 5 or IBus and a Chinese or Japanese input
+   method active in a file view, note whether the keys are composed or run.
+3. Put a pane in Yazi mode and check that the Yazi preset's keys apply there
+   and the Vim-style keys apply in the other pane. Give **Open Gallery**
+   <kbd>G</kbd> and check that the **Vim Mode** tab lists it and that
+   <kbd>Ctrl</kbd>+<kbd>D</kbd> still adds to Favorites. With Orca, check
+   that the messages, such as pressing <kbd>h</kbd> at `/`, are read. Record
+   any differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove
+   this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
+[#228]: https://github.com/mikepadiernos/plasma-opus/issues/228
 [#230]: https://github.com/mikepadiernos/plasma-opus/issues/230
 [#231]: https://github.com/mikepadiernos/plasma-opus/issues/231
 [#232]: https://github.com/mikepadiernos/plasma-opus/issues/232
