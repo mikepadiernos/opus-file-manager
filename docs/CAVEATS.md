@@ -4274,6 +4274,23 @@ The M31 keyboard shortcut settings have these limits
   dialogs and other open windows on Plasma are unverified
   ([Plasma check](TODO.md#keymap-files-on-plasma-237)).
   ([#237](https://github.com/mikepadiernos/plasma-opus/issues/237))
+- **🪄 Command palette:** **Help › Command Palette…** searches only the
+  menu bar's menus, the window's toolbars and the saved commands; actions
+  that have only a shortcut, the pane toolbars' buttons, context menus,
+  service menus, the gallery and Yazi mode keys aren't listed. Menus are read
+  as they are when it opens: a menu that fills itself only as it is shown is
+  filled when empty, but one with old entries may show them until it is
+  opened. Only an action's first shortcut is shown. The recently used
+  actions are KDE's: the last six are kept by their names in the `General`
+  group of `opus-file-managerstaterc`, so renaming an action, a saved
+  command or a language change loses them, actions of the same name share
+  an entry, and they come first only until you type. KDE also adds **Command
+  Bar: Clear History** to the list. Saved commands open in **Scripts and
+  Custom Commands** instead of running. Whether the embedded terminal passes
+  <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd> on, other keyboard layouts,
+  the palette's look and the screen reader on Plasma are unverified
+  ([Plasma check](TODO.md#command-palette-on-plasma-761)).
+  ([#761](https://github.com/mikepadiernos/plasma-opus/issues/761))
 
 - **Recommendation:**
   - **Shortcut settings:** Change shortcuts in **Configure Keyboard
@@ -4332,6 +4349,17 @@ The M31 keyboard shortcut settings have these limits
     Preferences to keep the keyboard settings. Save commands under the same
     names on both computers before importing their shortcuts, and set global
     shortcuts where they are configured.
+  - **Command palette:** Use **Help › Command Palette…**, or
+    <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd>, to find and run menu and
+    toolbar actions by name, and give the ones you use often a shortcut in
+    **Configure Keyboard Shortcuts…**. For actions it doesn't list, use the
+    pane's toolbar or context menu, or look the key up in **Help › Keyboard
+    Map…**. If the embedded terminal keeps
+    <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd>, click a pane first or give
+    the palette another key. Turn off **List saved commands** on
+    **Preferences › Keyboard › Command Palette** to keep them out of the
+    list, and use **Clear History** there after renaming actions or changing
+    the language.
   - Comment:
     [#771.7231940238](https://github.com/mikepadiernos/plasma-opus/issues/771#issuecomment-7231940238)
 - **Proposed improvements:**
@@ -4357,6 +4385,10 @@ The M31 keyboard shortcut settings have these limits
   - Read and write KDE's shortcut scheme files, include global shortcuts,
     undo an import, show the extra navigation keys a changed setting adds in
     the preview, and agree a shared keymap profile with Plasma Impresario.
+  - List the pane toolbars' buttons, context and service menu entries and
+    shortcut-only actions in the command palette, show every shortcut of an
+    action, keep the recently used actions by action name rather than text,
+    and keep them first among matches while typing.
 
 ## Embedded terminal
 
