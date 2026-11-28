@@ -114,6 +114,8 @@ add_library(opusfm_app STATIC
     keyboardmapdialog.cpp
     keyboardmapdialog.h
     keyboardsettingspages.cpp
+    keymapimportdialog.cpp
+    keymapimportdialog.h
     librarymovetracker.cpp
     librarymovetracker.h
     libraryautorefresh.cpp

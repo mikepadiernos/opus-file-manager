@@ -22,6 +22,7 @@ class EmbeddedMetadataMappingTable;
 class FieldTemplateEditor;
 class HiddenItemsList;
 class KKeySequenceWidget;
+class KeymapImportDialog;
 class KPageWidgetItem;
 class KWinIntegration;
 class PreviewSizeSpinBox;
@@ -113,6 +114,22 @@ public:
     void resetShortcutsToDefaults();
     /// Replaces the yes or no question asked before resetShortcutsToDefaults(), for tests.
     void setShortcutResetConfirmation(std::function<bool(const QString &)> confirm);
+    /**
+     * Writes the main window's customized shortcuts and the keyboard settings
+     * to the keymap file at @p path (see KeymapFile), and reports the result
+     * on the Keyboard › Shortcuts tab.
+     */
+    void exportShortcuts(const QString &path);
+    /**
+     * Reads the keymap file at @p path and previews what it changes. When the
+     * preview is applied, the main window's actions get the file's shortcuts,
+     * saved right away as Configure Keyboard Shortcuts saves them, and the
+     * file's keyboard settings are shown in Preferences without being saved.
+     * Reports the result on the Keyboard › Shortcuts tab.
+     */
+    void importShortcuts(const QString &path);
+    /// Replaces showing the import preview, for tests; @p review returns whether to apply it.
+    void setKeymapImportReview(std::function<bool(KeymapImportDialog &)> review);
     /**
      * Replaces how KDE Plasma › File Manager checks for and restarts
      * xdg-desktop-portal, and the question asked before restarting it, for tests.
@@ -559,6 +576,9 @@ private:
     std::function<bool(const QString &, const QStringList &)> m_confirmYaziKeys;
     std::function<bool(const QString &)> m_confirmYaziReset;
     std::function<bool(const QString &)> m_confirmShortcutReset;
+    std::function<bool(KeymapImportDialog &)> m_reviewKeymapImport;
+    /// What the last keymap import or export did, on the Keyboard › Shortcuts tab.
+    QLabel *m_keymapStatus = nullptr;
     /// Lists the customized shortcuts and conflicts on the Keyboard › Shortcuts tab again.
     std::function<void()> m_refreshKeyboardShortcuts;
     /// Lists the navigation actions and their extra keys on the Keyboard › Navigation tab again.

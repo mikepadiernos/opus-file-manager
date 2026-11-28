@@ -5,6 +5,8 @@
 #include "desktoptray.h"
 #include "doubleshift.h"
 #include "keybindings.h"
+#include "keymapfile.h"
+#include "keymapimportdialog.h"
 #include "navigationshortcuts.h"
 #include "settings.h"
 #include "settingswidgets.h"
@@ -20,6 +22,10 @@
 #include <QAction>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDateTime>
+#include <QDir>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -28,6 +34,7 @@
 #include <QListWidget>
 #include <QPointer>
 #include <QPushButton>
+#include <QStandardPaths>
 #include <QTimer>
 #include <QTreeWidget>
 #include <QVBoxLayout>
@@ -148,6 +155,58 @@ QWidget *SettingsDialog::createKeyboardShortcutsPage()
     buttons->addWidget(map);
     buttons->addStretch();
     layout->addLayout(buttons);
+
+    auto *keymapGroup = new QGroupBox(i18nc("@title:group", "Import and Export"), page);
+    keymapGroup->setObjectName(QStringLiteral("keyboardKeymap"));
+    auto *keymapLayout = new QVBoxLayout(keymapGroup);
+    keymapLayout->addWidget(notice(QStringLiteral("keyboardKeymapNotice"),
+                                   i18nc("@info",
+                                         "Export saves the customized shortcuts and the keyboard settings to a keymap file. "
+                                         "Import shows what a keymap file changes and which conflicts it adds before applying "
+                                         "it; nothing in the file runs.")));
+    QPushButton *importKeymap = iconButton(QStringLiteral("keyboardImportShortcuts"), i18nc("@action:button", "Import…"), QStringLiteral("document-import"));
+    importKeymap->setToolTip(i18nc("@info:tooltip", "Preview and apply the shortcuts and keyboard settings of a keymap file"));
+    QPushButton *exportKeymap = iconButton(QStringLiteral("keyboardExportShortcuts"), i18nc("@action:button", "Export…"), QStringLiteral("document-export"));
+    exportKeymap->setToolTip(i18nc("@info:tooltip", "Save the customized shortcuts and the keyboard settings to a keymap file"));
+    importKeymap->setEnabled(window);
+    exportKeymap->setEnabled(window);
+    connect(importKeymap, &QPushButton::clicked, this, [this] {
+        const QString path = QFileDialog::getOpenFileName(this,
+                                                          i18nc("@title:window", "Import Keyboard Shortcuts"),
+                                                          QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
+                                                          i18nc("@item:inlistbox", "Plasma Opus keymaps (*.json)"));
+        if (!path.isEmpty()) {
+            importShortcuts(path);
+        }
+    });
+    connect(exportKeymap, &QPushButton::clicked, this, [this] {
+        QString path = QFileDialog::getSaveFileName(
+            this,
+            i18nc("@title:window", "Export Keyboard Shortcuts"),
+            QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath(QStringLiteral("plasma-opus-keymap.json")),
+            i18nc("@item:inlistbox", "Plasma Opus keymaps (*.json)"));
+        if (path.isEmpty()) {
+            return;
+        }
+        if (QFileInfo(path).suffix().isEmpty()) {
+            path += QLatin1String(".json");
+        }
+        exportShortcuts(path);
+    });
+    auto *keymapButtons = new QHBoxLayout;
+    keymapButtons->addWidget(importKeymap);
+    keymapButtons->addWidget(exportKeymap);
+    keymapButtons->addStretch();
+    keymapLayout->addLayout(keymapButtons);
+    m_keymapStatus = notice(QStringLiteral("keyboardKeymapStatus"));
+    m_keymapStatus->setVisible(false);
+    keymapLayout->addWidget(m_keymapStatus);
+    layout->addWidget(keymapGroup);
+    if (!m_reviewKeymapImport) {
+        m_reviewKeymapImport = [](KeymapImportDialog &dialog) {
+            return dialog.exec() == QDialog::Accepted;
+        };
+    }
 
     auto *otherGroup = new QGroupBox(i18nc("@title:group", "Search, Yazi Mode and Global Shortcuts"), page);
     otherGroup->setObjectName(QStringLiteral("keyboardOtherKeys"));
@@ -459,4 +518,116 @@ void SettingsDialog::resetShortcutsToDefaults()
     } else {
         m_refreshKeyboardShortcuts();
     }
+}
+
+void SettingsDialog::setKeymapImportReview(std::function<bool(KeymapImportDialog &)> review)
+{
+    m_reviewKeymapImport = std::move(review);
+}
+
+void SettingsDialog::exportShortcuts(const QString &path)
+{
+    auto *window = qobject_cast<KXmlGuiWindow *>(parentWidget());
+    if (!window || path.isEmpty()) {
+        return;
+    }
+    KeymapFile::Keymap keymap = KeymapFile::fromBindings(windowBindings(window).bindings);
+    keymap.settings = KeymapFile::settingValues(Settings::self());
+    const QString error = KeymapFile::exportFile(keymap, Settings::self(), path, QDateTime::currentDateTimeUtc());
+    if (!error.isEmpty()) {
+        m_keymapStatus->setText(error);
+    } else if (keymap.actions.isEmpty()) {
+        m_keymapStatus->setText(
+            i18nc("@info %1 file", "Exported the keyboard settings to %1. Every action has its default shortcuts, so the file lists none.", path));
+    } else {
+        m_keymapStatus->setText(i18ncp("@info %2 file",
+                                       "Exported the keyboard settings and the shortcuts of 1 customized action to %2.",
+                                       "Exported the keyboard settings and the shortcuts of %1 customized actions to %2.",
+                                       keymap.actions.size(),
+                                       path));
+    }
+    m_keymapStatus->setVisible(true);
+}
+
+void SettingsDialog::importShortcuts(const QString &path)
+{
+    auto *window = qobject_cast<KXmlGuiWindow *>(parentWidget());
+    if (!window || path.isEmpty()) {
+        return;
+    }
+    m_keymapStatus->setVisible(true);
+    QString error;
+    QStringList warnings;
+    const std::optional<KeymapFile::Keymap> keymap = KeymapFile::importFile(path, Settings::self(), &error, &warnings);
+    if (!keymap) {
+        m_keymapStatus->setText(i18nc("@info %1 file, %2 reason", "Could not import %1: %2 Nothing was changed.", path, error));
+        return;
+    }
+
+    // The settings go into Preferences' own widgets, compared with what they show.
+    QStringList settingChanges;
+    QVariantMap editorValues;
+    const auto onOff = [](bool on) {
+        return on ? i18nc("@item setting value", "On") : i18nc("@item setting value", "Off");
+    };
+    for (auto it = keymap->settings.constBegin(); it != keymap->settings.constEnd(); ++it) {
+        auto *editor = findChild<QWidget *>(QStringLiteral("kcfg_") + it.key());
+        QString from;
+        QString to;
+        if (auto *check = qobject_cast<QCheckBox *>(editor)) {
+            if (check->isChecked() == it.value().toBool()) {
+                continue;
+            }
+            from = onOff(check->isChecked());
+            to = onOff(it.value().toBool());
+        } else if (auto *combo = qobject_cast<QComboBox *>(editor)) {
+            const int index = it.value().toInt();
+            if (index < 0 || index >= combo->count() || index == combo->currentIndex()) {
+                continue;
+            }
+            from = combo->currentText();
+            to = combo->itemText(index);
+        } else {
+            continue;
+        }
+        settingChanges.append(i18nc("@item %1 setting, %2 current value, %3 imported value", "%1: %2 → %3", KeymapFile::settingText(it.key()), from, to));
+        editorValues.insert(it.key(), it.value());
+    }
+
+    const WindowBindings found = windowBindings(window);
+    KeymapImportDialog dialog(QFileInfo(path).fileName(), found.bindings, *keymap, warnings, settingChanges, this);
+    if (!m_reviewKeymapImport(dialog)) {
+        m_keymapStatus->setText(i18nc("@info %1 file", "Didn't import %1; nothing was changed.", path));
+        return;
+    }
+    const KeymapFile::Preview preview = dialog.preview();
+    int changed = 0;
+    for (const KeymapFile::Change &change : preview.changes) {
+        // Looked up again, as the window's actions may have changed while the preview was shown.
+        if (QAction *action = window->actionCollection()->action(found.bindings.at(change.index).name)) {
+            action->setShortcuts(change.shortcuts);
+            ++changed;
+        }
+    }
+    if (changed > 0) {
+        WindowShortcuts::save(window);
+        if (window->guiFactory()) {
+            // As after Configure Keyboard Shortcuts, every window and everything that lists shortcuts updates.
+            Q_EMIT window->guiFactory()->shortcutsSaved();
+        } else {
+            m_refreshKeyboardShortcuts();
+        }
+    }
+    if (!editorValues.isEmpty()) {
+        setEditorValues(editorValues);
+    }
+    QString text = i18ncp("@info %2 file", "Imported the shortcuts of 1 action from %2.", "Imported the shortcuts of %1 actions from %2.", changed, path);
+    if (!editorValues.isEmpty()) {
+        text += QLatin1Char(' ')
+            + i18ncp("@info",
+                     "Apply or OK saves the keyboard setting it changed.",
+                     "Apply or OK saves the %1 keyboard settings it changed.",
+                     editorValues.size());
+    }
+    m_keymapStatus->setText(text);
 }
