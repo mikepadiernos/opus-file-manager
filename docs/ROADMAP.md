@@ -2194,7 +2194,7 @@ using KDE shortcut facilities where supported.
       Skip disabled actions, apply pane actions to the active pane and leave
       shortcuts unchanged. (Lektra) Plasma-session verification is a
       [pending handoff](TODO.md#command-palette-on-plasma-761). [#761]
-- [ ] Offer keyboard hints: on a shortcut, label the visible items, breadcrumb
+- [x] Offer keyboard hints: on a shortcut, label the visible items, breadcrumb
       segments, places and tabs of the active pane with short key sequences,
       and open or select a target when its keys are typed. Cancel with Escape,
       give labels accessible names and do not intercept typing in text fields
