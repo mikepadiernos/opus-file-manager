@@ -4189,6 +4189,21 @@ The M31 keyboard shortcut settings have these limits
   keys are fixed. Keyboard layouts other than the container's are unverified
   ([Plasma check](TODO.md#shortcut-contexts-on-plasma-233)).
   ([#233](https://github.com/mikepadiernos/plasma-opus/issues/233))
+- **💾 Shortcut storage:** Window shortcuts are kept in the `Shortcuts`
+  group of `opus-file-managerrc`. Only shortcuts of the current KDE shortcut
+  scheme are moved there from the layout file KDE's editor writes; other
+  schemes aren't supported. An older Plasma Opus reads only the layout file,
+  so it starts with the default shortcuts after a downgrade. When something
+  else, such as an older version, writes shortcuts into the layout file
+  again, they are moved at the next start and replace the stored ones. There
+  is no Vim-style mode setting yet: Vim-style navigation comes with
+  [#228](https://github.com/mikepadiernos/plasma-opus/issues/228), and a
+  switch without it would do nothing. Global shortcuts depend on KDE's
+  global shortcut service; whether a Wayland desktop other than Plasma passes
+  keys to it is guessed from `XDG_CURRENT_DESKTOP`, and a key KDE refuses is
+  reported only after **Apply**. Neither can be checked in the container
+  ([Plasma check](TODO.md#shortcut-storage-on-plasma-238)).
+  ([#238](https://github.com/mikepadiernos/plasma-opus/issues/238))
 
 - **Recommendation:**
   - **Shortcut settings:** Change shortcuts in **Configure Keyboard
@@ -4206,6 +4221,14 @@ The M31 keyboard shortcut settings have these limits
     <kbd>F10</kbd>, <kbd>Menu</kbd> and <kbd>Tab</kbd> to keyboard
     navigation, and press <kbd>Escape</kbd> or click a pane before using a
     plain-key shortcut from a text field.
+  - **Shortcut storage:** Change window shortcuts only in **Configure
+    Keyboard Shortcuts…** or with **Reset All Shortcuts…**, keep using the
+    Default shortcut scheme, and copy `opus-file-managerrc` before
+    downgrading. Check the status under each global shortcut after
+    **Apply**, and choose another key when KDE didn't accept one. Outside a
+    Plasma session on Wayland, give the command `opus-file-manager` a key in
+    the desktop's own shortcut settings instead; it shows the running window
+    but doesn't hide it.
   - Comment:
     [#771.7231940238](https://github.com/mikepadiernos/plasma-opus/issues/771#issuecomment-7231940238)
 - **Proposed improvements:**
@@ -4215,6 +4238,9 @@ The M31 keyboard shortcut settings have these limits
   - Let an action be limited to the file views, the folder tree or the
     gallery, read the keys text fields keep from the active key scheme, and
     let the gallery's keys be changed.
+  - Store the shortcuts of every KDE shortcut scheme, ask KDE's global
+    shortcut service whether a key is free before **Apply**, and add the
+    Vim-style mode setting together with Vim-style navigation.
 
 ## Embedded terminal
 
