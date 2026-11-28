@@ -2184,7 +2184,7 @@ using KDE shortcut facilities where supported.
 - [ ] Configure the hint panel's enablement and display delay, and offer an
       on-demand shortcut reference. Cancel or time out incomplete sequences
       without unexpectedly running a conflicting action. [#235]
-- [ ] Offer a command palette through KDE's `KCommandBar`, as in Dolphin and
+- [x] Offer a command palette through KDE's `KCommandBar`, as in Dolphin and
       Kate: search menu, toolbar and custom command actions by name and run
       them, showing each action's shortcut and recently used actions first.
       Skip disabled actions, apply pane actions to the active pane and leave
