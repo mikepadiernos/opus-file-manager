@@ -2183,7 +2183,7 @@ using KDE shortcut facilities where supported.
       descriptions; support keyboard navigation and dismissal. Plasma-session
       verification is a
       [pending handoff](TODO.md#shortcut-hints-on-plasma-234). [#234]
-- [ ] Configure the hint panel's enablement and display delay, and offer an
+- [x] Configure the hint panel's enablement and display delay, and offer an
       on-demand shortcut reference. Cancel or time out incomplete sequences
       without unexpectedly running a conflicting action. Plasma-session
       verification is a
