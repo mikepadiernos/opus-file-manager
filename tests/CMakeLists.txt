@@ -141,6 +141,7 @@ ecm_add_tests(
     metadataeditortest.cpp
     metadataimporttest.cpp
     navigationhistorytest.cpp
+    navigationshortcutstest.cpp
     nextcloudaccounttest.cpp
     nextcloudassetstest.cpp
     nextcloudclienttest.cpp

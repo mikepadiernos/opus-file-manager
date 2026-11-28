@@ -16,6 +16,7 @@
 #include "libraryregistry.h"
 #include "libraryscan.h"
 #include "mainwindow.h"
+#include "navigationshortcuts.h"
 #include "pathfilterpresetsdialog.h"
 #include "savedpathfilters.h"
 #include "searchhistory.h"
@@ -77,6 +78,7 @@
 #include <QTest>
 #include <QTimer>
 #include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 
 #include <array>
 
@@ -2444,6 +2446,117 @@ private Q_SLOTS:
         Settings::self()->save();
         window.applySettings();
         Q_EMIT window.guiFactory()->shortcutsSaved();
+    }
+
+    void keyboardNavigationAddsFreeExtraKeysOnlyWhenOn()
+    {
+        MainWindow window;
+        QAction *closeTab = window.actionCollection()->action(QStringLiteral("close_tab"));
+        QAction *nextTab = window.actionCollection()->action(QStringLiteral("next_tab"));
+        QAction *invert = window.actionCollection()->action(QStringLiteral("invert_selection"));
+        QAction *firstPane = window.actionCollection()->action(QStringLiteral("focus_first_pane"));
+        QVERIFY(closeTab && nextTab && invert && firstPane);
+        const QList<QKeySequence> closeTabDefaults = closeTab->shortcuts();
+        const QList<QKeySequence> nextTabDefaults = nextTab->shortcuts();
+        const auto restore = qScopeGuard([&] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            window.applySettings();
+            closeTab->setShortcuts(closeTabDefaults);
+            nextTab->setShortcuts(nextTabDefaults);
+            Q_EMIT window.guiFactory()->shortcutsSaved();
+        });
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+
+        // Navigation is the second tab of Keyboard.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("keyboardNavigationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(page), 1);
+        QCOMPARE(tabs->tabText(1), QStringLiteral("Navigation"));
+        auto *extra = page->findChild<QCheckBox *>(QStringLiteral("kcfg_ExtraNavigationShortcuts"));
+        auto *tree = page->findChild<QTreeWidget *>(QStringLiteral("keyboardNavigationShortcuts"));
+        auto *configure = page->findChild<QPushButton *>(QStringLiteral("keyboardNavigationConfigure"));
+        auto *map = page->findChild<QPushButton *>(QStringLiteral("keyboardNavigationMap"));
+        QVERIFY(extra && tree && configure && map);
+        QVERIFY(!extra->isChecked());
+        QVERIFY(configure->isEnabled());
+        QVERIFY(map->isEnabled());
+
+        const auto row = [tree](const QString &name) -> QTreeWidgetItem * {
+            for (QTreeWidgetItemIterator it(tree); *it; ++it) {
+                if ((*it)->data(0, Qt::UserRole).toString() == name) {
+                    return *it;
+                }
+            }
+            return nullptr;
+        };
+        const auto native = [](const QKeySequence &key) {
+            return key.toString(QKeySequence::NativeText);
+        };
+        const QKeySequence ctrlShiftI(Qt::CTRL | Qt::SHIFT | Qt::Key_I);
+        const QKeySequence ctrlPageDown(Qt::CTRL | Qt::Key_PageDown);
+        const QKeySequence alt1(Qt::ALT | Qt::Key_1);
+
+        // Every navigation action is listed under its area; the new ones have no shortcut by default.
+        for (const NavigationShortcuts::Action &navigation : NavigationShortcuts::actions()) {
+            QTreeWidgetItem *item = row(navigation.name);
+            QVERIFY2(item, qPrintable(navigation.name));
+            QCOMPARE(item->parent()->text(0), NavigationShortcuts::areaText(navigation.area));
+            QCOMPARE(item->text(2), navigation.extra.isEmpty() ? QString() : native(navigation.extra));
+        }
+        QTreeWidgetItem *terminal = row(QStringLiteral("focus_terminal"));
+        QCOMPARE(terminal->text(0), QStringLiteral("Focus Embedded Terminal"));
+        QCOMPARE(terminal->text(1), QStringLiteral("None"));
+        QCOMPARE(terminal->text(2), native(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F4)));
+        QCOMPARE(terminal->text(3), QStringLiteral("Off"));
+        QVERIFY(firstPane->shortcuts().isEmpty());
+        QVERIFY(!nextTab->shortcuts().contains(ctrlPageDown));
+
+        // A key of your own is named while the extra keys are off.
+        closeTab->setShortcuts(closeTabDefaults + QList<QKeySequence>{ctrlShiftI});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(row(QStringLiteral("invert_selection"))->text(3), QStringLiteral("Off; “Close Tab” uses it"));
+
+        // Turning them on adds the free keys and leaves out the one Close Tab uses.
+        extra->setChecked(true);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        window.applySettings();
+        QVERIFY(Settings::extraNavigationShortcuts());
+        QTRY_COMPARE(row(QStringLiteral("focus_first_pane"))->text(3), QStringLiteral("Added"));
+        QCOMPARE(firstPane->shortcuts(), QList<QKeySequence>{alt1});
+        QVERIFY(nextTab->shortcuts().contains(ctrlPageDown));
+        QVERIFY(row(QStringLiteral("next_tab"))->text(1).contains(native(ctrlPageDown)));
+        QCOMPARE(row(QStringLiteral("focus_terminal"))->text(3), QStringLiteral("Added"));
+        QCOMPARE(row(QStringLiteral("invert_selection"))->text(3), QStringLiteral("Not added: “Close Tab” uses it"));
+        QVERIFY(invert->shortcuts().isEmpty());
+        QCOMPARE(closeTab->shortcuts(), closeTabDefaults + QList<QKeySequence>{ctrlShiftI});
+
+        // Freeing the key adds it.
+        closeTab->setShortcuts(closeTabDefaults);
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(invert->shortcuts(), QList<QKeySequence>{ctrlShiftI});
+        QCOMPARE(row(QStringLiteral("invert_selection"))->text(3), QStringLiteral("Added"));
+
+        // Shortcuts of your own for the action are kept.
+        nextTab->setShortcuts(nextTabDefaults);
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(nextTab->shortcuts(), nextTabDefaults);
+        QCOMPARE(row(QStringLiteral("next_tab"))->data(3, Qt::UserRole).toInt(), static_cast<int>(NavigationShortcuts::Status::Replaced));
+        window.applySettings();
+        QCOMPARE(nextTab->shortcuts(), nextTabDefaults);
+
+        // Turning them off again removes the extra keys.
+        extra->setChecked(false);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        window.applySettings();
+        QVERIFY(!Settings::extraNavigationShortcuts());
+        QTRY_COMPARE(row(QStringLiteral("focus_first_pane"))->text(3), QStringLiteral("Off"));
+        QVERIFY(firstPane->shortcuts().isEmpty());
+        QVERIFY(invert->shortcuts().isEmpty());
     }
 
     void keyboardShortcutsReportKeysThatTextFieldsAndListsKeep()

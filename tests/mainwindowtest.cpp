@@ -33,6 +33,7 @@
 #include "localizeddates.h"
 #include "metadataeditdialog.h"
 #include "metadataimportdialog.h"
+#include "navigationshortcuts.h"
 #include "packagetools.h"
 #include "pane.h"
 #include "previewpanel.h"
@@ -49,12 +50,14 @@
 #include "taglibrary.h"
 #include "tagmanagerwidget.h"
 #include "tagpanel.h"
+#include "terminalpanel.h"
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
 #include "viewsettings.h"
 #include "windowshortcuts.h"
 #include "workspaceappearanceeditor.h"
 #include "workspacedialog.h"
+#include "yazimode.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
@@ -2959,6 +2962,181 @@ private Q_SLOTS:
         }
     }
 
+    void navigationActionsMoveBetweenPanesTabsAndPanels()
+    {
+        MainWindow window;
+        const ShortcutFilesGuard guard(window.localXMLFile());
+        window.openUrls({m_a, m_b});
+        window.show();
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        Pane *left = window.activePane();
+        Pane *right = window.inactivePane();
+        QTRY_COMPARE(left->view()->itemCount(), 2);
+        const auto action = [&window](const QString &name) {
+            return window.actionCollection()->action(name);
+        };
+
+        // Each new action is in a menu, and has no shortcut until the user gives it one.
+        const QList<std::pair<QString, QStringList>> menus{
+            {QStringLiteral("edit"), {QStringLiteral("deselect_all"), QStringLiteral("invert_selection"), QStringLiteral("clear_filter")}},
+            {QStringLiteral("view"), {QStringLiteral("focus_preview_panel"), QStringLiteral("focus_terminal")}},
+            {QStringLiteral("go"), {QStringLiteral("focus_first_pane"), QStringLiteral("focus_second_pane"), QStringLiteral("activate_last_tab")}},
+        };
+        for (const auto &[menuName, names] : menus) {
+            auto *menu = qobject_cast<QMenu *>(window.guiFactory()->container(menuName, &window));
+            QVERIFY(menu);
+            for (const QString &name : names) {
+                QAction *found = action(name);
+                QVERIFY2(found && menu->actions().contains(found), qPrintable(name));
+                QVERIFY2(found->shortcuts().isEmpty() && KActionCollection::defaultShortcuts(found).isEmpty(), qPrintable(name));
+                QVERIFY(KActionCollection::isShortcutsConfigurable(found));
+            }
+        }
+        QCOMPARE(action(QStringLiteral("next_tab"))->shortcuts(), QList<QKeySequence>{QKeySequence(Qt::CTRL | Qt::Key_Tab)});
+
+        // Focus First Pane and Focus Second Pane make a pane active and focus its view.
+        action(QStringLiteral("focus_second_pane"))->trigger();
+        QCOMPARE(window.activePane(), right);
+        QTRY_COMPARE(QApplication::focusWidget(), right->view()->currentView());
+        action(QStringLiteral("focus_first_pane"))->trigger();
+        QCOMPARE(window.activePane(), left);
+        QTRY_COMPARE(QApplication::focusWidget(), left->view()->currentView());
+
+        // Invert Selection and Deselect All change the active pane's selection.
+        FolderView *view = left->view();
+        const QUrl file = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a/file.txt")));
+        view->selectUrls({file});
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+        action(QStringLiteral("invert_selection"))->trigger();
+        QCOMPARE(view->selectedItems().size(), 1);
+        QCOMPARE(view->selectedItems().constFirst().name(), QStringLiteral("sub"));
+        action(QStringLiteral("invert_selection"))->trigger();
+        QCOMPARE(view->selectedItems().size(), 1);
+        QCOMPARE(view->selectedItems().constFirst().url(), file);
+        action(QStringLiteral("edit_select_all"))->trigger();
+        QCOMPARE(view->selectedItems().size(), 2);
+        action(QStringLiteral("deselect_all"))->trigger();
+        QVERIFY(view->selectedItems().isEmpty());
+
+        // Clear Filter shows every item again and closes the filter bar.
+        auto *filterBar = left->findChild<FilterBar *>();
+        QVERIFY(filterBar);
+        action(QStringLiteral("show_filter_bar"))->trigger();
+        filterBar->setFilter(NameFilter(QStringLiteral("file"), NameFilter::Scope::FilesAndFolders));
+        QTRY_COMPARE(view->itemCount(), 1);
+        action(QStringLiteral("clear_filter"))->trigger();
+        QVERIFY(filterBar->isHidden());
+        QVERIFY(filterBar->filter().isEmpty());
+        QTRY_COMPARE(view->itemCount(), 2);
+        QTRY_COMPARE(QApplication::focusWidget(), view->currentView());
+
+        // Focus Preview Panel moves the focus into the shown preview, and back to the pane.
+        auto *panel = window.findChild<PreviewPanel *>(QStringLiteral("previewPanel"));
+        QVERIFY(panel);
+        view->selectUrls({file});
+        action(QStringLiteral("focus_preview_panel"))->trigger();
+        QVERIFY(action(QStringLiteral("show_preview_panel"))->isChecked());
+        auto *text = panel->findChild<QPlainTextEdit *>(QStringLiteral("previewText"));
+        QVERIFY(text);
+        QTRY_COMPARE(text->toPlainText(), QStringLiteral("hello"));
+        action(QStringLiteral("focus_preview_panel"))->trigger();
+        if (!panel->isAncestorOf(QApplication::focusWidget())) {
+            // The first time, the text may not have been shown yet.
+            action(QStringLiteral("focus_preview_panel"))->trigger();
+        }
+        QTRY_COMPARE(QApplication::focusWidget(), text);
+        action(QStringLiteral("focus_preview_panel"))->trigger();
+        QTRY_COMPARE(QApplication::focusWidget(), window.activePane()->view()->currentView());
+        action(QStringLiteral("show_preview_panel"))->trigger();
+
+        // Focus Embedded Terminal shows the terminal, and gives the focus to its session and back.
+        auto *terminal = window.findChild<TerminalPanel *>();
+        QVERIFY(terminal);
+        action(QStringLiteral("focus_terminal"))->trigger();
+        QVERIFY(action(QStringLiteral("show_embedded_terminal"))->isChecked());
+        QVERIFY(terminal->isVisible());
+        if (terminal->hasSessions()) {
+            QTRY_VERIFY(terminal->hasKeyboardFocus());
+            action(QStringLiteral("focus_terminal"))->trigger();
+            QTRY_COMPARE(QApplication::focusWidget(), window.activePane()->view()->currentView());
+        }
+        action(QStringLiteral("show_embedded_terminal"))->setChecked(false);
+
+        // With the extra keys on, none conflicts, none is a key text fields or lists keep and no Yazi mode preset takes one.
+        Settings::setExtraNavigationShortcuts(true);
+        Settings::self()->save();
+        window.applySettings();
+        QList<YaziMode::ActionShortcuts> extras;
+        for (const NavigationShortcuts::Action &navigation : NavigationShortcuts::actions()) {
+            QAction *found = action(navigation.name);
+            QVERIFY2(found, qPrintable(navigation.name));
+            if (!navigation.extra.isEmpty()) {
+                QVERIFY2(found->shortcuts().contains(navigation.extra), qPrintable(navigation.name));
+                QVERIFY(KActionCollection::defaultShortcuts(found).contains(navigation.extra));
+                extras.append({navigation.name, found->text(), {navigation.extra}});
+            }
+        }
+        QCOMPARE(extras.size(), 8);
+        QCOMPARE(action(QStringLiteral("next_tab"))->shortcuts(),
+                 (QList<QKeySequence>{QKeySequence(Qt::CTRL | Qt::Key_Tab), QKeySequence(Qt::CTRL | Qt::Key_PageDown)}));
+        const WindowShortcuts::Bindings bindings = WindowShortcuts::bindings(&window);
+        const QList<KeyBindings::Conflict> conflicts = KeyBindings::conflicts(bindings.bindings);
+        QVERIFY2(conflicts.isEmpty(), qPrintable(conflicts.isEmpty() ? QString() : KeyBindings::conflictText(conflicts.constFirst(), bindings.bindings)));
+        // Global shortcuts are KGlobalAccel's, which earlier tests may have changed.
+        for (int index : KeyBindings::customized(bindings.bindings)) {
+            QVERIFY2(bindings.bindings.at(index).global, qPrintable(bindings.bindings.at(index).name));
+        }
+        for (YaziMode::Preset preset : {YaziMode::Preset::Standard, YaziMode::Preset::Vim}) {
+            QVERIFY(YaziMode::shadowedShortcuts(YaziMode::presetKeymap(preset), extras).isEmpty());
+        }
+        // Nothing is stored for actions with their defaults.
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        const KConfigGroup stored = KSharedConfig::openConfig()->group(QLatin1String(ShortcutStorage::Group));
+        QVERIFY(!stored.hasKey("next_tab"));
+        QVERIFY(!stored.hasKey("focus_terminal"));
+        // The keys run their actions.
+        QTest::keyClick(left->view()->currentView(), Qt::Key_2, Qt::AltModifier);
+        QTRY_COMPARE(window.activePane(), right);
+        QTest::keyClick(right->view()->currentView(), Qt::Key_1, Qt::AltModifier);
+        QTRY_COMPARE(window.activePane(), left);
+        // The keyboard map lists them.
+        bool mapped = false;
+        for (const KeyboardMap::Entry &entry : KeyboardMapDialog::entries(&window)) {
+            mapped = mapped || (entry.name == QStringLiteral("focus_terminal") && entry.shortcuts.contains(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F4)));
+        }
+        QVERIFY(mapped);
+
+        // Activate Last Tab.
+        action(QStringLiteral("new_tab"))->trigger();
+        action(QStringLiteral("new_tab"))->trigger();
+        TabModel *tabs = window.activePane()->tabs();
+        QVERIFY(tabs->count() >= 3);
+        tabs->setCurrentIndex(0);
+        action(QStringLiteral("activate_last_tab"))->trigger();
+        QCOMPARE(tabs->currentIndex(), tabs->count() - 1);
+
+        // Turning the setting off takes the extra keys away again.
+        Settings::setExtraNavigationShortcuts(false);
+        Settings::self()->save();
+        window.applySettings();
+        QVERIFY(action(QStringLiteral("focus_terminal"))->shortcuts().isEmpty());
+        QVERIFY(KActionCollection::defaultShortcuts(action(QStringLiteral("focus_terminal"))).isEmpty());
+        QCOMPARE(action(QStringLiteral("next_tab"))->shortcuts(), QList<QKeySequence>{QKeySequence(Qt::CTRL | Qt::Key_Tab)});
+
+        // Rebuilding the menus, as Configure Toolbars does, keeps them once they are on again.
+        Settings::setExtraNavigationShortcuts(true);
+        Settings::self()->save();
+        window.applySettings();
+        window.guiFactory()->removeClient(&window);
+        window.setXMLGUIBuildDocument(QDomDocument());
+        window.guiFactory()->addClient(&window);
+        QVERIFY(action(QStringLiteral("next_tab"))->shortcuts().contains(QKeySequence(Qt::CTRL | Qt::Key_PageDown)));
+        QVERIFY(action(QStringLiteral("focus_terminal"))->shortcuts().contains(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F4)));
+        Settings::setExtraNavigationShortcuts(false);
+        Settings::self()->save();
+    }
+
     void yaziModeIsDiscoverableWithoutShortcuts()
     {
         QTemporaryDir backupDir;
@@ -4400,6 +4578,7 @@ private Q_SLOTS:
                                      QStringLiteral("StatusBar"),
                                      QStringLiteral("Views"),
                                      QStringLiteral("Shortcuts"),
+                                     QStringLiteral("Keyboard"),
                                      QStringLiteral("ContextMenu")}) {
             KSharedConfig::openConfig()->deleteGroup(group);
         }
