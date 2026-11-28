@@ -101,6 +101,8 @@ add_library(opusfm_core STATIC
     mcpsettings.h
     keybindings.cpp
     keybindings.h
+    keyboardmap.cpp
+    keyboardmap.h
     kwinscript.cpp
     kwinscript.h
     mediabackend.cpp
