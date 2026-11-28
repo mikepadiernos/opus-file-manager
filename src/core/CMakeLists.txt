@@ -219,6 +219,8 @@ add_library(opusfm_core STATIC
     servicemenus.h
     sharedsearch.cpp
     sharedsearch.h
+    shortcutstorage.cpp
+    shortcutstorage.h
     session.h
     tabcolors.cpp
     tabcolors.h
@@ -304,3 +306,6 @@ target_link_libraries(opusfm_core
         KF6::KIOGui
         LibArchive::LibArchive
 )
+
+# KDE's shortcut editor saves shortcuts in XML ui.rc files, which shortcutstorage reads.
+target_link_libraries(opusfm_core PRIVATE Qt6::Xml)

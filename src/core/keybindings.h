@@ -122,4 +122,34 @@ QList<Conflict> conflicts(const QList<Binding> &bindings);
 
 /// Describes @p conflict between @p bindings as a sentence for the user.
 QString conflictText(const Conflict &conflict, const QList<Binding> &bindings);
+
+/// Whether global shortcuts can work in this session.
+enum class GlobalAvailability {
+    /// KDE's global shortcut service runs, or D-Bus can start it.
+    Available,
+    /// KDE's global shortcut service isn't running and can't be started.
+    NoService,
+    /**
+     * The service is there, but this is a Wayland session of another desktop:
+     * only the compositor sees keys pressed in other windows, so whether a
+     * global shortcut works depends on that desktop.
+     */
+    OtherDesktop,
+};
+
+/**
+ * Whether global shortcuts can work, given whether KDE's global shortcut
+ * service is available, the session type (XDG_SESSION_TYPE) and the
+ * desktops of the session (XDG_CURRENT_DESKTOP, separated by colons).
+ */
+GlobalAvailability globalAvailability(bool serviceAvailable, const QString &sessionType, const QString &currentDesktops);
+
+/// Explains @p availability to the user, or nothing when global shortcuts are available.
+QString globalAvailabilityText(GlobalAvailability availability);
+
+/// The keys of @p requested that KDE's global shortcut service didn't give the action, which it does when another application has them.
+QList<QKeySequence> refusedKeys(const QList<QKeySequence> &requested, const QList<QKeySequence> &accepted);
+
+/// Tells the user KDE didn't accept the @p refused keys of a global shortcut, or nothing when there are none.
+QString refusedText(const QList<QKeySequence> &refused);
 }

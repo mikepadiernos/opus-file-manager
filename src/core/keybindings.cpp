@@ -4,6 +4,8 @@
 
 #include <KLocalizedString>
 
+#include <QStringList>
+
 #include <algorithm>
 #include <initializer_list>
 
@@ -291,5 +293,61 @@ QString conflictText(const Conflict &conflict, const QList<Binding> &bindings)
                      local);
     }
     return i18nc("@item %1 shortcut, %2 and %3 actions", "%1 is the shortcut of both “%2” and “%3”, so it runs neither", firstKeys, firstName, secondName);
+}
+
+GlobalAvailability globalAvailability(bool serviceAvailable, const QString &sessionType, const QString &currentDesktops)
+{
+    if (!serviceAvailable) {
+        return GlobalAvailability::NoService;
+    }
+    const QStringList desktops = currentDesktops.split(QLatin1Char(':'), Qt::SkipEmptyParts);
+    const bool plasma = std::any_of(desktops.cbegin(), desktops.cend(), [](const QString &desktop) {
+        return desktop.compare(QLatin1String("KDE"), Qt::CaseInsensitive) == 0;
+    });
+    if (sessionType.compare(QLatin1String("wayland"), Qt::CaseInsensitive) == 0 && !plasma) {
+        return GlobalAvailability::OtherDesktop;
+    }
+    return GlobalAvailability::Available;
+}
+
+QString globalAvailabilityText(GlobalAvailability availability)
+{
+    switch (availability) {
+    case GlobalAvailability::Available:
+        return {};
+    case GlobalAvailability::NoService:
+        return i18nc("@info", "KDE's global shortcut service is not running, so global shortcuts don't work in this session.");
+    case GlobalAvailability::OtherDesktop:
+        return i18nc("@info",
+                     "This Wayland session isn't Plasma, so global shortcuts work only if its desktop passes keys to KDE's global "
+                     "shortcut service.");
+    }
+    return {};
+}
+
+QList<QKeySequence> refusedKeys(const QList<QKeySequence> &requested, const QList<QKeySequence> &accepted)
+{
+    QList<QKeySequence> refused;
+    for (const QKeySequence &key : keys(requested)) {
+        if (!accepted.contains(key) && !refused.contains(key)) {
+            refused.append(key);
+        }
+    }
+    return refused;
+}
+
+QString refusedText(const QList<QKeySequence> &refused)
+{
+    const QList<QKeySequence> found = keys(refused);
+    if (found.isEmpty()) {
+        return {};
+    }
+    QStringList texts;
+    for (const QKeySequence &key : found) {
+        texts.append(key.toString(QKeySequence::NativeText));
+    }
+    return i18nc("@info %1 key combinations",
+                 "KDE didn't accept %1 because another application already uses it; choose another key combination.",
+                 texts.join(i18nc("@item separator of keyboard shortcuts", "; ")));
 }
 }
