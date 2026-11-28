@@ -381,6 +381,23 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     m_filterBar = new FilterBar(this);
     m_defaultFilterScope = Settings::defaultFilterScope();
     m_layout->addWidget(m_filterBar);
+    m_vimModeBar = new QWidget(this);
+    m_vimModeBar->setObjectName(QStringLiteral("vimModeBar"));
+    auto *vimModeLayout = new QHBoxLayout(m_vimModeBar);
+    vimModeLayout->setContentsMargins(2, 1, 2, 1);
+    m_vimModeIndicator = new QLabel(m_vimModeBar);
+    m_vimModeIndicator->setObjectName(QStringLiteral("vimModeIndicator"));
+    m_vimModeIndicator->setAccessibleDescription(i18nc("@info:accessibility", "Where this pane's keys go while Vim-style navigation is on"));
+    m_vimModeIndicator->setToolTip(
+        i18nc("@info:tooltip", "Vim-style navigation: press / or i to filter, Escape to return to the items and \\ to clear the filter"));
+    m_vimModeIndicator->setBackgroundRole(QPalette::Highlight);
+    m_vimModeIndicator->setForegroundRole(QPalette::HighlightedText);
+    m_vimModeIndicator->setAutoFillBackground(true);
+    m_vimModeIndicator->setContentsMargins(6, 0, 6, 0);
+    vimModeLayout->addWidget(m_vimModeIndicator);
+    vimModeLayout->addStretch();
+    m_vimModeBar->hide();
+    m_layout->addWidget(m_vimModeBar);
     m_vimKeys = new YaziKeys(this);
     m_vimKeys->setKeymap(VimNavigation::keymap());
     m_vimKeys->setModifiedKeysYield(true);
@@ -391,6 +408,8 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     // Installed after the view's own filter, so the keys are matched before type-ahead sees them.
     m_vimKeys->watch(m_view->currentView());
     connect(m_vimKeys, &YaziKeys::commandTriggered, this, &Pane::runVimCommand);
+    connect(m_vimKeys, &YaziKeys::stateChanged, this, &Pane::updateVimModeIndicator);
+    connect(qApp, &QApplication::focusChanged, this, &Pane::updateVimModeIndicator);
     reloadVimNavigationSetting();
 
     // Model -> widgets
@@ -532,6 +551,10 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     connect(m_filterBar, &FilterBar::closed, this, [this] {
         m_view->currentView()->setFocus();
     });
+    // With Vim-style navigation, Escape keeps the filter and returns to the items, as Vim leaves a mode.
+    connect(m_filterBar, &FilterBar::leaveRequested, this, [this] {
+        m_view->currentView()->setFocus(Qt::ShortcutFocusReason);
+    });
     connect(m_view, &FolderView::viewModeChanged, this, [viewGroup, this] {
         m_vimKeys->watch(m_view->currentView());
         for (QAction *action : viewGroup->actions()) {
@@ -580,6 +603,9 @@ Pane::~Pane()
     m_view->disconnect(this);
     m_yaziColumns->disconnect(this);
     m_yaziColumns->keys()->disconnect(this);
+    // Focus moves while the children are destroyed; the mode indicator may already be gone.
+    m_vimKeys->disconnect(this);
+    disconnect(qApp, &QApplication::focusChanged, this, nullptr);
 }
 
 void Pane::saveHistoryViewState()
@@ -1433,7 +1459,51 @@ void Pane::reloadYaziKeySettings()
 
 void Pane::reloadVimNavigationSetting()
 {
-    m_vimKeys->setEnabled(Settings::vimNavigation() && !m_yaziMode);
+    const bool active = Settings::vimNavigation() && !m_yaziMode;
+    m_vimKeys->setEnabled(active);
+    m_filterBar->setEscapeKeepsFilter(active);
+    updateVimModeIndicator();
+}
+
+VimNavigation::Mode Pane::vimMode() const
+{
+    QWidget *focus = QApplication::focusWidget();
+    if (!focus || !isAncestorOf(focus)) {
+        return VimNavigation::Mode::Normal;
+    }
+    if (m_filterBar->isAncestorOf(focus)) {
+        return VimNavigation::Mode::Filter;
+    }
+    return YaziKeys::isTypingWidget(focus) ? VimNavigation::Mode::Insert : VimNavigation::Mode::Normal;
+}
+
+QLabel *Pane::vimModeIndicator() const
+{
+    return m_vimModeIndicator;
+}
+
+void Pane::updateVimModeIndicator()
+{
+    const bool active = m_vimKeys->isEnabled();
+    m_vimModeBar->setVisible(active);
+    QWidget *focus = QApplication::focusWidget();
+    const bool focused = focus && isAncestorOf(focus);
+    const VimNavigation::Mode mode = vimMode();
+    const QString pending = mode == VimNavigation::Mode::Normal ? m_vimKeys->pendingText() : QString();
+    if (!active) {
+        m_announcedVimMode = VimNavigation::Mode::Normal;
+        m_announcedVimPending.clear();
+        return;
+    }
+    const QString name = VimNavigation::modeAccessibleName(mode, pending);
+    m_vimModeIndicator->setText(VimNavigation::modeText(mode, pending));
+    m_vimModeIndicator->setAccessibleName(name);
+    // Announce a new mode, or keys waiting for the rest of a sequence, only in the pane being typed in.
+    if (focused && (mode != m_announcedVimMode || (!pending.isEmpty() && pending != m_announcedVimPending))) {
+        YaziColumns::announce(m_vimModeIndicator, name);
+    }
+    m_announcedVimMode = focused ? mode : VimNavigation::Mode::Normal;
+    m_announcedVimPending = focused ? pending : QString();
 }
 
 bool Pane::vimNavigationActive() const

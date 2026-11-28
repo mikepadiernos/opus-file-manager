@@ -4,6 +4,7 @@
 
 #include "navigationhistory.h"
 #include "session.h"
+#include "vimnavigation.h"
 #include "yazimode.h"
 
 #include <QColor>
@@ -21,6 +22,7 @@ class TabColors;
 class TabModel;
 class YaziColumns;
 class YaziKeys;
+class QLabel;
 class QTabBar;
 class QGraphicsOpacityEffect;
 class QBoxLayout;
@@ -254,6 +256,19 @@ public:
      * @param count how many times to repeat a command that takes a count
      */
     void runVimCommand(YaziMode::Command command, int count = 1);
+    /**
+     * Where the pane's keys go while Vim-style navigation is on: Filter while
+     * its filter bar has the keyboard focus, Insert while another of its text
+     * fields has it, such as the location bar or an inline rename editor, and
+     * Normal otherwise.
+     */
+    VimNavigation::Mode vimMode() const;
+    /**
+     * The label at the bottom of the pane that shows vimMode() and the keys
+     * of an incomplete sequence, such as "NORMAL · 5g…", while Vim-style
+     * navigation applies to the pane.
+     */
+    QLabel *vimModeIndicator() const;
 
 public Q_SLOTS:
     void setUrl(const QUrl &url);
@@ -330,6 +345,8 @@ private:
     void saveYaziColumnRatiosSetting();
     /// Shows @p message in the window's status bar and announces it, as for a Vim-style command that can't run.
     void reportVimMessage(const QString &message);
+    /// Shows the current vimMode() and pending keys, and announces a change while the pane has the focus.
+    void updateVimModeIndicator();
     /// Closes the pane's tabs and opens those of @p state with their pins, locks and names.
     void rebuildTabs(const PaneSession &state);
     void saveHistoryViewState();
@@ -393,6 +410,10 @@ private:
     QAction *m_yaziToolbarAction = nullptr;
     FilterBar *m_filterBar = nullptr;
     YaziKeys *m_vimKeys = nullptr;
+    QWidget *m_vimModeBar = nullptr;
+    QLabel *m_vimModeIndicator = nullptr;
+    VimNavigation::Mode m_announcedVimMode = VimNavigation::Mode::Normal;
+    QString m_announcedVimPending;
     QVBoxLayout *m_layout = nullptr;
     QHBoxLayout *m_outerLayout = nullptr;
     QBoxLayout *m_stripLayout = nullptr;

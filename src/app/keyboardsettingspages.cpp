@@ -555,8 +555,14 @@ QWidget *SettingsDialog::createKeyboardVimPage()
                                  i18nc("@info",
                                        "Type a number before a movement key to repeat it, as in 5j. While the keys are on, digits "
                                        "from 1 to 9 begin a count and the letters listed here don't start filtering as you type; "
-                                       "press / to filter. Other letters still filter as you type. The arrow keys, Enter, Tab and "
+                                       "press / or i to filter. Other letters still filter as you type. The arrow keys, Enter, Tab and "
                                        "Escape work as before.")));
+    keysLayout->addWidget(notice(QStringLiteral("keyboardVimModesNotice"),
+                                 i18nc("@info",
+                                       "Each pane shows its mode at the bottom: NORMAL while the keys move through the items, with "
+                                       "a count or the first key of a sequence while it waits for the rest, FILTER in the filter "
+                                       "bar and INSERT in another text field, such as the location bar. In the filter bar, Escape "
+                                       "returns to the items and keeps the filter; press \\ to clear it.")));
     layout->addWidget(keysGroup, 1);
 
     auto *conflictsGroup = new QGroupBox(i18nc("@title:group", "Conflicts"), page);
