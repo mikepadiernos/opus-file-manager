@@ -441,6 +441,12 @@ private:
     void updateDoubleShift();
 
     void setActivePane(Pane *pane);
+    /// Makes @p pane active and gives its view the keyboard focus, raising its window when it has one of its own.
+    void focusPane(Pane *pane);
+    /// Shows the preview panel and gives it the keyboard focus, or gives the focus back to the active pane when the panel has it.
+    void focusPreviewPanel();
+    /// Shows the embedded terminal and gives its session the keyboard focus, or gives the focus back to the active pane when the terminal has it.
+    void focusTerminal();
     void connectPane(Pane *pane);
     void updateActions();
     /// Reads the server permissions of the folder shown in @p pane when it belongs to a Nextcloud account.

@@ -262,6 +262,8 @@ private:
     int yaziShadowedShortcutCount(int preset) const;
     /// The Keyboard › Shortcuts tab.
     QWidget *createKeyboardShortcutsPage();
+    /// The Keyboard › Navigation tab: the pane, tab, selection, filter, preview and terminal actions and their extra keys.
+    QWidget *createKeyboardNavigationPage();
     /// Shows the tab whose widget is named @p tabName and the sidebar page it is on.
     void showSettingsTab(const QString &tabName);
     /**
@@ -559,6 +561,8 @@ private:
     std::function<bool(const QString &)> m_confirmShortcutReset;
     /// Lists the customized shortcuts and conflicts on the Keyboard › Shortcuts tab again.
     std::function<void()> m_refreshKeyboardShortcuts;
+    /// Lists the navigation actions and their extra keys on the Keyboard › Navigation tab again.
+    std::function<void()> m_refreshKeyboardNavigation;
     std::function<bool()> m_portalAvailable;
     std::function<QString()> m_restartPortal;
     std::function<bool(const QString &)> m_confirmPortalRestart;

@@ -256,6 +256,8 @@ public Q_SLOTS:
     void editUrl();
     /// Shows the filter bar and focuses it.
     void showFilterBar();
+    /// Clears the filter and closes the filter bar; false when there was neither.
+    bool clearFilter();
 
 Q_SIGNALS:
     void activated();

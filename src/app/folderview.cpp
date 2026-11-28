@@ -1679,6 +1679,31 @@ void FolderView::clearSelection()
     currentView()->selectionModel()->clearSelection();
 }
 
+void FolderView::invertSelection()
+{
+    QAbstractItemView *view = currentView();
+    const QAbstractItemModel *model = view->model();
+    const auto *tree = qobject_cast<const QTreeView *>(view);
+    QItemSelection items;
+    QList<QModelIndex> parents{QModelIndex()};
+    while (!parents.isEmpty()) {
+        const QModelIndex parent = parents.takeLast();
+        const int rows = model->rowCount(parent);
+        if (rows == 0) {
+            continue;
+        }
+        items.select(model->index(0, 0, parent), model->index(rows - 1, 0, parent));
+        // Only the items of expanded folders are shown, so only they change.
+        for (int row = 0; tree && row < rows; ++row) {
+            const QModelIndex index = model->index(row, 0, parent);
+            if (tree->isExpanded(index)) {
+                parents.append(index);
+            }
+        }
+    }
+    view->selectionModel()->select(items, QItemSelectionModel::Toggle | QItemSelectionModel::Rows);
+}
+
 void FolderView::selectUrls(const QList<QUrl> &urls)
 {
     QItemSelectionModel *selection = currentView()->selectionModel();

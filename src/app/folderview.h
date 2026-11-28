@@ -140,6 +140,8 @@ public:
                             bool select,
                             QString *error);
     void clearSelection();
+    /// Selects the items, including those in expanded folders, that aren't selected and deselects the others.
+    void invertSelection();
     void selectUrls(const QList<QUrl> &urls);
     bool expandForHistorySelection(const QList<QUrl> &urls);
     void cancelHistoryExpansion();

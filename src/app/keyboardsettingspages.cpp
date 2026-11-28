@@ -5,7 +5,9 @@
 #include "desktoptray.h"
 #include "doubleshift.h"
 #include "keybindings.h"
+#include "navigationshortcuts.h"
 #include "settings.h"
+#include "settingswidgets.h"
 #include "windowshortcuts.h"
 
 #include <KActionCollection>
@@ -16,6 +18,7 @@
 #include <KXmlGuiWindow>
 
 #include <QAction>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
 #include <QGroupBox>
@@ -30,6 +33,7 @@
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <optional>
 
 namespace
 {
@@ -299,6 +303,122 @@ QWidget *SettingsDialog::createKeyboardShortcutsPage()
         m_refreshKeyboardShortcuts();
     });
     m_refreshKeyboardShortcuts();
+    return page;
+}
+
+QWidget *SettingsDialog::createKeyboardNavigationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("keyboardNavigationPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *window = qobject_cast<KXmlGuiWindow *>(parentWidget());
+
+    layout->addWidget(notice(QStringLiteral("keyboardNavigationIntro"),
+                             i18nc("@info",
+                                   "These actions move between the panes and tabs, change the selection and filter, and move the "
+                                   "keyboard focus to the preview panel or the embedded terminal. Those without a shortcut have "
+                                   "none by default, so they don't take a key you already use; give them one in Configure "
+                                   "Keyboard Shortcuts, or turn on the extra keys below.")));
+    layout->addWidget(SettingsWidgets::checkBox(QStringLiteral("ExtraNavigationShortcuts"),
+                                                i18nc("@option:check", "Add the extra navigation shortcuts that no other action uses")));
+    layout->addWidget(notice(QStringLiteral("keyboardNavigationExtraNotice"),
+                             i18nc("@info",
+                                   "Each extra key is added as one more default shortcut of its action. A key that another "
+                                   "action uses, including one of your own shortcuts, is left out, and your own shortcuts "
+                                   "for these actions are kept. Ctrl+Page Down and Ctrl+Page Up are KDE's standard keys for "
+                                   "the next and previous tab, Ctrl+Shift+A its standard Deselect and Ctrl+Shift+F4 the key "
+                                   "Dolphin uses to focus its terminal.")));
+
+    auto *tree = new QTreeWidget(page);
+    tree->setObjectName(QStringLiteral("keyboardNavigationShortcuts"));
+    tree->setAccessibleName(i18nc("@label accessible name", "Navigation actions, their shortcuts and extra keys"));
+    tree->setHeaderLabels(
+        {i18nc("@title:column", "Action"), i18nc("@title:column", "Shortcuts"), i18nc("@title:column", "Extra Key"), i18nc("@title:column", "Status")});
+    tree->setUniformRowHeights(true);
+    tree->setMinimumHeight(tree->fontMetrics().height() * 12);
+    layout->addWidget(tree, 1);
+
+    layout->addWidget(notice(QStringLiteral("keyboardNavigationTerminalNotice"),
+                             i18nc("@info",
+                                   "While you type in the embedded terminal, it keeps keys with fewer than two modifiers, such "
+                                   "as Alt+1, for itself; Ctrl+Shift+F4 leaves it again.")));
+
+    QPushButton *configure = iconButton(QStringLiteral("keyboardNavigationConfigure"),
+                                        i18nc("@action:button", "Configure Keyboard Shortcuts…"),
+                                        QStringLiteral("configure-shortcuts"));
+    const QPointer<QAction> shortcutsAction = window ? window->actionCollection()->action(KStandardAction::name(KStandardAction::KeyBindings)) : nullptr;
+    configure->setEnabled(!shortcutsAction.isNull());
+    connect(configure, &QPushButton::clicked, this, [shortcutsAction] {
+        if (shortcutsAction) {
+            shortcutsAction->trigger();
+        }
+    });
+    QPushButton *map = iconButton(QStringLiteral("keyboardNavigationMap"), i18nc("@action:button", "Keyboard Map…"), QStringLiteral("help-keybord-shortcuts"));
+    const QPointer<QAction> mapAction = window ? window->actionCollection()->action(QStringLiteral("keyboard_map")) : nullptr;
+    map->setEnabled(!mapAction.isNull());
+    connect(map, &QPushButton::clicked, this, [mapAction] {
+        if (mapAction) {
+            mapAction->trigger();
+        }
+    });
+    auto *buttons = new QHBoxLayout;
+    buttons->addWidget(configure);
+    buttons->addWidget(map);
+    buttons->addStretch();
+    layout->addLayout(buttons);
+
+    m_refreshKeyboardNavigation = [window, tree] {
+        tree->clear();
+        if (!window) {
+            auto *item = new QTreeWidgetItem(tree, {i18nc("@info", "Open Preferences from a Plasma Opus window to see its navigation shortcuts.")});
+            item->setFirstColumnSpanned(true);
+            return;
+        }
+        const WindowBindings found = windowBindings(window);
+        const bool enabled = Settings::extraNavigationShortcuts();
+        QTreeWidgetItem *areaItem = nullptr;
+        std::optional<NavigationShortcuts::Area> area;
+        for (const NavigationShortcuts::Action &navigation : NavigationShortcuts::actions()) {
+            QAction *action = window->actionCollection()->action(navigation.name);
+            const int index = action ? found.actions.indexOf(action) : -1;
+            if (index < 0) {
+                continue;
+            }
+            if (area != navigation.area) {
+                area = navigation.area;
+                areaItem = new QTreeWidgetItem(tree, {NavigationShortcuts::areaText(navigation.area)});
+                areaItem->setFirstColumnSpanned(true);
+                areaItem->setFlags(Qt::ItemIsEnabled);
+            }
+            const NavigationShortcuts::State state = NavigationShortcuts::state(found.bindings, index, navigation.extra, enabled);
+            const QString extra = navigation.extra.isEmpty() ? QString() : navigation.extra.toString(QKeySequence::NativeText);
+            auto *item = new QTreeWidgetItem(areaItem,
+                                             {found.bindings.at(index).text,
+                                              shortcutsText(found.bindings.at(index).shortcuts),
+                                              extra,
+                                              NavigationShortcuts::stateText(state, found.bindings)});
+            item->setData(0, Qt::UserRole, navigation.name);
+            item->setData(3, Qt::UserRole, static_cast<int>(state.status));
+            item->setIcon(0, action->icon());
+        }
+        tree->expandAll();
+        for (int column = 0; column < tree->columnCount() - 1; ++column) {
+            tree->resizeColumnToContents(column);
+        }
+    };
+
+    if (window && window->guiFactory()) {
+        connect(window->guiFactory(), &KXMLGUIFactory::shortcutsSaved, page, [this] {
+            m_refreshKeyboardNavigation();
+        });
+    }
+    // The window gives the actions their extra keys once the setting is saved.
+    connect(Settings::self(), &Settings::configChanged, page, [this, page] {
+        QTimer::singleShot(0, page, [this] {
+            m_refreshKeyboardNavigation();
+        });
+    });
+    m_refreshKeyboardNavigation();
     return page;
 }
 

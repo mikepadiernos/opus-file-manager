@@ -14,6 +14,7 @@
 #include <kde_terminal_interface.h>
 
 #include <QActionGroup>
+#include <QApplication>
 #include <QDir>
 #include <QEvent>
 #include <QFileInfo>
@@ -173,6 +174,22 @@ void TerminalPanel::setTitleVisible(bool visible)
 bool TerminalPanel::hasSessions() const
 {
     return m_tabs->count() > 0;
+}
+
+bool TerminalPanel::focusSession()
+{
+    QWidget *session = m_tabs->currentWidget();
+    if (!session) {
+        return false;
+    }
+    session->setFocus(Qt::ShortcutFocusReason);
+    return true;
+}
+
+bool TerminalPanel::hasKeyboardFocus() const
+{
+    const QWidget *focus = QApplication::focusWidget();
+    return focus && isAncestorOf(focus);
 }
 
 int TerminalPanel::sessionCount() const

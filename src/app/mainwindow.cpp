@@ -694,6 +694,8 @@ MainWindow::MainWindow(QWidget *parent)
             return;
         }
         WindowShortcuts::save(this);
+        // Keys the user freed or took may change which extra navigation keys apply.
+        WindowShortcuts::applyNavigationKeys(this);
         const QScopedValueRollback<bool> rollback(sharing, true);
         const QList<KMainWindow *> windows = KMainWindow::memberList();
         for (KMainWindow *member : windows) {
@@ -3348,6 +3350,18 @@ void MainWindow::setupActions()
             activePane()->view()->selectAll();
         },
         actions);
+    // Navigation actions have no default shortcuts; Preferences › Keyboard › Navigation can give them keys no other action uses.
+    QAction *deselectAll = actions->addAction(QStringLiteral("deselect_all"), this, [this] {
+        activePane()->view()->clearSelection();
+    });
+    deselectAll->setText(i18nc("@action", "Deselect All"));
+    deselectAll->setIcon(SymbolicIcon::fromTheme(QStringLiteral("edit-select-none")));
+    QAction *invertSelection = actions->addAction(QStringLiteral("invert_selection"), this, [this] {
+        activePane()->view()->invertSelection();
+    });
+    invertSelection->setText(i18nc("@action", "Invert Selection"));
+    invertSelection->setToolTip(i18nc("@info:tooltip", "Select the items that aren't selected and deselect the others"));
+    invertSelection->setIcon(SymbolicIcon::fromTheme(QStringLiteral("edit-select-invert")));
 
     auto *selectMenu = new QMenu(i18nc("@menu", "Select"), this);
     QAction *selectPattern = selectMenu->addAction(i18nc("@action:inmenu", "Select by Pattern…"));
@@ -3507,6 +3521,11 @@ void MainWindow::setupActions()
         }
         updateTerminalPanelVisibility();
     });
+    QAction *focusTerminalAction = actions->addAction(QStringLiteral("focus_terminal"), this, &MainWindow::focusTerminal);
+    focusTerminalAction->setText(i18nc("@action", "Focus Embedded Terminal"));
+    focusTerminalAction->setToolTip(
+        i18nc("@info:tooltip", "Show the embedded terminal and type in it; if the terminal has the keyboard focus, go back to the active pane"));
+    focusTerminalAction->setIcon(SymbolicIcon::fromTheme(QStringLiteral("utilities-terminal")));
     QAction *terminalHistory = actions->addAction(QStringLiteral("search_terminal_history"), this, [this] {
         const int sessions = m_terminalPanel->sessionCount();
         if (!m_terminalPanelAction->isChecked()) {
@@ -3844,6 +3863,11 @@ void MainWindow::setupActions()
         }
     });
     connect(m_previewPanel, &PreviewPanel::closeRequested, m_previewPanelAction, &QAction::trigger);
+    QAction *focusPreview = actions->addAction(QStringLiteral("focus_preview_panel"), this, &MainWindow::focusPreviewPanel);
+    focusPreview->setText(i18nc("@action", "Focus Preview Panel"));
+    focusPreview->setToolTip(
+        i18nc("@info:tooltip", "Show the preview panel and move the keyboard focus into it; if the panel has the focus, go back to the active pane"));
+    focusPreview->setIcon(SymbolicIcon::fromTheme(QStringLiteral("document-preview")));
     connect(m_previewPanel, &PreviewPanel::placementRequested, this, [this](PreviewPanel::Placement placement) {
         Settings::setPreviewPlacement(static_cast<Settings::EnumPreviewPlacement::type>(placement));
         Settings::self()->save();
@@ -4050,6 +4074,16 @@ void MainWindow::setupActions()
     });
     switchPane->setText(i18nc("@action", "Switch Pane"));
     actions->setDefaultShortcut(switchPane, Qt::Key_Tab);
+    QAction *focusFirstPane = actions->addAction(QStringLiteral("focus_first_pane"), this, [this] {
+        focusPane(m_left);
+    });
+    focusFirstPane->setText(i18nc("@action", "Focus First Pane"));
+    focusFirstPane->setToolTip(i18nc("@info:tooltip", "Make the first pane, on the left or at the top, active and move the keyboard focus to it"));
+    QAction *focusSecondPane = actions->addAction(QStringLiteral("focus_second_pane"), this, [this] {
+        focusPane(m_right);
+    });
+    focusSecondPane->setText(i18nc("@action", "Focus Second Pane"));
+    focusSecondPane->setToolTip(i18nc("@info:tooltip", "Make the second pane, on the right or at the bottom, active and move the keyboard focus to it"));
 
     // Tabs
     QAction *newTab = actions->addAction(QStringLiteral("new_tab"), this, [this] {
@@ -4084,6 +4118,13 @@ void MainWindow::setupActions()
     });
     previousTab->setText(i18nc("@action", "Previous Tab"));
     actions->setDefaultShortcut(previousTab, Qt::CTRL | Qt::SHIFT | Qt::Key_Tab);
+
+    QAction *lastTab = actions->addAction(QStringLiteral("activate_last_tab"), this, [this] {
+        TabModel *tabs = activePane()->tabs();
+        tabs->setCurrentIndex(tabs->count() - 1);
+    });
+    lastTab->setText(i18nc("@action", "Activate Last Tab"));
+    lastTab->setIcon(SymbolicIcon::fromTheme(QStringLiteral("go-last-view")));
 
     for (int i = 1; i <= 9; ++i) {
         QAction *tabN = actions->addAction(QStringLiteral("activate_tab_%1").arg(i), this, [this, i] {
@@ -4148,6 +4189,14 @@ void MainWindow::setupActions()
     filter->setText(i18nc("@action", "Filter…"));
     filter->setIcon(QIcon::fromTheme(QStringLiteral("view-filter")));
     actions->setDefaultShortcut(filter, Qt::CTRL | Qt::Key_F);
+    QAction *clearFilter = actions->addAction(QStringLiteral("clear_filter"), this, [this] {
+        if (!activePane()->clearFilter()) {
+            showStatusMessage(i18nc("@info:status", "This pane has no filter to clear."));
+        }
+    });
+    clearFilter->setText(i18nc("@action", "Clear Filter"));
+    clearFilter->setToolTip(i18nc("@info:tooltip", "Show every item of the active pane again and close its filter bar"));
+    clearFilter->setIcon(SymbolicIcon::fromTheme(QStringLiteral("edit-clear")));
 
     QAction *addFavorite = actions->addAction(QStringLiteral("add_to_favorites"), this, &MainWindow::addToFavorites);
     addFavorite->setText(i18nc("@action", "Add to Favorites"));
@@ -4270,6 +4319,57 @@ void MainWindow::setActivePane(Pane *pane)
     updateWindowTitle();
     updatePreviewPanel();
     updateInformationPanel();
+}
+
+void MainWindow::focusPane(Pane *pane)
+{
+    if (!pane) {
+        return;
+    }
+    setActivePane(pane);
+    if (QWidget *paneWindow = pane->window(); paneWindow != window()) {
+        paneWindow->raise();
+        paneWindow->activateWindow();
+    }
+    pane->view()->currentView()->setFocus(Qt::ShortcutFocusReason);
+}
+
+void MainWindow::focusPreviewPanel()
+{
+    const QWidget *focus = QApplication::focusWidget();
+    if (m_previewPanelAction->isChecked() && focus && m_previewPanel->isAncestorOf(focus)) {
+        focusPane(activePane());
+        return;
+    }
+    if (!m_previewPanelAction->isChecked()) {
+        m_previewPanelAction->setChecked(true);
+    }
+    if (QWidget *panelWindow = m_previewPanel->window(); panelWindow != window()) {
+        panelWindow->raise();
+        panelWindow->activateWindow();
+    }
+    if (!m_previewPanel->focusContent()) {
+        showStatusMessage(i18nc("@info:status", "The preview panel has nothing to move the keyboard focus to."));
+    }
+}
+
+void MainWindow::focusTerminal()
+{
+    if (m_terminalPanelAction->isChecked() && m_terminalPanel->hasKeyboardFocus()) {
+        focusPane(activePane());
+        return;
+    }
+    if (!m_terminalPanelAction->isChecked()) {
+        m_terminalPanelAction->setChecked(true);
+    } else if (!m_terminalPanel->hasSessions()) {
+        m_terminalPanel->start(activePane()->url());
+    }
+    if (QWidget *panelWindow = m_terminalPanel->window(); panelWindow != window()) {
+        panelWindow->raise();
+        panelWindow->activateWindow();
+    }
+    // Without a session, the panel already tells why it couldn't open one.
+    m_terminalPanel->focusSession();
 }
 
 void MainWindow::openUrls(const QList<QUrl> &urls)
@@ -8271,6 +8371,10 @@ void MainWindow::refreshCustomCommandActions()
             ++it;
         }
     }
+    if (factory()) {
+        // A saved command's stored shortcut may be one of the extra navigation keys.
+        WindowShortcuts::applyNavigationKeys(this);
+    }
     if (m_active) {
         updateActions();
     }
@@ -9235,6 +9339,9 @@ void MainWindow::applySettings()
         shortcuts.prepend(QKeySequence(Qt::Key_Tab));
     }
     switchPane->setShortcuts(shortcuts);
+    if (factory()) {
+        WindowShortcuts::applyNavigationKeys(this);
+    }
     setPreviewPlacement(static_cast<PreviewPanel::Placement>(Settings::previewPlacement()));
     m_previewPanel->applyPresentationSettings();
     updatePreviewPanel();

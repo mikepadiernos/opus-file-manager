@@ -30,6 +30,7 @@
 #include <KTextEditor/Document>
 #include <KTextEditor/View>
 
+#include <QAbstractScrollArea>
 #include <QActionGroup>
 #include <QDir>
 #include <QFile>
@@ -897,6 +898,26 @@ void PreviewPanel::startPendingPreview()
     watcher->setFuture(QtConcurrent::run([url, mimeType, textLimit] {
         return Preview::load(url, mimeType, textLimit);
     }));
+}
+
+bool PreviewPanel::focusContent()
+{
+    // The content first, so the arrow keys and Page Up and Page Down scroll it.
+    const QList<QAbstractScrollArea *> areas = findChildren<QAbstractScrollArea *>();
+    for (QAbstractScrollArea *area : areas) {
+        if (area->isVisible() && area->isEnabled() && area->focusPolicy() != Qt::NoFocus) {
+            area->setFocus(Qt::ShortcutFocusReason);
+            return true;
+        }
+    }
+    const QList<QWidget *> widgets = findChildren<QWidget *>();
+    for (QWidget *widget : widgets) {
+        if (widget->isVisible() && widget->isEnabled() && (widget->focusPolicy() & Qt::TabFocus)) {
+            widget->setFocus(Qt::ShortcutFocusReason);
+            return true;
+        }
+    }
+    return false;
 }
 
 void PreviewPanel::clear()

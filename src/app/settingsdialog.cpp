@@ -326,7 +326,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   QStringLiteral("view-file-columns"),
                   nullptr,
                   createYaziResetRow());
-    addTabbedPage({{createKeyboardShortcutsPage(), i18nc("@title:tab", "Shortcuts")}}, i18nc("@title:group", "Keyboard"), QStringLiteral("input-keyboard"));
+    addTabbedPage({{createKeyboardShortcutsPage(), i18nc("@title:tab", "Shortcuts")}, {createKeyboardNavigationPage(), i18nc("@title:tab", "Navigation")}},
+                  i18nc("@title:group", "Keyboard"),
+                  QStringLiteral("input-keyboard"));
     addTabbedPage({{createContextMenuActionsPage(), i18nc("@title:tab", "Actions")}, {createServiceMenusPage(), i18nc("@title:tab", "Service Menus")}},
                   i18nc("@title:group", "Context Menu"),
                   QStringLiteral("application-menu"));

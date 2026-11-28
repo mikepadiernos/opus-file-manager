@@ -2200,6 +2200,15 @@ void Pane::showFilterBar()
     m_filterBar->open();
 }
 
+bool Pane::clearFilter()
+{
+    if (m_filterBar->filter().isEmpty() && m_filterBar->isHidden()) {
+        return false;
+    }
+    m_filterBar->close();
+    return true;
+}
+
 QString Pane::tabTitle(const QUrl &url)
 {
     if (url.isLocalFile()) {

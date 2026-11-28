@@ -32,6 +32,10 @@ public:
     void setTitleVisible(bool visible);
     bool hasSessions() const;
     int sessionCount() const;
+    /// Gives the current session the keyboard focus; false without a session.
+    bool focusSession();
+    /// Whether the keyboard focus is in the panel.
+    bool hasKeyboardFocus() const;
     /// The configured provider whose terminal component new sessions load.
     static TerminalProviders::Provider embeddedProvider();
     /// Stores the provider for new sessions; open sessions keep their component.

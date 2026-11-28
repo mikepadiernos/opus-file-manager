@@ -3,6 +3,7 @@
 #include "windowshortcuts.h"
 
 #include "gallerywindow.h"
+#include "navigationshortcuts.h"
 #include "settings.h"
 #include "shortcutstorage.h"
 
@@ -27,6 +28,9 @@ KConfigGroup group()
 {
     return KSharedConfig::openConfig()->group(QLatin1String(ShortcutStorage::Group));
 }
+
+/// Keeps an action's defaults without the extra navigation keys, which change its KActionCollection defaults.
+constexpr const char *BaseDefaultsProperty = "_opus_baseDefaultShortcuts";
 
 /// The actions of @p window whose shortcuts KDE's editor lists.
 QList<QAction *> configurableActions(KXmlGuiWindow *window)
@@ -144,6 +148,7 @@ void apply(KXmlGuiWindow *window)
             action->setShortcuts(keys);
         }
     }
+    applyNavigationKeys(window);
 }
 
 void apply(QAction *action)
@@ -186,6 +191,57 @@ void prepareRebuild(KXmlGuiWindow *window)
     for (QAction *action : configurableActions(window)) {
         if (shortcuts.hasKey(action->objectName())) {
             action->setShortcuts(KActionCollection::defaultShortcuts(action));
+        }
+    }
+}
+
+QList<QKeySequence> baseDefaults(QAction *action)
+{
+    if (!action) {
+        return {};
+    }
+    const QVariant stored = action->property(BaseDefaultsProperty);
+    if (stored.isValid()) {
+        return stored.value<QList<QKeySequence>>();
+    }
+    const QList<QKeySequence> base = KActionCollection::defaultShortcuts(action);
+    action->setProperty(BaseDefaultsProperty, QVariant::fromValue(base));
+    return base;
+}
+
+void applyNavigationKeys(KXmlGuiWindow *window)
+{
+    if (!window) {
+        return;
+    }
+    const bool enabled = Settings::extraNavigationShortcuts();
+    Bindings found;
+    bool listed = false;
+    for (const NavigationShortcuts::Action &navigation : NavigationShortcuts::actions()) {
+        QAction *action = window->actionCollection()->action(navigation.name);
+        if (navigation.extra.isEmpty() || !action) {
+            continue;
+        }
+        const QList<QKeySequence> base = baseDefaults(action);
+        if (!enabled && KActionCollection::defaultShortcuts(action) == base) {
+            continue;
+        }
+        if (!listed) {
+            found = bindings(window);
+            listed = true;
+        }
+        const int self = found.actions.indexOf(action);
+        const bool taken = enabled && NavigationShortcuts::user(found.bindings, self, navigation.extra) >= 0;
+        const QList<QKeySequence> wanted = NavigationShortcuts::defaults(base, navigation.extra, enabled, taken);
+        if (KActionCollection::defaultShortcuts(action) == wanted) {
+            continue;
+        }
+        // This also gives the action its new defaults as its shortcuts; apply() gives it its stored ones again.
+        KActionCollection::setDefaultShortcuts(action, wanted);
+        apply(action);
+        if (self >= 0) {
+            found.bindings[self].shortcuts = action->shortcuts();
+            found.bindings[self].defaults = wanted;
         }
     }
 }

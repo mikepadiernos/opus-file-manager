@@ -52,7 +52,7 @@ QString uiRcPath(const QString &componentName, const QString &xmlFile);
  */
 void migrate(const QString &uiRcPath);
 
-/// Gives each of @p window's actions its stored shortcuts, or its defaults.
+/// Gives each of @p window's actions its stored shortcuts, or its defaults, then applies the extra navigation keys (see applyNavigationKeys()).
 void apply(KXmlGuiWindow *window);
 
 /// Gives @p action, added to a window after its menus were built, its stored shortcuts, if it has any.
@@ -71,4 +71,16 @@ void forget(const QString &name);
  * gives them back afterwards.
  */
 void prepareRebuild(KXmlGuiWindow *window);
+
+/**
+ * Gives the navigation actions of @p window (see NavigationShortcuts) their
+ * extra default shortcuts while Preferences › Keyboard › Navigation turns
+ * them on, leaving out each key another action uses, or their own defaults
+ * otherwise, then their stored shortcuts again. Call it whenever the window's
+ * shortcuts or that setting change.
+ */
+void applyNavigationKeys(KXmlGuiWindow *window);
+
+/// The default shortcuts @p action has without the extra navigation keys.
+QList<QKeySequence> baseDefaults(QAction *action);
 }
