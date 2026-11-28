@@ -151,7 +151,8 @@ preview. Both behaviours can be changed in Preferences.
   Yazi mode and global keys. Text fields and lists keep their typing and
   navigation keys. Shortcuts are stored in the configuration file and shared
   by every window, and the global shortcuts' status says when KDE refused a
-  key or the session can't pass keys on.
+  key or the session can't pass keys on. Saved commands can have shortcuts,
+  and an action can have more than one alternate.
 
 ## Screenshots
 
