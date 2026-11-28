@@ -4107,6 +4107,21 @@ The M30 Nextcloud settings have these limits
   client configuration and a fake socket
   ([Plasma check](TODO.md#nextcloud-settings-on-plasma-368)).
   ([#368](https://github.com/mikepadiernos/plasma-opus/issues/368))
+- **🏞️ Nextcloud Photos settings:** the **Photos** group only hides albums,
+  shared albums or places in Plasma Opus; nothing changes on the server, and
+  the Photos app of the web interface still lists them. Hiding your albums
+  also removes **New Album…** from both windows, so albums can then be
+  created only in the web interface. An album counts as shared when it is
+  listed under **Shared albums** or the server reports collaborators for it;
+  one of your albums shared without `nc:collaborators` in the server's
+  response counts as unshared, so its changes aren't confirmed when
+  confirmation is turned off. A grouping chosen in Preferences replaces the
+  one last chosen in the window each time it opens, though **Group by** still
+  changes it for that window. The settings apply to **Photos…** and **Add to
+  Nextcloud Album…** windows opened afterwards; open windows keep theirs.
+  Checked only against a fake server
+  ([real-server check](TODO.md#nextcloud-photos-settings-on-a-real-server-672)).
+  ([#672](https://github.com/mikepadiernos/plasma-opus/issues/672))
 
 - **Recommendation:**
   - **Nextcloud settings:** Keep the defaults unless you need otherwise. Keep
@@ -4118,6 +4133,13 @@ The M30 Nextcloud settings have these limits
     link's expiry before creating it. Turn the desktop client's status off
     when the client isn't used. Reopen **Search and Organize…** and
     **Shares…** windows after changing their settings.
+  - **Nextcloud Photos settings:** Hide the kinds of collection you don't use
+    to keep **Photos…** and **Add to Nextcloud Album…** short, and keep your
+    albums shown when you create albums from Plasma Opus. Choose a fixed
+    grouping only when you always browse photos the same way. Keep asking
+    before album changes unless you often tidy albums only you use; changes
+    to shared albums are always confirmed. Reopen **Photos…** and **Add to
+    Nextcloud Album…** windows after changing these settings.
   - Comment:
     [#769.7229818538](https://github.com/mikepadiernos/plasma-opus/issues/769#issuecomment-7229818538)
 - **Proposed improvements:**
@@ -4126,6 +4148,9 @@ The M30 Nextcloud settings have these limits
     for the favourites and tags of **Search and Organize…**, apply a default
     expiry to user and group shares, and find the desktop client's
     configuration in its Flatpak and Snap builds.
+  - Apply the Photos settings to open windows, offer **New Album…** while
+    your albums are hidden, and read each album's sharing from the server to
+    confirm changes to every shared album.
 
 ## Embedded terminal
 
