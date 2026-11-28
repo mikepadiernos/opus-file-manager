@@ -2152,7 +2152,8 @@ using KDE shortcut facilities where supported.
       [pending handoff](TODO.md#shortcut-contexts-on-plasma-233). [#233]
 - [ ] Store Vim-style mode and app-local bindings in KConfig; manage optional
       global shortcuts through KDE facilities and report registration failures
-      or platform limitations [#238]
+      or platform limitations. Plasma-session verification is a
+      [pending handoff](TODO.md#shortcut-storage-on-plasma-238). [#238]
 - [ ] Allow alternative bindings for an action and configurable shortcuts for
       commands outside a toolbar, including custom commands [#231]
 - [ ] Show a searchable keyboard map of action names, descriptions, bindings and
