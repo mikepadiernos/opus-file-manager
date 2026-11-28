@@ -18,6 +18,8 @@ imports one after showing what it changes. **Help › Keyboard Map…** lists
 every action with its shortcuts, searched by name or by pressing keys, and
 exports them as a printable reference. **Help › Command Palette…** finds an
 action of the menus and toolbars, or a saved command, by name and runs it.
+Optional Vim-style keys move through the file views of panes that aren't in
+Yazi mode.
 
 ## Contents
 
@@ -30,6 +32,7 @@ action of the menus and toolbars, or a saved command, by name and runs it.
 - [Global shortcut status](#global-shortcut-status)
 - [Keyboard map](#keyboard-map)
 - [Command palette](#command-palette)
+- [Vim-style navigation](#vim-style-navigation)
 - [Import and export](#import-and-export)
 - [Configuration reference](#configuration-reference)
 - [Accessibility](#accessibility)
@@ -46,6 +49,8 @@ action of the menus and toolbars, or a saved command, by name and runs it.
 | **Help › Keyboard Map…**                     | Every action and key, searched by name or keys, and a printable reference  |
 | **Help › Command Palette…**                  | Find a menu, toolbar or saved-command action by name and run it            |
 | **Preferences › Keyboard › Command Palette** | The palette's shortcut, saved commands in it and its recent actions        |
+| **Preferences › Keyboard › Vim Mode**        | Vim-style keys in file views outside Yazi mode, and what they shadow       |
+| **View › Vim-Style Navigation**              | Turns the Vim-style keys in file views on or off                           |
 | **Preferences › Yazi Mode › Keyboard**       | The Yazi mode key presets and the window shortcuts each one takes          |
 | **Preferences › KDE Plasma › Shortcuts**     | The global shortcut that shows or hides Plasma Opus                        |
 | **Preferences › KDE Plasma › KWin**          | The drop-down window's global shortcut                                     |
@@ -226,6 +231,7 @@ overlap can conflict:
 | -------------------- | -------------------------------------------- | ------------------------- |
 | Window               | Every action in Configure Keyboard Shortcuts | All but the image gallery |
 | File views and lists | Keys that a pane's view or a list keeps      | Window                    |
+| Vim-style navigation | The Vim-style keys, while they are on        | Window                    |
 | Folder tree          | Keys that the folder tree keeps              | Window                    |
 | Text fields          | Keys that a text field keeps                 | Window                    |
 | Image gallery        | The gallery's own keys, in its own window    | Image gallery             |
@@ -366,6 +372,10 @@ It lists, in this order:
   Mode › Keyboard** (**Yazi mode columns**), each with every key that runs
   it, written as [Yazi mode › Keyboard](yazi-mode.md#keyboard) writes them,
   such as `G` for <kbd>Shift</kbd>+<kbd>G</kbd>;
+- the [Vim-style navigation](#vim-style-navigation) keys, written the same
+  way, as **File views with Vim-style navigation**, or with **(off:
+  Preferences › Keyboard › Vim Mode)** added while they are off; their
+  internal names begin with `vim-`, such as `vim-move-down`;
 - the global shortcuts KDE's global shortcut service has registered
   (**Global**).
 
@@ -387,8 +397,9 @@ To find an action:
   more a search found that are hidden because they have no shortcut.
 
 The map updates when Configure Keyboard Shortcuts or **Reset All
-Shortcuts…** saves, when Preferences changes the Yazi mode preset or
-pressing <kbd>Shift</kbd> twice, and when a global shortcut changes. It only
+Shortcuts…** saves, when Preferences changes the Yazi mode preset, the
+Vim-style keys or pressing <kbd>Shift</kbd> twice, and when a global shortcut
+changes. It only
 shows keys: **Configure Keyboard Shortcuts…** at the bottom opens KDE's
 editor to change them.
 
@@ -471,6 +482,97 @@ recently used actions, with **Clear History** and **Configure Keyboard
 Shortcuts…**. The list updates when the tab is shown and when shortcuts are
 saved.
 
+## Vim-style navigation
+
+**Use Vim-style keys in file views**, on **Preferences › Keyboard › Vim
+Mode**, moves through the file views of the panes with keys taken from Vim, as
+ranger and Yazi do. It is off by default. **View › Vim-Style Navigation**
+(`toggle_vim_navigation`, no default shortcut) turns it on or off too, saves
+the setting at once and says so in the status bar.
+
+The keys work in every view mode, but only while a pane's file view has the
+keyboard focus. A pane in [Yazi mode](yazi-mode.md#keyboard) uses its Yazi
+mode key preset instead, the standard or the Yazi-style keys, and gets the
+Vim-style navigation keys back when it leaves Yazi mode. The two settings are
+independent: **View › Vim-Style Keys in Yazi Mode** chooses the Yazi mode
+preset, and **View › Vim-Style Navigation** the keys outside Yazi mode.
+
+| Keys                                                 | Command                                          |
+| ---------------------------------------------------- | ------------------------------------------------ |
+| <kbd>j</kbd>, <kbd>k</kbd>                           | Move down or up                                  |
+| <kbd>g</kbd> <kbd>g</kbd>, <kbd>G</kbd>              | Move to the first or last item                   |
+| <kbd>Ctrl</kbd>+<kbd>D</kbd>, <kbd>J</kbd>           | Move half a page down                            |
+| <kbd>Ctrl</kbd>+<kbd>U</kbd>, <kbd>K</kbd>           | Move half a page up                              |
+| <kbd>h</kbd>                                         | Open the parent folder, focusing the folder left |
+| <kbd>l</kbd>                                         | Open the focused item, as <kbd>Enter</kbd> does  |
+| <kbd>H</kbd>, <kbd>L</kbd>                           | Go back or forward in the tab's history          |
+| <kbd>g</kbd> <kbd>h</kbd>                            | Open **Go › Home**'s folder                      |
+| <kbd>g</kbd> <kbd>t</kbd>, <kbd>g</kbd> <kbd>T</kbd> | Go to the next or previous tab of the pane       |
+| <kbd>/</kbd>                                         | Show the filter bar, as **Edit › Filter…** does  |
+| <kbd>\\</kbd>                                        | Clear the filter and close the filter bar        |
+
+Capital letters are typed with <kbd>Shift</kbd>, so <kbd>G</kbd> is
+<kbd>Shift</kbd>+<kbd>g</kbd>. <kbd>J</kbd> and <kbd>K</kbd> come from
+ranger; they also work when a window shortcut keeps
+<kbd>Ctrl</kbd>+<kbd>D</kbd> or <kbd>Ctrl</kbd>+<kbd>U</kbd>.
+
+- **Counts.** Digits typed first repeat a movement, so <kbd>5</kbd>
+  <kbd>j</kbd> moves five items down and <kbd>3</kbd> <kbd>J</kbd> one and a
+  half pages. A count is at most 999. While the keys are on, digits 1 to
+  9 begin a count instead of finding an item by its first characters.
+- **Sequences.** <kbd>g</kbd> waits for the next key. A pending sequence or
+  count is cancelled after about one second without a key, by
+  <kbd>Escape</kbd>, or by a key that doesn't continue it, which then works on
+  its own.
+- **Moving** sends the view its own arrow, <kbd>Home</kbd> and
+  <kbd>End</kbd> keys, so the focus and the selection move as they always do,
+  in lists, details, icons and cards alike. A movement stops at the first or
+  last item.
+- **Messages.** A key that can't do anything, such as <kbd>h</kbd> in a
+  folder without a parent, <kbd>L</kbd> without later history,
+  <kbd>g</kbd> <kbd>t</kbd> with one tab, <kbd>\\</kbd> without a filter or a
+  movement in an empty folder, says why in the status bar and to screen
+  readers instead of doing nothing silently.
+- **Typing elsewhere.** Other letters still find items by their first
+  characters, as without the keys. The arrow keys, <kbd>Enter</kbd>,
+  <kbd>Tab</kbd>, <kbd>Escape</kbd> and every key with
+  <kbd>Ctrl</kbd> other than <kbd>Ctrl</kbd>+<kbd>D</kbd> and
+  <kbd>Ctrl</kbd>+<kbd>U</kbd> work as before.
+
+**Typing is never taken.** The keys apply only to the file view itself, so
+they never reach the filter bar, the location bar, search fields, the
+embedded terminal, an inline rename editor or any other text field. While an
+item is being renamed in place, every key goes to the editor.
+
+**Window shortcuts.** Plain keys, those without <kbd>Ctrl</kbd>,
+<kbd>Alt</kbd> or <kbd>Meta</kbd>, take over a window shortcut that uses them
+while a file view has the focus, as Yazi mode's keys do: if **Open Gallery**
+were given <kbd>G</kbd>, <kbd>G</kbd> would move to the last item there and
+open the gallery elsewhere. Keys with <kbd>Ctrl</kbd>, <kbd>Alt</kbd> or
+<kbd>Meta</kbd> never take over a shortcut: the shortcut keeps running, and
+the Vim-style key works only while no shortcut uses it. With the default
+shortcuts, **Add to Favorites** keeps <kbd>Ctrl</kbd>+<kbd>D</kbd>, so use
+<kbd>J</kbd> to move half a page down, and no plain key is taken.
+
+The **Vim Mode** tab shows:
+
+- **Use Vim-style keys in file views**, the setting;
+- **Keys**, every command with all its keys, in a list with an accessible
+  name, and a note on counts and typing;
+- **Conflicts**, the window shortcuts that the plain keys take over, as
+  [Yazi mode › Keyboard](yazi-mode.md#keyboard) lists them, such as
+  “G runs “Move to the last item” instead of “Open Gallery””, and the
+  shortcuts with <kbd>Ctrl</kbd>, <kbd>Alt</kbd> or <kbd>Meta</kbd> that keep
+  their key, such as “Ctrl+D runs “Add to Favorites”, so it doesn't run “Move
+  half a page down””. The list is worked out whether the keys are on or off,
+  and updates when the shortcuts are saved or Preferences applied;
+- **Configure Keyboard Shortcuts…** and **Keyboard Map…**, which open KDE's
+  editor and the [keyboard map](#keyboard-map);
+- a note on where the keys never apply.
+
+The [Shortcuts tab](#the-shortcuts-tab)'s **Conflicts** list doesn't include
+the Vim-style keys; the **Vim Mode** tab lists them.
+
 ## Import and export
 
 **Import…** and **Export…** under **Import and Export** on **Preferences ›
@@ -485,8 +587,9 @@ has:
   shortcut and alternate, including actions you gave no shortcut and saved
   commands;
 - the saved values of the keyboard settings: the extra navigation keys, the
-  Yazi mode key preset, pressing <kbd>Shift</kbd> twice to search, and
-  whether <kbd>Tab</kbd> switches panes. Changes not yet applied in
+  Vim-style navigation keys, the Yazi mode key preset, pressing
+  <kbd>Shift</kbd> twice to search, and whether <kbd>Tab</kbd> switches
+  panes. Changes not yet applied in
   Preferences aren't exported.
 
 Actions that have their defaults and global shortcuts aren't included. The
@@ -589,6 +692,22 @@ shortcuts whenever it starts, the shortcuts are saved or Preferences are
 applied. An action given its extra key and nothing else of your own has no
 entry in the `Shortcuts` group.
 
+### Vim-style navigation
+
+The setting on **Keyboard › Vim Mode** is kept in the `Keyboard` group:
+
+```ini
+[Keyboard]
+VimNavigation=true
+```
+
+| Entry           | Type | Default | Effect                                                      |
+| --------------- | ---- | ------- | ----------------------------------------------------------- |
+| `VimNavigation` | Bool | `false` | Vim-style keys in the file views of panes outside Yazi mode |
+
+**View › Vim-Style Navigation** writes the same entry. The keys themselves are
+fixed and aren't stored. The setting is one of the keymap file settings.
+
 ### Command palette
 
 The setting on **Keyboard › Command Palette** is kept in the `Keyboard`
@@ -665,6 +784,7 @@ CommandBarLastUsedActions=Select &All,&New Folder…
   | Entry                      | Value                   | Set in                           |
   | -------------------------- | ----------------------- | -------------------------------- |
   | `ExtraNavigationShortcuts` | `true` or `false`       | **Keyboard › Navigation**        |
+  | `VimNavigation`            | `true` or `false`       | **Keyboard › Vim Mode**          |
   | `YaziKeyPreset`            | `"Standard"` or `"Vim"` | **Yazi Mode › Keyboard**         |
   | `DoubleShiftSearch`        | `true` or `false`       | **Tools › Search**               |
   | `TabSwitchesPanes`         | `true` or `false`       | **Interface › Folders and Tabs** |
@@ -758,6 +878,13 @@ The **Set in** column names pages of Preferences.
   arrow keys move through the list without leaving the field.
 - The **Command Palette** tab's recently used actions are plain text in a
   list with an accessible name.
+- The Vim-style keys are off by default and add to the usual keys rather
+  than replacing them: the arrow keys, <kbd>Home</kbd>, <kbd>End</kbd>,
+  <kbd>Enter</kbd>, <kbd>Tab</kbd> and <kbd>Escape</kbd> work as before, and
+  no key is taken from text fields or the terminal. A key that can't do
+  anything says why in words, which screen readers announce. The **Vim
+  Mode** tab's keys and conflicts are plain text in lists with accessible
+  names.
 
 ## Known limitations
 

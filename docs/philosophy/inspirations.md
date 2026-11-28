@@ -218,7 +218,10 @@ files; see the [tagging guide](../tagging.md).
 [Yazi mode](../ROADMAP.md#m25-yazi-mode) with keyboard-first navigation, folder
 context and previews. Plasma Opus reuses its own KDE file operations rather
 than embedding Yazi or assuming plugin compatibility; see the
-[Yazi mode guide](../yazi-mode.md).
+[Yazi mode guide](../yazi-mode.md). The optional
+[Vim-style navigation](../keyboard.md#vim-style-navigation) of
+[M31](../ROADMAP.md#m31-keyboard-shortcut-settings) brings the same key
+matching, counts and commands to the panes outside Yazi mode.
 
 ## which-key.nvim — shortcut discovery
 
