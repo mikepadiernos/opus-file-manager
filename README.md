@@ -163,6 +163,9 @@ preview. Both behaviours can be changed in Preferences.
   as `j`, `k`, `gg` and counts, move through the file views outside Yazi mode
   without taking keys from typing. Each pane then shows its mode, NORMAL,
   FILTER or INSERT; `/` or `i` filters, and Escape returns to the items.
+  While a key sequence waits for its next key, a which-key style popup lists
+  what can follow it, grouped with what each key does, without taking the
+  focus.
 
 ## Screenshots
 
