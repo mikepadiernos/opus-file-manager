@@ -875,7 +875,9 @@ have these limits
   [M31 keyboard shortcut settings](ROADMAP.md#m31-keyboard-shortcut-settings)
   lists the Search shortcut and pressing <kbd>Shift</kbd> twice on
   **Preferences › Keyboard › Shortcuts**
-  ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230)); **Show
+  ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230)) and in
+  **Help › Keyboard Map…**
+  ([#232](https://github.com/mikepadiernos/plasma-opus/issues/232)); **Show
   Search Panel**, which focuses the panel's query, can be given a shortcut in
   Configure Keyboard Shortcuts.
   [M15 workspaces](ROADMAP.md#m15-workspaces)
@@ -4165,9 +4167,10 @@ The M31 keyboard shortcut settings have these limits
   the window's shortcuts; KDE's **Configure Keyboard Shortcuts…** still edits
   them, and the tab only lists and resets them. It needs Preferences opened
   from a main window and sees shortcut edits once they are saved. Pressing
-  <kbd>Shift</kbd> twice, the keys of the Yazi mode presets, the gallery's and
-  search panel's own keys and the pane toolbars' buttons aren't listed or
-  editable there. **Reset All Shortcuts…** keeps global shortcuts, which are
+  <kbd>Shift</kbd> twice, the keys of the Yazi mode presets and the gallery's
+  keys aren't listed or editable there, though **Help › Keyboard Map…** lists
+  them; the search panel's own keys and the pane toolbars' buttons are in
+  neither. **Reset All Shortcuts…** keeps global shortcuts, which are
   changed on **Preferences › KDE Plasma** or in System Settings. Global
   shortcuts appear, and their conflicts with window shortcuts are found, only
   while KDE's global shortcut service runs; the container has none
@@ -4216,6 +4219,22 @@ The M31 keyboard shortcut settings have these limits
   toolbars' buttons. Real keyboards in Plasma are unverified
   ([Plasma check](TODO.md#alternate-and-command-shortcuts-on-plasma-231)).
   ([#231](https://github.com/mikepadiernos/plasma-opus/issues/231))
+- **📇 Keyboard map:** **Help › Keyboard Map…** only shows keys; KDE's
+  **Configure Keyboard Shortcuts…** still changes them. It lists the window's
+  actions, pressing <kbd>Shift</kbd> twice, the gallery's keys, the chosen
+  Yazi mode preset and the global shortcuts KDE has registered, but not the
+  search panel's own keys, the keys text fields and lists keep, the embedded
+  terminal's or dialogs' keys, or the pane toolbars' buttons. The Yazi mode
+  keys are listed whether or not a pane uses Yazi mode. Descriptions are the
+  actions' tooltips, so many actions have none. **Find by key** records keys
+  only once it is clicked, and can't record <kbd>Shift</kbd> alone, so
+  pressing <kbd>Shift</kbd> twice is found only by typing it; keys the
+  desktop takes first, such as global shortcuts, may never reach it. The
+  reference is exported only as an HTML page or an A4 PDF of the listed
+  actions, without a print dialog or a choice of page size. Real keyboards,
+  layouts and the Help menu on Plasma are unverified
+  ([Plasma check](TODO.md#keyboard-map-on-plasma-232)).
+  ([#232](https://github.com/mikepadiernos/plasma-opus/issues/232))
 
 - **Recommendation:**
   - **Shortcut settings:** Change shortcuts in **Configure Keyboard
@@ -4249,12 +4268,20 @@ The M31 keyboard shortcut settings have these limits
     save a command that starts it. Add more than two shortcuts for an action
     only in the configuration file, and check them on **Preferences ›
     Keyboard › Shortcuts**, as KDE's editor doesn't show them.
+  - **Keyboard map:** Before giving a key to an action, look it up in
+    **Help › Keyboard Map…** with **Find by key** to see what it already
+    runs and which sequences it begins. To find an action without a key,
+    clear **Only actions with shortcuts**, then give it one in **Configure
+    Keyboard Shortcuts…**. To print, filter the list to what you need and
+    export a PDF, or export an HTML page and print it from a web browser on
+    any page size. For the keys the map doesn't list, see
+    [Where shortcuts apply](keyboard.md#where-shortcuts-apply).
   - Comment:
     [#771.7231940238](https://github.com/mikepadiernos/plasma-opus/issues/771#issuecomment-7231940238)
 - **Proposed improvements:**
-  - List the Yazi mode preset keys and the gallery's keys with the other
-    shortcuts, review shortcuts before they are saved, and reset global
-    shortcuts from the tab.
+  - Show the Yazi mode preset keys and the gallery's keys on the tab as well
+    as in the keyboard map, review shortcuts before they are saved, and reset
+    global shortcuts from the tab.
   - Let an action be limited to the file views, the folder tree or the
     gallery, read the keys text fields keep from the active key scheme, and
     let the gallery's keys be changed.
@@ -4264,6 +4291,10 @@ The M31 keyboard shortcut settings have these limits
   - Show every alternate in the editor, keep a command's shortcut when it is
     renamed, and give submenu entries such as each terminal or editor their
     own actions.
+  - List the search panel's keys and the keys text fields and lists keep in
+    the keyboard map, mark the Yazi mode keys while no pane uses Yazi mode,
+    print through KDE's print dialog, and let **Find by key** take keys as
+    soon as the map opens.
 
 ## Embedded terminal
 
