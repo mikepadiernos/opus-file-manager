@@ -157,7 +157,9 @@ preview. Both behaviours can be changed in Preferences.
   reference. Actions move the focus between panes, tabs and panels and change
   the selection or filter, with optional extra keys that never take a key
   already in use. Shortcuts export to a keymap file, and importing one shows
-  the changes and conflicts before applying them.
+  the changes and conflicts before applying them. **Help › Command Palette…**
+  finds menu, toolbar and saved command actions by name and runs them in the
+  active pane, with recently used actions first.
 
 ## Screenshots
 
