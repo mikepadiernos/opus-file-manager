@@ -162,6 +162,7 @@ ecm_add_tests(
     runnermatchestest.cpp
     servicemenustest.cpp
     sharedsearchtest.cpp
+    shortcuthintstest.cpp
     shortcutstoragetest.cpp
     sessiontest.cpp
     savedpathfilterstest.cpp
@@ -216,6 +217,12 @@ add_dependencies(mcpsettingstest opus-file-manager-mcp)
 target_compile_definitions(mcpsettingstest PRIVATE OPUSFM_MCP_EXECUTABLE="$<TARGET_FILE:opus-file-manager-mcp>")
 
 ecm_add_test(vimnavigationuitest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(shortcuthintsuitest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI
