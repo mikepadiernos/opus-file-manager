@@ -71,6 +71,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Shortcut storage on Plasma](#shortcut-storage-on-plasma-238)                                 | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#238]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Alternate and command shortcuts on Plasma](#alternate-and-command-shortcuts-on-plasma-231)   | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#231]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Keyboard map on Plasma](#keyboard-map-on-plasma-232)                                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#232]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Navigation shortcuts on Plasma](#navigation-shortcuts-on-plasma-236)                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#236]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1884,12 +1885,47 @@ modify ID connection.metered yes`), check that the tab reports it and that
    [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
    roadmap link.
 
+## Navigation shortcuts on Plasma (#236)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#236] (Development).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, KWin or global shortcut
+  service, so real keys, the embedded terminal's handling of the extra keys
+  and clashes with the desktop's shortcuts are unverified.
+- **Confirmed state:** `src/core/navigationshortcuts.cpp` lists the
+  navigation actions and their extra keys, and
+  `WindowShortcuts::applyNavigationKeys` in `src/app/windowshortcuts.cpp`
+  adds each free extra key as a default while **Preferences › Keyboard ›
+  Navigation** has them on. `navigationshortcutstest`, `mainwindowtest`,
+  `settingsdialogtest` and `settingstest` pass in the container. See [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, turn on the
+   extra keys on **Preferences › Keyboard › Navigation**, apply, and check
+   that each status reads **Added** and that **Configure Keyboard
+   Shortcuts…** and **Help › Keyboard Map…** show the keys as defaults.
+2. Press each extra key on X11 and Wayland and with a non-US keyboard
+   layout, and check that it moves between the panes and tabs, changes the
+   selection or moves the focus to the preview panel or the embedded
+   terminal. In the terminal, check that <kbd>Alt</kbd>+<kbd>1</kbd> and
+   <kbd>Ctrl</kbd>+<kbd>Page Down</kbd> reach the shell and that
+   <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F4</kbd> goes back to the pane.
+3. Give one extra key to a global shortcut in System Settings and check
+   whether KWin or Plasma takes it first; give another to a window action in
+   KDE's editor and check that its status changes to **Not added**. With
+   Orca, check that the tab's list and statuses are read. Record any
+   differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this
+   entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#230]: https://github.com/mikepadiernos/plasma-opus/issues/230
 [#231]: https://github.com/mikepadiernos/plasma-opus/issues/231
 [#232]: https://github.com/mikepadiernos/plasma-opus/issues/232
 [#233]: https://github.com/mikepadiernos/plasma-opus/issues/233
+[#236]: https://github.com/mikepadiernos/plasma-opus/issues/236
 [#238]: https://github.com/mikepadiernos/plasma-opus/issues/238
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
 [#288]: https://github.com/mikepadiernos/plasma-opus/issues/288
