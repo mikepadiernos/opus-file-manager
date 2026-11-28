@@ -95,6 +95,7 @@ ecm_add_tests(
     cloudactivitytest.cpp
     cloudsynctest.cpp
     cloudsyncrunnertest.cpp
+    commandpalettetest.cpp
     customcommandstest.cpp
     diskimagestest.cpp
     favoritesmodeltest.cpp

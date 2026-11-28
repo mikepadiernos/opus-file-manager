@@ -5,6 +5,7 @@
 #include "archivewriter.h"
 #include "batchrenamedialog.h"
 #include "branding.h"
+#include "commandpalette.h"
 #include "customcommanddialog.h"
 #include "embeddedmetadata.h"
 #include "embeddedmetadatasettings.h"
@@ -2562,6 +2563,67 @@ private Q_SLOTS:
         QTRY_COMPARE(row(QStringLiteral("focus_first_pane"))->text(3), QStringLiteral("Off"));
         QVERIFY(firstPane->shortcuts().isEmpty());
         QVERIFY(invert->shortcuts().isEmpty());
+    }
+
+    void keyboardCommandPaletteShowsItsShortcutSettingAndHistory()
+    {
+        MainWindow window;
+        QAction *palette = window.actionCollection()->action(QString::fromLatin1(CommandPalette::ActionName));
+        QVERIFY(palette);
+        KConfigGroup state = KSharedConfig::openStateConfig()->group(QString::fromLatin1(CommandPalette::HistoryGroup));
+        const auto restore = qScopeGuard([&] {
+            CommandPalette::clearHistory(state);
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            palette->setShortcuts(KActionCollection::defaultShortcuts(palette));
+            Q_EMIT window.guiFactory()->shortcutsSaved();
+        });
+        state.writeEntry(CommandPalette::HistoryKey, QStringList{QStringLiteral("Select &All"), QStringLiteral("&New Folder…"), QStringLiteral("Select All")});
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+
+        // Command Palette is the third tab of Keyboard.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("keyboardCommandPalettePage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(page), 2);
+        QCOMPARE(tabs->tabText(2), QStringLiteral("Command Palette"));
+        auto *savedCommands = page->findChild<QCheckBox *>(QStringLiteral("kcfg_CommandPaletteSavedCommands"));
+        auto *shortcut = page->findChild<QLabel *>(QStringLiteral("keyboardCommandPaletteShortcut"));
+        auto *history = page->findChild<QListWidget *>(QStringLiteral("keyboardCommandPaletteHistory"));
+        auto *clear = page->findChild<QPushButton *>(QStringLiteral("keyboardCommandPaletteClearHistory"));
+        auto *configure = page->findChild<QPushButton *>(QStringLiteral("keyboardCommandPaletteConfigure"));
+        QVERIFY(savedCommands && shortcut && history && clear && configure);
+        QVERIFY(savedCommands->isChecked());
+        QVERIFY(configure->isEnabled());
+        QVERIFY(!history->accessibleName().isEmpty());
+
+        // The palette's shortcut, and the recently used actions without accelerators or repeats.
+        const auto native = [](const QKeySequence &key) {
+            return key.toString(QKeySequence::NativeText);
+        };
+        QCOMPARE(shortcut->text(), QStringLiteral("Shortcut: ") + native(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_I)));
+        QCOMPARE(history->count(), 2);
+        QCOMPARE(history->item(0)->text(), QStringLiteral("Select All"));
+        QCOMPARE(history->item(1)->text(), QStringLiteral("New Folder…"));
+        QVERIFY(clear->isEnabled());
+
+        // A changed shortcut shows once saved.
+        palette->setShortcuts({QKeySequence(Qt::Key_F12)});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(shortcut->text(), QStringLiteral("Shortcut: ") + native(QKeySequence(Qt::Key_F12)));
+
+        // Clear History forgets the recently used actions.
+        clear->click();
+        QVERIFY(CommandPalette::history(state).isEmpty());
+        QCOMPARE(history->count(), 0);
+        QVERIFY(!clear->isEnabled());
+
+        // The setting is saved like the others.
+        savedCommands->setChecked(false);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::commandPaletteSavedCommands());
     }
 
     void keyboardShortcutsReportKeysThatTextFieldsAndListsKeep()

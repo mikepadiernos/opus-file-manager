@@ -5,6 +5,7 @@
 #include "batchrenamedialog.h"
 #include "checksumdialog.h"
 #include "combinedpanel.h"
+#include "commandpalettebar.h"
 #include "contentchartdialog.h"
 #include "customcommanddialog.h"
 #include "customcommands.h"
@@ -2883,6 +2884,192 @@ private Q_SLOTS:
 
         gallery->setShortcuts({QKeySequence(Qt::Key_Space)});
         Q_EMIT window.guiFactory()->shortcutsSaved();
+    }
+
+    void commandPaletteRunsListedActionsInTheActivePane()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup commands = config->group(QStringLiteral("CustomCommands"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup saved = backup->group(QStringLiteral("CustomCommands"));
+        commands.copyTo(&saved);
+        KConfigGroup state = KSharedConfig::openStateConfig()->group(QString::fromLatin1(CommandPalette::HistoryGroup));
+        const auto cleanup = qScopeGuard([&] {
+            commands.deleteGroup();
+            saved.copyTo(&commands);
+            config->sync();
+            CommandPalette::clearHistory(state);
+            Settings::setCommandPaletteSavedCommands(true);
+        });
+        CommandPalette::clearHistory(state);
+        QString error;
+        const CustomCommands::Command command{QStringLiteral("Palette command"), QStringLiteral("/bin/echo"), {QStringLiteral("{dir}")}, {}};
+        QVERIFY2(CustomCommands::save(commands, {command}, &error), qPrintable(error));
+
+        MainWindow window;
+        const ShortcutFilesGuard guard(window.localXMLFile());
+        window.openUrls({m_b, m_a});
+        window.show();
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        Pane *left = window.activePane();
+        Pane *right = window.inactivePane();
+        QTRY_COMPARE(right->view()->itemCount(), 2);
+        const auto action = [&window](const QString &name) {
+            return window.actionCollection()->action(name);
+        };
+        const auto paletteActions = [](CommandPaletteBar *palette) {
+            QList<QAction *> found;
+            auto *list = palette->findChild<QTreeView *>(QStringLiteral("commandPaletteActions"));
+            for (int row = 0; list && row < list->model()->rowCount(); ++row) {
+                found.append(list->model()->index(row, 0).data(Qt::UserRole).value<QAction *>());
+            }
+            return found;
+        };
+        const auto choose = [](CommandPaletteBar *palette, QAction *chosen) {
+            auto *list = palette->findChild<QTreeView *>(QStringLiteral("commandPaletteActions"));
+            auto *search = palette->findChild<QLineEdit *>(QStringLiteral("commandPaletteSearch"));
+            QVERIFY(list && search);
+            const QModelIndexList rows = list->model()->match(list->model()->index(0, 0), Qt::UserRole, QVariant::fromValue(chosen), 1, Qt::MatchExactly);
+            QCOMPARE(rows.size(), 1);
+            list->setCurrentIndex(rows.constFirst());
+            QTest::keyClick(search, Qt::Key_Return);
+        };
+        const auto deletePalette = [](QPointer<CommandPaletteBar> palette) {
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            QTRY_VERIFY(palette.isNull());
+        };
+
+        // Help › Command Palette… has Dolphin's and Kate's key, which no other action, text field or Yazi mode preset uses.
+        QAction *paletteAction = action(QString::fromLatin1(CommandPalette::ActionName));
+        QVERIFY(paletteAction);
+        QCOMPARE(paletteAction->text(), QStringLiteral("Command Palette…"));
+        auto *help = qobject_cast<QMenu *>(window.guiFactory()->container(QStringLiteral("help"), &window));
+        QVERIFY(help && help->actions().contains(paletteAction));
+        const QKeySequence key(Qt::CTRL | Qt::ALT | Qt::Key_I);
+        QCOMPARE(paletteAction->shortcuts(), QList<QKeySequence>{key});
+        QCOMPARE(KActionCollection::defaultShortcuts(paletteAction), QList<QKeySequence>{key});
+        QVERIFY(KActionCollection::isShortcutsConfigurable(paletteAction));
+        QVERIFY(!KeyBindings::isTypingKey(key[0]));
+        const WindowShortcuts::Bindings bindings = WindowShortcuts::bindings(&window);
+        for (int index = 0; index < bindings.bindings.size(); ++index) {
+            const KeyBindings::Binding &binding = bindings.bindings.at(index);
+            const bool usesKey = std::any_of(binding.shortcuts.cbegin(), binding.shortcuts.cend(), [&key](const QKeySequence &shortcut) {
+                return shortcut.matches(key) != QKeySequence::NoMatch || key.matches(shortcut) != QKeySequence::NoMatch;
+            });
+            QVERIFY2(!usesKey || binding.name == QLatin1String(CommandPalette::ActionName), qPrintable(binding.name));
+        }
+        for (YaziMode::Preset preset : {YaziMode::Preset::Standard, YaziMode::Preset::Vim}) {
+            QVERIFY(YaziMode::shadowedShortcuts(YaziMode::presetKeymap(preset),
+                                                QList<YaziMode::ActionShortcuts>{{paletteAction->objectName(), paletteAction->text(), {key}}})
+                        .isEmpty());
+        }
+        bool mapped = false;
+        for (const KeyboardMap::Entry &entry : KeyboardMapDialog::entries(&window)) {
+            mapped = mapped || (entry.name == paletteAction->objectName() && entry.shortcuts.contains(key));
+        }
+        QVERIFY(mapped);
+
+        // Enabled menu, toolbar and saved-command actions are listed by menu; disabled ones and the palette itself aren't.
+        QAction *savedCommand = nullptr;
+        for (QAction *candidate : window.actionCollection()->actions()) {
+            if (CommandPalette::isSavedCommand(candidate->objectName()) && candidate->iconText() == command.name) {
+                savedCommand = candidate;
+            }
+        }
+        QVERIFY(savedCommand && savedCommand->isEnabled());
+        QAction *copy = action(QStringLiteral("edit_copy"));
+        QVERIFY(copy && !copy->isEnabled());
+        const QList<KCommandBar::ActionGroup> groups = CommandPaletteBar::actionGroups(&window);
+        QList<QAction *> listed;
+        QString newFolderGroup;
+        for (const KCommandBar::ActionGroup &group : groups) {
+            listed += group.actions;
+            if (group.actions.contains(action(QStringLiteral("new_folder")))) {
+                newFolderGroup = group.name;
+            }
+        }
+        QCOMPARE(newFolderGroup, QStringLiteral("File"));
+        QVERIFY(listed.contains(action(QStringLiteral("edit_select_all"))));
+        QVERIFY(listed.contains(savedCommand));
+        QVERIFY(!listed.contains(copy));
+        QVERIFY(!listed.contains(paletteAction));
+        QCOMPARE(QSet<QAction *>(listed.cbegin(), listed.cend()).size(), listed.size());
+        CommandPalette::Options withoutSaved;
+        withoutSaved.savedCommands = false;
+        for (const KCommandBar::ActionGroup &group : CommandPaletteBar::actionGroups(&window, withoutSaved)) {
+            QVERIFY(!group.actions.contains(savedCommand));
+        }
+
+        // The palette runs an action in the pane that had the focus, which keeps it.
+        action(QStringLiteral("focus_second_pane"))->trigger();
+        QCOMPARE(window.activePane(), right);
+        QTRY_COMPARE(QApplication::focusWidget(), right->view()->currentView());
+        QTest::keyClick(right->view()->currentView(), Qt::Key_I, Qt::ControlModifier | Qt::AltModifier);
+        QPointer<CommandPaletteBar> palette = window.findChild<CommandPaletteBar *>();
+        QVERIFY(palette);
+        QVERIFY(palette->isVisible());
+        QCOMPARE(palette->accessibleName(), QStringLiteral("Command Palette"));
+        QTRY_COMPARE(QApplication::focusWidget(), palette->findChild<QLineEdit *>(QStringLiteral("commandPaletteSearch")));
+        QVERIFY(!paletteActions(palette).contains(copy));
+        QVERIFY(paletteActions(palette).contains(savedCommand));
+        // Opening it again keeps the one palette.
+        paletteAction->trigger();
+        QCOMPARE(window.findChildren<CommandPaletteBar *>().size(), 1);
+        choose(palette, action(QStringLiteral("edit_select_all")));
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        QVERIFY(!palette || palette->isHidden());
+        QCOMPARE(window.activePane(), right);
+        QTRY_COMPARE(QApplication::focusWidget(), right->view()->currentView());
+        QCOMPARE(right->view()->selectedItems().size(), 2);
+        QVERIFY(left->view()->selectedItems().isEmpty());
+        // The shortcuts are left as they were.
+        QCOMPARE(paletteAction->shortcuts(), QList<QKeySequence>{key});
+        QCOMPARE(action(QStringLiteral("edit_select_all"))->shortcuts(), KActionCollection::defaultShortcuts(action(QStringLiteral("edit_select_all"))));
+
+        // KDE's command bar remembers the action once closed, and lists it first next time.
+        deletePalette(palette);
+        QCOMPARE(CommandPalette::history(state).value(0), action(QStringLiteral("edit_select_all"))->text());
+        paletteAction->trigger();
+        palette = window.findChild<CommandPaletteBar *>();
+        QVERIFY(palette);
+        QCOMPARE(paletteActions(palette).value(0), action(QStringLiteral("edit_select_all")));
+        // Escape closes it and gives the focus back.
+        QTest::keyClick(palette->findChild<QLineEdit *>(QStringLiteral("commandPaletteSearch")), Qt::Key_Escape);
+        QVERIFY(!palette || palette->isHidden());
+        QTRY_COMPARE(QApplication::focusWidget(), right->view()->currentView());
+        QCOMPARE(window.activePane(), right);
+        deletePalette(palette);
+
+        // A saved command opens its preview rather than running.
+        paletteAction->trigger();
+        palette = window.findChild<CommandPaletteBar *>();
+        QVERIFY(palette);
+        choose(palette, savedCommand);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        auto *dialog = window.findChild<CustomCommandDialog *>(QStringLiteral("customCommandDialog"));
+        QVERIFY(dialog);
+        QCOMPARE(dialog->findChild<QLineEdit *>(QStringLiteral("commandProgram"))->text(), command.program);
+        QVERIFY(!dialog->findChild<QPushButton *>(QStringLiteral("commandRun"))->isEnabled());
+        dialog->close();
+        deletePalette(palette);
+        QTRY_VERIFY(!window.findChild<CustomCommandDialog *>(QStringLiteral("customCommandDialog")));
+
+        // The setting leaves saved commands out.
+        Settings::setCommandPaletteSavedCommands(false);
+        paletteAction->trigger();
+        palette = window.findChild<CommandPaletteBar *>();
+        QVERIFY(palette);
+        QVERIFY(!paletteActions(palette).contains(savedCommand));
+        QVERIFY(paletteActions(palette).contains(action(QStringLiteral("new_folder"))));
+        QTest::keyClick(palette->findChild<QLineEdit *>(QStringLiteral("commandPaletteSearch")), Qt::Key_Escape);
+        deletePalette(palette);
     }
 
     void defaultToolbarSpacingSurvivesCustomization()
