@@ -2,6 +2,7 @@
 
 #include "vimnavigation.h"
 
+#include <QSet>
 #include <QStandardPaths>
 #include <QTest>
 
@@ -59,6 +60,7 @@ private Q_SLOTS:
         QTest::newRow("gt") << QList<QKeyCombination>{Qt::Key_G, Qt::Key_T} << Command::NextTab << 1;
         QTest::newRow("gT") << QList<QKeyCombination>{Qt::Key_G, Qt::ShiftModifier | Qt::Key_T} << Command::PreviousTab << 1;
         QTest::newRow("/") << QList<QKeyCombination>{Qt::Key_Slash} << Command::Filter << 1;
+        QTest::newRow("i") << QList<QKeyCombination>{Qt::Key_I} << Command::Filter << 1;
         // Layouts that need Shift for / still filter.
         QTest::newRow("Shift+/") << QList<QKeyCombination>{Qt::ShiftModifier | Qt::Key_Slash} << Command::Filter << 1;
         QTest::newRow("\\") << QList<QKeyCombination>{Qt::Key_Backslash} << Command::ClearFilter << 1;
@@ -100,6 +102,31 @@ private Q_SLOTS:
         QCOMPARE(matcher.pendingText(), QStringLiteral("4"));
         QCOMPARE(matcher.feed(Qt::Key_Escape), Result::Cancelled);
         QVERIFY(!matcher.isPending());
+    }
+
+    void describesTheModes()
+    {
+        using VimNavigation::Mode;
+        QCOMPARE(VimNavigation::modeText(Mode::Normal), QStringLiteral("NORMAL"));
+        QCOMPARE(VimNavigation::modeText(Mode::Filter), QStringLiteral("FILTER"));
+        QCOMPARE(VimNavigation::modeText(Mode::Insert), QStringLiteral("INSERT"));
+        // Keys waiting for the rest of a sequence follow the mode.
+        QCOMPARE(VimNavigation::modeText(Mode::Normal, QStringLiteral("5g")), QStringLiteral("NORMAL · 5g…"));
+
+        // The accessible names say the mode in words and how to change it.
+        const QString normal = VimNavigation::modeAccessibleName(Mode::Normal);
+        const QString filter = VimNavigation::modeAccessibleName(Mode::Filter);
+        const QString insert = VimNavigation::modeAccessibleName(Mode::Insert);
+        QVERIFY(normal.contains(QStringLiteral("normal mode")));
+        QVERIFY(normal.contains(QStringLiteral("slash or i")));
+        QVERIFY(filter.contains(QStringLiteral("filter mode")));
+        QVERIFY(filter.contains(QStringLiteral("Escape")));
+        QVERIFY(insert.contains(QStringLiteral("insert mode")));
+        const QString pending = VimNavigation::modeAccessibleName(Mode::Normal, QStringLiteral("5g"));
+        QVERIFY(pending.contains(QStringLiteral("waiting")));
+        QVERIFY(pending.contains(QStringLiteral("5g")));
+        // No mode is told apart by its text's colour alone.
+        QCOMPARE(QSet<QString>({normal, filter, insert, pending}).size(), 4);
     }
 
     void modifiedKeysYieldToShortcuts()

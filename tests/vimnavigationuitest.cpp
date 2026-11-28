@@ -19,6 +19,7 @@
 #include <QComboBox>
 #include <QDir>
 #include <QFile>
+#include <QLabel>
 #include <QLineEdit>
 #include <QScopeGuard>
 #include <QSignalSpy>
@@ -328,6 +329,105 @@ private Q_SLOTS:
         pressOnFocus(Qt::Key_Backslash);
         QTRY_VERIFY(filterBar->filter().text().isEmpty());
         QVERIFY(!filterBar->isVisible());
+    }
+
+    void modeIndicatorFollowsTheFocusAndKeys()
+    {
+        MainWindow window;
+        showWithFocusOnItems(window, m_a);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        QLabel *indicator = pane->vimModeIndicator();
+        QVERIFY(indicator);
+        QCOMPARE(indicator->objectName(), QStringLiteral("vimModeIndicator"));
+        // Hidden while the keys are off.
+        QVERIFY(!indicator->isVisible());
+
+        Settings::setVimNavigation(true);
+        window.applySettings();
+        QTRY_VERIFY(indicator->isVisible());
+        QVERIFY(window.inactivePane()->vimModeIndicator()->isVisible());
+        QCOMPARE(pane->vimMode(), VimNavigation::Mode::Normal);
+        QCOMPARE(indicator->text(), QStringLiteral("NORMAL"));
+        QVERIFY(indicator->accessibleName().contains(QStringLiteral("normal mode")));
+        QVERIFY(!indicator->accessibleDescription().isEmpty());
+
+        // A count and a sequence's first key show while they wait.
+        pressOnFocus(Qt::Key_5);
+        QCOMPARE(indicator->text(), QStringLiteral("NORMAL · 5…"));
+        pressOnFocus(Qt::Key_G);
+        QCOMPARE(indicator->text(), QStringLiteral("NORMAL · 5g…"));
+        QVERIFY(indicator->accessibleName().contains(QStringLiteral("5g")));
+        pressOnFocus(Qt::Key_Escape);
+        QCOMPARE(indicator->text(), QStringLiteral("NORMAL"));
+
+        // i enters the filter; the navigation keys are typed there.
+        auto *filterBar = pane->findChild<FilterBar *>();
+        QVERIFY(filterBar);
+        QVERIFY(filterBar->escapeKeepsFilter());
+        QAbstractItemView *items = pane->view()->currentView();
+        pressOnFocus(Qt::Key_I);
+        QTRY_VERIFY(filterBar->isVisible());
+        QVERIFY(filterBar->isAncestorOf(QApplication::focusWidget()));
+        QCOMPARE(pane->vimMode(), VimNavigation::Mode::Filter);
+        QCOMPARE(indicator->text(), QStringLiteral("FILTER"));
+        QVERIFY(indicator->accessibleName().contains(QStringLiteral("Escape")));
+        for (Qt::Key key : {Qt::Key_S, Qt::Key_U, Qt::Key_B}) {
+            pressOnFocus(key);
+        }
+        QCOMPARE(filterBar->filter().text(), QStringLiteral("sub"));
+
+        // Escape returns to the items and keeps the filter.
+        pressOnFocus(Qt::Key_Escape);
+        QTRY_VERIFY(items->hasFocus());
+        QCOMPARE(filterBar->filter().text(), QStringLiteral("sub"));
+        QVERIFY(filterBar->isVisible());
+        QCOMPARE(indicator->text(), QStringLiteral("NORMAL"));
+        // The navigation keys work on the filtered items.
+        pressOnFocus(Qt::Key_G, Qt::ShiftModifier);
+        QCOMPARE(items->currentIndex().row(), items->model()->rowCount(items->rootIndex()) - 1);
+
+        // / goes back to the filter with its text, and \ in the items clears it.
+        pressOnFocus(Qt::Key_Slash);
+        QTRY_VERIFY(filterBar->isAncestorOf(QApplication::focusWidget()));
+        QCOMPARE(filterBar->filter().text(), QStringLiteral("sub"));
+        pressOnFocus(Qt::Key_Escape);
+        QTRY_VERIFY(items->hasFocus());
+        pressOnFocus(Qt::Key_Backslash);
+        QTRY_VERIFY(!filterBar->isVisible());
+        QVERIFY(filterBar->filter().text().isEmpty());
+
+        // Escape in an empty filter closes the bar, as without the keys.
+        pressOnFocus(Qt::Key_I);
+        QTRY_VERIFY(filterBar->isAncestorOf(QApplication::focusWidget()));
+        pressOnFocus(Qt::Key_Escape);
+        QTRY_VERIFY(items->hasFocus());
+        QVERIFY(!filterBar->isVisible());
+
+        // Another text field of the pane is INSERT.
+        pane->editUrl();
+        QTRY_VERIFY(YaziKeys::isTypingWidget(QApplication::focusWidget()));
+        QCOMPARE(pane->vimMode(), VimNavigation::Mode::Insert);
+        QCOMPARE(indicator->text(), QStringLiteral("INSERT"));
+        QVERIFY(indicator->accessibleName().contains(QStringLiteral("insert mode")));
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_COMPARE(indicator->text(), QStringLiteral("NORMAL"));
+
+        // In Yazi mode the pane has Yazi's own indicator instead, and Escape clears the filter as there.
+        pane->setYaziMode(true);
+        QVERIFY(!indicator->isVisible());
+        QVERIFY(!filterBar->escapeKeepsFilter());
+        pane->setYaziMode(false);
+        QVERIFY(indicator->isVisible());
+        QVERIFY(filterBar->escapeKeepsFilter());
+
+        // Turning the keys off hides it and restores Escape.
+        Settings::setVimNavigation(false);
+        window.applySettings();
+        QVERIFY(!indicator->isVisible());
+        QVERIFY(!filterBar->escapeKeepsFilter());
     }
 
     void keysAreLeftToTypingAndOtherWidgets()

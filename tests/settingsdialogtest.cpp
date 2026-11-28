@@ -2675,6 +2675,12 @@ private Q_SLOTS:
         QTreeWidgetItem *halfDown = keys->topLevelItem(commands.indexOf(QStringLiteral("half-page-down")));
         QVERIFY2(halfDown->text(0).contains(QStringLiteral("J")), qPrintable(halfDown->text(0)));
         QVERIFY(commands.contains(QStringLiteral("filter")));
+        // / and i both enter the filter, and the tab says how the modes show.
+        QTreeWidgetItem *filterRow = keys->topLevelItem(commands.indexOf(QStringLiteral("filter")));
+        QVERIFY2(filterRow->text(0).contains(QStringLiteral("/")) && filterRow->text(0).contains(QStringLiteral("i")), qPrintable(filterRow->text(0)));
+        auto *modes = page->findChild<QLabel *>(QStringLiteral("keyboardVimModesNotice"));
+        QVERIFY(modes);
+        QVERIFY(modes->text().contains(QStringLiteral("FILTER")));
         QVERIFY(commands.contains(QStringLiteral("clear-filter")));
 
         // Ctrl+D keeps running Add to Favorites, and that is listed.
