@@ -261,6 +261,8 @@ add_library(opusfm_core STATIC
     vaultsettings.h
     viewsettings.cpp
     viewsettings.h
+    vimnavigation.cpp
+    vimnavigation.h
     wikilinks.cpp
     wikilinks.h
     workspacecatalog.cpp

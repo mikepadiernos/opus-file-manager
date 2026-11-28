@@ -130,6 +130,10 @@
       <label>Give the pane, tab, selection, preview and terminal navigation actions extra default shortcuts that no other action uses</label>
       <default>false</default>
     </entry>
+    <entry name="VimNavigation" type="Bool">
+      <label>Move through the file views of panes that aren't in Yazi mode with Vim-style keys, such as j, k, gg and /</label>
+      <default>false</default>
+    </entry>
     <entry name="CommandPaletteSavedCommands" type="Bool">
       <label>List saved commands in the command palette; choosing one opens its preview rather than running it</label>
       <default>true</default>

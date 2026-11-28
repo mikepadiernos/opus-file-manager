@@ -143,6 +143,7 @@ QStringList settingNames()
 {
     return {QStringLiteral("ExtraNavigationShortcuts"),
             QStringLiteral("YaziKeyPreset"),
+            QStringLiteral("VimNavigation"),
             QStringLiteral("DoubleShiftSearch"),
             QStringLiteral("TabSwitchesPanes")};
 }
@@ -154,6 +155,9 @@ QString settingText(const QString &name)
     }
     if (name == QLatin1String("YaziKeyPreset")) {
         return i18nc("@item keyboard setting", "Yazi mode key preset");
+    }
+    if (name == QLatin1String("VimNavigation")) {
+        return i18nc("@item keyboard setting", "Vim-style navigation in file views");
     }
     if (name == QLatin1String("DoubleShiftSearch")) {
         return i18nc("@item keyboard setting", "Pressing Shift twice opens search");
