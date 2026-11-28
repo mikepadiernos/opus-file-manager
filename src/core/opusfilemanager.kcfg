@@ -912,6 +912,32 @@
       <label>Whether the Nextcloud desktop client is asked for the synchronization status of its folders</label>
       <default>true</default>
     </entry>
+    <entry name="NextcloudPhotosShowAlbums" key="PhotosShowAlbums" type="Bool">
+      <label>Whether Nextcloud Photos offers the user's own albums</label>
+      <default>true</default>
+    </entry>
+    <entry name="NextcloudPhotosShowSharedAlbums" key="PhotosShowSharedAlbums" type="Bool">
+      <label>Whether Nextcloud Photos offers the albums others share with the user</label>
+      <default>true</default>
+    </entry>
+    <entry name="NextcloudPhotosShowPlaces" key="PhotosShowPlaces" type="Bool">
+      <label>Whether Nextcloud Photos offers the places the server grouped photos by</label>
+      <default>true</default>
+    </entry>
+    <entry name="NextcloudPhotosGrouping" key="PhotosGrouping" type="Enum">
+      <label>How the Nextcloud Photos window groups photos when it opens</label>
+      <choices>
+        <choice name="LastUsed"/>
+        <choice name="NoGrouping"/>
+        <choice name="ByMonth"/>
+        <choice name="ByPlace"/>
+      </choices>
+      <default>LastUsed</default>
+    </entry>
+    <entry name="NextcloudPhotosConfirmChanges" key="PhotosConfirmChanges" type="Bool">
+      <label>Whether adding photos to or removing them from albums that aren't shared asks for confirmation first</label>
+      <default>true</default>
+    </entry>
   </group>
   <group name="Editor">
     <entry name="EditorOpening" type="Enum">
