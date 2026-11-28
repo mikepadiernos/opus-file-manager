@@ -56,6 +56,7 @@ are in [reported bugs](BUGS.md), and untested scenarios in
   [integration settings](#integration-settings),
   [Nextcloud integration](#nextcloud-integration),
   [Nextcloud settings](#nextcloud-settings),
+  [keyboard shortcuts](#keyboard-shortcuts),
   [embedded terminal](#embedded-terminal),
   [settings backups](#settings-backups),
   [build and installation](#build-installation-and-references),
@@ -872,9 +873,11 @@ have these limits
   search; its new interface and criteria do not by themselves remove current
   backend limits.
   [M31 keyboard shortcut settings](ROADMAP.md#m31-keyboard-shortcut-settings)
-  plans configurable shortcuts
-  ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230)), which
-  could include focusing the search field and panel.
+  lists the Search shortcut and pressing <kbd>Shift</kbd> twice on
+  **Preferences › Keyboard › Shortcuts**
+  ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230)); **Show
+  Search Panel**, which focuses the panel's query, can be given a shortcut in
+  Configure Keyboard Shortcuts.
   [M15 workspaces](ROADMAP.md#m15-workspaces)
   plan search scoping, not a security boundary.
   - Comment: [#362.7023269364][comment-362]
@@ -2842,7 +2845,8 @@ The M28 integration settings have these limits
   tab then says that no key is assigned. Without KDE's global shortcut
   service, as outside Plasma, the shortcut does nothing and the tab says
   so. The tab checks the chosen key only against other global and standard
-  shortcuts, not against Plasma Opus's own window shortcuts. The container
+  shortcuts, not against Plasma Opus's own window shortcuts; **Preferences ›
+  Keyboard › Shortcuts** lists those conflicts. The container
   has no global shortcut service
   ([Plasma check](TODO.md#global-shortcut-on-plasma-291)).
   ([#291](https://github.com/mikepadiernos/plasma-opus/issues/291))
@@ -4151,6 +4155,40 @@ The M30 Nextcloud settings have these limits
   - Apply the Photos settings to open windows, offer **New Album…** while
     your albums are hidden, and read each album's sharing from the server to
     confirm changes to every shared album.
+
+## Keyboard shortcuts
+
+The M31 keyboard shortcut settings have these limits
+([#771](https://github.com/mikepadiernos/plasma-opus/issues/771)):
+
+- **🎹 Shortcut settings:** **Preferences › Keyboard › Shortcuts** summarizes
+  the window's shortcuts; KDE's **Configure Keyboard Shortcuts…** still edits
+  them, and the tab only lists and resets them. It needs Preferences opened
+  from a main window and sees shortcut edits once they are saved. Pressing
+  <kbd>Shift</kbd> twice, the keys of the Yazi mode presets, the gallery's and
+  search panel's own keys and the pane toolbars' buttons aren't listed or
+  editable there. **Reset All Shortcuts…** keeps global shortcuts, which are
+  changed on **Preferences › KDE Plasma** or in System Settings. Global
+  shortcuts appear, and their conflicts with window shortcuts are found, only
+  while KDE's global shortcut service runs; the container has none
+  ([Plasma check](TODO.md#keyboard-shortcuts-on-plasma-230)).
+  ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230))
+
+- **Recommendation:**
+  - **Shortcut settings:** Change shortcuts in **Configure Keyboard
+    Shortcuts…**, then check **Preferences › Keyboard › Shortcuts** for
+    conflicts; give one of the actions in each conflict another shortcut.
+    Prefer key sequences, such as <kbd>Ctrl</kbd>+<kbd>K</kbd>,
+    <kbd>Ctrl</kbd>+<kbd>C</kbd>, to taking a key another action uses, and
+    don't give a single combination that begins one of your sequences to
+    another action. Change global shortcuts where they are configured, and
+    open Preferences from a Plasma Opus window when reviewing shortcuts.
+  - Comment:
+    [#771.7231940238](https://github.com/mikepadiernos/plasma-opus/issues/771#issuecomment-7231940238)
+- **Proposed improvements:**
+  - List the Yazi mode preset keys and the gallery's keys with the other
+    shortcuts, review shortcuts before they are saved, and reset global
+    shortcuts from the tab.
 
 ## Embedded terminal
 
