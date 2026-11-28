@@ -29,6 +29,7 @@
 #include "indexstatusdialog.h"
 #include "informationpanel.h"
 #include "interfacelanguage.h"
+#include "keyboardhintoverlay.h"
 #include "keyboardmapdialog.h"
 #include "libraryregistry.h"
 #include "localizeddates.h"
@@ -2884,6 +2885,304 @@ private Q_SLOTS:
 
         gallery->setShortcuts({QKeySequence(Qt::Key_Space)});
         Q_EMIT window.guiFactory()->shortcutsSaved();
+    }
+
+    void keyboardHintsLabelAndActivateTargets()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir(dir.path()).mkpath(QStringLiteral("alpha/inner")));
+        for (const QString &name : {QStringLiteral("beta.txt"), QStringLiteral("gamma.txt")}) {
+            QFile file(dir.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        const QUrl folder = QUrl::fromLocalFile(dir.path());
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+
+        MainWindow window;
+        const ShortcutFilesGuard guard(window.localXMLFile());
+        window.openUrls({folder, m_b});
+        window.show();
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        Pane *left = window.activePane();
+        Pane *right = window.inactivePane();
+        QTRY_COMPARE(left->view()->itemCount(), 3);
+        QAbstractItemView *view = left->view()->currentView();
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+        if (!window.actionCollection()->action(QStringLiteral("show_places"))->isChecked()) {
+            window.actionCollection()->action(QStringLiteral("show_places"))->trigger();
+        }
+        const auto visiblePlaces = [&window]() -> KFilePlacesView * {
+            const QList<KFilePlacesView *> views = window.findChildren<KFilePlacesView *>();
+            for (KFilePlacesView *places : views) {
+                if (places->isVisible()) {
+                    return places;
+                }
+            }
+            return nullptr;
+        };
+        QTRY_VERIFY(visiblePlaces());
+        KeyboardHintOverlay *overlay = window.keyboardHintOverlay();
+        QVERIFY(overlay);
+
+        // Go › Keyboard Hints has a key that no other action, text field or Yazi mode preset uses.
+        QAction *hints = window.actionCollection()->action(QStringLiteral("keyboard_hints"));
+        QVERIFY(hints);
+        QCOMPARE(KLocalizedString::removeAcceleratorMarker(hints->text()), QStringLiteral("Keyboard Hints"));
+        auto *go = qobject_cast<QMenu *>(window.guiFactory()->container(QStringLiteral("go"), &window));
+        QVERIFY(go && go->actions().contains(hints));
+        const QKeySequence key(Qt::CTRL | Qt::SHIFT | Qt::Key_J);
+        QCOMPARE(KActionCollection::defaultShortcuts(hints), QList<QKeySequence>{key});
+        QVERIFY(!KeyBindings::isTypingKey(key[0]));
+        const WindowShortcuts::Bindings bindings = WindowShortcuts::bindings(&window);
+        for (const KeyBindings::Binding &binding : bindings.bindings) {
+            const bool usesKey = std::any_of(binding.shortcuts.cbegin(), binding.shortcuts.cend(), [&key](const QKeySequence &shortcut) {
+                return shortcut.matches(key) != QKeySequence::NoMatch || key.matches(shortcut) != QKeySequence::NoMatch;
+            });
+            QVERIFY2(!usesKey || binding.name == QLatin1String("keyboard_hints"), qPrintable(binding.name));
+        }
+        for (YaziMode::Preset preset : {YaziMode::Preset::Standard, YaziMode::Preset::Vim}) {
+            QVERIFY(YaziMode::shadowedShortcuts(YaziMode::presetKeymap(preset), QList<YaziMode::ActionShortcuts>{{hints->objectName(), hints->text(), {key}}})
+                        .isEmpty());
+        }
+
+        const auto typeKeys = [](const QString &keys, Qt::KeyboardModifiers lastModifiers = Qt::NoModifier) {
+            for (int i = 0; i < keys.size(); ++i) {
+                QTest::keyClick(QApplication::focusWidget(), keys.at(i).toLatin1(), i + 1 == keys.size() ? lastModifiers : Qt::NoModifier);
+            }
+        };
+        const auto labelOf = [overlay](KeyboardHints::Kind kind, const QString &name) {
+            const QList<KeyboardHintOverlay::Target> targets = overlay->targets();
+            for (int i = 0; i < targets.size(); ++i) {
+                if (targets.at(i).kind == kind && targets.at(i).name == name) {
+                    return overlay->labels().at(i);
+                }
+            }
+            return QString();
+        };
+        const auto start = [overlay] {
+            QTest::keyClick(QApplication::focusWidget(), Qt::Key_J, Qt::ControlModifier | Qt::ShiftModifier);
+            QVERIFY(overlay->isActive());
+            QCOMPARE(QApplication::focusWidget(), overlay);
+        };
+        const auto nameAt = [](const QAbstractItemView *itemView) {
+            return itemView->currentIndex().data(Qt::DisplayRole).toString();
+        };
+
+        // The key labels the items, location segments and places; items get the shortest labels.
+        start();
+        const QList<KeyboardHintOverlay::Target> targets = overlay->targets();
+        const QStringList labels = overlay->labels();
+        QCOMPARE(labels.size(), targets.size());
+        QList<KeyboardHints::Kind> kinds;
+        for (const KeyboardHintOverlay::Target &target : targets) {
+            kinds.append(target.kind);
+        }
+        QCOMPARE(kinds.count(KeyboardHints::Kind::Item), 3);
+        QVERIFY(kinds.contains(KeyboardHints::Kind::Location));
+        QVERIFY(kinds.contains(KeyboardHints::Kind::Place));
+        // Tabs other than the current one, when the tab bar shows.
+        QCOMPARE(kinds.count(KeyboardHints::Kind::Tab), left->tabBar()->isVisible() ? left->tabBar()->count() - 1 : 0);
+        QCOMPARE(labels, KeyboardHints::assign(kinds, KeyboardHints::alphabet(KeyboardHints::Layout::Qwerty)));
+        const QString beta = labelOf(KeyboardHints::Kind::Item, QStringLiteral("beta.txt"));
+        QVERIFY(!beta.isEmpty());
+        const int betaIndex = labels.indexOf(beta);
+        QLabel *betaLabel = overlay->labelWidgets().at(betaIndex);
+        QVERIFY(betaLabel->isVisible());
+        QCOMPARE(betaLabel->accessibleName(), beta + QStringLiteral(": beta.txt"));
+        QCOMPARE(betaLabel->accessibleDescription(), QStringLiteral("File or folder"));
+        QVERIFY(window.rect().contains(betaLabel->geometry()));
+
+        // Typing the first key of a longer label narrows the labels to those it begins; Backspace widens them again.
+        const QString longest = labels.constLast();
+        QVERIFY(longest.size() >= 2);
+        typeKeys(longest.left(1));
+        QVERIFY(overlay->isActive());
+        QCOMPARE(overlay->typed(), longest.left(1));
+        for (int i = 0; i < labels.size(); ++i) {
+            QCOMPARE(overlay->labelWidgets().at(i)->isVisible(), labels.at(i).startsWith(longest.left(1)));
+        }
+        QTest::keyClick(overlay, Qt::Key_Backspace);
+        QVERIFY(overlay->isActive());
+        QCOMPARE(overlay->typed(), QString());
+        QVERIFY(betaLabel->isVisible());
+
+        // Typing a label selects its item and gives the focus back.
+        typeKeys(beta);
+        QVERIFY(!overlay->isActive());
+        QCOMPARE(QApplication::focusWidget(), view);
+        QCOMPARE(nameAt(view), QStringLiteral("beta.txt"));
+        QCOMPARE(view->selectionModel()->selectedRows().size(), 1);
+        QCOMPARE(left->url(), folder);
+
+        // Escape, Backspace with nothing typed and a key that continues no label cancel without moving anything.
+        start();
+        QTest::keyClick(overlay, Qt::Key_Escape);
+        QVERIFY(!overlay->isActive());
+        QCOMPARE(QApplication::focusWidget(), view);
+        start();
+        QTest::keyClick(overlay, Qt::Key_Backspace);
+        QVERIFY(!overlay->isActive());
+        start();
+        typeKeys(QStringLiteral("z"));
+        QVERIFY(!overlay->isActive());
+        QCOMPARE(nameAt(view), QStringLiteral("beta.txt"));
+        // A window shortcut doesn't run while labels show; its key cancels them.
+        const int tabs = left->tabBar()->count();
+        start();
+        QTest::keyClick(overlay, Qt::Key_T, Qt::ControlModifier);
+        QVERIFY(!overlay->isActive());
+        QCOMPARE(left->tabBar()->count(), tabs);
+        // Pressing the key again hides them too.
+        start();
+        QTest::keyClick(overlay, Qt::Key_J, Qt::ControlModifier | Qt::ShiftModifier);
+        QVERIFY(!overlay->isActive());
+
+        // Shift on the last key does the other thing: it opens a folder.
+        start();
+        typeKeys(labelOf(KeyboardHints::Kind::Item, QStringLiteral("alpha")), Qt::ShiftModifier);
+        QVERIFY(!overlay->isActive());
+        QTRY_COMPARE(left->url(), QUrl::fromLocalFile(dir.filePath(QStringLiteral("alpha"))));
+
+        // A visible location segment opens its folder, in either breadcrumb presentation.
+        for (Pane::LocationPresentation presentation : {Pane::LocationPresentation::FullBreadcrumbs, Pane::LocationPresentation::AbbreviatedBreadcrumbs}) {
+            left->setLocationPresentation(presentation);
+            left->setUrl(QUrl::fromLocalFile(dir.filePath(QStringLiteral("alpha/inner"))));
+            QTRY_COMPARE(left->url(), QUrl::fromLocalFile(dir.filePath(QStringLiteral("alpha/inner"))));
+            // New segments show once the event loop runs.
+            QTRY_VERIFY(!KeyboardHintOverlay::locationTargets(left).isEmpty());
+            view = left->view()->currentView();
+            view->setFocus();
+            QTRY_COMPARE(QApplication::focusWidget(), view);
+            start();
+            const QString segment = labelOf(KeyboardHints::Kind::Location, QStringLiteral("alpha"));
+            QVERIFY(!segment.isEmpty());
+            const int segmentIndex = overlay->labels().indexOf(segment);
+            QCOMPARE(overlay->labelWidgets().at(segmentIndex)->accessibleDescription(), QStringLiteral("Location segment"));
+            typeKeys(segment);
+            QVERIFY(!overlay->isActive());
+            QTRY_COMPARE(left->url(), QUrl::fromLocalFile(dir.filePath(QStringLiteral("alpha"))));
+        }
+        left->setUrl(folder);
+        QTRY_COMPARE(left->url(), folder);
+        QTRY_COMPARE(left->view()->itemCount(), 3);
+        view = left->view()->currentView();
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+
+        // The other tabs are labelled; typing one's label switches to it.
+        const int tabsBefore = left->tabBar()->count();
+        left->openInNewTab(m_b);
+        QTRY_COMPARE(left->tabBar()->count(), tabsBefore + 1);
+        QTRY_VERIFY(left->tabBar()->isVisible());
+        QCOMPARE(left->url(), folder);
+        start();
+        QCOMPARE(std::count_if(overlay->targets().cbegin(),
+                               overlay->targets().cend(),
+                               [](const KeyboardHintOverlay::Target &target) {
+                                   return target.kind == KeyboardHints::Kind::Tab;
+                               }),
+                 tabsBefore);
+        const int newTab = left->tabBar()->count() - 1;
+        const QString tabLabel = labelOf(KeyboardHints::Kind::Tab, KLocalizedString::removeAcceleratorMarker(left->tabBar()->tabText(newTab)));
+        QVERIFY(!tabLabel.isEmpty());
+        typeKeys(tabLabel);
+        QVERIFY(!overlay->isActive());
+        QCOMPARE(left->tabBar()->currentIndex(), newTab);
+        QTRY_COMPARE(left->url(), m_b);
+        left->closeCurrentTab();
+        QTRY_COMPARE(left->url(), folder);
+        QTRY_COMPARE(left->view()->itemCount(), 3);
+        view = left->view()->currentView();
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+
+        // A place opens in the active pane.
+        KFilePlacesView *places = visiblePlaces();
+        QString placeName;
+        QUrl placeUrl;
+        for (int row = 0; row < places->model()->rowCount() && placeName.isEmpty(); ++row) {
+            const QModelIndex index = places->model()->index(row, 0);
+            const QUrl url = index.data(KFilePlacesModel::UrlRole).toUrl();
+            if (!places->isRowHidden(row) && url == QUrl::fromLocalFile(QDir::homePath())) {
+                placeName = index.data(Qt::DisplayRole).toString();
+                placeUrl = url;
+            }
+        }
+        QVERIFY(!placeName.isEmpty());
+        start();
+        const QString place = labelOf(KeyboardHints::Kind::Place, placeName);
+        QVERIFY(!place.isEmpty());
+        typeKeys(place);
+        QVERIFY(!overlay->isActive());
+        QTRY_COMPARE(left->url().adjusted(QUrl::StripTrailingSlash), placeUrl.adjusted(QUrl::StripTrailingSlash));
+        QCOMPARE(window.activePane(), left);
+        left->setUrl(folder);
+        QTRY_COMPARE(left->view()->itemCount(), 3);
+        view = left->view()->currentView();
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+
+        // Resizing the window, moving the focus or switching panes hides the labels.
+        start();
+        window.resize(window.size() + QSize(20, 20));
+        QTRY_VERIFY(!overlay->isActive());
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+        start();
+        right->view()->currentView()->setFocus();
+        QVERIFY(!overlay->isActive());
+        view->setFocus();
+        QTRY_COMPARE(window.activePane(), left);
+        start();
+        window.actionCollection()->action(QStringLiteral("switch_pane"))->trigger();
+        QCOMPARE(window.activePane(), right);
+        QVERIFY(!overlay->isActive());
+        window.actionCollection()->action(QStringLiteral("switch_pane"))->trigger();
+        QCOMPARE(window.activePane(), left);
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+
+        // Scrolling the places hides them.
+        start();
+        places->verticalScrollBar()->setRange(0, 100);
+        places->verticalScrollBar()->setValue(50);
+        QVERIFY(!overlay->isActive());
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+
+        // Never while typing: the filter bar keeps the key's focus and gets no labels.
+        left->showFilterBar();
+        QTRY_VERIFY(qobject_cast<QLineEdit *>(QApplication::focusWidget()));
+        hints->trigger();
+        QVERIFY(!overlay->isActive());
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("typing")));
+        left->clearFilter();
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+
+        // Labels in Open mode open items, and Shift selects; Vim-style keys don't take the label keys.
+        Settings::setKeyboardHintItemAction(Settings::EnumKeyboardHintItemAction::Open);
+        Settings::setVimNavigation(true);
+        Settings::self()->save();
+        window.applySettings();
+        QTRY_VERIFY(left->vimNavigationActive());
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+        start();
+        typeKeys(labelOf(KeyboardHints::Kind::Item, QStringLiteral("gamma.txt")), Qt::ShiftModifier);
+        QVERIFY(!overlay->isActive());
+        QCOMPARE(nameAt(view), QStringLiteral("gamma.txt"));
+        QCOMPARE(left->url(), folder);
+        start();
+        typeKeys(labelOf(KeyboardHints::Kind::Item, QStringLiteral("alpha")));
+        QVERIFY(!overlay->isActive());
+        QTRY_COMPARE(left->url(), QUrl::fromLocalFile(dir.filePath(QStringLiteral("alpha"))));
     }
 
     void commandPaletteRunsListedActionsInTheActivePane()

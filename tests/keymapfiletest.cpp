@@ -176,7 +176,7 @@ private Q_SLOTS:
         const auto withoutSettings = KeymapFile::fromJson(text, nullptr, &error, &warnings);
         QVERIFY(withoutSettings);
         QVERIFY(withoutSettings->settings.isEmpty());
-        QCOMPARE(warnings.size(), 8);
+        QCOMPARE(warnings.size(), 10);
     }
 
     void filesThatArentValidKeymapsAreRejected()
@@ -274,6 +274,31 @@ private Q_SLOTS:
         QVERIFY2(read, qPrintable(error));
         QCOMPARE(read->settings, keymap.settings);
         QCOMPARE(KeymapFile::settingText(QStringLiteral("KeySequenceTimeout")), QStringLiteral("Key sequence timeout"));
+    }
+
+    void keyboardHintSettingsRoundTripByChoiceName()
+    {
+        Settings::setKeyboardHintKeys(Settings::EnumKeyboardHintKeys::Colemak);
+        Settings::setKeyboardHintItemAction(Settings::EnumKeyboardHintItemAction::Open);
+        KeymapFile::Keymap keymap;
+        keymap.settings = KeymapFile::settingValues(Settings::self());
+        QCOMPARE(keymap.settings.value(QStringLiteral("KeyboardHintKeys")), QVariant(int(Settings::EnumKeyboardHintKeys::Colemak)));
+        QCOMPARE(keymap.settings.value(QStringLiteral("KeyboardHintItemAction")), QVariant(int(Settings::EnumKeyboardHintItemAction::Open)));
+        const QByteArray text = KeymapFile::toJson(keymap, Settings::self(), QDateTime(QDate(2026, 11, 28), QTime(12, 0), QTimeZone::UTC));
+        const QJsonObject settings = QJsonDocument::fromJson(text).object().value(QStringLiteral("settings")).toObject();
+        QCOMPARE(settings.value(QStringLiteral("KeyboardHintKeys")), QJsonValue(QStringLiteral("Colemak")));
+        QCOMPARE(settings.value(QStringLiteral("KeyboardHintItemAction")), QJsonValue(QStringLiteral("Open")));
+        QString error;
+        const auto read = KeymapFile::fromJson(text, Settings::self(), &error);
+        QVERIFY2(read, qPrintable(error));
+        QCOMPARE(read->settings, keymap.settings);
+
+        QJsonObject object = QJsonDocument::fromJson(text).object();
+        object.insert(QStringLiteral("settings"), QJsonObject{{QStringLiteral("KeyboardHintKeys"), QStringLiteral("Bepo")}});
+        QVERIFY(!KeymapFile::fromJson(QJsonDocument(object).toJson(), Settings::self(), &error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(KeymapFile::settingText(QStringLiteral("KeyboardHintKeys")), QStringLiteral("Keyboard hint label keys"));
+        QCOMPARE(KeymapFile::settingText(QStringLiteral("KeyboardHintItemAction")), QStringLiteral("Keyboard hint action for files and folders"));
     }
 
     void unknownEntriesAreSkippedWithAReport()

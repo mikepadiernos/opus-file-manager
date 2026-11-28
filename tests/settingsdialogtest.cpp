@@ -2720,6 +2720,89 @@ private Q_SLOTS:
         QCOMPARE(timeout->value(), 0);
     }
 
+    void keyboardLabelHintsShowsItsSettings()
+    {
+        MainWindow window;
+        QAction *hints = window.actionCollection()->action(QStringLiteral("keyboard_hints"));
+        QVERIFY(hints);
+        const QList<QKeySequence> defaults = hints->shortcuts();
+        const auto restore = qScopeGuard([&window, hints, defaults] {
+            hints->setShortcuts(defaults);
+            Q_EMIT window.guiFactory()->shortcutsSaved();
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+
+        // Keyboard Hints is the last tab of Keyboard, after Command Palette.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("keyboardLabelHintsPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(page), 5);
+        QCOMPARE(tabs->count(), 6);
+        QCOMPARE(tabs->tabText(5), QStringLiteral("Keyboard Hints"));
+        auto *keys = page->findChild<QComboBox *>(QStringLiteral("kcfg_KeyboardHintKeys"));
+        auto *action = page->findChild<QComboBox *>(QStringLiteral("kcfg_KeyboardHintItemAction"));
+        auto *shortcut = page->findChild<QLabel *>(QStringLiteral("keyboardLabelHintsShortcut"));
+        auto *configure = page->findChild<QPushButton *>(QStringLiteral("keyboardLabelHintsConfigure"));
+        QVERIFY(keys && action && shortcut && configure);
+        QCOMPARE(keys->count(), 4);
+        QCOMPARE(action->count(), 2);
+        QCOMPARE(keys->currentIndex(), int(Settings::EnumKeyboardHintKeys::Qwerty));
+        QCOMPARE(action->currentIndex(), int(Settings::EnumKeyboardHintItemAction::Select));
+        QVERIFY(keys->currentText().contains(QStringLiteral("f j d k s l a g h")));
+        QVERIFY(configure->isEnabled());
+
+        // The action's shortcut, updated once a changed one is saved.
+        const auto native = [](const QKeySequence &key) {
+            return key.toString(QKeySequence::NativeText);
+        };
+        QCOMPARE(shortcut->text(), QStringLiteral("Shortcut: ") + native(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_J)));
+        hints->setShortcuts({QKeySequence(Qt::Key_F12)});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(shortcut->text(), QStringLiteral("Shortcut: ") + native(QKeySequence(Qt::Key_F12)));
+
+        // The settings are saved like the others.
+        keys->setCurrentIndex(int(Settings::EnumKeyboardHintKeys::Dvorak));
+        action->setCurrentIndex(int(Settings::EnumKeyboardHintItemAction::Open));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(int(Settings::keyboardHintKeys()), int(Settings::EnumKeyboardHintKeys::Dvorak));
+        QCOMPARE(int(Settings::keyboardHintItemAction()), int(Settings::EnumKeyboardHintItemAction::Open));
+
+        // A keymap file sets them by choice name, shown in its preview as the tab shows them.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString keymap = dir.filePath(QStringLiteral("labels.json"));
+        QFile file(keymap);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(QJsonDocument(QJsonObject{{QStringLiteral("format"), QStringLiteral("plasma-opus-keymap")},
+                                             {QStringLiteral("version"), 1},
+                                             {QStringLiteral("application"), QStringLiteral("opus-file-manager")},
+                                             {QStringLiteral("actions"), QJsonObject()},
+                                             {QStringLiteral("settings"),
+                                              QJsonObject{{QStringLiteral("KeyboardHintKeys"), QStringLiteral("Colemak")},
+                                                          {QStringLiteral("KeyboardHintItemAction"), QStringLiteral("Select")}}}})
+                       .toJson());
+        file.close();
+        QStringList settings;
+        dialog.setKeymapImportReview([&settings](KeymapImportDialog &review) {
+            const auto *list = review.findChild<QListWidget *>(QStringLiteral("keymapImportSettings"));
+            for (int i = 0; list && i < list->count(); ++i) {
+                settings.append(list->item(i)->text());
+            }
+            return true;
+        });
+        dialog.importShortcuts(keymap);
+        settings.sort();
+        QCOMPARE(settings,
+                 (QStringList{QStringLiteral("Keyboard hint action for files and folders: Open it → Select it"),
+                              QStringLiteral("Keyboard hint label keys: %1 → %2").arg(keys->itemText(2), keys->itemText(3))}));
+        QCOMPARE(keys->currentIndex(), int(Settings::EnumKeyboardHintKeys::Colemak));
+        QCOMPARE(action->currentIndex(), int(Settings::EnumKeyboardHintItemAction::Select));
+    }
+
     void keyboardVimModeListsKeysAndConflicts()
     {
         MainWindow window;
