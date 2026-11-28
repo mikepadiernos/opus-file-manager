@@ -2169,7 +2169,9 @@ using KDE shortcut facilities where supported.
       a [pending handoff](TODO.md#navigation-shortcuts-on-plasma-236). [#236]
 - [ ] Offer optional Vim-style navigation in listings and panes with a
       discoverable shortcut reference. Keep it off by default and do not
-      intercept typing in text fields or the embedded terminal. [#228]
+      intercept typing in text fields or the embedded terminal.
+      Plasma-session verification is a
+      [pending handoff](TODO.md#vim-style-navigation-on-plasma-228). [#228]
 - [ ] Show the active Vim-style mode and provide a clear way to enter filtering
       or text without conflicting with navigation keys [#229]
 - [ ] Provide a native sliding or floating shortcut hint pane inspired by
