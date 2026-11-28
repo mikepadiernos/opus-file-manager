@@ -2177,7 +2177,7 @@ using KDE shortcut facilities where supported.
       verification is a
       [pending handoff](TODO.md#vim-style-mode-indicator-on-plasma-229).
       [#229]
-- [ ] Provide a native sliding or floating shortcut hint pane inspired by
+- [x] Provide a native sliding or floating shortcut hint pane inspired by
       [which-key.nvim](https://github.com/folke/which-key.nvim). Show pending
       key sequences and context-appropriate continuations grouped with action
       descriptions; support keyboard navigation and dismissal. Plasma-session
