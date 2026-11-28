@@ -2173,7 +2173,10 @@ using KDE shortcut facilities where supported.
       Plasma-session verification is a
       [pending handoff](TODO.md#vim-style-navigation-on-plasma-228). [#228]
 - [ ] Show the active Vim-style mode and provide a clear way to enter filtering
-      or text without conflicting with navigation keys [#229]
+      or text without conflicting with navigation keys. Plasma-session
+      verification is a
+      [pending handoff](TODO.md#vim-style-mode-indicator-on-plasma-229).
+      [#229]
 - [ ] Provide a native sliding or floating shortcut hint pane inspired by
       [which-key.nvim](https://github.com/folke/which-key.nvim). Show pending
       key sequences and context-appropriate continuations grouped with action
