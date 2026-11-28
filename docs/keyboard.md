@@ -21,7 +21,9 @@ action of the menus and toolbars, or a saved command, by name and runs it.
 Optional Vim-style keys move through the file views of panes that aren't in
 Yazi mode. While a key sequence waits for its next key, a popup lists the keys
 that can follow it, and **Help › Shortcut Hints** lists the keys that work
-where the keyboard focus is.
+where the keyboard focus is. **Go › Keyboard Hints** labels the files,
+folders, location segments, tabs and places in view with a few keys each, so
+typing a label goes there without the mouse.
 
 ## Contents
 
@@ -36,6 +38,7 @@ where the keyboard focus is.
 - [Command palette](#command-palette)
 - [Vim-style navigation](#vim-style-navigation)
 - [Shortcut hints](#shortcut-hints)
+- [Keyboard hints](#keyboard-hints)
 - [Import and export](#import-and-export)
 - [Configuration reference](#configuration-reference)
 - [Accessibility](#accessibility)
@@ -56,6 +59,8 @@ where the keyboard focus is.
 | **View › Vim-Style Navigation**              | Turns the Vim-style keys in file views on or off                           |
 | **Preferences › Keyboard › Hints**           | Shortcut hints, their delay and how long a key sequence waits              |
 | **Help › Shortcut Hints**                    | The keys that work where the keyboard focus is, over the active pane       |
+| **Go › Keyboard Hints**                      | Labels items, location segments, tabs and places with keys to type         |
+| **Preferences › Keyboard › Keyboard Hints**  | The keys labels are made of, and whether a file label selects or opens     |
 | **Preferences › Yazi Mode › Keyboard**       | The Yazi mode key presets and the window shortcuts each one takes          |
 | **Preferences › KDE Plasma › Shortcuts**     | The global shortcut that shows or hides Plasma Opus                        |
 | **Preferences › KDE Plasma › KWin**          | The drop-down window's global shortcut                                     |
@@ -731,6 +736,87 @@ Each shortcut is listed in full, such as <kbd>Ctrl</kbd>+<kbd>K</kbd>,
 For every action and key, including those of other places, use the
 [keyboard map](#keyboard-map).
 
+## Keyboard hints
+
+**Go › Keyboard Hints**, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd> by
+default, puts a short label of one or more letters on everything in the
+active pane that you could click to move around, as the link hints of
+[Lektra](philosophy/inspirations.md#lektra--document-viewer-and-keyboard-control)
+and of keyboard-driven web browsers do. Type a label's letters to go there
+without the mouse. It labels:
+
+- the files and folders visible in the active pane's file view, or in the
+  current column of a pane in [Yazi mode](yazi-mode.md);
+- the segments of the pane's location bar, such as a parent folder;
+- the pane's other tabs, on their tabs;
+- the entries visible in the **Places** panel.
+
+The labels are made of the home-row keys of your keyboard layout, chosen on
+the [Keyboard Hints tab](#keyboard-hint-settings), such as <kbd>f</kbd>,
+<kbd>j</kbd>, <kbd>d</kbd> and <kbd>k</kbd> on a QWERTY keyboard. No label
+begins another, so a label is complete as soon as it is typed, and labels are
+as short as their number allows: files and folders get the shortest ones,
+then location segments, tabs and places, each in the order they are shown.
+The same view always gets the same labels.
+
+- **Files and folders.** Typing an item's label selects it, makes it the
+  current item and scrolls to it, with the keyboard focus in the file view.
+  Hold <kbd>Shift</kbd> on the label's last key to open it instead, as
+  pressing <kbd>Enter</kbd> does. **Typing a file or folder label** on the
+  tab can make labels open items, and <kbd>Shift</kbd> then selects them.
+- **Location segments and places** open their folder in the active pane.
+- **Tabs** switch to the tab.
+- **Narrowing.** Each key typed hides the labels that don't begin with the
+  keys typed so far and dims the typed part of the others.
+  <kbd>Backspace</kbd> takes the last key back, or cancels when nothing is
+  typed. Letters match in either case.
+- **Cancelling.** <kbd>Escape</kbd>, <kbd>Tab</kbd>, a key that doesn't
+  continue any label, a key with <kbd>Ctrl</kbd>, <kbd>Alt</kbd> or
+  <kbd>Meta</kbd>, or **Keyboard Hints** again removes the labels. The key
+  that cancels does nothing else. So does anything that would move the
+  labels away from their targets: moving the keyboard focus, scrolling,
+  resizing the window or a labelled part of it, the listing changing, as
+  when a folder loads more items, the pane going to another folder, opening
+  or closing a tab, or another pane becoming active. The keyboard focus then
+  returns to where it was.
+- **Typing is never taken.** While the keyboard focus is in a text field,
+  such as the location bar or the filter bar, an inline rename editor, the
+  embedded terminal or a field that takes an input method,
+  **Keyboard Hints** shows no labels and says so in the status bar; move
+  the focus out of the text first, as with <kbd>Escape</kbd>. While labels
+  show, they take only the keys described above, and input methods are off
+  until they close.
+- **Vim-style keys and Yazi mode.** Labels work the same with the
+  [Vim-style keys](#vim-style-navigation) on or off and in Yazi mode. While
+  labels show, typed letters go to the labels rather than to those keys; once
+  a label is typed or the labels close, the keys work as before.
+- **Motion.** Labels appear and disappear at once, without animation.
+
+When nothing in the window can be labelled, the status bar says so.
+
+### Keyboard hint settings
+
+The **Keyboard Hints** tab of **Preferences › Keyboard** has:
+
+- a summary of what the labels do, and **Shortcut**, the shortcut of **Go ›
+  Keyboard Hints**, with **Configure Keyboard Shortcuts…** to change it;
+- **Label keys**, the keys labels are made of, by keyboard layout:
+
+  | Choice           | Keys                  |
+  | ---------------- | --------------------- |
+  | QWERTY home row  | `f j d k s l a g h`   |
+  | AZERTY home row  | `f j d k s l q m g h` |
+  | Dvorak home row  | `u h e t o n a s i d` |
+  | Colemak home row | `t n s e r i a o d h` |
+
+  QWERTY is the default. Keys earlier in the list are used first, so the
+  strongest fingers type most labels.
+- **Typing a file or folder label**, **Select it** by default, or **Open
+  it**. Holding <kbd>Shift</kbd> on the last key does the other.
+
+The settings take effect when Preferences are applied, and keymap files
+include them (see [Keymap files](#keymap-files)).
+
 ## Import and export
 
 **Import…** and **Export…** under **Import and Export** on **Preferences ›
@@ -747,8 +833,9 @@ has:
 - the saved values of the keyboard settings: the extra navigation keys, the
   Vim-style navigation keys, the Yazi mode key preset, pressing
   <kbd>Shift</kbd> twice to search, whether <kbd>Tab</kbd> switches
-  panes, and the [hint settings](#hint-settings). Changes not yet applied in
-  Preferences aren't exported.
+  panes, the [hint settings](#hint-settings) and the
+  [keyboard hint settings](#keyboard-hint-settings). Changes not yet applied
+  in Preferences aren't exported.
 
 Actions that have their defaults and global shortcuts aren't included. The
 file is replaced only once it is complete, and the line below the buttons
@@ -888,6 +975,26 @@ Shortcut Hints** stores only its shortcut, as `show_shortcut_hints` in the
 [`Shortcuts` group](#window-shortcuts). The settings are keymap file
 settings.
 
+### Keyboard hints
+
+The settings on **Keyboard › Keyboard Hints** are kept in the `Keyboard`
+group:
+
+```ini
+[Keyboard]
+KeyboardHintKeys=Dvorak
+KeyboardHintItemAction=Open
+```
+
+| Entry                    | Type | Default  | Effect                                                         |
+| ------------------------ | ---- | -------- | -------------------------------------------------------------- |
+| `KeyboardHintKeys`       | Enum | `Qwerty` | Label keys: `Qwerty`, `Azerty`, `Dvorak` or `Colemak` home row |
+| `KeyboardHintItemAction` | Enum | `Select` | Typing a file or folder label: `Select` or `Open` it           |
+
+**Go › Keyboard Hints** stores only its shortcut, as `keyboard_hints` in the
+[`Shortcuts` group](#window-shortcuts). The settings are keymap file
+settings.
+
 ### Command palette
 
 The setting on **Keyboard › Command Palette** is kept in the `Keyboard`
@@ -961,16 +1068,18 @@ CommandBarLastUsedActions=Select &All,&New Folder…
   its defaults.
 - **Settings** can be these, and no others:
 
-  | Entry                      | Value                   | Set in                           |
-  | -------------------------- | ----------------------- | -------------------------------- |
-  | `ExtraNavigationShortcuts` | `true` or `false`       | **Keyboard › Navigation**        |
-  | `VimNavigation`            | `true` or `false`       | **Keyboard › Vim Mode**          |
-  | `YaziKeyPreset`            | `"Standard"` or `"Vim"` | **Yazi Mode › Keyboard**         |
-  | `DoubleShiftSearch`        | `true` or `false`       | **Tools › Search**               |
-  | `TabSwitchesPanes`         | `true` or `false`       | **Interface › Folders and Tabs** |
-  | `ShortcutHints`            | `true` or `false`       | **Keyboard › Hints**             |
-  | `ShortcutHintDelay`        | A number, 0 to 5000     | **Keyboard › Hints**             |
-  | `KeySequenceTimeout`       | A number, 0 to 10000    | **Keyboard › Hints**             |
+  | Entry                      | Value                                             | Set in                           |
+  | -------------------------- | ------------------------------------------------- | -------------------------------- |
+  | `ExtraNavigationShortcuts` | `true` or `false`                                 | **Keyboard › Navigation**        |
+  | `VimNavigation`            | `true` or `false`                                 | **Keyboard › Vim Mode**          |
+  | `YaziKeyPreset`            | `"Standard"` or `"Vim"`                           | **Yazi Mode › Keyboard**         |
+  | `DoubleShiftSearch`        | `true` or `false`                                 | **Tools › Search**               |
+  | `TabSwitchesPanes`         | `true` or `false`                                 | **Interface › Folders and Tabs** |
+  | `ShortcutHints`            | `true` or `false`                                 | **Keyboard › Hints**             |
+  | `ShortcutHintDelay`        | A number, 0 to 5000                               | **Keyboard › Hints**             |
+  | `KeySequenceTimeout`       | A number, 0 to 10000                              | **Keyboard › Hints**             |
+  | `KeyboardHintKeys`         | `"Qwerty"`, `"Azerty"`, `"Dvorak"` or `"Colemak"` | **Keyboard › Keyboard Hints**    |
+  | `KeyboardHintItemAction`   | `"Select"` or `"Open"`                            | **Keyboard › Keyboard Hints**    |
 
 Plasma Opus reads a file strictly and refuses all of it when:
 
@@ -1088,6 +1197,16 @@ The **Set in** column names pages of Preferences.
   <kbd>Escape</kbd> closes it. The **Hints** tab's delay and timeout are
   spin boxes with their units, and a longer timeout or **Never** gives more
   time to type a sequence.
+- Each keyboard hint label has an accessible name of its keys and its
+  target's name, such as “fj: Documents”, and an accessible description of
+  the kind of target, such as “File or folder”, “Location segment”, “Tab” or
+  “Place”. Screen readers are told how many labels show and how to cancel
+  them. The labels use the tooltip colours with a frame and bold text, so
+  they don't rely on colour; labels that no longer match are hidden rather
+  than only dimmed, and they never animate. **Keyboard Hints** has a
+  shortcut and is in the Go menu and the command palette, so it can be
+  reached without the mouse, and <kbd>Escape</kbd> always closes it and
+  returns the focus.
 
 ## Known limitations
 
