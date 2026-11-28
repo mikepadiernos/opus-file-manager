@@ -111,6 +111,7 @@ add_library(opusfm_app STATIC
     informationpanel.cpp
     informationpanel.h
     integrationsettingspages.cpp
+    keyboardsettingspages.cpp
     librarymovetracker.cpp
     librarymovetracker.h
     libraryautorefresh.cpp

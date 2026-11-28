@@ -265,6 +265,13 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                                KStandardGuiItem::cancel())
             == KMessageBox::PrimaryAction;
     };
+    m_confirmShortcutReset = [this](const QString &question) {
+        return KMessageBox::warningContinueCancel(this,
+                                                  question,
+                                                  i18nc("@title:window", "Reset Keyboard Shortcuts"),
+                                                  KGuiItem(i18nc("@action:button", "Reset Shortcuts"), QStringLiteral("edit-reset")))
+            == KMessageBox::Continue;
+    };
     addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
     addTabbedPage({{createLanguagePage(), i18nc("@title:tab", "Language and Layout")}, {createDateLanguagePage(), i18nc("@title:tab", "Dates")}},
                   i18nc("@title:group", "Translation"),
@@ -318,6 +325,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   QStringLiteral("view-file-columns"),
                   nullptr,
                   createYaziResetRow());
+    addTabbedPage({{createKeyboardShortcutsPage(), i18nc("@title:tab", "Shortcuts")}}, i18nc("@title:group", "Keyboard"), QStringLiteral("input-keyboard"));
     addTabbedPage({{createContextMenuActionsPage(), i18nc("@title:tab", "Actions")}, {createServiceMenusPage(), i18nc("@title:tab", "Service Menus")}},
                   i18nc("@title:group", "Context Menu"),
                   QStringLiteral("application-menu"));
@@ -498,6 +506,26 @@ void SettingsDialog::showKWinPage()
 {
     setCurrentPage(m_plasmaPage);
     m_plasmaTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("kwinIntegrationPage")));
+}
+
+void SettingsDialog::showSettingsTab(const QString &tabName)
+{
+    QWidget *tab = findChild<QWidget *>(tabName);
+    if (!tab) {
+        return;
+    }
+    for (const auto &[page, iconName] : std::as_const(m_pageIcons)) {
+        if (page->widget()->isAncestorOf(tab)) {
+            setCurrentPage(page);
+            break;
+        }
+    }
+    for (QWidget *parent = tab->parentWidget(); parent; parent = parent->parentWidget()) {
+        if (auto *tabs = qobject_cast<QTabWidget *>(parent)) {
+            tabs->setCurrentWidget(tab);
+            break;
+        }
+    }
 }
 
 void SettingsDialog::applySidebarStyle()
@@ -3233,6 +3261,11 @@ void SettingsDialog::resetYaziModeToDefaults()
 void SettingsDialog::setYaziResetConfirmation(std::function<bool(const QString &)> confirm)
 {
     m_confirmYaziReset = std::move(confirm);
+}
+
+int SettingsDialog::yaziShadowedShortcutCount(int preset) const
+{
+    return YaziMode::shadowedShortcuts(YaziMode::presetKeymap(yaziPreset(preset)), windowShortcuts(parentWidget())).size();
 }
 
 void SettingsDialog::accept()

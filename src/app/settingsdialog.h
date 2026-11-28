@@ -106,6 +106,14 @@ public:
     /// Replaces the yes or no question asked before Restore Yazi Mode Defaults, for tests.
     void setYaziResetConfirmation(std::function<bool(const QString &)> confirm);
     /**
+     * Gives every action of the main window whose shortcuts can be configured
+     * its default shortcuts, after asking, and saves them right away. Global
+     * shortcuts are left alone.
+     */
+    void resetShortcutsToDefaults();
+    /// Replaces the yes or no question asked before resetShortcutsToDefaults(), for tests.
+    void setShortcutResetConfirmation(std::function<bool(const QString &)> confirm);
+    /**
      * Replaces how KDE Plasma › File Manager checks for and restarts
      * xdg-desktop-portal, and the question asked before restarting it, for tests.
      * @p restart returns an error message, or an empty string on success.
@@ -250,6 +258,12 @@ private:
     void updateYaziWorkspaceDefault();
     /// The Restore Yazi Mode Defaults button and its note, shown below the Yazi Mode tabs.
     QWidget *createYaziResetRow();
+    /// The number of window shortcuts that key preset @p preset shadows while a Yazi mode column has the keyboard focus.
+    int yaziShadowedShortcutCount(int preset) const;
+    /// The Keyboard › Shortcuts tab.
+    QWidget *createKeyboardShortcutsPage();
+    /// Shows the tab whose widget is named @p tabName and the sidebar page it is on.
+    void showSettingsTab(const QString &tabName);
     /**
      * Shows @p values, by entry name, in the entries' widgets without saving
      * them. Entries without a widget are skipped.
@@ -540,6 +554,9 @@ private:
     int m_confirmedYaziKeyPreset = -1;
     std::function<bool(const QString &, const QStringList &)> m_confirmYaziKeys;
     std::function<bool(const QString &)> m_confirmYaziReset;
+    std::function<bool(const QString &)> m_confirmShortcutReset;
+    /// Lists the customized shortcuts and conflicts on the Keyboard › Shortcuts tab again.
+    std::function<void()> m_refreshKeyboardShortcuts;
     std::function<bool()> m_portalAvailable;
     std::function<QString()> m_restartPortal;
     std::function<bool(const QString &)> m_confirmPortalRestart;
