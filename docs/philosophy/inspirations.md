@@ -81,7 +81,8 @@ viewers, flat browsing, automation and metadata. Its workflows inform
 [collections and duplicate selection](../ROADMAP.md#m09-tools),
 [layout customization](../ROADMAP.md#m11-ui-customizations) and the
 [shortcut settings](../ROADMAP.md#m31-keyboard-shortcut-settings), which
-summarize customized and conflicting shortcuts around KDE's editor; see
+summarize customized and conflicting shortcuts around KDE's editor and list
+every key in a searchable, printable keyboard map; see
 [Keyboard shortcuts](../keyboard.md). Its
 [manual](https://docs.dopus.com/doku.php?id=introduction) also informs planned
 [interface refinements](../ROADMAP.md#m32-refinements), such as contextual help,
