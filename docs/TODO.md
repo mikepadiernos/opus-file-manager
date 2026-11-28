@@ -69,6 +69,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Keyboard shortcuts on Plasma](#keyboard-shortcuts-on-plasma-230)                             | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#230]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Shortcut contexts on Plasma](#shortcut-contexts-on-plasma-233)                               | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#233]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Shortcut storage on Plasma](#shortcut-storage-on-plasma-238)                                 | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#238]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Alternate and command shortcuts on Plasma](#alternate-and-command-shortcuts-on-plasma-231)   | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#231]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1819,9 +1820,41 @@ Board statuses were last confirmed on 2026-11-27.
    Record any differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then
    remove this entry and its roadmap link.
 
+## Alternate and command shortcuts on Plasma (#231)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#231] (Development).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, so KDE's shortcut editor and
+  real keyboards are unverified with saved commands and with more than two
+  shortcuts for an action.
+- **Confirmed state:** `MainWindow::refreshCustomCommandActions` in
+  `src/app/mainwindow.cpp` names saved commands **Saved Command:** in
+  **Configure Keyboard Shortcuts…**, gives commands saved later their stored
+  shortcuts and forgets the shortcuts of deleted ones, and
+  `src/core/shortcutstorage.cpp` stores every alternate. `mainwindowtest`
+  passes in the container. See
+  [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, save a command
+   in **File › Scripts and Custom Commands…**, give **Saved Command:** and its
+   name a shortcut and an alternate in **Configure Keyboard Shortcuts…**, and
+   check that both open its preview without running it while it is on no
+   toolbar.
+2. Add a third shortcut to an action's entry in the `Shortcuts` group of
+   `~/.config/opus-file-managerrc`, restart, check that all three work and
+   that **Preferences › Keyboard › Shortcuts** lists them, then change the
+   alternate in KDE's editor and check that the third is kept.
+3. Delete the command and check that its entry leaves the group. Record any
+   differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this
+   entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#230]: https://github.com/mikepadiernos/plasma-opus/issues/230
+[#231]: https://github.com/mikepadiernos/plasma-opus/issues/231
 [#233]: https://github.com/mikepadiernos/plasma-opus/issues/233
 [#238]: https://github.com/mikepadiernos/plasma-opus/issues/238
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
