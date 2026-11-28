@@ -1019,6 +1019,16 @@ YaziMode::KeyMatcher::Result YaziMode::KeyMatcher::test(QKeyCombination key) con
     return copy.feed(key);
 }
 
+bool YaziMode::KeyMatcher::continues(QKeyCombination key) const
+{
+    key = normalizedKey(key);
+    if (!isPending() || isModifierKey(key.key()) || key.key() == Qt::Key_Escape) {
+        return false;
+    }
+    KeyMatcher copy = *this;
+    return copy.advance(key) != Result::NoMatch;
+}
+
 YaziMode::KeyMatcher::Result YaziMode::KeyMatcher::advance(QKeyCombination key)
 {
     const int digit = m_keymap.counts && m_pending.isEmpty() ? digitOf(key) : -1;

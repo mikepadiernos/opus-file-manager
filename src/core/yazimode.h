@@ -470,6 +470,8 @@ public:
     Result feed(QKeyCombination key);
     /// What feed() would return for @p key, without changing the state.
     Result test(QKeyCombination key) const;
+    /// Whether @p key continues the pending sequence or count rather than breaking it; false while nothing is pending.
+    bool continues(QKeyCombination key) const;
     /// The command of the binding the last Matched result completed.
     Command command() const;
     /// The count typed before that binding, or 1.

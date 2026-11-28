@@ -227,6 +227,8 @@ add_library(opusfm_core STATIC
     servicemenus.h
     sharedsearch.cpp
     sharedsearch.h
+    shortcuthints.cpp
+    shortcuthints.h
     shortcutstorage.cpp
     shortcutstorage.h
     session.h
