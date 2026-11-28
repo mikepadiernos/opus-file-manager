@@ -2198,7 +2198,8 @@ using KDE shortcut facilities where supported.
       segments, places and tabs of the active pane with short key sequences,
       and open or select a target when its keys are typed. Cancel with Escape,
       give labels accessible names and do not intercept typing in text fields
-      or the embedded terminal. (Lektra) [#762]
+      or the embedded terminal. (Lektra) Plasma-session verification is a
+      [pending handoff](TODO.md#keyboard-hints-on-plasma-762). [#762]
 - [x] Import and export shortcut bindings with conflict preview; do not execute
       commands from imported files. Plasma-session verification is a
       [pending handoff](TODO.md#keymap-files-on-plasma-237). [#237]
