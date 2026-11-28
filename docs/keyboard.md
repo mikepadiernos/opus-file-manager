@@ -21,6 +21,7 @@ presets and the global shortcuts.
 - [The Shortcuts tab](#the-shortcuts-tab)
 - [Where shortcuts apply](#where-shortcuts-apply)
 - [Search, Yazi mode and global shortcuts](#search-yazi-mode-and-global-shortcuts)
+- [Global shortcut status](#global-shortcut-status)
 - [Configuration reference](#configuration-reference)
 - [Accessibility](#accessibility)
 - [Known limitations](#known-limitations)
@@ -58,9 +59,10 @@ Dolphin and Kate:
   already has, and offers to take it from that action.
 - **Defaults.** It restores one action's default shortcuts, or every action's.
 
-Shortcuts take effect as soon as the dialog saves them. Preferences can stay
-open meanwhile: the **Keyboard** and **Yazi Mode** pages update when the
-shortcuts are saved.
+Shortcuts take effect as soon as the dialog saves them, in every open Plasma
+Opus window, and are kept in Plasma Opus's configuration file (see
+[Window shortcuts](#window-shortcuts)). Preferences can stay open meanwhile:
+the **Keyboard** and **Yazi Mode** pages update when the shortcuts are saved.
 
 ## The Shortcuts tab
 
@@ -176,6 +178,9 @@ configured elsewhere, each with a button that shows its settings:
   Preferences takes while a Yazi mode column has the focus.
 - **Global shortcuts** shows the keys of **Show or Hide Plasma Opus** and of
   the drop-down window, or that KDE's global shortcut service isn't running.
+  When **Show or Hide Plasma Opus** is on without a key, it says that KDE
+  didn't assign one, and it adds the limitation of a Wayland session that
+  isn't Plasma (see [Global shortcut status](#global-shortcut-status)).
 
 - Pressing <kbd>Shift</kbd> twice is a gesture rather than a shortcut, so
   Configure Keyboard Shortcuts doesn't list it. The search panel's own keys
@@ -190,16 +195,69 @@ configured elsewhere, each with a button that shows its settings:
 - The global shortcuts are registered with KDE's global shortcut service
   (KGlobalAccel), which System Settings › Shortcuts also edits.
 
+## Global shortcut status
+
+Both global shortcuts are optional. Plasma Opus registers them only through
+KDE's global shortcut service, KGlobalAccel, and never grabs keys itself.
+**Show or Hide Plasma Opus** is set on **Preferences › KDE Plasma ›
+Shortcuts** and the drop-down window's shortcut on **Preferences › KDE Plasma
+› KWin**. Each has a status line below its key:
+
+| Status                       | When                                         |
+| ---------------------------- | -------------------------------------------- |
+| Off                          | The shortcut is turned off                   |
+| The service isn't running    | KGlobalAccel isn't running and can't start   |
+| KDE didn't accept the key    | Another application has the chosen key       |
+| No key combination           | KDE left the shortcut without a key          |
+| Press the key                | The shortcut works with the key KDE assigned |
+| Wayland session isn't Plasma | Added when the desktop may not pass keys on  |
+
+- KDE assigns a key only when no other application uses it. After **Apply**
+  or **OK**, the key field shows the key KDE accepted, which is empty when it
+  refused the chosen one, and the status names the refused key.
+- On Wayland, only the compositor sees keys pressed in other windows. Plasma's
+  KWin passes them to KGlobalAccel; other desktops may not. Plasma Opus can't
+  tell whether they do, so in a Wayland session whose `XDG_CURRENT_DESKTOP`
+  doesn't include `KDE` the status says the shortcut works only if the
+  desktop supports it. On X11, KGlobalAccel grabs the keys itself.
+
 ## Configuration reference
 
 ### Window shortcuts
 
-KDE's editor saves window shortcuts with the window's menus and toolbars, in
-the `ActionProperties` element of
-`~/.local/share/kxmlgui5/opus-file-manager/opus-file-managerui.rc`. Each
-action whose shortcuts differ from its defaults has a `shortcut` attribute:
-its shortcuts in Qt's portable text, separated by a semicolon and a space, or
-an empty value for none. **Reset All Shortcuts…** writes the same file.
+Plasma Opus keeps window shortcuts in the `Shortcuts` group of
+`~/.config/opus-file-managerrc`, its configuration file:
+
+```ini
+[Shortcuts]
+Version=1
+open_gallery=F9; Ctrl+K, G
+search_folder=none
+```
+
+- Each action whose shortcuts differ from its defaults has an entry named
+  after the action: its shortcuts in Qt's portable text, primary first,
+  separated by a semicolon and a space, or `none` for no shortcut. This is the
+  format of KDE's `KActionCollection`.
+- Actions without an entry have their defaults, so a changed default reaches
+  every action you haven't changed.
+- An entry that can't be read, such as one with a misspelt key, is ignored,
+  and the action keeps its defaults.
+- `Version` marks the format; it isn't an action.
+- **Configure Keyboard Shortcuts…** and **Reset All Shortcuts…** save here,
+  and every open window takes the saved shortcuts at once. Settings backups
+  include the group.
+- KDE's editor itself writes the shortcuts into the window's layout file,
+  `~/.local/share/kxmlgui5/opus-file-manager/opus-file-managerui.rc`, as
+  `shortcut` attributes. Plasma Opus moves them into the group and removes
+  them from the file each time the editor saves and whenever it starts, so
+  the shortcuts of earlier versions, which were kept only in that file, are
+  migrated too. The rest of the file, the customized menus and toolbars,
+  stays.
+- KDE's own actions that have no layout file save their shortcuts into the
+  same group in the same format; Plasma Opus leaves those entries alone.
+- Global shortcuts aren't stored here: KGlobalAccel keeps them in
+  `~/.config/kglobalshortcutsrc`.
 
 ### Related entries
 
