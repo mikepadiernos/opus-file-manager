@@ -2159,7 +2159,7 @@ using KDE shortcut facilities where supported.
       verification is a
       [pending handoff](TODO.md#alternate-and-command-shortcuts-on-plasma-231).
       [#231]
-- [ ] Show a searchable keyboard map of action names, descriptions, bindings and
+- [x] Show a searchable keyboard map of action names, descriptions, bindings and
       contexts. Search by action name or key combination and export a printable
       reference. Plasma-session verification is a
       [pending handoff](TODO.md#keyboard-map-on-plasma-232). [#232]
