@@ -64,7 +64,8 @@ Board statuses were last confirmed on 2026-11-27.
 | [Nextcloud Photos on a real server](#nextcloud-photos-on-a-real-server-671)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#671]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Nextcloud shares on a real server](#nextcloud-shares-on-a-real-server-591)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#591]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Nextcloud desktop client on Plasma](#nextcloud-desktop-client-on-plasma-592)           | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#592]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Nextcloud settings on Plasma](#nextcloud-settings-on-plasma-368)                       | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#368]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Nextcloud settings on Plasma](#nextcloud-settings-on-plasma-368)                       | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#368]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                         |
+| [Nextcloud Photos settings build](#nextcloud-photos-settings-build-672)                 | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#672]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1619,10 +1620,41 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
    its roadmap link.
 
+## Nextcloud Photos settings build (#672)
+
+- **Milestone and issue:** [M30](ROADMAP.md#m30-nextcloud-settings), [#672]
+  (Development).
+- **Blocker:** The Colima virtual machine that runs the development container
+  stopped during the #672 build on 2026-11-27 and no longer starts. `colima
+  start` fails with `VZErrorDomain Code=2` ("The storage device attachment is
+  invalid") on its data disk, although no process holds the disk. Without the
+  container, #672 cannot be formatted, built or tested on the macOS host, and
+  M30 and M31 cannot continue.
+- **Confirmed state:** #368 is committed on `feature/M30-nextcloud-settings`
+  and in Review; it passed `settingstest`, `integrationsettingstest` and the
+  `nextcloud` tests before the failure. The #672 Photos settings are written
+  but never compiled, and are kept in a local Git stash named
+  `M30 #672 WIP (unbuilt)` on that branch. They add a **Photos** group to
+  **Preferences › Remote and Cloud › Nextcloud**, with its kcfg entries,
+  Photos window and Add to Album changes, tests and docs.
+
+**Steps to resume:**
+
+1. Start Colima from a normal terminal with `colima start`, or restart the
+   Mac first if it still reports the storage device error. Do not delete the
+   data disk; it holds the cached `plasma-impresario-dev` image.
+2. On `feature/M30-nextcloud-settings`, run `git stash pop`, then the
+   clang-format target, the build and `settingstest`,
+   `integrationsettingstest`, `mainwindowtest` and the `nextcloud` tests in the
+   container as described in [development](development.md).
+3. Fix any failures, commit #672 by scope and remove this entry and its
+   contents row. Then continue M30 as the
+   [project workflow](development.md) describes.
+
 ## Nextcloud settings on Plasma (#368)
 
 - **Milestone and issue:** [M30](ROADMAP.md#m30-nextcloud-settings), [#368]
-  (Development).
+  (Review).
 - **Blocker:** The development container has no Nextcloud server, Plasma
   session, KDE Online Accounts or Nextcloud desktop client, so
   **Preferences › Remote and Cloud › Nextcloud** is tested only with fake
@@ -1701,6 +1733,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#669]: https://github.com/mikepadiernos/plasma-opus/issues/669
 [#670]: https://github.com/mikepadiernos/plasma-opus/issues/670
 [#671]: https://github.com/mikepadiernos/plasma-opus/issues/671
+[#672]: https://github.com/mikepadiernos/plasma-opus/issues/672
 [#676]: https://github.com/mikepadiernos/plasma-opus/issues/676
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
 [#704]: https://github.com/mikepadiernos/plasma-opus/issues/704
