@@ -2150,7 +2150,7 @@ using KDE shortcut facilities where supported.
       detect conflicts between overlapping contexts and preserve typing and
       accessibility keys in input controls. Plasma-session verification is a
       [pending handoff](TODO.md#shortcut-contexts-on-plasma-233). [#233]
-- [ ] Store Vim-style mode and app-local bindings in KConfig; manage optional
+- [x] Store Vim-style mode and app-local bindings in KConfig; manage optional
       global shortcuts through KDE facilities and report registration failures
       or platform limitations. Plasma-session verification is a
       [pending handoff](TODO.md#shortcut-storage-on-plasma-238). [#238]
