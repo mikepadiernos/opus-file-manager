@@ -67,6 +67,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Nextcloud settings on Plasma](#nextcloud-settings-on-plasma-368)                             | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#368]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
 | [Nextcloud Photos settings on a real server](#nextcloud-photos-settings-on-a-real-server-672) | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#672]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
 | [Keyboard shortcuts on Plasma](#keyboard-shortcuts-on-plasma-230)                             | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#230]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Shortcut contexts on Plasma](#shortcut-contexts-on-plasma-233)                               | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#233]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1740,9 +1741,45 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
    roadmap link.
 
+## Shortcut contexts on Plasma (#233)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#233] (Development).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events, no real keyboard layouts or input methods, and no
+  Konsole session to type into. Whether text fields, lists and the folder tree
+  keep their keys with real layouts and input methods is unverified.
+- **Confirmed state:** `KeyBindings::isReserved` in
+  `src/core/keybindings.cpp` decides which keys each context keeps,
+  `ShortcutGuard` in `src/app/shortcutguard.cpp` keeps them for the focused
+  widget of the main window, and the **Applies in** column and the reserved
+  key conflicts are on **Preferences › Keyboard › Shortcuts**.
+  `keybindingstest`, `settingsdialogtest` and `mainwindowtest` pass in the
+  container. See [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, turn on
+   **Tab switches panes** and check that <kbd>Tab</kbd> in the location bar,
+   the filter bar and an inline rename editor moves the focus or completes
+   rather than switching panes, and still switches panes from a file view.
+2. In **Configure Keyboard Shortcuts…**, give **Copy to Other Pane** the
+   alternate shortcut <kbd>Down</kbd>, save, and check that
+   **Preferences › Keyboard › Shortcuts** lists three conflicts, that
+   <kbd>Down</kbd> still moves in a file view, the folder tree and a text
+   field, and that it runs the action with the focus on a toolbar button.
+3. Repeat step 1 with a non-Latin layout, such as Russian, and with an input
+   method, such as Fcitx 5 or IBus, and check that typing in the location bar
+   still works and <kbd>Ctrl</kbd>+<kbd>C</kbd> copies text there.
+4. Open the embedded terminal and check that its keys behave as before.
+   Restore the shortcuts. Record any differences in
+   [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
+   roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#230]: https://github.com/mikepadiernos/plasma-opus/issues/230
+[#233]: https://github.com/mikepadiernos/plasma-opus/issues/233
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
 [#288]: https://github.com/mikepadiernos/plasma-opus/issues/288
 [#290]: https://github.com/mikepadiernos/plasma-opus/issues/290
