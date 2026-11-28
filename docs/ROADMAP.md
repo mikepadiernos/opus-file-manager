@@ -2167,7 +2167,7 @@ using KDE shortcut facilities where supported.
       preview and terminal focus as features become available, without
       overriding existing bindings by default. Plasma-session verification is
       a [pending handoff](TODO.md#navigation-shortcuts-on-plasma-236). [#236]
-- [ ] Offer optional Vim-style navigation in listings and panes with a
+- [x] Offer optional Vim-style navigation in listings and panes with a
       discoverable shortcut reference. Keep it off by default and do not
       intercept typing in text fields or the embedded terminal.
       Plasma-session verification is a
