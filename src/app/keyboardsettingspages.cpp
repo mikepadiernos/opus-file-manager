@@ -340,8 +340,8 @@ QWidget *SettingsDialog::createKeyboardNavigationPage()
 
     layout->addWidget(notice(QStringLiteral("keyboardNavigationTerminalNotice"),
                              i18nc("@info",
-                                   "While you type in the embedded terminal, it keeps keys with fewer than two modifiers, such "
-                                   "as Alt+1, for itself; Ctrl+Shift+F4 leaves it again.")));
+                                   "While you type in the embedded terminal, it keeps keys with a single modifier, such as "
+                                   "Alt+1 and Ctrl+Page Down, for itself; Ctrl+Shift+F4 leaves it again.")));
 
     QPushButton *configure = iconButton(QStringLiteral("keyboardNavigationConfigure"),
                                         i18nc("@action:button", "Configure Keyboard Shortcuts…"),
