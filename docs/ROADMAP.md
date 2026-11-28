@@ -2155,7 +2155,10 @@ using KDE shortcut facilities where supported.
       or platform limitations. Plasma-session verification is a
       [pending handoff](TODO.md#shortcut-storage-on-plasma-238). [#238]
 - [ ] Allow alternative bindings for an action and configurable shortcuts for
-      commands outside a toolbar, including custom commands [#231]
+      commands outside a toolbar, including custom commands. Plasma-session
+      verification is a
+      [pending handoff](TODO.md#alternate-and-command-shortcuts-on-plasma-231).
+      [#231]
 - [ ] Show a searchable keyboard map of action names, descriptions, bindings and
       contexts. Search by action name or key combination and export a printable
       reference. [#232]
