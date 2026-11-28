@@ -19,7 +19,9 @@ every action with its shortcuts, searched by name or by pressing keys, and
 exports them as a printable reference. **Help › Command Palette…** finds an
 action of the menus and toolbars, or a saved command, by name and runs it.
 Optional Vim-style keys move through the file views of panes that aren't in
-Yazi mode.
+Yazi mode. While a key sequence waits for its next key, a popup lists the keys
+that can follow it, and **Help › Shortcut Hints** lists the keys that work
+where the keyboard focus is.
 
 ## Contents
 
@@ -52,6 +54,8 @@ Yazi mode.
 | **Preferences › Keyboard › Command Palette** | The palette's shortcut, saved commands in it and its recent actions        |
 | **Preferences › Keyboard › Vim Mode**        | Vim-style keys in file views outside Yazi mode, and what they shadow       |
 | **View › Vim-Style Navigation**              | Turns the Vim-style keys in file views on or off                           |
+| **Preferences › Keyboard › Hints**           | Shortcut hints, their delay and how long a key sequence waits              |
+| **Help › Shortcut Hints**                    | The keys that work where the keyboard focus is, over the active pane       |
 | **Preferences › Yazi Mode › Keyboard**       | The Yazi mode key presets and the window shortcuts each one takes          |
 | **Preferences › KDE Plasma › Shortcuts**     | The global shortcut that shows or hides Plasma Opus                        |
 | **Preferences › KDE Plasma › KWin**          | The drop-down window's global shortcut                                     |
@@ -522,7 +526,8 @@ ranger; they also work when a window shortcut keeps
   half pages. A count is at most 999. While the keys are on, digits 1 to
   9 begin a count instead of finding an item by its first characters.
 - **Sequences.** <kbd>g</kbd> waits for the next key. A pending sequence or
-  count is cancelled after about one second without a key, by
+  count is cancelled after the key sequence timeout without a key, one
+  second by default (see [Hint settings](#hint-settings)), by
   <kbd>Escape</kbd>, or by a key that doesn't continue it, which then works on
   its own. While the [shortcut hints](#shortcut-hints) show, it waits for the
   next key instead of expiring.
@@ -608,8 +613,9 @@ While a key sequence waits for its next key, a hint popup lists the keys that
 can follow it and what they do, as
 [which-key.nvim](https://github.com/folke/which-key.nvim) does in Neovim. It
 floats at the bottom of the active pane's file view, or of its columns in
-[Yazi mode](yazi-mode.md), about half a second after the sequence begins, so
-a sequence typed quickly never shows it. It lists:
+[Yazi mode](yazi-mode.md), half a second after the sequence begins by default
+(see [Hint settings](#hint-settings)), so a sequence typed quickly never shows
+it. It lists:
 
 - after the first keys of a [Vim-style](#vim-style-navigation) or
   [Yazi mode](yazi-mode.md#keyboard) sequence, such as <kbd>g</kbd>, the keys
@@ -632,8 +638,9 @@ footer shows the page, such as **1 of 3**.
 - **The focus stays.** The popup never takes the keyboard focus or a typed
   key: the file view keeps both, and the next key goes to the sequence as
   without the popup.
-- **No hurry.** While the popup shows, a Vim-style or Yazi mode sequence
-  doesn't expire; it waits for the next key.
+- **No hurry.** While the popup shows, a sequence doesn't expire; it waits
+  for the next key. Without the popup, a sequence is cancelled after the key
+  sequence timeout.
 - **Completing or continuing.** A key that completes the sequence runs it and
   closes the popup; a key that continues it updates the popup at once.
 - **Cancelling.** <kbd>Escape</kbd> cancels the sequence and closes the
@@ -651,7 +658,8 @@ footer shows the page, such as **1 of 3**.
   can't take keys then: scroll to turn its pages. A key combination that
   doesn't continue the shortcut ends it, as without the popup, and
   <kbd>Escape</kbd> or moving the focus ends Qt's sequence too, so the next
-  key doesn't complete it. Only the window shortcuts that work where the
+  key doesn't complete it; so does the key sequence timeout while the popup
+  doesn't show. Only the window shortcuts that work where the
   keyboard focus is are listed, without those whose first key the focused
   text field or list keeps (see [Where shortcuts apply](#where-shortcuts-apply))
   and those of disabled actions.
@@ -663,6 +671,65 @@ footer shows the page, such as **1 of 3**.
   **Preferences › Themes › Motion and Accessibility** follows Plasma and
   Plasma's animations are on; with reduced or no animations, it appears in
   place.
+
+### Hint settings
+
+The **Hints** tab of **Preferences › Keyboard** has:
+
+- **Show shortcut hints while a key sequence waits**, on by default. When it
+  is off, sequences work as before, without the popup.
+- **Show hints after**, how long a sequence waits before the popup shows:
+  500 ms by default, from **At once** to 5000 ms.
+- **Cancel incomplete sequences after**, the key sequence timeout: 1000 ms by
+  default, up to 10000 ms, or **Never**. It applies to the Vim-style and Yazi
+  mode keys and to window shortcuts of several key combinations, which Qt
+  would otherwise keep waiting for. A sequence that times out runs nothing,
+  and the next key works on its own instead of completing it. While the
+  popup shows, a sequence waits instead. With **Never**, a sequence waits
+  until <kbd>Escape</kbd>, a key that doesn't continue it, or the focus
+  moves.
+- a note when the hints are on and the delay is as long as the timeout or
+  longer, since sequences would then be cancelled before their hints show;
+- **Shortcut Reference**, the shortcut of **Help › Shortcut Hints**, **None**
+  by default, with **Configure Keyboard Shortcuts…** to give it one and
+  **Keyboard Map…**.
+
+The settings take effect when Preferences are applied, and keymap files
+include them (see [Keymap files](#keymap-files)).
+
+### Shortcut reference
+
+**Help › Shortcut Hints** shows the hint popup on demand over the active
+pane, listing the keys that work where the keyboard focus is, under a title
+such as **Shortcuts: File views and lists**:
+
+- in a pane in Yazi mode, the keys of its key preset, then the window
+  shortcuts they leave;
+- in a file view with the Vim-style keys on, those keys, then the window
+  shortcuts. A Vim-style key with <kbd>Ctrl</kbd>, <kbd>Alt</kbd> or
+  <kbd>Meta</kbd> that a window shortcut keeps isn't listed, nor is a window
+  shortcut whose key a plain Vim-style key takes over;
+- elsewhere, the window shortcuts that work there, grouped by menu, without
+  those whose first key the focused text field or list keeps.
+
+Each shortcut is listed in full, such as <kbd>Ctrl</kbd>+<kbd>K</kbd>,
+<kbd>G</kbd>, rather than as the beginning of longer sequences.
+
+- **In a file view or the folder tree,** <kbd>Page Up</kbd>,
+  <kbd>Page Down</kbd> and the arrow keys turn the popup's pages without
+  moving through the items, and <kbd>Escape</kbd> closes it and does nothing
+  else.
+- **Elsewhere,** as in a text field or the embedded terminal, every key goes
+  where it always does; scroll over the popup to turn its pages.
+- **Closing.** Any other key closes the popup and works as usual, as do
+  choosing **Shortcut Hints** again and moving the focus.
+- **No default shortcut,** so it takes no key from another action or a text
+  field; give it one in **Configure Keyboard Shortcuts…**, or run it from
+  the [command palette](#command-palette). It works whether or not the hints
+  are on.
+
+For every action and key, including those of other places, use the
+[keyboard map](#keyboard-map).
 
 ## Import and export
 
@@ -679,8 +746,8 @@ has:
   commands;
 - the saved values of the keyboard settings: the extra navigation keys, the
   Vim-style navigation keys, the Yazi mode key preset, pressing
-  <kbd>Shift</kbd> twice to search, and whether <kbd>Tab</kbd> switches
-  panes. Changes not yet applied in
+  <kbd>Shift</kbd> twice to search, whether <kbd>Tab</kbd> switches
+  panes, and the [hint settings](#hint-settings). Changes not yet applied in
   Preferences aren't exported.
 
 Actions that have their defaults and global shortcuts aren't included. The
@@ -799,6 +866,28 @@ VimNavigation=true
 **View › Vim-Style Navigation** writes the same entry. The keys themselves are
 fixed and aren't stored. The setting is one of the keymap file settings.
 
+### Shortcut hints
+
+The settings on **Keyboard › Hints** are kept in the `Keyboard` group:
+
+```ini
+[Keyboard]
+ShortcutHints=true
+ShortcutHintDelay=500
+KeySequenceTimeout=1000
+```
+
+| Entry                | Type | Default | Effect                                                           |
+| -------------------- | ---- | ------- | ---------------------------------------------------------------- |
+| `ShortcutHints`      | Bool | `true`  | Shows the hint popup while a key sequence waits                  |
+| `ShortcutHintDelay`  | Int  | `500`   | Milliseconds before the popup shows, from 0 to 5000              |
+| `KeySequenceTimeout` | Int  | `1000`  | Milliseconds an incomplete sequence waits, up to 10000; 0, never |
+
+A value outside its range is read as the nearest one allowed. **Help ›
+Shortcut Hints** stores only its shortcut, as `show_shortcut_hints` in the
+[`Shortcuts` group](#window-shortcuts). The settings are keymap file
+settings.
+
 ### Command palette
 
 The setting on **Keyboard › Command Palette** is kept in the `Keyboard`
@@ -879,6 +968,9 @@ CommandBarLastUsedActions=Select &All,&New Folder…
   | `YaziKeyPreset`            | `"Standard"` or `"Vim"` | **Yazi Mode › Keyboard**         |
   | `DoubleShiftSearch`        | `true` or `false`       | **Tools › Search**               |
   | `TabSwitchesPanes`         | `true` or `false`       | **Interface › Folders and Tabs** |
+  | `ShortcutHints`            | `true` or `false`       | **Keyboard › Hints**             |
+  | `ShortcutHintDelay`        | A number, 0 to 5000     | **Keyboard › Hints**             |
+  | `KeySequenceTimeout`       | A number, 0 to 10000    | **Keyboard › Hints**             |
 
 Plasma Opus reads a file strictly and refuses all of it when:
 
@@ -894,8 +986,8 @@ Plasma Opus reads a file strictly and refuses all of it when:
   strings;
 - a shortcut isn't a valid key sequence as described above, or is longer
   than 256 characters;
-- a known setting has a value of the wrong type or a choice that doesn't
-  exist.
+- a known setting has a value of the wrong type, a choice that doesn't
+  exist, or a number that isn't a whole number within its range.
 
 These are skipped, and **Not Imported** lists them:
 
@@ -991,6 +1083,11 @@ The **Set in** column names pages of Preferences.
   “g…: g, Move to the first item; …”. <kbd>Escape</kbd> closes it, and it
   turns pages with keys as well as the mouse wheel where it can. It slides
   only while Plasma Opus's animations follow Plasma's.
+- **Help › Shortcut Hints** shows the same popup, read the same way, without
+  taking the focus or a typed key outside file views and the folder tree.
+  <kbd>Escape</kbd> closes it. The **Hints** tab's delay and timeout are
+  spin boxes with their units, and a longer timeout or **Never** gives more
+  time to type a sequence.
 
 ## Known limitations
 
