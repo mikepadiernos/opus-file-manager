@@ -4403,11 +4403,11 @@ The M31 keyboard shortcut settings have these limits
   - **Shortcut storage:** Change window shortcuts only in **Configure
     Keyboard Shortcuts…**, with **Reset All Shortcuts…** or by importing a
     keymap, keep using the Default shortcut scheme, and copy
-    `opus-file-managerrc` before downgrading. Check the status under each global shortcut after
-    **Apply**, and choose another key when KDE didn't accept one. Outside a
-    Plasma session on Wayland, give the command `opus-file-manager` a key in
-    the desktop's own shortcut settings instead; it shows the running window
-    but doesn't hide it.
+    `opus-file-managerrc` before downgrading. Check the status under each
+    global shortcut after **Apply**, and choose another key when KDE didn't
+    accept one. Outside a Plasma session on Wayland, give the command
+    `opus-file-manager` a key in the desktop's own shortcut settings instead;
+    it shows the running window but doesn't hide it.
   - **Alternates and commands:** Give a saved command a shortcut in
     **Configure Keyboard Shortcuts…** under **Saved Command:**, and give it
     again after renaming the command. For a terminal or editor from a
