@@ -2139,7 +2139,7 @@ Configure keyboard shortcuts, key chords, optional Vim-style navigation, a
 shortcut hint pane, a command palette and keyboard hints across Plasma Opus,
 using KDE shortcut facilities where supported.
 
-- [ ] Configure simultaneous key combinations and sequential key chords with
+- [x] Configure simultaneous key combinations and sequential key chords with
       conflict detection, clear feedback and reset to defaults; use KDE shortcut
       facilities where supported. Integrate advanced-search shortcuts, Yazi
       navigation and presets, and the integration global shortcut with these
