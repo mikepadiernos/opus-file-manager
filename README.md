@@ -161,7 +161,8 @@ preview. Both behaviours can be changed in Preferences.
   finds menu, toolbar and saved command actions by name and runs them in the
   active pane, with recently used actions first. Optional Vim-style keys, such
   as `j`, `k`, `gg` and counts, move through the file views outside Yazi mode
-  without taking keys from typing.
+  without taking keys from typing. Each pane then shows its mode, NORMAL,
+  FILTER or INSERT; `/` or `i` filters, and Escape returns to the items.
 
 ## Screenshots
 
