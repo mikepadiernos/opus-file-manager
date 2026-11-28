@@ -59,6 +59,7 @@
 #include "kdeconnectclient.h"
 #include "kdeconnectshare.h"
 #include "kdeconnectsharedialog.h"
+#include "keyboardhintoverlay.h"
 #include "keyboardmapdialog.h"
 #include "kwinintegration.h"
 
@@ -122,6 +123,7 @@
 #include "workspacedialog.h"
 #include "workspacelocations.h"
 #include "yazicolumns.h"
+#include "yazikeys.h"
 
 #include <KActionCollection>
 #include <KActionMenu>
@@ -583,6 +585,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_shortcutReference = new ShortcutReference(this, [this] {
         return activePane();
     });
+    m_keyboardHints = new KeyboardHintOverlay(this);
     m_desktopTray = new DesktopTray(this, actionCollection());
     connect(m_desktopTray, &DesktopTray::openRequested, this, [this](const QUrl &url) {
         openUrls({url});
@@ -4109,6 +4112,13 @@ void MainWindow::setupActions()
     });
     focusSecondPane->setText(i18nc("@action", "Focus Second Pane"));
     focusSecondPane->setToolTip(i18nc("@info:tooltip", "Make the second pane, on the right or at the bottom, active and move the keyboard focus to it"));
+    QAction *keyboardHints = actions->addAction(QStringLiteral("keyboard_hints"), this, &MainWindow::showKeyboardHints);
+    keyboardHints->setText(i18nc("@action", "Keyboard Hints"));
+    keyboardHints->setIcon(SymbolicIcon::fromTheme(QStringLiteral("input-keyboard")));
+    keyboardHints->setToolTip(
+        i18nc("@info:tooltip", "Label the visible files and folders, location segments, tabs and places with keys; type a label to go there"));
+    // No other action, text field or Yazi mode preset uses it.
+    actions->setDefaultShortcut(keyboardHints, Qt::CTRL | Qt::SHIFT | Qt::Key_J);
 
     // Tabs
     QAction *newTab = actions->addAction(QStringLiteral("new_tab"), this, [this] {
@@ -4344,8 +4354,16 @@ ShortcutReference *MainWindow::shortcutReference() const
     return m_shortcutReference;
 }
 
+KeyboardHintOverlay *MainWindow::keyboardHintOverlay() const
+{
+    return m_keyboardHints;
+}
+
 void MainWindow::setActivePane(Pane *pane)
 {
+    if (m_keyboardHints && pane != m_active) {
+        m_keyboardHints->cancel();
+    }
     if (m_paneTabs && m_secondPaneInTab) {
         m_paneTabs->setCurrentWidget(pane == m_right ? static_cast<QWidget *>(m_right) : m_searchSplitter);
     }
@@ -9555,6 +9573,41 @@ void MainWindow::showCommandPalette()
     CommandPalette::Options options;
     options.savedCommands = Settings::commandPaletteSavedCommands();
     m_commandPalette->open(options);
+}
+
+void MainWindow::showKeyboardHints()
+{
+    if (m_keyboardHints->isActive()) {
+        m_keyboardHints->cancel();
+        return;
+    }
+    Pane *pane = activePane();
+    // Labels take every key, so they never start while keys are text: in a text
+    // field, an inline rename editor, the terminal or an input method's editor.
+    QWidget *focus = QApplication::focusWidget();
+    const bool typing = focus
+        && (ShortcutGuard::focusContext(focus) == KeyBindings::Context::TextInput
+            || (focus->testAttribute(Qt::WA_InputMethodEnabled) && !qobject_cast<QAbstractItemView *>(focus))
+            || (m_terminalPanel && m_terminalPanel->isAncestorOf(focus)));
+    QAbstractItemView *view = pane->view()->currentView();
+    if (typing || (view && YaziKeys::isEditing(view))) {
+        showStatusMessage(i18nc("@info:status", "Keyboard hints aren't shown while typing; move the keyboard focus out of the text first."));
+        return;
+    }
+    m_shortcutReference->hide();
+    QList<KFilePlacesView *> places;
+    const QList<KFilePlacesView *> found = findChildren<KFilePlacesView *>();
+    for (KFilePlacesView *placesView : found) {
+        if (placesView->isVisible() && placesView->window() == this) {
+            places.append(placesView);
+        }
+    }
+    const auto layout = static_cast<KeyboardHints::Layout>(Settings::keyboardHintKeys());
+    const auto action = Settings::keyboardHintItemAction() == Settings::EnumKeyboardHintItemAction::Open ? KeyboardHintOverlay::ItemAction::Open
+                                                                                                         : KeyboardHintOverlay::ItemAction::Select;
+    if (!m_keyboardHints->start(pane, places, KeyboardHints::alphabet(layout), action)) {
+        showStatusMessage(i18nc("@info:status", "Nothing to label with keyboard hints."));
+    }
 }
 
 void MainWindow::showKeyboardMap()

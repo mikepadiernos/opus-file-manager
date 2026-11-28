@@ -755,6 +755,70 @@ QWidget *SettingsDialog::createKeyboardHintsPage()
     return page;
 }
 
+QWidget *SettingsDialog::createKeyboardLabelHintsPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("keyboardLabelHintsPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *window = qobject_cast<KXmlGuiWindow *>(parentWidget());
+
+    layout->addWidget(notice(QStringLiteral("keyboardLabelHintsIntro"),
+                             i18nc("@info",
+                                   "Go › Keyboard Hints labels the visible files and folders of the active pane, its location "
+                                   "segments, its other tabs and the places with a few keys each. Type a label to go there; "
+                                   "typing narrows the labels, and Escape, any other key, scrolling or moving the focus "
+                                   "cancels them. Labels never take keys from a text field, a rename editor or the terminal.")));
+    QLabel *shortcut = notice(QStringLiteral("keyboardLabelHintsShortcut"));
+    layout->addWidget(shortcut);
+
+    auto *form = new QFormLayout;
+    QComboBox *keys = SettingsWidgets::comboBox(QStringLiteral("KeyboardHintKeys"),
+                                                {i18nc("@item:inlistbox keyboard hint label keys", "QWERTY home row (f j d k s l a g h)"),
+                                                 i18nc("@item:inlistbox keyboard hint label keys", "AZERTY home row (f j d k s l q m g h)"),
+                                                 i18nc("@item:inlistbox keyboard hint label keys", "Dvorak home row (u h e t o n a s i d)"),
+                                                 i18nc("@item:inlistbox keyboard hint label keys", "Colemak home row (t n s e r i a o d h)")});
+    keys->setToolTip(i18nc("@info:tooltip", "The keys labels are made of; pick your keyboard layout so they sit under your fingers"));
+    form->addRow(i18nc("@label:listbox", "Label keys:"), keys);
+    QComboBox *itemAction =
+        SettingsWidgets::comboBox(QStringLiteral("KeyboardHintItemAction"),
+                                  {i18nc("@item:inlistbox keyboard hint action", "Select it"), i18nc("@item:inlistbox keyboard hint action", "Open it")});
+    itemAction->setToolTip(i18nc("@info:tooltip", "What typing the label of a file or folder does; hold Shift on its last key to do the other"));
+    form->addRow(i18nc("@label:listbox", "Typing a file or folder label:"), itemAction);
+    layout->addLayout(form);
+    layout->addWidget(notice(QStringLiteral("keyboardLabelHintsActionNotice"),
+                             i18nc("@info",
+                                   "Holding Shift on the last key of a file or folder label does the other: it opens the item "
+                                   "when labels select, and selects it when they open. Location segments and places open in "
+                                   "the active pane, and tab labels switch to the tab.")));
+
+    QPushButton *configure = iconButton(QStringLiteral("keyboardLabelHintsConfigure"),
+                                        i18nc("@action:button", "Configure Keyboard Shortcuts…"),
+                                        QStringLiteral("configure-shortcuts"));
+    const QPointer<QAction> shortcutsAction = window ? window->actionCollection()->action(KStandardAction::name(KStandardAction::KeyBindings)) : nullptr;
+    configure->setEnabled(!shortcutsAction.isNull());
+    connect(configure, &QPushButton::clicked, this, [shortcutsAction] {
+        if (shortcutsAction) {
+            shortcutsAction->trigger();
+        }
+    });
+    auto *buttons = new QHBoxLayout;
+    buttons->addWidget(configure);
+    buttons->addStretch();
+    layout->addLayout(buttons);
+    layout->addStretch();
+
+    const auto refreshShortcut = [window, shortcut] {
+        const QAction *action = window ? window->actionCollection()->action(QStringLiteral("keyboard_hints")) : nullptr;
+        shortcut->setText(action ? i18nc("@info %1 shortcuts", "Shortcut: %1", shortcutsText(action->shortcuts()))
+                                 : i18nc("@info", "Open Preferences from a Plasma Opus window to see the keyboard hints' shortcut."));
+    };
+    if (window && window->guiFactory()) {
+        connect(window->guiFactory(), &KXMLGUIFactory::shortcutsSaved, page, refreshShortcut);
+    }
+    refreshShortcut();
+    return page;
+}
+
 QWidget *SettingsDialog::createKeyboardCommandPalettePage()
 {
     auto *page = new QWidget;

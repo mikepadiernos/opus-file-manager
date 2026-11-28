@@ -295,6 +295,8 @@ private:
     QWidget *createKeyboardHintsPage();
     /// The Keyboard › Command Palette tab: the palette's shortcut, whether it lists saved commands and its recently used actions.
     QWidget *createKeyboardCommandPalettePage();
+    /// The Keyboard › Keyboard Hints tab: the label keys and what typing a file or folder label does.
+    QWidget *createKeyboardLabelHintsPage();
     /// Shows the tab whose widget is named @p tabName and the sidebar page it is on.
     void showSettingsTab(const QString &tabName);
     /**

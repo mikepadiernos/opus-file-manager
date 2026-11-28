@@ -285,6 +285,14 @@ public:
     ShortcutHintPopup *shortcutHintPopup();
     /// The widget the shortcut hint popup floats over: the file view, or the columns in Yazi mode.
     QWidget *shortcutHintArea() const;
+    /// The pane's tab bar, hidden while the pane has one tab unless always shown.
+    QTabBar *tabBar() const;
+    /**
+     * The location widget the pane shows: its KUrlNavigator, or the
+     * abbreviated breadcrumbs, whose segments are buttons named
+     * paneBreadcrumbSegment.
+     */
+    QWidget *locationBar() const;
 
 public Q_SLOTS:
     void setUrl(const QUrl &url);

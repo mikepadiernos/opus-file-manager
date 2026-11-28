@@ -113,6 +113,8 @@ add_library(opusfm_app STATIC
     informationpanel.cpp
     informationpanel.h
     integrationsettingspages.cpp
+    keyboardhintoverlay.cpp
+    keyboardhintoverlay.h
     keyboardmapdialog.cpp
     keyboardmapdialog.h
     keyboardsettingspages.cpp

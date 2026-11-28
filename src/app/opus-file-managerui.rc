@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="80" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="81" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -174,6 +174,7 @@
       <Action name="switch_pane"/>
       <Action name="focus_first_pane"/>
       <Action name="focus_second_pane"/>
+      <Action name="keyboard_hints"/>
       <Menu name="yazi_columns">
         <text context="@title:menu">Yazi Columns</text>
         <Action name="yazi_focus_parent_column"/>

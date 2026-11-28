@@ -78,6 +78,7 @@ class KToggleAction;
 class Pane;
 class PreviewPanel;
 class SearchPanel;
+class KeyboardHintOverlay;
 class ShortcutReference;
 class TaggingController;
 class TabColors;
@@ -121,6 +122,8 @@ public:
     WindowSequenceHints *windowSequenceHints() const;
     /// The on-demand shortcut reference, Help › Shortcut Hints.
     ShortcutReference *shortcutReference() const;
+    /// Keyboard hints, Go › Keyboard Hints: key labels over the active pane's items, locations and tabs and the places.
+    KeyboardHintOverlay *keyboardHintOverlay() const;
 
     ActivityController *activityController() const;
     /// Opens Preferences › KDE Plasma › Activities, where Plasma Activities are associated with workspaces and default folders.
@@ -630,6 +633,12 @@ private:
     void showKeyboardMap();
     /// Shows Help › Command Palette…, or gives it the focus when it is open.
     void showCommandPalette();
+    /**
+     * Shows Go › Keyboard Hints over the active pane and the places, or hides
+     * them when they show. Refused while the keyboard focus is in a text
+     * field, an inline rename editor or the terminal.
+     */
+    void showKeyboardHints();
     void showToolbarSettings();
     /// Applies the settings that only take effect in a new window.
     void applyViewDefaults();
@@ -820,6 +829,7 @@ private:
     QObject *m_doubleShift = nullptr;
     WindowSequenceHints *m_windowSequenceHints = nullptr;
     ShortcutReference *m_shortcutReference = nullptr;
+    KeyboardHintOverlay *m_keyboardHints = nullptr;
     /// Whether a terminal profile asks for blur behind the window.
     bool m_terminalBlur = false;
     EditorPanel *m_editor = nullptr;

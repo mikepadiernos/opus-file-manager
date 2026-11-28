@@ -1565,6 +1565,16 @@ QWidget *Pane::shortcutHintArea() const
     return m_yaziMode ? static_cast<QWidget *>(m_yaziColumns) : m_view;
 }
 
+QTabBar *Pane::tabBar() const
+{
+    return m_tabBar;
+}
+
+QWidget *Pane::locationBar() const
+{
+    return m_locationStack->currentWidget();
+}
+
 YaziKeys *Pane::pendingSequenceKeys() const
 {
     for (YaziKeys *keys : {m_yaziColumns->keys(), m_vimKeys}) {
