@@ -4204,6 +4204,18 @@ The M31 keyboard shortcut settings have these limits
   reported only after **Apply**. Neither can be checked in the container
   ([Plasma check](TODO.md#shortcut-storage-on-plasma-238)).
   ([#238](https://github.com/mikepadiernos/plasma-opus/issues/238))
+- **🔀 Alternates and commands:** **Configure Keyboard Shortcuts…** shows
+  and changes only an action's first two shortcuts; further alternates can
+  be added only in the `Shortcuts` group of `opus-file-managerrc`, and
+  **Preferences › Keyboard › Shortcuts** lists them. Saved commands are
+  listed as **Saved Command:** and a name; a shortcut is kept with the
+  command's name, so renaming a command loses it, and another open window
+  lists a command saved elsewhere only when its own commands next change.
+  The entries of **Open Terminal With**, **Edit With**, **Open With**,
+  service menus and other submenus can't have shortcuts, nor can the pane
+  toolbars' buttons. Real keyboards in Plasma are unverified
+  ([Plasma check](TODO.md#alternate-and-command-shortcuts-on-plasma-231)).
+  ([#231](https://github.com/mikepadiernos/plasma-opus/issues/231))
 
 - **Recommendation:**
   - **Shortcut settings:** Change shortcuts in **Configure Keyboard
@@ -4229,6 +4241,14 @@ The M31 keyboard shortcut settings have these limits
     Plasma session on Wayland, give the command `opus-file-manager` a key in
     the desktop's own shortcut settings instead; it shows the running window
     but doesn't hide it.
+  - **Alternates and commands:** Give a saved command a shortcut in
+    **Configure Keyboard Shortcuts…** under **Saved Command:**, and give it
+    again after renaming the command. For a terminal or editor from a
+    submenu, choose it on **Preferences › Applications › Terminal** or
+    **Editor** and use the shortcut of **Open Terminal Here** or **Edit**, or
+    save a command that starts it. Add more than two shortcuts for an action
+    only in the configuration file, and check them on **Preferences ›
+    Keyboard › Shortcuts**, as KDE's editor doesn't show them.
   - Comment:
     [#771.7231940238](https://github.com/mikepadiernos/plasma-opus/issues/771#issuecomment-7231940238)
 - **Proposed improvements:**
@@ -4241,6 +4261,9 @@ The M31 keyboard shortcut settings have these limits
   - Store the shortcuts of every KDE shortcut scheme, ask KDE's global
     shortcut service whether a key is free before **Apply**, and add the
     Vim-style mode setting together with Vim-style navigation.
+  - Show every alternate in the editor, keep a command's shortcut when it is
+    renamed, and give submenu entries such as each terminal or editor their
+    own actions.
 
 ## Embedded terminal
 
