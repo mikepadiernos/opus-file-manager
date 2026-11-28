@@ -143,6 +143,12 @@ preview. Both behaviours can be changed in Preferences.
   optional startup presentation that never blocks use.
 - **Languages:** translation catalogues, right-to-left layouts, Jalali dates
   and regional format overrides; see the [translation guide](po/README.md).
+- **Keyboard**
+  [![M31](https://img.shields.io/badge/M31-8957e5?style=flat-square)](docs/ROADMAP.md#m31-keyboard-shortcut-settings):
+  change any action's [shortcuts](docs/keyboard.md), including key sequences,
+  in KDE's shortcut editor. **Preferences › Keyboard** lists the changed and
+  conflicting shortcuts, resets them to the defaults and shows the search,
+  Yazi mode and global keys.
 
 ## Screenshots
 
