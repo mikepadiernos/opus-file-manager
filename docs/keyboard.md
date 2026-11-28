@@ -54,10 +54,22 @@ Dolphin and Kate:
   <kbd>Ctrl</kbd>+<kbd>C</kbd>. The dialog records a sequence when keys are
   pressed in turn while it is listening.
 - **Alternates.** Each action has a shortcut and an alternate one; either
-  runs it.
+  runs it. An action can have more alternates in the configuration file (see
+  [Window shortcuts](#window-shortcuts)); the dialog shows and changes only
+  the first two and keeps the others.
 - **Conflicts.** The dialog warns before giving a shortcut that another action
   already has, and offers to take it from that action.
 - **Defaults.** It restores one action's default shortcuts, or every action's.
+
+The dialog lists every window action, including those on no menu or
+toolbar, and their shortcuts work anywhere in the window. It lists each saved
+command as **Saved Command:** and its name, so a command saved in **File ›
+Scripts and Custom Commands…** or **Preferences › Tools › Automation** can
+have its own shortcut. The shortcut opens the command with its preview, as
+its toolbar button does, and never runs it straight away. The window where a
+command is saved or deleted lists the change at once; deleting a command
+removes its shortcut, and saving it under another name makes a new command
+without one.
 
 Shortcuts take effect as soon as the dialog saves them, in every open Plasma
 Opus window, and are kept in Plasma Opus's configuration file (see
@@ -236,14 +248,17 @@ search_folder=none
 ```
 
 - Each action whose shortcuts differ from its defaults has an entry named
-  after the action: its shortcuts in Qt's portable text, primary first,
-  separated by a semicolon and a space, or `none` for no shortcut. This is the
+  after the action: its shortcuts in Qt's portable text, primary first, then
+  every alternate, separated by a semicolon and a space, or `none` for no
+  shortcut. This is the
   format of KDE's `KActionCollection`.
 - Actions without an entry have their defaults, so a changed default reaches
   every action you haven't changed.
 - An entry that can't be read, such as one with a misspelt key, is ignored,
   and the action keeps its defaults.
 - `Version` marks the format; it isn't an action.
+- Saved commands' entries are named `custom_command_preset_` followed by the
+  SHA-256 hash of the command's name.
 - **Configure Keyboard Shortcuts…** and **Reset All Shortcuts…** save here,
   and every open window takes the saved shortcuts at once. Settings backups
   include the group.
