@@ -152,7 +152,9 @@ preview. Both behaviours can be changed in Preferences.
   navigation keys. Shortcuts are stored in the configuration file and shared
   by every window, and the global shortcuts' status says when KDE refused a
   key or the session can't pass keys on. Saved commands can have shortcuts,
-  and an action can have more than one alternate.
+  and an action can have more than one alternate. **Help › Keyboard Map…**
+  finds any action by name or by pressing its keys and exports a printable
+  reference.
 
 ## Screenshots
 
