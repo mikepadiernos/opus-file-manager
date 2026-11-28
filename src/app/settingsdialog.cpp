@@ -328,6 +328,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   createYaziResetRow());
     addTabbedPage({{createKeyboardShortcutsPage(), i18nc("@title:tab", "Shortcuts")},
                    {createKeyboardNavigationPage(), i18nc("@title:tab", "Navigation")},
+                   {createKeyboardVimPage(), i18nc("@title:tab", "Vim Mode")},
                    {createKeyboardCommandPalettePage(), i18nc("@title:tab", "Command Palette")}},
                   i18nc("@title:group", "Keyboard"),
                   QStringLiteral("input-keyboard"));
@@ -3001,6 +3002,16 @@ void SettingsDialog::updateYaziKeyPreview()
 QStringList SettingsDialog::yaziKeyConflicts(int preset) const
 {
     const YaziMode::Keymap keymap = YaziMode::presetKeymap(yaziPreset(preset));
+    return keymapConflicts(keymap, YaziMode::shadowedShortcuts(keymap, windowActionShortcuts()));
+}
+
+QList<YaziMode::ActionShortcuts> SettingsDialog::windowActionShortcuts() const
+{
+    return windowShortcuts(parentWidget());
+}
+
+QStringList SettingsDialog::keymapConflicts(const YaziMode::Keymap &keymap, const QList<YaziMode::ShadowedShortcut> &shadowed)
+{
     const auto keysText = [&keymap](int binding) {
         return YaziMode::sequenceText(keymap.bindings.at(binding).keys);
     };
@@ -3022,7 +3033,6 @@ QStringList SettingsDialog::yaziKeyConflicts(int preset) const
                                commandText(conflict.second)));
         }
     }
-    const QList<YaziMode::ShadowedShortcut> shadowed = YaziMode::shadowedShortcuts(keymap, windowShortcuts(parentWidget()));
     for (const YaziMode::ShadowedShortcut &shortcut : shadowed) {
         const QString shortcutText = shortcut.shortcut.toString(QKeySequence::NativeText);
         const QString key = YaziMode::keyText(YaziMode::normalizedKey(shortcut.shortcut[0]));

@@ -3720,6 +3720,20 @@ void MainWindow::setupActions()
             pane->reloadYaziKeySettings();
         }
     });
+    m_vimNavigationAction = new KToggleAction(i18nc("@action", "Vim-Style Navigation"), this);
+    m_vimNavigationAction->setToolTip(
+        i18nc("@info:tooltip", "Move through the file views of panes that aren't in Yazi mode with Vim-style keys such as j, k, gg and /"));
+    m_vimNavigationAction->setChecked(Settings::vimNavigation());
+    actions->addAction(QStringLiteral("toggle_vim_navigation"), m_vimNavigationAction);
+    connect(m_vimNavigationAction, &KToggleAction::triggered, this, [this](bool enabled) {
+        Settings::setVimNavigation(enabled);
+        Settings::self()->save();
+        for (Pane *pane : {m_left, m_right}) {
+            pane->reloadVimNavigationSetting();
+        }
+        showStatusMessage(enabled ? i18nc("@info:status", "Vim-style navigation on: j and k move, h opens the parent folder, l opens, / filters")
+                                  : i18nc("@info:status", "Vim-style navigation off"));
+    });
     const auto addYaziColumnAction = [this, actions](const QString &name, const QString &text, const QString &toolTip, YaziMode::Command command) {
         QAction *action = actions->addAction(name, this, [this, command] {
             activePane()->runYaziCommand(command);
@@ -9294,6 +9308,7 @@ void MainWindow::applySettings()
     m_automaticRemoteSizeDefault = Settings::automaticRemoteFolderSizes();
     applyPaneBackgrounds();
     m_yaziVimKeysAction->setChecked(Settings::yaziKeyPreset() == Settings::EnumYaziKeyPreset::Vim);
+    m_vimNavigationAction->setChecked(Settings::vimNavigation());
     for (Pane *pane : {m_left, m_right}) {
         pane->setInactiveDimming(Settings::dimInactivePane(), Settings::inactivePaneOpacity());
         pane->reloadTabSettings();
@@ -9302,6 +9317,7 @@ void MainWindow::applySettings()
         pane->setNewTabsAfterCurrent(Settings::newTabsAfterCurrent());
         pane->reloadYaziPreviewSetting();
         pane->reloadYaziKeySettings();
+        pane->reloadVimNavigationSetting();
         pane->setFollowSymlinks(Settings::followSymlinks());
 
         FolderView *view = pane->view();

@@ -845,6 +845,7 @@ private:
     KToggleAction *m_yaziParentColumnAction = nullptr;
     QToolButton *m_yaziModeStatusButton = nullptr;
     KToggleAction *m_yaziVimKeysAction = nullptr;
+    KToggleAction *m_vimNavigationAction = nullptr;
     QList<QAction *> m_yaziColumnActions;
     KToggleAction *m_stackedLayoutAction = nullptr;
     KToggleAction *m_hiddenFilesAction = nullptr;

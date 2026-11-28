@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="78" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="79" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -125,6 +125,7 @@
       <Action name="toggle_yazi_preview_information"/>
       <Action name="toggle_yazi_parent_column"/>
       <Action name="toggle_yazi_vim_keys"/>
+      <Action name="toggle_vim_navigation"/>
       <Action name="folder_format_source"/>
       <Action name="open_folder_format_source"/>
       <Action name="clear_folder_format"/>

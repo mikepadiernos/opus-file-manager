@@ -11,6 +11,7 @@
 #include "navigationshortcuts.h"
 #include "settings.h"
 #include "settingswidgets.h"
+#include "vimnavigation.h"
 #include "windowshortcuts.h"
 
 #include <KActionCollection>
@@ -506,6 +507,141 @@ QWidget *SettingsDialog::createKeyboardNavigationPage()
         });
     });
     m_refreshKeyboardNavigation();
+    return page;
+}
+
+QWidget *SettingsDialog::createKeyboardVimPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("keyboardVimPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *window = qobject_cast<KXmlGuiWindow *>(parentWidget());
+
+    layout->addWidget(notice(QStringLiteral("keyboardVimIntro"),
+                             i18nc("@info",
+                                   "Move through the file views of panes that aren't in Yazi mode with Vim-style keys: j and k "
+                                   "move down and up, h opens the parent folder and l the focused item. The keys apply only while "
+                                   "a file view has the keyboard focus. View › Vim-Style Navigation turns them on or off too.")));
+    layout->addWidget(SettingsWidgets::checkBox(QStringLiteral("VimNavigation"), i18nc("@option:check", "Use Vim-style keys in file views")));
+
+    auto *keysGroup = new QGroupBox(i18nc("@title:group", "Keys"), page);
+    auto *keysLayout = new QVBoxLayout(keysGroup);
+    auto *keys = new QTreeWidget(keysGroup);
+    keys->setObjectName(QStringLiteral("keyboardVimKeys"));
+    keys->setAccessibleName(i18nc("@label accessible name", "Vim-style keys and their commands"));
+    keys->setHeaderLabels({i18nc("@title:column", "Keys"), i18nc("@title:column", "Command")});
+    keys->setRootIsDecorated(false);
+    keys->setUniformRowHeights(true);
+    keys->setMinimumHeight(keys->fontMetrics().height() * 12);
+    // One row per command, listing its keys, in the order of the keymap.
+    QList<std::pair<YaziMode::Command, QStringList>> rows;
+    for (const YaziMode::Binding &binding : VimNavigation::keymap().bindings) {
+        auto row = std::find_if(rows.begin(), rows.end(), [&binding](const auto &candidate) {
+            return candidate.first == binding.command;
+        });
+        if (row == rows.end()) {
+            rows.append({binding.command, {}});
+            row = rows.end() - 1;
+        }
+        row->second.append(YaziMode::sequenceText(binding.keys));
+    }
+    for (const auto &[command, texts] : std::as_const(rows)) {
+        auto *item = new QTreeWidgetItem(keys, {texts.join(i18nc("@item separator of keys", ", ")), YaziMode::commandText(command)});
+        item->setData(0, Qt::UserRole, YaziMode::commandId(command));
+    }
+    keys->resizeColumnToContents(0);
+    keysLayout->addWidget(keys);
+    keysLayout->addWidget(notice(QStringLiteral("keyboardVimCountsNotice"),
+                                 i18nc("@info",
+                                       "Type a number before a movement key to repeat it, as in 5j. While the keys are on, digits "
+                                       "from 1 to 9 begin a count and the letters listed here don't start filtering as you type; "
+                                       "press / to filter. Other letters still filter as you type. The arrow keys, Enter, Tab and "
+                                       "Escape work as before.")));
+    layout->addWidget(keysGroup, 1);
+
+    auto *conflictsGroup = new QGroupBox(i18nc("@title:group", "Conflicts"), page);
+    auto *conflictsLayout = new QVBoxLayout(conflictsGroup);
+    QLabel *conflictSummary = notice(QStringLiteral("keyboardVimConflictSummary"));
+    conflictsLayout->addWidget(conflictSummary);
+    auto *conflicts = new QListWidget(conflictsGroup);
+    conflicts->setObjectName(QStringLiteral("keyboardVimConflicts"));
+    conflicts->setAccessibleName(i18nc("@label accessible name", "Conflicts of the Vim-style keys"));
+    conflicts->setWordWrap(true);
+    conflictsLayout->addWidget(conflicts);
+    conflictsLayout->addWidget(notice(QStringLiteral("keyboardVimConflictsNotice"),
+                                      i18nc("@info",
+                                            "A window shortcut that uses a plain key listed here doesn't run while a file view has the "
+                                            "keyboard focus; it still runs from the menus and toolbars, and from the keyboard when the "
+                                            "focus is elsewhere. Keys with Ctrl, Alt or Meta, such as Ctrl+D, never replace a window "
+                                            "shortcut: the shortcut keeps running, and the Vim-style key works only while no shortcut "
+                                            "uses it.")));
+    layout->addWidget(conflictsGroup);
+
+    QPushButton *configure =
+        iconButton(QStringLiteral("keyboardVimConfigure"), i18nc("@action:button", "Configure Keyboard Shortcuts…"), QStringLiteral("configure-shortcuts"));
+    const QPointer<QAction> shortcutsAction = window ? window->actionCollection()->action(KStandardAction::name(KStandardAction::KeyBindings)) : nullptr;
+    configure->setEnabled(!shortcutsAction.isNull());
+    connect(configure, &QPushButton::clicked, this, [shortcutsAction] {
+        if (shortcutsAction) {
+            shortcutsAction->trigger();
+        }
+    });
+    QPushButton *map = iconButton(QStringLiteral("keyboardVimMap"), i18nc("@action:button", "Keyboard Map…"), QStringLiteral("help-keybord-shortcuts"));
+    const QPointer<QAction> mapAction = window ? window->actionCollection()->action(QStringLiteral("keyboard_map")) : nullptr;
+    map->setEnabled(!mapAction.isNull());
+    connect(map, &QPushButton::clicked, this, [mapAction] {
+        if (mapAction) {
+            mapAction->trigger();
+        }
+    });
+    auto *buttons = new QHBoxLayout;
+    buttons->addWidget(configure);
+    buttons->addWidget(map);
+    buttons->addStretch();
+    layout->addLayout(buttons);
+
+    layout->addWidget(notice(QStringLiteral("keyboardVimAccessibilityNotice"),
+                             i18nc("@info",
+                                   "Keys are never taken from typing: not in the filter bar, the location bar, search fields, "
+                                   "the terminal, input methods or while renaming an item in place. A pane in Yazi mode uses "
+                                   "Yazi mode's key preset instead, chosen under Yazi Mode › Keyboard.")));
+
+    m_refreshKeyboardVim = [this, conflictSummary, conflicts] {
+        const YaziMode::Keymap keymap = VimNavigation::keymap();
+        const QList<YaziMode::ActionShortcuts> actions = windowActionShortcuts();
+        QStringList found = keymapConflicts(keymap, VimNavigation::shadowedShortcuts(keymap, actions));
+        const QList<YaziMode::ShadowedShortcut> yielded = VimNavigation::yieldedShortcuts(keymap, actions);
+        for (const YaziMode::ShadowedShortcut &shortcut : yielded) {
+            if (shortcut.bindings.isEmpty()) {
+                continue;
+            }
+            found.append(i18nc("@item %1 shortcut, %2 window action, %3 Vim-style command",
+                               "%1 runs “%2”, so it doesn't run “%3”",
+                               shortcut.shortcut.toString(QKeySequence::NativeText),
+                               shortcut.text,
+                               YaziMode::commandText(keymap.bindings.at(shortcut.bindings.first()).command)));
+        }
+        conflicts->clear();
+        conflicts->addItems(found);
+        conflicts->setVisible(!found.isEmpty());
+        conflictSummary->setText(found.isEmpty() ? i18nc("@info", "No conflicts: every Vim-style key works, and so do the window's shortcuts.")
+                                                 : i18ncp("@info",
+                                                          "The Vim-style keys have 1 conflict while a file view has the keyboard focus:",
+                                                          "The Vim-style keys have %1 conflicts while a file view has the keyboard focus:",
+                                                          found.size()));
+    };
+    if (window && window->guiFactory()) {
+        connect(window->guiFactory(), &KXMLGUIFactory::shortcutsSaved, page, [this] {
+            m_refreshKeyboardVim();
+        });
+    }
+    // Saved settings, such as the extra navigation shortcuts, change the window's shortcuts once the window applies them.
+    connect(Settings::self(), &Settings::configChanged, page, [this, page] {
+        QTimer::singleShot(0, page, [this] {
+            m_refreshKeyboardVim();
+        });
+    });
+    m_refreshKeyboardVim();
     return page;
 }
 

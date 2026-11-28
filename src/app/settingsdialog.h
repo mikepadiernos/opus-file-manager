@@ -3,6 +3,7 @@
 #pragma once
 
 #include "activityassociations.h"
+#include "yazimode.h"
 
 #include <KConfigDialog>
 #include <KFilePlacesModel>
@@ -263,6 +264,13 @@ private:
     void updateYaziKeyPreview();
     /// The conflicts of key preset @p preset, as shown to the user: its own, then the window shortcuts it shadows.
     QStringList yaziKeyConflicts(int preset) const;
+    /// The shortcuts of the window's actions and of its panes' toolbar actions that key bindings can shadow.
+    QList<YaziMode::ActionShortcuts> windowActionShortcuts() const;
+    /**
+     * The conflicts of @p keymap, as shown to the user: those among its own
+     * bindings, then the window shortcuts in @p shadowed that it takes over.
+     */
+    static QStringList keymapConflicts(const YaziMode::Keymap &keymap, const QList<YaziMode::ShadowedShortcut> &shadowed);
     /**
      * Asks before applying a key preset with conflicts; when that is
      * declined, chooses the applied preset again.
@@ -281,6 +289,8 @@ private:
     QWidget *createKeyboardShortcutsPage();
     /// The Keyboard › Navigation tab: the pane, tab, selection, filter, preview and terminal actions and their extra keys.
     QWidget *createKeyboardNavigationPage();
+    /// The Keyboard › Vim Mode tab: Vim-style navigation in the file views of panes that aren't in Yazi mode, its keys and conflicts.
+    QWidget *createKeyboardVimPage();
     /// The Keyboard › Command Palette tab: the palette's shortcut, whether it lists saved commands and its recently used actions.
     QWidget *createKeyboardCommandPalettePage();
     /// Shows the tab whose widget is named @p tabName and the sidebar page it is on.
@@ -585,6 +595,8 @@ private:
     std::function<void()> m_refreshKeyboardShortcuts;
     /// Lists the navigation actions and their extra keys on the Keyboard › Navigation tab again.
     std::function<void()> m_refreshKeyboardNavigation;
+    /// Lists the Vim-style keys and the window shortcuts they shadow on the Keyboard › Vim Mode tab again.
+    std::function<void()> m_refreshKeyboardVim;
     /// Shows the command palette's shortcut and recently used actions on the Keyboard › Command Palette tab again.
     std::function<void()> m_refreshCommandPalette;
     std::function<bool()> m_portalAvailable;

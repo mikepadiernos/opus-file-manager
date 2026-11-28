@@ -4,6 +4,7 @@
 
 #include "doubleshift.h"
 #include "settings.h"
+#include "vimnavigation.h"
 #include "windowshortcuts.h"
 #include "yazimode.h"
 
@@ -142,17 +143,30 @@ QList<KeyboardMap::Entry> KeyboardMapDialog::entries(KXmlGuiWindow *window)
                               KeyBindings::contextText(KeyBindings::Context::Application)});
     }
 
-    // Yazi mode binds some commands to several keys, such as Up and K; each command is one entry.
-    QList<KeyboardMap::Entry> yaziEntries;
-    const YaziMode::Keymap keymap = YaziMode::presetKeymap(static_cast<YaziMode::Preset>(Settings::yaziKeyPreset()));
+    // Yazi mode and Vim-style navigation bind some commands to several keys, such as Up and K; each command is one entry.
+    const QList<KeyboardMap::Entry> yaziEntries = keymapEntries(YaziMode::presetKeymap(static_cast<YaziMode::Preset>(Settings::yaziKeyPreset())),
+                                                                QString(),
+                                                                i18nc("@item where a keyboard shortcut applies", "Yazi mode columns"));
+    const QList<KeyboardMap::Entry> vimEntries =
+        keymapEntries(VimNavigation::keymap(),
+                      QStringLiteral("vim-"),
+                      Settings::vimNavigation()
+                          ? i18nc("@item where a keyboard shortcut applies", "File views with Vim-style navigation")
+                          : i18nc("@item where a keyboard shortcut applies", "File views with Vim-style navigation (off: Preferences › Keyboard › Vim Mode)"));
+    return windowEntries + galleryEntries + yaziEntries + vimEntries + globalEntries;
+}
+
+QList<KeyboardMap::Entry> KeyboardMapDialog::keymapEntries(const YaziMode::Keymap &keymap, const QString &namePrefix, const QString &context)
+{
+    QList<KeyboardMap::Entry> found;
     for (const YaziMode::Binding &binding : keymap.bindings) {
-        const QString id = YaziMode::commandId(binding.command);
-        auto entry = std::find_if(yaziEntries.begin(), yaziEntries.end(), [&id](const KeyboardMap::Entry &e) {
+        const QString id = namePrefix + YaziMode::commandId(binding.command);
+        auto entry = std::find_if(found.begin(), found.end(), [&id](const KeyboardMap::Entry &e) {
             return e.name == id;
         });
-        if (entry == yaziEntries.end()) {
-            yaziEntries.append({id, YaziMode::commandText(binding.command), {}, {}, {}, i18nc("@item where a keyboard shortcut applies", "Yazi mode columns")});
-            entry = std::prev(yaziEntries.end());
+        if (entry == found.end()) {
+            found.append({id, YaziMode::commandText(binding.command), {}, {}, {}, context});
+            entry = std::prev(found.end());
         }
         const YaziMode::KeySequence &keys = binding.keys;
         const QKeyCombination none = QKeyCombination::fromCombined(0);
@@ -162,7 +176,7 @@ QList<KeyboardMap::Entry> KeyboardMapDialog::entries(KXmlGuiWindow *window)
         }
         entry->keysText += YaziMode::sequenceText(keys);
     }
-    return windowEntries + galleryEntries + yaziEntries + globalEntries;
+    return found;
 }
 
 void KeyboardMapDialog::setSearchKeys(const QKeySequence &keys)

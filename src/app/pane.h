@@ -20,6 +20,7 @@ class KUrlNavigator;
 class TabColors;
 class TabModel;
 class YaziColumns;
+class YaziKeys;
 class QTabBar;
 class QGraphicsOpacityEffect;
 class QBoxLayout;
@@ -236,6 +237,23 @@ public:
      * assistive technology.
      */
     void reportYaziMessage(const QString &message);
+    /**
+     * Applies the VimNavigation setting: while it is on, Vim-style keys move
+     * through the pane's file view. A pane in Yazi mode uses Yazi mode's key
+     * preset instead.
+     */
+    void reloadVimNavigationSetting();
+    /// Whether Vim-style keys apply to the pane's file view now.
+    bool vimNavigationActive() const;
+    /// The keys of Vim-style navigation; see VimNavigation.
+    YaziKeys *vimKeys() const;
+    /**
+     * Runs a Vim-style navigation command in this pane, as its keys do.
+     * Does nothing while the pane is in Yazi mode or the keys are off.
+     * @param command the command to run
+     * @param count how many times to repeat a command that takes a count
+     */
+    void runVimCommand(YaziMode::Command command, int count = 1);
 
 public Q_SLOTS:
     void setUrl(const QUrl &url);
@@ -310,6 +328,8 @@ private:
     /// Records ratios the user dragged the columns to, and saves them as the setting once dragging pauses.
     void rememberYaziColumnRatios(const YaziMode::Ratios &ratios);
     void saveYaziColumnRatiosSetting();
+    /// Shows @p message in the window's status bar and announces it, as for a Vim-style command that can't run.
+    void reportVimMessage(const QString &message);
     /// Closes the pane's tabs and opens those of @p state with their pins, locks and names.
     void rebuildTabs(const PaneSession &state);
     void saveHistoryViewState();
@@ -372,6 +392,7 @@ private:
     QAction *m_yaziMenuAction = nullptr;
     QAction *m_yaziToolbarAction = nullptr;
     FilterBar *m_filterBar = nullptr;
+    YaziKeys *m_vimKeys = nullptr;
     QVBoxLayout *m_layout = nullptr;
     QHBoxLayout *m_outerLayout = nullptr;
     QBoxLayout *m_stripLayout = nullptr;

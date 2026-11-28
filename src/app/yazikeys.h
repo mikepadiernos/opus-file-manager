@@ -8,6 +8,7 @@
 
 #include <functional>
 
+class QAbstractItemView;
 class QTimer;
 class QWidget;
 
@@ -34,6 +35,14 @@ public:
 
     void setPreset(YaziMode::Preset preset);
     YaziMode::Preset preset() const;
+    /// Matches @p keymap instead of the preset's keys, as Vim-style navigation outside Yazi mode does.
+    void setKeymap(const YaziMode::Keymap &keymap);
+    /**
+     * Lets window shortcuts keep keys with Ctrl, Alt or Meta: such a key is
+     * matched only when no shortcut takes it. Plain keys still override
+     * window shortcuts.
+     */
+    void setModifiedKeysYield(bool yield);
     /// Disabling also cancels a pending sequence.
     void setEnabled(bool enabled);
     bool isEnabled() const;
@@ -59,9 +68,26 @@ public:
 
     /// Sends @p key to @p target as the widget's own key, bypassing the preset.
     void sendKey(QWidget *target, Qt::Key key, Qt::KeyboardModifiers modifiers = Qt::NoModifier);
+    /**
+     * Moves the current item of @p view for a movement command, such as
+     * MoveDown, MoveLast or HalfPageUp, repeated @p count times where the
+     * command takes a count, by sending the view its own keys with
+     * @p modifiers. The view moves the focus and selection as those keys
+     * always do, in every view mode. @p afterStep runs after each key.
+     * @returns false when @p command isn't a movement command
+     */
+    bool move(QAbstractItemView *view,
+              YaziMode::Command command,
+              int count,
+              Qt::KeyboardModifiers modifiers = Qt::NoModifier,
+              const std::function<void()> &afterStep = {});
 
     /// Whether @p widget takes typed text, such as a line edit, a text editor, a spin box or a combo box.
     static bool isTypingWidget(const QWidget *widget);
+    /// Whether @p view has an inline editor open, as when renaming in place.
+    static bool isEditing(const QAbstractItemView *view);
+    /// About half the rows @p view shows at once.
+    static int halfPageRows(const QAbstractItemView *view);
 
 Q_SIGNALS:
     /// A key sequence completed; run @p command @p count times where that makes sense.
@@ -85,4 +111,5 @@ private:
     std::function<bool()> m_escapeActive;
     bool m_enabled = false;
     bool m_sending = false;
+    bool m_modifiedKeysYield = false;
 };

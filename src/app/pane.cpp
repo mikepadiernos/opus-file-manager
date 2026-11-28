@@ -17,6 +17,7 @@
 #include "symlinks.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
+#include "vimnavigation.h"
 #include "windoweffects.h"
 #include "yazicolumns.h"
 #include "yazikeys.h"
@@ -380,6 +381,17 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     m_filterBar = new FilterBar(this);
     m_defaultFilterScope = Settings::defaultFilterScope();
     m_layout->addWidget(m_filterBar);
+    m_vimKeys = new YaziKeys(this);
+    m_vimKeys->setKeymap(VimNavigation::keymap());
+    m_vimKeys->setModifiedKeysYield(true);
+    m_vimKeys->setFocusFilter([this](QWidget *widget) {
+        auto *items = m_view->currentView();
+        return !m_yaziMode && widget == items && !YaziKeys::isEditing(items);
+    });
+    // Installed after the view's own filter, so the keys are matched before type-ahead sees them.
+    m_vimKeys->watch(m_view->currentView());
+    connect(m_vimKeys, &YaziKeys::commandTriggered, this, &Pane::runVimCommand);
+    reloadVimNavigationSetting();
 
     // Model -> widgets
     connect(m_tabs, &TabModel::tabInserted, this, &Pane::syncTabBar);
@@ -521,6 +533,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
         m_view->currentView()->setFocus();
     });
     connect(m_view, &FolderView::viewModeChanged, this, [viewGroup, this] {
+        m_vimKeys->watch(m_view->currentView());
         for (QAction *action : viewGroup->actions()) {
             action->setChecked(action->data().toInt() == static_cast<int>(m_view->viewMode()));
         }
@@ -1228,6 +1241,7 @@ void Pane::setYaziMode(bool enabled)
     m_yaziMenuAction->setChecked(enabled);
     m_yaziToolbarAction->setChecked(enabled);
     YaziColumns::announce(m_view->currentView(), enabled ? i18nc("@info:accessibility", "Yazi mode on") : i18nc("@info:accessibility", "Yazi mode off"));
+    reloadVimNavigationSetting();
     Q_EMIT yaziModeChanged(enabled);
     Q_EMIT workspaceLayoutChanged();
 }
@@ -1415,6 +1429,100 @@ YaziColumns *Pane::yaziColumns() const
 void Pane::reloadYaziKeySettings()
 {
     m_yaziColumns->keys()->setPreset(Settings::yaziKeyPreset() == Settings::EnumYaziKeyPreset::Vim ? YaziMode::Preset::Vim : YaziMode::Preset::Standard);
+}
+
+void Pane::reloadVimNavigationSetting()
+{
+    m_vimKeys->setEnabled(Settings::vimNavigation() && !m_yaziMode);
+}
+
+bool Pane::vimNavigationActive() const
+{
+    return m_vimKeys->isEnabled();
+}
+
+YaziKeys *Pane::vimKeys() const
+{
+    return m_vimKeys;
+}
+
+void Pane::reportVimMessage(const QString &message)
+{
+    Q_EMIT statusMessage(message);
+    YaziColumns::announce(m_view->currentView(), message);
+}
+
+void Pane::runVimCommand(YaziMode::Command command, int count)
+{
+    if (m_yaziMode || !m_vimKeys->isEnabled()) {
+        return;
+    }
+    using YaziMode::Command;
+    QAbstractItemView *items = m_view->currentView();
+    switch (command) {
+    case Command::Parent: {
+        const QUrl current = url();
+        const QUrl parent = YaziMode::parentFolder(current);
+        if (parent.isEmpty()) {
+            reportVimMessage(i18nc("@info:status", "This folder has no parent folder to open."));
+        } else {
+            // Highlight the folder just left, once it is listed.
+            showFolderItem(parent, YaziMode::parentItem(current));
+        }
+        break;
+    }
+    case Command::Open:
+        if (!items->currentIndex().isValid()) {
+            reportVimMessage(i18nc("@info:status", "There is no focused item to open."));
+        } else {
+            m_view->activateCurrentItem();
+        }
+        break;
+    case Command::Back:
+        if (m_tabs->canGoBack()) {
+            goBack();
+        } else {
+            reportVimMessage(i18nc("@info:status", "There is no earlier folder in this tab's history."));
+        }
+        break;
+    case Command::Forward:
+        if (m_tabs->canGoForward()) {
+            goForward();
+        } else {
+            reportVimMessage(i18nc("@info:status", "There is no later folder in this tab's history."));
+        }
+        break;
+    case Command::Home:
+        setUrl(Settings::homeUrl());
+        break;
+    case Command::Filter:
+        showFilterBar();
+        break;
+    case Command::ClearFilter:
+        if (m_filterBar->filter().isEmpty()) {
+            reportVimMessage(i18nc("@info:status", "This pane has no filter to clear."));
+        } else {
+            m_filterBar->close();
+        }
+        break;
+    case Command::PreviousTab:
+    case Command::NextTab:
+        if (m_tabs->count() < 2) {
+            reportVimMessage(i18nc("@info:status", "This pane has only one tab."));
+        } else if (command == Command::NextTab) {
+            m_tabs->activateNext();
+        } else {
+            m_tabs->activatePrevious();
+        }
+        break;
+    default:
+        if (!items->model() || items->model()->rowCount(items->rootIndex()) == 0) {
+            reportVimMessage(i18nc("@info:status", "This folder has no items to move through."));
+        } else {
+            m_vimKeys->move(items, command, count);
+        }
+        break;
+    }
 }
 
 void Pane::reportYaziMessage(const QString &message)
