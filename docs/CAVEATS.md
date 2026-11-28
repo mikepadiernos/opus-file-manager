@@ -4173,6 +4173,22 @@ The M31 keyboard shortcut settings have these limits
   while KDE's global shortcut service runs; the container has none
   ([Plasma check](TODO.md#keyboard-shortcuts-on-plasma-230)).
   ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230))
+- **🎯 Shortcut contexts:** Every action in **Configure Keyboard Shortcuts…**
+  applies to the whole window; it can't be limited to the file views, the
+  folder tree or the gallery. Instead, the focused text field keeps a fixed
+  list of typing and editing keys, including <kbd>Tab</kbd>, and lists and
+  the folder tree keep the arrow keys, <kbd>Home</kbd>, <kbd>End</kbd>,
+  <kbd>Page Up</kbd> and <kbd>Page Down</kbd>. That list follows KDE's
+  standard editing keys, not a changed key scheme or the field's own extra
+  keys, and only a shortcut's first key is checked. Default shortcuts such as
+  <kbd>Space</kbd>, <kbd>Backspace</kbd> and <kbd>Delete</kbd> still run in
+  file views and aren't reported. <kbd>Escape</kbd>, <kbd>F10</kbd> and
+  <kbd>Menu</kbd> given to an action are reported but not kept back.
+  Read-only text, combo boxes without a text field and the embedded terminal
+  are left alone; the terminal keeps whichever keys it chooses. The gallery's
+  keys are fixed. Keyboard layouts other than the container's are unverified
+  ([Plasma check](TODO.md#shortcut-contexts-on-plasma-233)).
+  ([#233](https://github.com/mikepadiernos/plasma-opus/issues/233))
 
 - **Recommendation:**
   - **Shortcut settings:** Change shortcuts in **Configure Keyboard
@@ -4183,12 +4199,22 @@ The M31 keyboard shortcut settings have these limits
     don't give a single combination that begins one of your sequences to
     another action. Change global shortcuts where they are configured, and
     open Preferences from a Plasma Opus window when reviewing shortcuts.
+  - **Shortcut contexts:** Give window actions shortcuts with <kbd>Ctrl</kbd>
+    or <kbd>Alt</kbd>, a function key, or a key sequence, so they work
+    wherever the focus is; plain letters, arrows and editing keys only run
+    them outside text fields and lists. Leave <kbd>Escape</kbd>,
+    <kbd>F10</kbd>, <kbd>Menu</kbd> and <kbd>Tab</kbd> to keyboard
+    navigation, and press <kbd>Escape</kbd> or click a pane before using a
+    plain-key shortcut from a text field.
   - Comment:
     [#771.7231940238](https://github.com/mikepadiernos/plasma-opus/issues/771#issuecomment-7231940238)
 - **Proposed improvements:**
   - List the Yazi mode preset keys and the gallery's keys with the other
     shortcuts, review shortcuts before they are saved, and reset global
     shortcuts from the tab.
+  - Let an action be limited to the file views, the folder tree or the
+    gallery, read the keys text fields keep from the active key scheme, and
+    let the gallery's keys be changed.
 
 ## Embedded terminal
 
