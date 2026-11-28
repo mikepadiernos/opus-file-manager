@@ -22,6 +22,7 @@
 #include "cloudsyncrunner.h"
 #include "colorschemes.h"
 #include "combinedpanel.h"
+#include "commandpalettebar.h"
 #include "compressdialog.h"
 #include "contentchartdialog.h"
 #include "customcommanddialog.h"
@@ -4272,6 +4273,17 @@ void MainWindow::setupActions()
     keyboardMap->setIcon(QIcon::fromTheme(QStringLiteral("help-keybord-shortcuts")));
     keyboardMap->setToolTip(
         i18nc("@info:tooltip", "List every action with its shortcuts, search them by name or by pressing keys, and export a printable reference"));
+    // KDE's window creates the command bar action, under Help; it opens the
+    // palette, which lists only the actions it can run where the user is.
+    setCommandBarEnabled(false);
+    if (QAction *palette = actions->action(QString::fromLatin1(CommandPalette::ActionName))) {
+        palette->setText(i18nc("@action", "Command Palette…"));
+        palette->setIcon(SymbolicIcon::fromTheme(QStringLiteral("search")));
+        palette->setToolTip(i18nc("@info:tooltip", "Search the actions of the menus and toolbars and the saved commands by name, and run one"));
+        // Dolphin's and Kate's key, which no other action uses.
+        KActionCollection::setDefaultShortcut(palette, QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_I));
+        connect(palette, &QAction::triggered, this, &MainWindow::showCommandPalette);
+    }
     QAction *showMenuBar = KStandardAction::showMenubar(menuBar(), &QMenuBar::setVisible, actions);
     KHamburgerMenu *hamburger = KStandardAction::hamburgerMenu(nullptr, nullptr, actions);
     hamburger->setMenuBar(menuBar());
@@ -9479,6 +9491,26 @@ void MainWindow::applyViewDefaults()
     }
     m_previewsAction->setChecked(Settings::showPreviews());
     setPreviewsEnabled(Settings::showPreviews());
+}
+
+void MainWindow::showCommandPalette()
+{
+    if (m_commandPalette) {
+        m_commandPalette->setFocus(Qt::ShortcutFocusReason);
+        return;
+    }
+    Pane *pane = activePane();
+    m_commandPalette = new CommandPaletteBar(this);
+    m_commandPalette->setFallbackFocus(pane->view()->currentView());
+    // Pane actions run in the pane that had the focus, even when closing the palette moved it.
+    connect(m_commandPalette, &CommandPaletteBar::focusReturned, this, [this, pane = QPointer<Pane>(pane)] {
+        if (pane) {
+            setActivePane(pane);
+        }
+    });
+    CommandPalette::Options options;
+    options.savedCommands = Settings::commandPaletteSavedCommands();
+    m_commandPalette->open(options);
 }
 
 void MainWindow::showKeyboardMap()

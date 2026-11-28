@@ -281,6 +281,8 @@ private:
     QWidget *createKeyboardShortcutsPage();
     /// The Keyboard › Navigation tab: the pane, tab, selection, filter, preview and terminal actions and their extra keys.
     QWidget *createKeyboardNavigationPage();
+    /// The Keyboard › Command Palette tab: the palette's shortcut, whether it lists saved commands and its recently used actions.
+    QWidget *createKeyboardCommandPalettePage();
     /// Shows the tab whose widget is named @p tabName and the sidebar page it is on.
     void showSettingsTab(const QString &tabName);
     /**
@@ -583,6 +585,8 @@ private:
     std::function<void()> m_refreshKeyboardShortcuts;
     /// Lists the navigation actions and their extra keys on the Keyboard › Navigation tab again.
     std::function<void()> m_refreshKeyboardNavigation;
+    /// Shows the command palette's shortcut and recently used actions on the Keyboard › Command Palette tab again.
+    std::function<void()> m_refreshCommandPalette;
     std::function<bool()> m_portalAvailable;
     std::function<QString()> m_restartPortal;
     std::function<bool(const QString &)> m_confirmPortalRestart;

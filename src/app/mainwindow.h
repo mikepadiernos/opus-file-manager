@@ -33,6 +33,7 @@
 class ActivityController;
 class CloudActivityDialog;
 class KeyboardMapDialog;
+class CommandPaletteBar;
 class CloudSyncDialog;
 namespace CloudActivity
 {
@@ -621,6 +622,8 @@ private:
     void showSettings();
     /// Shows Help › Keyboard Map…, or raises it when it is open.
     void showKeyboardMap();
+    /// Shows Help › Command Palette…, or gives it the focus when it is open.
+    void showCommandPalette();
     void showToolbarSettings();
     /// Applies the settings that only take effect in a new window.
     void applyViewDefaults();
@@ -694,6 +697,7 @@ private:
     CloudActivity::Monitor *m_cloudActivity = nullptr;
     QPointer<CloudActivityDialog> m_cloudActivityDialog;
     QPointer<KeyboardMapDialog> m_keyboardMap;
+    QPointer<CommandPaletteBar> m_commandPalette;
     ActivityController *m_activityController = nullptr;
     KdeConnectClient *m_kdeConnect = nullptr;
     MountBackend *m_mountBackend = nullptr;

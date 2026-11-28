@@ -23,6 +23,8 @@ add_library(opusfm_app STATIC
     cloudsyncdialog.h
     combinedpanel.cpp
     combinedpanel.h
+    commandpalettebar.cpp
+    commandpalettebar.h
     compressdialog.cpp
     compressdialog.h
     contentheight.cpp

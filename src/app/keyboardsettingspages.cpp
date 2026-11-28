@@ -2,6 +2,7 @@
 
 #include "settingsdialog.h"
 
+#include "commandpalette.h"
 #include "desktoptray.h"
 #include "doubleshift.h"
 #include "keybindings.h"
@@ -13,8 +14,10 @@
 #include "windowshortcuts.h"
 
 #include <KActionCollection>
+#include <KConfigGroup>
 #include <KGlobalAccel>
 #include <KLocalizedString>
+#include <KSharedConfig>
 #include <KStandardAction>
 #include <KXMLGUIFactory>
 #include <KXmlGuiWindow>
@@ -24,6 +27,7 @@
 #include <QComboBox>
 #include <QDateTime>
 #include <QDir>
+#include <QEvent>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
@@ -90,6 +94,30 @@ QHBoxLayout *statusRow(QLabel *status, QPushButton *show)
     row->addWidget(show, 0, Qt::AlignTop);
     return row;
 }
+
+/// Calls a function each time the watched widget is shown, such as when its tab is chosen.
+class ShowWatcher : public QObject
+{
+public:
+    ShowWatcher(QWidget *widget, std::function<void()> shown)
+        : QObject(widget)
+        , m_shown(std::move(shown))
+    {
+        widget->installEventFilter(this);
+    }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (watched == parent() && event->type() == QEvent::Show) {
+            m_shown();
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    std::function<void()> m_shown;
+};
 }
 
 QWidget *SettingsDialog::createKeyboardShortcutsPage()
@@ -478,6 +506,96 @@ QWidget *SettingsDialog::createKeyboardNavigationPage()
         });
     });
     m_refreshKeyboardNavigation();
+    return page;
+}
+
+QWidget *SettingsDialog::createKeyboardCommandPalettePage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("keyboardCommandPalettePage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *window = qobject_cast<KXmlGuiWindow *>(parentWidget());
+
+    layout->addWidget(notice(QStringLiteral("keyboardCommandPaletteIntro"),
+                             i18nc("@info",
+                                   "The command palette, under Help › Command Palette, lists the actions of the menus and "
+                                   "toolbars by name, with their shortcuts. Type part of a name and press Enter to run the "
+                                   "action in the pane that had the keyboard focus; unavailable actions aren't listed, and "
+                                   "the recently used ones come first.")));
+    QLabel *shortcut = notice(QStringLiteral("keyboardCommandPaletteShortcut"));
+    layout->addWidget(shortcut);
+    layout->addWidget(SettingsWidgets::checkBox(QStringLiteral("CommandPaletteSavedCommands"), i18nc("@option:check", "List saved commands")));
+    layout->addWidget(notice(QStringLiteral("keyboardCommandPaletteSavedNotice"),
+                             i18nc("@info",
+                                   "Choosing a saved command opens it in the Scripts and Custom Commands window to preview, "
+                                   "as its own shortcut does; it runs only once you start it there.")));
+
+    auto *historyGroup = new QGroupBox(i18nc("@title:group", "Recently Used"), page);
+    auto *historyLayout = new QVBoxLayout(historyGroup);
+    QLabel *historySummary = notice(QStringLiteral("keyboardCommandPaletteHistorySummary"));
+    historyLayout->addWidget(historySummary);
+    auto *history = new QListWidget(historyGroup);
+    history->setObjectName(QStringLiteral("keyboardCommandPaletteHistory"));
+    history->setAccessibleName(i18nc("@label accessible name", "Actions recently run from the command palette, most recent first"));
+    history->setMinimumHeight(history->fontMetrics().height() * (CommandPalette::HistorySize + 1));
+    historyLayout->addWidget(history);
+    QPushButton *clear =
+        iconButton(QStringLiteral("keyboardCommandPaletteClearHistory"), i18nc("@action:button", "Clear History"), QStringLiteral("edit-clear-history"));
+    clear->setToolTip(i18nc("@info:tooltip", "Forget which actions were recently run from the command palette"));
+    auto *historyButtons = new QHBoxLayout;
+    historyButtons->addWidget(clear);
+    historyButtons->addStretch();
+    historyLayout->addLayout(historyButtons);
+    layout->addWidget(historyGroup);
+
+    QPushButton *configure = iconButton(QStringLiteral("keyboardCommandPaletteConfigure"),
+                                        i18nc("@action:button", "Configure Keyboard Shortcuts…"),
+                                        QStringLiteral("configure-shortcuts"));
+    const QPointer<QAction> shortcutsAction = window ? window->actionCollection()->action(KStandardAction::name(KStandardAction::KeyBindings)) : nullptr;
+    configure->setEnabled(!shortcutsAction.isNull());
+    connect(configure, &QPushButton::clicked, this, [shortcutsAction] {
+        if (shortcutsAction) {
+            shortcutsAction->trigger();
+        }
+    });
+    auto *buttons = new QHBoxLayout;
+    buttons->addWidget(configure);
+    buttons->addStretch();
+    layout->addLayout(buttons);
+    layout->addStretch();
+
+    m_refreshCommandPalette = [window, shortcut, historySummary, history, clear] {
+        const QAction *action = window ? window->actionCollection()->action(QString::fromLatin1(CommandPalette::ActionName)) : nullptr;
+        if (!action) {
+            shortcut->setText(i18nc("@info", "Open Preferences from a Plasma Opus window to see the command palette's shortcut."));
+        } else {
+            shortcut->setText(i18nc("@info %1 shortcuts", "Shortcut: %1", shortcutsText(action->shortcuts())));
+        }
+        const QStringList recent =
+            CommandPalette::historyText(CommandPalette::history(KSharedConfig::openStateConfig()->group(QString::fromLatin1(CommandPalette::HistoryGroup))));
+        history->clear();
+        history->addItems(recent);
+        history->setVisible(!recent.isEmpty());
+        clear->setEnabled(!recent.isEmpty());
+        historySummary->setText(recent.isEmpty() ? i18nc("@info", "No actions have been run from the command palette yet.")
+                                                 : i18nc("@info", "These come first in the palette until you type:"));
+    };
+    connect(clear, &QPushButton::clicked, this, [this] {
+        KConfigGroup state = KSharedConfig::openStateConfig()->group(QString::fromLatin1(CommandPalette::HistoryGroup));
+        CommandPalette::clearHistory(state);
+        m_refreshCommandPalette();
+    });
+
+    if (window && window->guiFactory()) {
+        connect(window->guiFactory(), &KXMLGUIFactory::shortcutsSaved, page, [this] {
+            m_refreshCommandPalette();
+        });
+    }
+    // The palette may be used while Preferences is open.
+    new ShowWatcher(page, [this] {
+        m_refreshCommandPalette();
+    });
+    m_refreshCommandPalette();
     return page;
 }
 
