@@ -156,7 +156,8 @@ preview. Both behaviours can be changed in Preferences.
   finds any action by name or by pressing its keys and exports a printable
   reference. Actions move the focus between panes, tabs and panels and change
   the selection or filter, with optional extra keys that never take a key
-  already in use.
+  already in use. Shortcuts export to a keymap file, and importing one shows
+  the changes and conflicts before applying them.
 
 ## Screenshots
 
