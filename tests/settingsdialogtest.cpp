@@ -112,6 +112,7 @@ private Q_SLOTS:
                                      QStringLiteral("ContextMenu"),
                                      QStringLiteral("Tagging"),
                                      QStringLiteral("Branding"),
+                                     QStringLiteral("Shortcuts"),
                                      QStringLiteral("YaziMode")}) {
             KSharedConfig::openConfig()->deleteGroup(group);
         }
@@ -2442,7 +2443,7 @@ private Q_SLOTS:
         Settings::setTabSwitchesPanes(true);
         Settings::self()->save();
         window.applySettings();
-        window.actionCollection()->writeSettings();
+        Q_EMIT window.guiFactory()->shortcutsSaved();
     }
 
     void keyboardShortcutsReportKeysThatTextFieldsAndListsKeep()
@@ -2453,7 +2454,7 @@ private Q_SLOTS:
         const QList<QKeySequence> defaults = copyTo->shortcuts();
         const auto restore = qScopeGuard([&window, copyTo, defaults] {
             copyTo->setShortcuts(defaults);
-            window.actionCollection()->writeSettings();
+            Q_EMIT window.guiFactory()->shortcutsSaved();
         });
         SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
         auto *customized = dialog.findChild<QTreeWidget *>(QStringLiteral("keyboardCustomizedShortcuts"));

@@ -159,6 +159,7 @@ ecm_add_tests(
     runnermatchestest.cpp
     servicemenustest.cpp
     sharedsearchtest.cpp
+    shortcutstoragetest.cpp
     sessiontest.cpp
     savedpathfilterstest.cpp
     savedsearchestest.cpp
@@ -190,6 +191,8 @@ ecm_add_tests(
     LINK_LIBRARIES opusfm_core Qt6::Test KF6::ConfigCore
     NAME_PREFIX "opusfm-"
 )
+# The test reads the ui.rc files it strips.
+target_link_libraries(shortcutstoragetest Qt6::Xml)
 if(AccountsQt6_FOUND)
     target_compile_definitions(onlineaccountstest PRIVATE OPUSFM_HAVE_ACCOUNTS)
     target_include_directories(onlineaccountstest SYSTEM PRIVATE ${ACCOUNTSQT_INCLUDE_DIRS})

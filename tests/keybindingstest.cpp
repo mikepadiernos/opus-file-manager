@@ -261,6 +261,43 @@ private Q_SLOTS:
         QVERIFY2(texts.at(2).contains(QStringLiteral("folder tree")), qPrintable(texts.at(2)));
         QVERIFY2(texts.at(3).contains(QStringLiteral("without a mouse")), qPrintable(texts.at(3)));
     }
+
+    void globalShortcutsNeedTheServiceAndPlasmaOnWayland()
+    {
+        using KeyBindings::GlobalAvailability;
+        const QString wayland = QStringLiteral("wayland");
+        const QString x11 = QStringLiteral("x11");
+        QCOMPARE(KeyBindings::globalAvailability(false, wayland, QStringLiteral("KDE")), GlobalAvailability::NoService);
+        QCOMPARE(KeyBindings::globalAvailability(true, wayland, QStringLiteral("KDE")), GlobalAvailability::Available);
+        // XDG_CURRENT_DESKTOP lists desktops separated by colons, in any case.
+        QCOMPARE(KeyBindings::globalAvailability(true, QStringLiteral("Wayland"), QStringLiteral("ubuntu:kde")), GlobalAvailability::Available);
+        QCOMPARE(KeyBindings::globalAvailability(true, wayland, QStringLiteral("GNOME")), GlobalAvailability::OtherDesktop);
+        QCOMPARE(KeyBindings::globalAvailability(true, wayland, QString()), GlobalAvailability::OtherDesktop);
+        QCOMPARE(KeyBindings::globalAvailability(true, wayland, QStringLiteral("KDEish")), GlobalAvailability::OtherDesktop);
+        // On X11 the service grabs keys itself, whatever the desktop.
+        QCOMPARE(KeyBindings::globalAvailability(true, x11, QStringLiteral("GNOME")), GlobalAvailability::Available);
+        QCOMPARE(KeyBindings::globalAvailability(true, QString(), QString()), GlobalAvailability::Available);
+
+        QVERIFY(KeyBindings::globalAvailabilityText(GlobalAvailability::Available).isEmpty());
+        QVERIFY(KeyBindings::globalAvailabilityText(GlobalAvailability::NoService).contains(QStringLiteral("not running")));
+        QVERIFY(KeyBindings::globalAvailabilityText(GlobalAvailability::OtherDesktop).contains(QStringLiteral("isn't Plasma")));
+    }
+
+    void refusedGlobalKeysAreTheRequestedOnesKdeDidNotAssign()
+    {
+        const QKeySequence metaAltO(Qt::META | Qt::ALT | Qt::Key_O);
+        const QKeySequence metaAltP(Qt::META | Qt::ALT | Qt::Key_P);
+        QCOMPARE(KeyBindings::refusedKeys({metaAltO}, {}), QList<QKeySequence>{metaAltO});
+        QCOMPARE(KeyBindings::refusedKeys({metaAltO}, {metaAltO}), QList<QKeySequence>());
+        QCOMPARE(KeyBindings::refusedKeys({metaAltO, metaAltP, metaAltO}, {metaAltP}), QList<QKeySequence>{metaAltO});
+        // Clearing the key requests nothing, so nothing is refused.
+        QCOMPARE(KeyBindings::refusedKeys({QKeySequence()}, {}), QList<QKeySequence>());
+
+        QVERIFY(KeyBindings::refusedText({}).isEmpty());
+        const QString text = KeyBindings::refusedText({metaAltO});
+        QVERIFY2(text.contains(metaAltO.toString(QKeySequence::NativeText)), qPrintable(text));
+        QVERIFY2(text.contains(QStringLiteral("another application")), qPrintable(text));
+    }
 };
 
 QTEST_GUILESS_MAIN(KeyBindingsTest)

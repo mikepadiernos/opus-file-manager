@@ -40,6 +40,7 @@
 #include "settings.h"
 #include "settingsdialog.h"
 #include "shortcutguard.h"
+#include "shortcutstorage.h"
 #include "tabmodel.h"
 #include "tagfieldmanagerwidget.h"
 #include "taggroupdialog.h"
@@ -50,6 +51,7 @@
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
 #include "viewsettings.h"
+#include "windowshortcuts.h"
 #include "workspaceappearanceeditor.h"
 #include "workspacedialog.h"
 
@@ -67,6 +69,7 @@
 #include <KSharedConfig>
 #include <KTextEditor/Document>
 #include <KToolBar>
+#include <KXMLGUIFactory>
 
 #include <QAbstractItemModel>
 #include <QApplication>
@@ -79,6 +82,7 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QDockWidget>
+#include <QDomDocument>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
@@ -236,6 +240,46 @@ public:
 private:
     QPointer<FolderView> m_view;
     bool *m_emitted;
+};
+
+// Restores the window's ui.rc file, or removes it when there was none, and the stored shortcuts once a test is done.
+class ShortcutFilesGuard
+{
+public:
+    explicit ShortcutFilesGuard(const QString &uiRcPath)
+        : m_path(uiRcPath)
+    {
+        QFile file(m_path);
+        m_existed = file.open(QIODevice::ReadOnly);
+        if (m_existed) {
+            m_contents = file.readAll();
+        }
+    }
+
+    ~ShortcutFilesGuard()
+    {
+        if (m_existed) {
+            QFile file(m_path);
+            if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                file.write(m_contents);
+            }
+        } else {
+            QFile::remove(m_path);
+        }
+        KSharedConfig::openConfig()->deleteGroup(QLatin1String(ShortcutStorage::Group));
+        KSharedConfig::openConfig()->sync();
+    }
+
+    QString contents() const
+    {
+        QFile file(m_path);
+        return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()) : QString();
+    }
+
+private:
+    QString m_path;
+    QByteArray m_contents;
+    bool m_existed = false;
 };
 
 class MainWindowTest : public QObject
@@ -2519,6 +2563,126 @@ private Q_SLOTS:
         }
     }
 
+    void shortcutsKdeSavedInTheUiRcMoveIntoTheConfiguration()
+    {
+        QString xmlPath;
+        {
+            MainWindow probe;
+            xmlPath = probe.localXMLFile();
+            // The window moves the shortcuts before it has loaded the file, so it finds the file itself.
+            QCOMPARE(WindowShortcuts::uiRcPath(probe.componentName(), QStringLiteral("opus-file-managerui.rc")), xmlPath);
+        }
+        const ShortcutFilesGuard guard(xmlPath);
+        KConfigGroup stored = KSharedConfig::openConfig()->group(QLatin1String(ShortcutStorage::Group));
+        const QKeySequence f9(Qt::Key_F9);
+        const QKeySequence ctrlKG(QKeyCombination(Qt::CTRL | Qt::Key_K), QKeyCombination(Qt::Key_G));
+        {
+            MainWindow old;
+            // What KDE's Configure Keyboard Shortcuts saves, as an earlier Plasma Opus left it.
+            old.actionCollection()->action(QStringLiteral("open_gallery"))->setShortcuts({f9, ctrlKG});
+            old.actionCollection()->writeSettings();
+        }
+        QVERIFY2(guard.contents().contains(QStringLiteral("shortcut=")), qPrintable(guard.contents()));
+        QVERIFY(!stored.hasKey("open_gallery"));
+
+        MainWindow window;
+        window.resize(1200, 700);
+        window.show();
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        QCOMPARE(gallery->shortcuts(), (QList<QKeySequence>{f9, ctrlKG}));
+        QCOMPARE(stored.readEntry("open_gallery", QString()), QStringLiteral("F9; Ctrl+K, G"));
+        QCOMPARE(stored.readEntry(ShortcutStorage::VersionKey, 0), ShortcutStorage::Version);
+        // The file keeps the rest of the window's layout.
+        QVERIFY2(!guard.contents().contains(QStringLiteral("shortcut=")), qPrintable(guard.contents()));
+        QVERIFY2(guard.contents().contains(QStringLiteral("mainToolBar")), qPrintable(guard.contents()));
+        // KDE's default stays the default.
+        QCOMPARE(KActionCollection::defaultShortcuts(gallery), QList<QKeySequence>{QKeySequence(Qt::Key_Space)});
+
+        // Configure Toolbars saves the layout the window loaded and rebuilds the menus, which gives every action
+        // its defaults; neither brings the old shortcuts back or loses the stored ones.
+        window.configureToolbars();
+        auto *editor = window.findChild<KEditToolBar *>();
+        QVERIFY(editor);
+        const auto lists = editor->findChildren<QListWidget *>();
+        QCOMPARE(lists.size(), 2);
+        lists.at(0)->setCurrentRow(0);
+        QToolButton *insert = nullptr;
+        for (auto *button : editor->findChildren<QToolButton *>()) {
+            if (button->icon().name() == QLatin1String("go-next")) {
+                insert = button;
+            }
+        }
+        QVERIFY(insert && insert->isEnabled());
+        insert->click();
+        editor->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Apply)->click();
+        editor->reject();
+        QVERIFY2(!guard.contents().contains(QStringLiteral("shortcut=")), qPrintable(guard.contents()));
+        QCOMPARE(gallery->shortcuts(), (QList<QKeySequence>{f9, ctrlKG}));
+        QCOMPARE(KActionCollection::defaultShortcuts(gallery), QList<QKeySequence>{QKeySequence(Qt::Key_Space)});
+
+        // Later windows read the stored shortcuts, with nothing left in the file.
+        MainWindow later;
+        QCOMPARE(later.actionCollection()->action(QStringLiteral("open_gallery"))->shortcuts(), (QList<QKeySequence>{f9, ctrlKG}));
+    }
+
+    void shortcutsSavedInKdeEditorAreStoredForEveryWindow()
+    {
+        MainWindow window;
+        const ShortcutFilesGuard guard(window.localXMLFile());
+        MainWindow other;
+        KConfigGroup stored = KSharedConfig::openConfig()->group(QLatin1String(ShortcutStorage::Group));
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        QAction *search = window.actionCollection()->action(QStringLiteral("search_folder"));
+        QAction *otherGallery = other.actionCollection()->action(QStringLiteral("open_gallery"));
+        QVERIFY(gallery && search && otherGallery);
+        const QList<QKeySequence> galleryDefaults = gallery->shortcuts();
+        const QList<QKeySequence> searchDefaults = search->shortcuts();
+        const QKeySequence f9(Qt::Key_F9);
+
+        // KDE's editor saves into the ui.rc file, then announces it.
+        gallery->setShortcuts({f9});
+        search->setShortcuts({});
+        window.actionCollection()->writeSettings();
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(stored.readEntry("open_gallery", QString()), QStringLiteral("F9"));
+        QCOMPARE(stored.readEntry("search_folder", QString()), QStringLiteral("none"));
+        QVERIFY2(!guard.contents().contains(QStringLiteral("shortcut=")), qPrintable(guard.contents()));
+        // Other windows get them right away.
+        QCOMPARE(otherGallery->shortcuts(), QList<QKeySequence>{f9});
+        QVERIFY(other.actionCollection()->action(QStringLiteral("search_folder"))->shortcuts().isEmpty());
+        // Only actions that differ from their defaults have entries.
+        QVERIFY(!stored.hasKey("go_up"));
+        QVERIFY(!stored.hasKey("switch_pane"));
+
+        // KDE's editor leaves nothing in the file for an action given its defaults again, but the entry goes too.
+        gallery->setShortcuts(galleryDefaults);
+        search->setShortcuts(searchDefaults);
+        window.actionCollection()->writeSettings();
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QVERIFY(!stored.hasKey("open_gallery"));
+        QVERIFY(!stored.hasKey("search_folder"));
+        QCOMPARE(otherGallery->shortcuts(), galleryDefaults);
+        QCOMPARE(other.actionCollection()->action(QStringLiteral("search_folder"))->shortcuts(), searchDefaults);
+    }
+
+    void storedShortcutsSurviveRebuildingTheMenus()
+    {
+        MainWindow window;
+        const ShortcutFilesGuard guard(window.localXMLFile());
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        const QKeySequence f9(Qt::Key_F9);
+        gallery->setShortcuts({f9});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        // As Configure Toolbars rebuilds them.
+        window.guiFactory()->removeClient(&window);
+        window.setXMLGUIBuildDocument(QDomDocument());
+        window.guiFactory()->addClient(&window);
+        QCOMPARE(gallery->shortcuts(), QList<QKeySequence>{f9});
+        QCOMPARE(KActionCollection::defaultShortcuts(gallery), QList<QKeySequence>{QKeySequence(Qt::Key_Space)});
+        // Actions without stored shortcuts get the defaults the window applies, such as Tab switching panes.
+        QVERIFY(window.actionCollection()->action(QStringLiteral("switch_pane"))->shortcuts().contains(QKeySequence(Qt::Key_Tab)));
+    }
+
     void defaultToolbarSpacingSurvivesCustomization()
     {
         QTemporaryDir backupDir;
@@ -4036,6 +4200,7 @@ private Q_SLOTS:
                                      QStringLiteral("Confirmations"),
                                      QStringLiteral("StatusBar"),
                                      QStringLiteral("Views"),
+                                     QStringLiteral("Shortcuts"),
                                      QStringLiteral("ContextMenu")}) {
             KSharedConfig::openConfig()->deleteGroup(group);
         }
