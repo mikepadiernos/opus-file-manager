@@ -14,7 +14,7 @@ record the Max File Manager behaviour that informs its parity goals.
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. M15–M30 have since been merged into `main`; M31–M32 are
+> released after M14. M15–M31 have since been merged into `main`; M32 is
 > planned. See [pending tasks](TODO.md) for blocked work and branch-specific
 > handoffs.
 
@@ -23,9 +23,8 @@ record the Max File Manager behaviour that informs its parity goals.
 Status reflects the milestones' parent issues on the
 [project board](https://github.com/users/mikepadiernos/projects/3): Merged
 groups have every feature checked and merged into `main`, Development groups
-have a milestone in progress, and Planned groups have not started. In the
-M27–M31 group, M27–M30 are merged and their Plasma checks are recorded in
-[pending tasks](TODO.md); M31 is planned.
+have a milestone in progress, and Planned groups have not started. M27–M31
+are merged, and their Plasma checks are recorded in [pending tasks](TODO.md).
 
 | Milestones | Focus                                        | Status                                                                            | Jump to                         |
 | ---------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------- |
@@ -38,7 +37,7 @@ M27–M31 group, M27–M30 are merged and their Plasma checks are recorded in
 | M21–M22    | Advanced search and its settings             | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M21](#m21-advanced-search)     |
 | M23–M24    | Native tagging and its settings              | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M23](#m23-native-tagging)      |
 | M25–M26    | Yazi mode and its settings                   | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M25](#m25-yazi-mode)           |
-| M27–M31    | Integrations, Nextcloud and shortcuts        | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square) | [M27](#m27-integrations)        |
+| M27–M31    | Integrations, Nextcloud and shortcuts        | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M27](#m27-integrations)        |
 | M32        | Refinements                                  | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)         | [M32](#m32-refinements)         |
 
 ## Contents
