@@ -4235,6 +4235,26 @@ The M31 keyboard shortcut settings have these limits
   layouts and the Help menu on Plasma are unverified
   ([Plasma check](TODO.md#keyboard-map-on-plasma-232)).
   ([#232](https://github.com/mikepadiernos/plasma-opus/issues/232))
+- **🕹️ Navigation shortcuts:** The actions added for moving between panes,
+  tabs and panels, changing the selection and clearing the filter have no
+  shortcut by default, and the extra keys on **Preferences › Keyboard ›
+  Navigation** are off. When they are on, a key is left out only if another
+  window action or a global shortcut Plasma Opus registered has it; KWin's,
+  Plasma's and other applications' global shortcuts aren't checked, so the
+  desktop may still take one first. While the embedded terminal has the
+  focus, it keeps keys with a single modifier, so <kbd>Alt</kbd>+<kbd>1</kbd>,
+  <kbd>Alt</kbd>+<kbd>2</kbd>, <kbd>Ctrl</kbd>+<kbd>Page Up</kbd> and
+  <kbd>Ctrl</kbd>+<kbd>Page Down</kbd> don't leave it.
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> follows KDE's standard
+  **Deselect**, whereas Dolphin uses it for **Invert Selection**. **Invert
+  Selection** changes only the items shown, so in the details view it skips
+  the contents of collapsed folders. **Focus Preview Panel** only says so in
+  the status bar when the panel has nothing that takes the focus. When KDE's
+  editor gives an extra key to another action, the extra key is dropped until
+  it is free again. Real keyboards, layouts and the desktop's keys on Plasma
+  are unverified
+  ([Plasma check](TODO.md#navigation-shortcuts-on-plasma-236)).
+  ([#236](https://github.com/mikepadiernos/plasma-opus/issues/236))
 
 - **Recommendation:**
   - **Shortcut settings:** Change shortcuts in **Configure Keyboard
@@ -4276,6 +4296,16 @@ The M31 keyboard shortcut settings have these limits
     export a PDF, or export an HTML page and print it from a web browser on
     any page size. For the keys the map doesn't list, see
     [Where shortcuts apply](keyboard.md#where-shortcuts-apply).
+  - **Navigation shortcuts:** Turn on the extra keys on **Preferences ›
+    Keyboard › Navigation** and check each one's status there; for an action
+    whose key wasn't added, or to move the focus out of the embedded
+    terminal, give it a key with two modifiers or a key sequence in
+    **Configure Keyboard Shortcuts…**. Look a key up in **Help › Keyboard
+    Map…** before choosing it, and change it if Plasma or KWin takes it
+    first. If you are used to Dolphin, give **Invert Selection**
+    <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> yourself; **Deselect All**
+    then loses its extra key. Expand folders in the details view before
+    inverting the selection if their contents should change too.
   - Comment:
     [#771.7231940238](https://github.com/mikepadiernos/plasma-opus/issues/771#issuecomment-7231940238)
 - **Proposed improvements:**
@@ -4295,6 +4325,9 @@ The M31 keyboard shortcut settings have these limits
     the keyboard map, mark the Yazi mode keys while no pane uses Yazi mode,
     print through KDE's print dialog, and let **Find by key** take keys as
     soon as the map opens.
+  - Check KDE's global shortcut service and KWin for clashes before adding
+    an extra navigation key, offer keys the embedded terminal passes on, and
+    let each extra key be turned on or chosen per action.
 
 ## Embedded terminal
 
