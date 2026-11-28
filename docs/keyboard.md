@@ -12,7 +12,9 @@ Shortcuts…**, for every window action. **Preferences › Keyboard** (M31) adds
 summary around it: which shortcuts you have changed, which ones get in each
 other's way, a reset to the defaults, and the keys that the editor doesn't
 show, such as pressing <kbd>Shift</kbd> twice to search, the Yazi mode key
-presets and the global shortcuts.
+presets and the global shortcuts. **Help › Keyboard Map…** lists every
+action with its shortcuts, searched by name or by pressing keys, and exports
+them as a printable reference.
 
 ## Contents
 
@@ -22,6 +24,7 @@ presets and the global shortcuts.
 - [Where shortcuts apply](#where-shortcuts-apply)
 - [Search, Yazi mode and global shortcuts](#search-yazi-mode-and-global-shortcuts)
 - [Global shortcut status](#global-shortcut-status)
+- [Keyboard map](#keyboard-map)
 - [Configuration reference](#configuration-reference)
 - [Accessibility](#accessibility)
 - [Known limitations](#known-limitations)
@@ -32,6 +35,7 @@ presets and the global shortcuts.
 | -------------------------------------------- | -------------------------------------------------------------------------- |
 | **Settings › Configure Keyboard Shortcuts…** | KDE's editor: change, add or remove any action's shortcuts                 |
 | **Preferences › Keyboard › Shortcuts**       | Customized shortcuts, conflicts, reset to defaults, search and global keys |
+| **Help › Keyboard Map…**                     | Every action and key, searched by name or keys, and a printable reference  |
 | **Preferences › Yazi Mode › Keyboard**       | The Yazi mode key presets and the window shortcuts each one takes          |
 | **Preferences › KDE Plasma › Shortcuts**     | The global shortcut that shows or hides Plasma Opus                        |
 | **Preferences › KDE Plasma › KWin**          | The drop-down window's global shortcut                                     |
@@ -109,6 +113,8 @@ the **Keyboard** and **Yazi Mode** pages update when the shortcuts are saved.
   shortcuts and saves them right away. It is available only while some
   shortcuts are customized. Global shortcuts are kept; change those where
   they are configured.
+- **Keyboard Map…** opens **Help › Keyboard Map…** (see
+  [Keyboard map](#keyboard-map)).
 
 Preferences opened without a Plasma Opus window, as tests do, lists nothing
 and explains that a window is needed.
@@ -118,14 +124,14 @@ and explains that a window is needed.
 Each shortcut applies in one context, and only shortcuts whose contexts
 overlap can conflict:
 
-| Context              | Shortcuts                                    | Overlaps                        |
-| -------------------- | -------------------------------------------- | ------------------------------- |
-| Window               | Every action in Configure Keyboard Shortcuts | All but the image gallery       |
-| File views and lists | Keys that a pane's view or a list keeps      | Window                          |
-| Folder tree          | Keys that the folder tree keeps              | Window                          |
-| Text fields          | Keys that a text field keeps                 | Window                          |
-| Image gallery        | The gallery's own keys, in its own window    | Image gallery                   |
-| Global               | KDE's global shortcuts                       | Everything, in every app        |
+| Context              | Shortcuts                                    | Overlaps                  |
+| -------------------- | -------------------------------------------- | ------------------------- |
+| Window               | Every action in Configure Keyboard Shortcuts | All but the image gallery |
+| File views and lists | Keys that a pane's view or a list keeps      | Window                    |
+| Folder tree          | Keys that the folder tree keeps              | Window                    |
+| Text fields          | Keys that a text field keeps                 | Window                    |
+| Image gallery        | The gallery's own keys, in its own window    | Image gallery             |
+| Global               | KDE's global shortcuts                       | Everything, in every app  |
 
 Window shortcuts work wherever the focus is in the window, but the focused
 widget keeps the keys it needs:
@@ -159,16 +165,16 @@ shortcuts you change are checked against the keys widgets keep.
 
 The image gallery's keys are fixed and apply only in its window:
 
-| Key                                                     | Action                   |
-| ------------------------------------------------------- | ------------------------ |
-| <kbd>Left</kbd>, <kbd>Right</kbd>                       | Previous or next image   |
-| <kbd>Home</kbd>, <kbd>End</kbd>                         | First or last image      |
-| <kbd>+</kbd>, <kbd>-</kbd>, <kbd>0</kbd>                | Zoom in, out or to fit   |
-| <kbd>Space</kbd>                                        | Start or stop slideshow  |
-| <kbd>I</kbd>                                            | Show or hide information |
-| <kbd>R</kbd>                                            | Rotate right             |
-| <kbd>F</kbd>                                            | Full screen              |
-| <kbd>Ctrl</kbd>+<kbd>C</kbd>                            | Copy image               |
+| Key                                      | Action                   |
+| ---------------------------------------- | ------------------------ |
+| <kbd>Left</kbd>, <kbd>Right</kbd>        | Previous or next image   |
+| <kbd>Home</kbd>, <kbd>End</kbd>          | First or last image      |
+| <kbd>+</kbd>, <kbd>-</kbd>, <kbd>0</kbd> | Zoom in, out or to fit   |
+| <kbd>Space</kbd>                         | Start or stop slideshow  |
+| <kbd>I</kbd>                             | Show or hide information |
+| <kbd>R</kbd>                             | Rotate right             |
+| <kbd>F</kbd>                             | Full screen              |
+| <kbd>Ctrl</kbd>+<kbd>C</kbd>             | Copy image               |
 
 In right-to-left languages, <kbd>Left</kbd> and <kbd>Right</kbd> swap.
 
@@ -195,7 +201,8 @@ configured elsewhere, each with a button that shows its settings:
   isn't Plasma (see [Global shortcut status](#global-shortcut-status)).
 
 - Pressing <kbd>Shift</kbd> twice is a gesture rather than a shortcut, so
-  Configure Keyboard Shortcuts doesn't list it. The search panel's own keys
+  Configure Keyboard Shortcuts doesn't list it; the
+  [keyboard map](#keyboard-map) does while it is on. The search panel's own keys
   (<kbd>Down</kbd> to reach the results, <kbd>Escape</kbd> to return) are
   fixed.
 - The Yazi mode key presets are described in
@@ -232,6 +239,74 @@ Shortcuts** and the drop-down window's shortcut on **Preferences › KDE Plasma
   tell whether they do, so in a Wayland session whose `XDG_CURRENT_DESKTOP`
   doesn't include `KDE` the status says the shortcut works only if the
   desktop supports it. On X11, KGlobalAccel grabs the keys itself.
+
+## Keyboard map
+
+**Help › Keyboard Map…**, also opened by **Keyboard Map…** on
+**Preferences › Keyboard › Shortcuts**, lists the keys of a Plasma Opus
+window in one place. It has no default shortcut; give it one in Configure
+Keyboard Shortcuts. Each window has one map, which stays open beside the
+window; choosing it again brings it to the front.
+
+The list has four columns:
+
+| Column      | What it shows                                                             |
+| ----------- | ------------------------------------------------------------------------- |
+| Action      | The action's name as menus show it                                        |
+| Shortcuts   | The shortcut, then each alternate, separated by semicolons, or **None**   |
+| Applies in  | Where the keys work (see [Where shortcuts apply](#where-shortcuts-apply)) |
+| Description | The action's tooltip, when it says more than the name                     |
+
+It lists, in this order:
+
+- every action of Configure Keyboard Shortcuts, sorted by name, including
+  saved commands (**Saved Command:**) and every alternate;
+- pressing <kbd>Shift</kbd> twice, while it opens search (see
+  [Search](#search-yazi-mode-and-global-shortcuts));
+- the image gallery's fixed keys (**Image gallery**);
+- the commands of the Yazi mode key preset chosen on **Preferences › Yazi
+  Mode › Keyboard** (**Yazi mode columns**), each with every key that runs
+  it, written as [Yazi mode › Keyboard](yazi-mode.md#keyboard) writes them,
+  such as `G` for <kbd>Shift</kbd>+<kbd>G</kbd>;
+- the global shortcuts KDE's global shortcut service has registered
+  (**Global**).
+
+To find an action:
+
+- **Search** finds actions whose name, internal name (such as
+  `search_folder`), description, shortcuts or **Applies in** contain every
+  word typed, in any order and ignoring case. Shortcuts can be typed as
+  shown or as `Ctrl+Alt+F`.
+- **Find by key**: click the field, then press a key combination or a
+  sequence of up to four. The list shows the actions it runs and the longer
+  sequences it begins, such as both <kbd>Ctrl</kbd>+<kbd>K</kbd> and
+  <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>Ctrl</kbd>+<kbd>C</kbd> for
+  <kbd>Ctrl</kbd>+<kbd>K</kbd>. Nothing runs while the field records keys,
+  and it doesn't warn about conflicts; its clear button shows every action
+  again. Search and **Find by key** combine.
+- **Only actions with shortcuts**, on by default, hides actions without a
+  key. The line below the list counts the actions listed and says how many
+  more a search found that are hidden because they have no shortcut.
+
+The map updates when Configure Keyboard Shortcuts or **Reset All
+Shortcuts…** saves, when Preferences changes the Yazi mode preset or
+pressing <kbd>Shift</kbd> twice, and when a global shortcut changes. It only
+shows keys: **Configure Keyboard Shortcuts…** at the bottom opens KDE's
+editor to change them.
+
+**Export…** saves the listed actions, as filtered, as a reference to print:
+
+- an **HTML page** (`.html`), to open and print from a web browser, or a
+  **PDF document** (`.pdf`) on A4 pages;
+- headed **Plasma Opus Keyboard Shortcuts**, with a table of **Action**,
+  **Shortcuts** and **Description** for each **Applies in** context, in the
+  order the list shows them;
+- suggested as `plasma-opus-shortcuts.html` in the Documents folder; a file
+  name without `.html`, `.htm` or `.pdf` gets the chosen type's extension.
+
+The file is replaced only once it is complete, and an error names the file
+and the reason. Names in the reference are escaped, so an action or command
+name can't add markup to it.
 
 ## Configuration reference
 
@@ -299,6 +374,15 @@ The **Set in** column names pages of Preferences.
 - Nothing on the tab takes keys: it only shows and resets shortcuts.
   <kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd> move between its
   controls as in the rest of Preferences.
+- The keyboard map opens with the focus in **Search**, its list has an
+  accessible name, and <kbd>Escape</kbd> closes it while **Find by key**
+  isn't recording. Only **Find by key**
+  takes keys, and only after it is clicked or activated with
+  <kbd>Space</kbd>; it then records the next keys pressed, so move the focus
+  past it with <kbd>Tab</kbd> before activating it.
+- The map and its reference write keys as text, such as
+  <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd>, and print as tables that a
+  screen reader can read.
 
 ## Known limitations
 
