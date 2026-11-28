@@ -6,6 +6,7 @@
 
 #include <QKeyCombination>
 #include <QList>
+#include <QString>
 
 /**
  * Optional Vim-style navigation in the file views of panes that aren't in
@@ -24,10 +25,32 @@ namespace VimNavigation
  * The keys: j and k move down and up, gg and G to the first and last item,
  * Ctrl+D and Ctrl+U, or J and K as in ranger, half a page; h opens the
  * parent folder, l the focused item, H and L go back and forward, gh home,
- * gt and gT to the next and previous tab, / filters and \ clears the
+ * gt and gT to the next and previous tab, / or i filters and \ clears the
  * filter. Digits typed first count how often to repeat a command, as in 5j.
  */
 YaziMode::Keymap keymap();
+
+/// Where a pane's keys go while Vim-style navigation is on.
+enum class Mode {
+    /// The file view: the Vim-style keys move and open.
+    Normal,
+    /// The filter bar: keys type the filter; Escape returns to Normal.
+    Filter,
+    /// Another text field of the pane, such as the location bar or an inline rename editor.
+    Insert,
+};
+
+/**
+ * The short text of the pane's mode indicator, such as "NORMAL", or, with
+ * the count and keys typed so far of an incomplete sequence, "NORMAL · 5g…".
+ */
+QString modeText(Mode mode, const QString &pending = QString());
+
+/**
+ * The indicator's accessible name: the mode in words, what the keys do in
+ * it and how to leave it, and the keys waiting for the rest of a sequence.
+ */
+QString modeAccessibleName(Mode mode, const QString &pending = QString());
 
 /// Whether @p key has Ctrl, Alt or Meta, so that a window shortcut using it keeps it.
 bool yieldsToShortcuts(QKeyCombination key);
