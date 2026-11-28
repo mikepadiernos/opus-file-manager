@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <QKeyCombination>
 #include <QKeySequence>
 #include <QList>
 #include <QString>
@@ -13,6 +14,42 @@
  */
 namespace KeyBindings
 {
+/// Where a binding applies, or where the keyboard focus is.
+enum class Context {
+    /// Anywhere in the main window, as its menu and toolbar actions.
+    Application,
+    /// A pane's file view, including Yazi mode columns, and the window's other lists.
+    FileView,
+    /// The folder tree.
+    FolderTree,
+    /// The image gallery, a window of its own.
+    Viewer,
+    /// A text field, spin box or combo box of the main window, including inline rename editors.
+    TextInput,
+};
+
+/// Whether a key pressed with the focus in @p a can reach a binding of @p b, or the other way round.
+bool overlaps(Context a, Context b);
+
+/// The name of @p context for the user.
+QString contextText(Context context);
+
+/// Whether @p key types or edits text in a text field, such as a letter, Backspace, an arrow or Ctrl+C, or moves the focus from it, as Tab does.
+bool isTypingKey(QKeyCombination key);
+
+/// Whether @p key moves through the items of a list or tree: an arrow, Home, End, Page Up or Page Down, alone or with Shift.
+bool isNavigationKey(QKeyCombination key);
+
+/// Whether @p key moves around without a mouse: Tab and Shift+Tab move the focus, Escape closes, F10 and Shift+F10 or Menu open menus.
+bool isAccessibilityKey(QKeyCombination key);
+
+/**
+ * Whether widgets with the focus in @p context keep @p key for themselves,
+ * so a window shortcut beginning with it doesn't run there: text fields keep
+ * their typing keys and lists and the folder tree their navigation keys.
+ */
+bool isReserved(QKeyCombination key, Context context);
+
 /// An action's shortcuts and the ones it has by default.
 struct Binding {
     /// The action's name, such as "search_folder".
@@ -24,9 +61,14 @@ struct Binding {
     QList<QKeySequence> defaults;
     /// Whether the shortcuts are global ones, which KDE's global shortcut service reserves in every application.
     bool global = false;
+    /// Where the shortcuts apply; global shortcuts apply everywhere.
+    Context context = Context::Application;
 
     bool operator==(const Binding &other) const = default;
 };
+
+/// The name of where @p binding applies, for the user.
+QString contextText(const Binding &binding);
 
 /// @p shortcuts without empty sequences, in order.
 QList<QKeySequence> keys(const QList<QKeySequence> &shortcuts);
@@ -45,6 +87,12 @@ enum class ConflictKind {
     Same,
     /// The first binding's shortcut begins the second's longer key sequence, so the longer one can't be typed.
     Prefix,
+    /**
+     * The first binding's customized shortcut begins with a key that widgets
+     * of the conflict's context keep, or with an accessibility key; there is
+     * no second binding.
+     */
+    Reserved,
 };
 
 /// Two shortcuts that get in each other's way.
@@ -55,6 +103,8 @@ struct Conflict {
     int second = -1;
     QKeySequence secondKeys;
     ConflictKind kind = ConflictKind::Same;
+    /// For a reserved key, the context whose widgets keep it, or Application for an accessibility key.
+    Context context = Context::Application;
 
     bool operator==(const Conflict &other) const = default;
 };
@@ -62,8 +112,11 @@ struct Conflict {
 /**
  * The conflicts between @p bindings, in binding order: two bindings with the
  * same shortcut, and a shortcut that begins another binding's, or the same
- * binding's, longer key sequence. A shortcut listed twice for one binding is
- * not a conflict.
+ * binding's, longer key sequence, when their contexts overlap or either is
+ * global. A shortcut listed twice for one binding is not a conflict. Then,
+ * for each customized shortcut of a window binding that isn't one of its
+ * defaults, each context that keeps its first key and whether it is an
+ * accessibility key.
  */
 QList<Conflict> conflicts(const QList<Binding> &bindings);
 
