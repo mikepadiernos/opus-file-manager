@@ -70,6 +70,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Shortcut contexts on Plasma](#shortcut-contexts-on-plasma-233)                               | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#233]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Shortcut storage on Plasma](#shortcut-storage-on-plasma-238)                                 | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#238]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Alternate and command shortcuts on Plasma](#alternate-and-command-shortcuts-on-plasma-231)   | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#231]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Keyboard map on Plasma](#keyboard-map-on-plasma-232)                                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#232]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1135,7 +1136,7 @@ Board statuses were last confirmed on 2026-11-27.
    Drives** also checked, check that a single tray instance starts. Clear the
    setting and check that the entry is removed.
 3. With NetworkManager, mark the connection as metered (`nmcli connection
-   modify ID connection.metered yes`), check that the tab reports it and that
+modify ID connection.metered yes`), check that the tab reports it and that
    background runs wait, then clear **Pause background synchronization on
    metered connections** and check that they run.
 4. With rclone 1.66 or later, give an rclone pair **Keep Local Version**,
@@ -1472,7 +1473,7 @@ Board statuses were last confirmed on 2026-11-27.
    enabled and a disposable Nextcloud server with a synthetic user and the
    Collaborative tags app, upload photos, documents and a folder, and sign in
    under **Go › Nextcloud › Manage Nextcloud Accounts…**.
-2. Open **Go › Nextcloud › *account* › Search and Organize…**. Search by name
+2. Open **Go › Nextcloud › _account_ › Search and Organize…**. Search by name
    and by each kind, and check that **Show in Pane** opens the results. Search
    for a common letter and check that more than 500 matches are reported as
    cut short.
@@ -1506,7 +1507,7 @@ Board statuses were last confirmed on 2026-11-27.
   requests through KIO, and `Nextcloud::albumEntryUrl` refuses any `DELETE`
   target but a photo directly in an album. `NextcloudPhotosDialog` and
   `NextcloudAddToAlbumDialog` in `src/app/nextcloudphotosdialog.cpp` provide
-  **Go › Nextcloud › *account* › Photos…** and **Nextcloud › Add to
+  **Go › Nextcloud › _account_ › Photos…** and **Nextcloud › Add to
   Nextcloud Album…**. `nextcloudphotostest` and `nextcloudphotosdialogtest`
   pass in the container. See
   [Nextcloud integration](CAVEATS.md#nextcloud-integration).
@@ -1518,7 +1519,7 @@ Board statuses were last confirmed on 2026-11-27.
    synthetic users, upload photos with EXIF dates and GPS data and a photo
    without them as the first user, and sign in under **Go › Nextcloud ›
    Manage Nextcloud Accounts…**.
-2. Open **Go › Nextcloud › *account* › Photos…**, create an album with **New
+2. Open **Go › Nextcloud › _account_ › Photos…**, create an album with **New
    Album…**, and add photos to it from a pane with **Nextcloud › Add to
    Nextcloud Album…**. Check that the album lists them, sorted and grouped by
    capture date and place, and that the undated photo is listed last.
@@ -1551,7 +1552,7 @@ Board statuses were last confirmed on 2026-11-27.
   `src/core/nextcloudshares.cpp` send OCS requests through KIO and never keep
   share passwords or password hashes. `NextcloudSharesDialog` and
   `NextcloudShareEditor` in `src/app/nextcloudsharesdialog.cpp` provide **Go ›
-  Nextcloud › *account* › Shares…** and **Nextcloud › Nextcloud Shares…**,
+  Nextcloud › _account_ › Shares…** and **Nextcloud › Nextcloud Shares…**,
   confirm creating, broadening and revoking shares, and open a reviewed link
   through `SendByEmailDialog::composeMessage`. `nextcloudsharestest` and
   `nextcloudsharesdialogtest` pass in the container. See
@@ -1851,10 +1852,43 @@ Board statuses were last confirmed on 2026-11-27.
    differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this
    entry and its roadmap link.
 
+## Keyboard map on Plasma (#232)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#232] (Development).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, printer or global shortcut
+  service, so recording real keys in **Find by key**, the Help menu's layout
+  in Plasma's style and the printed reference are unverified.
+- **Confirmed state:** `KeyboardMapDialog` in
+  `src/app/keyboardmapdialog.cpp` lists the window's actions, pressing
+  <kbd>Shift</kbd> twice, the gallery's keys, the Yazi mode preset and the
+  registered global shortcuts; `src/core/keyboardmap.cpp` filters them and
+  writes the HTML and PDF reference. `keyboardmaptest`, `mainwindowtest` and
+  `settingsdialogtest` pass in the container. See
+  [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, check that
+   **Help › Keyboard Map…** sits with KDE's own Help entries and that
+   **Keyboard Map…** on **Preferences › Keyboard › Shortcuts** opens it.
+2. Click **Find by key** and press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd>,
+   <kbd>Space</kbd>, a two-key sequence given to an action, and a global
+   shortcut such as **Show or Hide Plasma Opus**, on X11 and Wayland and with
+   a non-US keyboard layout; check that each lists the right actions, that
+   none runs, and that <kbd>Escape</kbd> then closes the map.
+3. Export an HTML page and a PDF, open both, print them, and check that the
+   tables and key names are legible. With Orca, check that the list and the
+   count line are read. Record any differences in
+   [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
+   roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#230]: https://github.com/mikepadiernos/plasma-opus/issues/230
 [#231]: https://github.com/mikepadiernos/plasma-opus/issues/231
+[#232]: https://github.com/mikepadiernos/plasma-opus/issues/232
 [#233]: https://github.com/mikepadiernos/plasma-opus/issues/233
 [#238]: https://github.com/mikepadiernos/plasma-opus/issues/238
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
