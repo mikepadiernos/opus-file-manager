@@ -4199,10 +4199,9 @@ The M31 keyboard shortcut settings have these limits
   schemes aren't supported. An older Plasma Opus reads only the layout file,
   so it starts with the default shortcuts after a downgrade. When something
   else, such as an older version, writes shortcuts into the layout file
-  again, they are moved at the next start and replace the stored ones. There
-  is no Vim-style mode setting yet: Vim-style navigation comes with
-  [#228](https://github.com/mikepadiernos/plasma-opus/issues/228), and a
-  switch without it would do nothing. Global shortcuts depend on KDE's
+  again, they are moved at the next start and replace the stored ones. The
+  Vim-style navigation keys are fixed, so only whether they are on is
+  stored. Global shortcuts depend on KDE's
   global shortcut service; whether a Wayland desktop other than Plasma passes
   keys to it is guessed from `XDG_CURRENT_DESKTOP`, and a key KDE refuses is
   reported only after **Apply**. Neither can be checked in the container
@@ -4291,6 +4290,26 @@ The M31 keyboard shortcut settings have these limits
   the palette's look and the screen reader on Plasma are unverified
   ([Plasma check](TODO.md#command-palette-on-plasma-761)).
   ([#761](https://github.com/mikepadiernos/plasma-opus/issues/761))
+- **🐇 Vim-style navigation:** **Preferences › Keyboard › Vim Mode** and
+  **View › Vim-Style Navigation** turn on a fixed set of Vim-style keys, off
+  by default, in the file views of panes outside Yazi mode. The keys can't
+  be changed or added to, a count only repeats movements, and there are no
+  marks, registers, visual selection, operators such as `dd` or `:`
+  commands. The folder tree, the places panel, the search panel and other
+  lists don't use the keys, and a pane in Yazi mode uses its own preset.
+  While the keys are on, their letters and the digits 1 to 9 no longer find
+  items by their first characters, though other letters still do, and
+  capital letters follow <kbd>Shift</kbd>, so <kbd>Caps Lock</kbd> changes
+  them. Plain keys take over a window shortcut that uses them while a file
+  view has the focus, whereas keys with <kbd>Ctrl</kbd>, <kbd>Alt</kbd> or
+  <kbd>Meta</kbd> give way, so with the default shortcuts
+  <kbd>Ctrl</kbd>+<kbd>D</kbd> stays **Add to Favorites**. Only the **Vim
+  Mode** tab lists these conflicts, once shortcut edits are saved; the
+  **Shortcuts** tab and the command palette don't include the keys. Input
+  methods that compose text from keys typed in a file view, other keyboard
+  layouts and screen readers on Plasma are unverified
+  ([Plasma check](TODO.md#vim-style-navigation-on-plasma-228)).
+  ([#228](https://github.com/mikepadiernos/plasma-opus/issues/228))
 
 - **Recommendation:**
   - **Shortcut settings:** Change shortcuts in **Configure Keyboard
@@ -4360,6 +4379,17 @@ The M31 keyboard shortcut settings have these limits
     **Preferences › Keyboard › Command Palette** to keep them out of the
     list, and use **Clear History** there after renaming actions or changing
     the language.
+  - **Vim-style navigation:** Before turning the keys on, read the
+    **Conflicts** list on **Preferences › Keyboard › Vim Mode**; give an
+    action whose plain-key shortcut they take a key with <kbd>Ctrl</kbd> or
+    <kbd>Alt</kbd>, and use <kbd>J</kbd> and <kbd>K</kbd> while a window
+    shortcut keeps <kbd>Ctrl</kbd>+<kbd>D</kbd> or
+    <kbd>Ctrl</kbd>+<kbd>U</kbd>. Press <kbd>/</kbd> to filter by name, or
+    turn the keys off with **View › Vim-Style Navigation** to find items by
+    typing. Keep <kbd>Caps Lock</kbd> off and switch an input method to
+    direct input while moving with the keys. For the same keys in a pane in
+    Yazi mode, choose the Yazi-style keys on **Preferences › Yazi Mode ›
+    Keyboard**.
   - Comment:
     [#771.7231940238](https://github.com/mikepadiernos/plasma-opus/issues/771#issuecomment-7231940238)
 - **Proposed improvements:**
@@ -4370,8 +4400,7 @@ The M31 keyboard shortcut settings have these limits
     gallery, read the keys text fields keep from the active key scheme, and
     let the gallery's keys be changed.
   - Store the shortcuts of every KDE shortcut scheme, ask KDE's global
-    shortcut service whether a key is free before **Apply**, and add the
-    Vim-style mode setting together with Vim-style navigation.
+    shortcut service whether a key is free before **Apply**.
   - Show every alternate in the editor, keep a command's shortcut when it is
     renamed, and give submenu entries such as each terminal or editor their
     own actions.
@@ -4389,6 +4418,10 @@ The M31 keyboard shortcut settings have these limits
     shortcut-only actions in the command palette, show every shortcut of an
     action, keep the recently used actions by action name rather than text,
     and keep them first among matches while typing.
+  - Let the Vim-style keys be changed and extended, use them in the folder
+    tree and other lists, list them on the **Shortcuts** tab and in the
+    command palette, and add visual selection and operators such as `yy`
+    and `p`.
 
 ## Embedded terminal
 
