@@ -2183,7 +2183,8 @@ using KDE shortcut facilities where supported.
       Kate: search menu, toolbar and custom command actions by name and run
       them, showing each action's shortcut and recently used actions first.
       Skip disabled actions, apply pane actions to the active pane and leave
-      shortcuts unchanged. (Lektra) [#761]
+      shortcuts unchanged. (Lektra) Plasma-session verification is a
+      [pending handoff](TODO.md#command-palette-on-plasma-761). [#761]
 - [ ] Offer keyboard hints: on a shortcut, label the visible items, breadcrumb
       segments, places and tabs of the active pane with short key sequences,
       and open or select a target when its keys are typed. Cancel with Escape,
