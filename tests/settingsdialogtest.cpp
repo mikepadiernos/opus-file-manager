@@ -2584,13 +2584,13 @@ private Q_SLOTS:
         state.writeEntry(CommandPalette::HistoryKey, QStringList{QStringLiteral("Select &All"), QStringLiteral("&New Folder…"), QStringLiteral("Select All")});
         SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
 
-        // Command Palette is the fourth tab of Keyboard, after Vim Mode.
+        // Command Palette is the fifth tab of Keyboard, after Hints.
         auto *page = dialog.findChild<QWidget *>(QStringLiteral("keyboardCommandPalettePage"));
         QVERIFY(page);
         auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
         QVERIFY(tabs);
-        QCOMPARE(tabs->indexOf(page), 3);
-        QCOMPARE(tabs->tabText(3), QStringLiteral("Command Palette"));
+        QCOMPARE(tabs->indexOf(page), 4);
+        QCOMPARE(tabs->tabText(4), QStringLiteral("Command Palette"));
         auto *savedCommands = page->findChild<QCheckBox *>(QStringLiteral("kcfg_CommandPaletteSavedCommands"));
         auto *shortcut = page->findChild<QLabel *>(QStringLiteral("keyboardCommandPaletteShortcut"));
         auto *history = page->findChild<QListWidget *>(QStringLiteral("keyboardCommandPaletteHistory"));
@@ -2627,6 +2627,97 @@ private Q_SLOTS:
         QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
         dialog.button(QDialogButtonBox::Apply)->click();
         QVERIFY(!Settings::commandPaletteSavedCommands());
+    }
+
+    void keyboardHintsShowsItsSettingsAndTheReference()
+    {
+        MainWindow window;
+        QAction *reference = window.actionCollection()->action(QStringLiteral("show_shortcut_hints"));
+        QVERIFY(reference);
+        const auto restore = qScopeGuard([&window, reference] {
+            reference->setShortcuts({});
+            Q_EMIT window.guiFactory()->shortcutsSaved();
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+
+        // Hints is the fourth tab of Keyboard, after Vim Mode.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("keyboardHintsPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(page), 3);
+        QCOMPARE(tabs->tabText(3), QStringLiteral("Hints"));
+        auto *enabled = page->findChild<QCheckBox *>(QStringLiteral("kcfg_ShortcutHints"));
+        auto *delay = page->findChild<QSpinBox *>(QStringLiteral("kcfg_ShortcutHintDelay"));
+        auto *timeout = page->findChild<QSpinBox *>(QStringLiteral("kcfg_KeySequenceTimeout"));
+        auto *tooLate = page->findChild<QLabel *>(QStringLiteral("keyboardHintsDelayNotice"));
+        auto *shortcut = page->findChild<QLabel *>(QStringLiteral("keyboardHintsShortcut"));
+        auto *configure = page->findChild<QPushButton *>(QStringLiteral("keyboardHintsConfigure"));
+        auto *map = page->findChild<QPushButton *>(QStringLiteral("keyboardHintsMap"));
+        QVERIFY(enabled && delay && timeout && tooLate && shortcut && configure && map);
+        QVERIFY(enabled->isChecked());
+        QCOMPARE(delay->value(), 500);
+        QCOMPARE(timeout->value(), 1000);
+        QCOMPARE(delay->specialValueText(), QStringLiteral("At once"));
+        QCOMPARE(timeout->specialValueText(), QStringLiteral("Never"));
+        QVERIFY(configure->isEnabled());
+        QVERIFY(map->isEnabled());
+
+        // A delay as long as the timeout would never show hints, and the tab says so.
+        QVERIFY(tooLate->isHidden());
+        delay->setValue(1000);
+        QVERIFY(!tooLate->isHidden());
+        timeout->setValue(0);
+        QVERIFY(tooLate->isHidden());
+        timeout->setValue(1000);
+        enabled->setChecked(false);
+        QVERIFY(tooLate->isHidden());
+        QVERIFY(!delay->isEnabled());
+        enabled->setChecked(true);
+        delay->setValue(500);
+
+        // The reference has no shortcut by default; a changed one shows once saved.
+        QVERIFY(reference->shortcuts().isEmpty());
+        QCOMPARE(shortcut->text(), QStringLiteral("Shortcut: None"));
+        reference->setShortcuts({QKeySequence(Qt::Key_F12)});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(shortcut->text(), QStringLiteral("Shortcut: ") + QKeySequence(Qt::Key_F12).toString(QKeySequence::NativeText));
+
+        // The settings are saved like the others.
+        timeout->setValue(2000);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::keySequenceTimeout(), 2000);
+
+        // A keymap file sets them, shown in its preview with their units.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString keymap = dir.filePath(QStringLiteral("hints.json"));
+        QFile file(keymap);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(QJsonDocument(QJsonObject{{QStringLiteral("format"), QStringLiteral("plasma-opus-keymap")},
+                                             {QStringLiteral("version"), 1},
+                                             {QStringLiteral("application"), QStringLiteral("opus-file-manager")},
+                                             {QStringLiteral("actions"), QJsonObject()},
+                                             {QStringLiteral("settings"),
+                                              QJsonObject{{QStringLiteral("ShortcutHintDelay"), 250}, {QStringLiteral("KeySequenceTimeout"), 0}}}})
+                       .toJson());
+        file.close();
+        QStringList settings;
+        dialog.setKeymapImportReview([&settings](KeymapImportDialog &review) {
+            const auto *list = review.findChild<QListWidget *>(QStringLiteral("keymapImportSettings"));
+            for (int i = 0; list && i < list->count(); ++i) {
+                settings.append(list->item(i)->text());
+            }
+            return true;
+        });
+        dialog.importShortcuts(keymap);
+        settings.sort();
+        QCOMPARE(settings, (QStringList{QStringLiteral("Key sequence timeout: 2000 ms → Never"), QStringLiteral("Shortcut hint delay: 500 ms → 250 ms")}));
+        QCOMPARE(delay->value(), 250);
+        QCOMPARE(timeout->value(), 0);
     }
 
     void keyboardVimModeListsKeysAndConflicts()

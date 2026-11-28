@@ -176,7 +176,7 @@ private Q_SLOTS:
         const auto withoutSettings = KeymapFile::fromJson(text, nullptr, &error, &warnings);
         QVERIFY(withoutSettings);
         QVERIFY(withoutSettings->settings.isEmpty());
-        QCOMPARE(warnings.size(), 5);
+        QCOMPARE(warnings.size(), 8);
     }
 
     void filesThatArentValidKeymapsAreRejected()
@@ -241,6 +241,39 @@ private Q_SLOTS:
         QVERIFY(!errorOf(setting(QStringLiteral("YaziKeyPreset"), QStringLiteral("Emacs"))).isEmpty());
         QVERIFY(!errorOf(setting(QStringLiteral("YaziKeyPreset"), 1)).isEmpty());
         QVERIFY(!errorOf(setting(QStringLiteral("ExtraNavigationShortcuts"), QStringLiteral("true"))).isEmpty());
+        // A number setting takes a whole number within its range.
+        QVERIFY(errorOf(setting(QStringLiteral("ShortcutHintDelay"), 0)).isEmpty());
+        QVERIFY(errorOf(setting(QStringLiteral("ShortcutHintDelay"), 5000)).isEmpty());
+        QVERIFY(errorOf(setting(QStringLiteral("KeySequenceTimeout"), 2000.0)).isEmpty());
+        QVERIFY(!errorOf(setting(QStringLiteral("ShortcutHintDelay"), 1.5)).isEmpty());
+        QVERIFY(!errorOf(setting(QStringLiteral("ShortcutHintDelay"), -1)).isEmpty());
+        QVERIFY(!errorOf(setting(QStringLiteral("ShortcutHintDelay"), 5001)).isEmpty());
+        QVERIFY(!errorOf(setting(QStringLiteral("KeySequenceTimeout"), 99999)).isEmpty());
+        QVERIFY(!errorOf(setting(QStringLiteral("KeySequenceTimeout"), QStringLiteral("1000"))).isEmpty());
+        QVERIFY(!errorOf(setting(QStringLiteral("KeySequenceTimeout"), true)).isEmpty());
+    }
+
+    void numberSettingsRoundTrip()
+    {
+        Settings::setShortcutHints(false);
+        Settings::setShortcutHintDelay(250);
+        Settings::setKeySequenceTimeout(0);
+        KeymapFile::Keymap keymap;
+        keymap.settings = KeymapFile::settingValues(Settings::self());
+        QCOMPARE(keymap.settings.value(QStringLiteral("ShortcutHints")), QVariant(false));
+        QCOMPARE(keymap.settings.value(QStringLiteral("ShortcutHintDelay")), QVariant(250));
+        QCOMPARE(keymap.settings.value(QStringLiteral("KeySequenceTimeout")), QVariant(0));
+        const QByteArray text = KeymapFile::toJson(keymap, Settings::self(), QDateTime(QDate(2026, 11, 28), QTime(12, 0), QTimeZone::UTC));
+        const QJsonObject settings = QJsonDocument::fromJson(text).object().value(QStringLiteral("settings")).toObject();
+        // Numbers, not text.
+        QCOMPARE(settings.value(QStringLiteral("ShortcutHintDelay")), QJsonValue(250));
+        QCOMPARE(settings.value(QStringLiteral("KeySequenceTimeout")), QJsonValue(0));
+        QCOMPARE(settings.value(QStringLiteral("ShortcutHints")), QJsonValue(false));
+        QString error;
+        const auto read = KeymapFile::fromJson(text, Settings::self(), &error);
+        QVERIFY2(read, qPrintable(error));
+        QCOMPARE(read->settings, keymap.settings);
+        QCOMPARE(KeymapFile::settingText(QStringLiteral("KeySequenceTimeout")), QStringLiteral("Key sequence timeout"));
     }
 
     void unknownEntriesAreSkippedWithAReport()

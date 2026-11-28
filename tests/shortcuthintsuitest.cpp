@@ -5,6 +5,7 @@
 #include "pane.h"
 #include "settings.h"
 #include "shortcuthintpopup.h"
+#include "shortcutreference.h"
 #include "windowsequencehints.h"
 #include "yazicolumns.h"
 #include "yazikeys.h"
@@ -17,6 +18,7 @@
 #include <QDir>
 #include <QFile>
 #include <QLabel>
+#include <QLineEdit>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -120,7 +122,7 @@ private Q_SLOTS:
                      qPrintable(u"%1 %2"_s.arg(QDebug::toString(areaRect), QDebug::toString(popup->geometry()))));
 
         // While it shows, the sequence doesn't expire, and the paging keys keep it.
-        QTest::qWait(YaziKeys::PendingTimeout + 200);
+        QTest::qWait(YaziKeys::DefaultPendingTimeout + 200);
         QVERIFY(pane->vimKeys()->isPending());
         press(Qt::Key_PageDown);
         press(Qt::Key_Down);
@@ -254,6 +256,207 @@ private Q_SLOTS:
         QCOMPARE(triggered.size(), 2);
         QTest::qWait(20);
         QVERIFY(!hints->isPending());
+    }
+
+    void appliesTheHintSettings()
+    {
+        Settings::setVimNavigation(true);
+        Settings::setShortcutHints(false);
+        Settings::setKeySequenceTimeout(300);
+        MainWindow window;
+        showWithFocusOnItems(window);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        YaziKeys *keys = pane->vimKeys();
+        QCOMPARE(keys->pendingTimeout(), 300);
+        QCOMPARE(pane->yaziColumns()->keys()->pendingTimeout(), 300);
+        QAbstractItemView *items = pane->view()->currentView();
+        items->setCurrentIndex(items->model()->index(5, 0, items->rootIndex()));
+        ShortcutHintPopup *popup = pane->shortcutHintPopup();
+
+        // Without hints, an incomplete sequence expires after the timeout, and
+        // the next key starts afresh rather than completing it.
+        press(Qt::Key_G);
+        QVERIFY(keys->isPending());
+        QTRY_VERIFY_WITH_TIMEOUT(!keys->isPending(), 2000);
+        QVERIFY(!popup->isVisible());
+        press(Qt::Key_G);
+        QVERIFY(keys->isPending());
+        QCOMPARE(items->currentIndex().row(), 5);
+        press(Qt::Key_Escape);
+        QVERIFY(!keys->isPending());
+
+        // With no timeout, a sequence waits for its next key.
+        Settings::setKeySequenceTimeout(0);
+        window.applySettings();
+        QCOMPARE(keys->pendingTimeout(), 0);
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        press(Qt::Key_G);
+        QTest::qWait(YaziKeys::DefaultPendingTimeout + 200);
+        QVERIFY(keys->isPending());
+        QVERIFY(!popup->isVisible());
+        press(Qt::Key_G);
+        QCOMPARE(items->currentIndex().row(), 0);
+
+        // Hints shown at once.
+        Settings::setShortcutHints(true);
+        Settings::setShortcutHintDelay(0);
+        window.applySettings();
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        press(Qt::Key_G);
+        QTRY_VERIFY_WITH_TIMEOUT(popup->isShowing(ShortcutHintPopup::Source::Keys), 200);
+        // Turning them off hides them.
+        Settings::setShortcutHints(false);
+        window.applySettings();
+        QVERIFY(!popup->isVisible());
+        press(Qt::Key_Escape);
+        QVERIFY(!keys->isPending());
+    }
+
+    void cancelsWindowSequencesThatTimeOut()
+    {
+        Settings::setShortcutHints(false);
+        Settings::setKeySequenceTimeout(300);
+        MainWindow window;
+        showWithFocusOnItems(window);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        QAction *action = window.actionCollection()->addAction(u"test_sequence"_s);
+        action->setText(u"Test Sequence"_s);
+        action->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_K, Qt::CTRL | Qt::Key_T));
+        window.addAction(action);
+        QSignalSpy triggered(action, &QAction::triggered);
+        WindowSequenceHints *hints = window.windowSequenceHints();
+        ShortcutHintPopup *popup = window.activePane()->shortcutHintPopup();
+
+        // Typed in time, the shortcut runs.
+        press(Qt::Key_K, Qt::ControlModifier);
+        QTRY_VERIFY(hints->isPending());
+        press(Qt::Key_T, Qt::ControlModifier);
+        QCOMPARE(triggered.size(), 1);
+
+        // Too late, the sequence is cancelled, in Qt's shortcut map too, and the next key doesn't complete it.
+        press(Qt::Key_K, Qt::ControlModifier);
+        QTRY_VERIFY(hints->isPending());
+        QTRY_VERIFY_WITH_TIMEOUT(!hints->isPending(), 2000);
+        QVERIFY(!popup->isVisible());
+        press(Qt::Key_T, Qt::ControlModifier);
+        QCOMPARE(triggered.size(), 1);
+
+        // While its hints show, a sequence waits.
+        Settings::setShortcutHints(true);
+        Settings::setShortcutHintDelay(0);
+        window.applySettings();
+        window.activePane()->view()->currentView()->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(window.activePane()->view()->currentView()->hasFocus());
+        press(Qt::Key_K, Qt::ControlModifier);
+        QTRY_VERIFY(popup->isShowing(ShortcutHintPopup::Source::Window));
+        QTest::qWait(600);
+        QVERIFY(hints->isPending());
+        press(Qt::Key_T, Qt::ControlModifier);
+        QCOMPARE(triggered.size(), 2);
+        QVERIFY(!popup->isVisible());
+    }
+
+    void showsTheShortcutReference()
+    {
+        MainWindow window;
+        showWithFocusOnItems(window, QSize(700, 450));
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        QAction *reference = window.actionCollection()->action(u"show_shortcut_hints"_s);
+        QVERIFY(reference);
+        // No default shortcut, so that it takes no one's key.
+        QVERIFY(reference->shortcuts().isEmpty());
+        QCOMPARE(reference->text(), u"Shortcut Hints"_s);
+        ShortcutReference *shortcutReference = window.shortcutReference();
+        QVERIFY(shortcutReference);
+        Pane *pane = window.activePane();
+        QAbstractItemView *items = pane->view()->currentView();
+        const int rows = items->model()->rowCount(items->rootIndex());
+        items->setCurrentIndex(items->model()->index(5, 0, items->rootIndex()));
+        ShortcutHintPopup *popup = pane->shortcutHintPopup();
+
+        // The window's shortcuts that work in a file view, in pages the paging keys turn without reaching the view.
+        reference->trigger();
+        QVERIFY(shortcutReference->isShowing());
+        QVERIFY(popup->isShowing(ShortcutHintPopup::Source::Reference));
+        QVERIFY(items->hasFocus());
+        QCOMPARE(popup->title(), u"Shortcuts: File views and lists"_s);
+        const QString quit = QKeySequence(Qt::CTRL | Qt::Key_Q).toString(QKeySequence::NativeText);
+        QVERIFY(hasHint(popup->hints(), quit));
+        QVERIFY2(popup->pageCount() > 1, qPrintable(QString::number(popup->pageCount())));
+        press(Qt::Key_PageDown);
+        QCOMPARE(popup->page(), 1);
+        press(Qt::Key_Up);
+        QCOMPARE(popup->page(), 0);
+        QCOMPARE(items->currentIndex().row(), 5);
+        // Escape closes it, and does nothing else.
+        press(Qt::Key_Escape);
+        QVERIFY(!popup->isVisible());
+        QVERIFY(!shortcutReference->isShowing());
+
+        // The action toggles it.
+        reference->trigger();
+        QVERIFY(popup->isVisible());
+        reference->trigger();
+        QVERIFY(!popup->isVisible());
+
+        // Any other key closes it and does what it does.
+        reference->trigger();
+        QVERIFY(popup->isVisible());
+        press(Qt::Key_End);
+        QVERIFY(!popup->isVisible());
+        QCOMPARE(items->currentIndex().row(), rows - 1);
+
+        // With Vim-style navigation, its keys come first.
+        Settings::setVimNavigation(true);
+        window.applySettings();
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        reference->trigger();
+        QCOMPARE(popup->title(), u"Shortcuts: Vim-style navigation"_s);
+        const auto indexOf = [popup](const QString &keys) {
+            const QList<ShortcutHints::Hint> hints = popup->hints();
+            const auto found = std::find_if(hints.cbegin(), hints.cend(), [&keys](const ShortcutHints::Hint &hint) {
+                return hint.keys == keys;
+            });
+            return found == hints.cend() ? -1 : int(found - hints.cbegin());
+        };
+        QVERIFY(indexOf(u"gg"_s) >= 0);
+        QVERIFY(indexOf(quit) > indexOf(u"gg"_s));
+        // A Vim key closes it and begins its sequence.
+        press(Qt::Key_G);
+        QVERIFY(!popup->isShowing(ShortcutHintPopup::Source::Reference));
+        QVERIFY(pane->vimKeys()->isPending());
+        press(Qt::Key_Escape);
+
+        // In a text field, every key keeps typing.
+        auto *field = new QLineEdit(&window);
+        field->show();
+        field->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(field->hasFocus());
+        reference->trigger();
+        QVERIFY(popup->isShowing(ShortcutHintPopup::Source::Reference));
+        QCOMPARE(popup->title(), u"Shortcuts: Text fields"_s);
+        press(Qt::Key_A);
+        QCOMPARE(field->text(), u"a"_s);
+        QVERIFY(!popup->isVisible());
+        reference->trigger();
+        press(Qt::Key_Escape);
+        QVERIFY(!popup->isVisible());
+
+        // Moving the focus closes it.
+        reference->trigger();
+        QVERIFY(popup->isVisible());
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(!popup->isVisible());
     }
 
 private:
