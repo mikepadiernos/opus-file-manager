@@ -99,6 +99,8 @@ add_library(opusfm_core STATIC
     mailmessage.h
     mcpsettings.cpp
     mcpsettings.h
+    keybindings.cpp
+    keybindings.h
     kwinscript.cpp
     kwinscript.h
     mediabackend.cpp
