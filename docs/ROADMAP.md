@@ -2125,7 +2125,8 @@ Settings for M29 Nextcloud integration, stored in KConfig without credentials.
       is a [pending handoff](TODO.md#nextcloud-settings-on-plasma-368).
       [#368]
 - [ ] Show or hide Photos albums, shared albums and places, choose their
-      default grouping and whether to confirm album changes [#672]
+      default grouping and whether to confirm album changes. Its build is a
+      [pending handoff](TODO.md#nextcloud-photos-settings-build-672). [#672]
 
 ### M31: Keyboard shortcut settings
 
