@@ -68,6 +68,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Nextcloud Photos settings on a real server](#nextcloud-photos-settings-on-a-real-server-672) | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#672]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
 | [Keyboard shortcuts on Plasma](#keyboard-shortcuts-on-plasma-230)                             | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#230]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Shortcut contexts on Plasma](#shortcut-contexts-on-plasma-233)                               | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#233]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Shortcut storage on Plasma](#shortcut-storage-on-plasma-238)                                 | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#238]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1776,10 +1777,53 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
    roadmap link.
 
+## Shortcut storage on Plasma (#238)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#238] (Development).
+- **Blocker:** The development container has no Plasma session, no KDE global
+  shortcut service (KGlobalAccel) and no earlier Plasma Opus installation.
+  Moving the shortcuts of a real installation out of its layout file, keys
+  KDE refuses for a global shortcut and the status in a Wayland session that
+  isn't Plasma are unverified.
+- **Confirmed state:** `src/core/shortcutstorage.cpp` reads, writes and
+  migrates the `Shortcuts` group of `opus-file-managerrc`, and
+  `src/app/windowshortcuts.cpp` applies it to every window, saves it after
+  **Configure Keyboard Shortcuts…** and **Reset All Shortcuts…** and strips
+  the shortcuts from the layout file. `KeyBindings::globalAvailability` and
+  `KeyBindings::refusedKeys` give the global shortcut statuses on
+  **Preferences › KDE Plasma**. `shortcutstoragetest`, `keybindingstest`,
+  `settingsdialogtest`, `settingstest` and `mainwindowtest` pass in the
+  container. See [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6, with shortcuts customized in a Plasma Opus build from before
+   #238, install this one by `./install.sh` and start it. Check that the
+   shortcuts are kept, that `~/.config/opus-file-managerrc` has them in its
+   `Shortcuts` group and that
+   `~/.local/share/kxmlgui5/opus-file-manager/opus-file-managerui.rc` no
+   longer has `shortcut` attributes but keeps customized toolbars.
+2. With two windows open, change a shortcut in **Configure Keyboard
+   Shortcuts…** and check that both windows use it at once and after a
+   restart, then use **Reset All Shortcuts…** and check that the group no
+   longer has entries for the window's actions.
+3. On **Preferences › KDE Plasma › Shortcuts**, give **Show or Hide Plasma
+   Opus** a key another application already has globally, such as
+   <kbd>Meta</kbd>+<kbd>E</kbd> when Dolphin has it, choose **Apply** and
+   check that the status names the refused key. Repeat for the drop-down
+   window's shortcut on **Preferences › KDE Plasma › KWin**.
+4. Log in to a Wayland session of another desktop, such as GNOME, with
+   `kglobalacceld` running, and check that both statuses add that the
+   shortcut works only if the desktop passes keys on, and whether it does.
+   Record any differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then
+   remove this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#230]: https://github.com/mikepadiernos/plasma-opus/issues/230
 [#233]: https://github.com/mikepadiernos/plasma-opus/issues/233
+[#238]: https://github.com/mikepadiernos/plasma-opus/issues/238
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
 [#288]: https://github.com/mikepadiernos/plasma-opus/issues/288
 [#290]: https://github.com/mikepadiernos/plasma-opus/issues/290
