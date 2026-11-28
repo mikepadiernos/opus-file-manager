@@ -78,6 +78,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Vim-style mode indicator on Plasma](#vim-style-mode-indicator-on-plasma-229)                 | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#229]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Shortcut hints on Plasma](#shortcut-hints-on-plasma-234)                                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#234]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Shortcut hint settings on Plasma](#shortcut-hint-settings-on-plasma-235)                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#235]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Keyboard hints on Plasma](#keyboard-hints-on-plasma-762)                                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#762]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -2164,6 +2165,51 @@ modify ID connection.metered yes`), check that the tab reports it and that
    in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
    roadmap link.
 
+## Keyboard hints on Plasma (#762)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#762] (Development).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, Wayland compositor, input
+  method, colour scheme or screen reader, so where the labels sit over the
+  file views, location bar, tabs and **Places** panel, how they look in
+  Plasma themes, the keyboard focus returning after they close, input
+  methods and Orca's announcements are unverified.
+- **Confirmed state:** `KeyboardHints` in `src/core/keyboardhints.cpp` makes
+  the labels and matches typed keys; `KeyboardHintOverlay` in
+  `src/app/keyboardhintoverlay.cpp` finds the targets, shows the labels and
+  activates them; `MainWindow::showKeyboardHints` in `src/app/mainwindow.cpp`
+  is **Go › Keyboard Hints** (`keyboard_hints`,
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd>). `KeyboardHintKeys` and
+  `KeyboardHintItemAction` are in the `Keyboard` group of
+  `src/core/opusfilemanager.kcfg`, `KeymapFile` imports and exports them,
+  and the tab is `createKeyboardLabelHintsPage` in
+  `src/app/keyboardsettingspages.cpp`. `keyboardhintstest`,
+  `keymapfiletest`, `settingsdialogtest`, `settingstest`, `mainwindowtest`,
+  `keybindingstest`, `keyboardmaptest`, `vimnavigation*` and the Yazi mode
+  tests pass in the container. See
+  [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, under Wayland
+   and X11, with Breeze, Breeze Dark and a high-contrast colour scheme,
+   press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd> in the icons, compact
+   and details views, in Yazi mode and in a split window with the **Places**
+   panel docked: check that each label sits on its item, location segment,
+   tab and place, is readable, and that nothing else takes the shortcut.
+2. Type a label, a label with <kbd>Shift</kbd> on its last key, part of a
+   label then <kbd>Backspace</kbd>, and <kbd>Escape</kbd>; check that items
+   are selected or opened, segments and places open, tabs switch, and that
+   the keyboard focus returns where it was. Scroll, resize the window and
+   switch panes while labels show, and check that they close.
+3. With the focus in the location bar, the filter bar, a rename editor, the
+   embedded terminal and an input method such as Fcitx 5 or IBus active,
+   press the shortcut and check that typing is never taken. With Orca,
+   check that the number of labels and each label's name are read. Record
+   any differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove
+   this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#228]: https://github.com/mikepadiernos/plasma-opus/issues/228
@@ -2227,3 +2273,4 @@ modify ID connection.metered yes`), check that the tab reports it and that
 [#721]: https://github.com/mikepadiernos/plasma-opus/issues/721
 [#750]: https://github.com/mikepadiernos/plasma-opus/issues/750
 [#761]: https://github.com/mikepadiernos/plasma-opus/issues/761
+[#762]: https://github.com/mikepadiernos/plasma-opus/issues/762
