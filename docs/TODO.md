@@ -64,8 +64,8 @@ Board statuses were last confirmed on 2026-11-27.
 | [Nextcloud Photos on a real server](#nextcloud-photos-on-a-real-server-671)                   | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#671]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Nextcloud shares on a real server](#nextcloud-shares-on-a-real-server-591)                   | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#591]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Nextcloud desktop client on Plasma](#nextcloud-desktop-client-on-plasma-592)                 | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#592]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Nextcloud settings on Plasma](#nextcloud-settings-on-plasma-368)                             | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#368]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                         |
-| [Nextcloud Photos settings on a real server](#nextcloud-photos-settings-on-a-real-server-672) | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#672]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Nextcloud settings on Plasma](#nextcloud-settings-on-plasma-368)                             | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#368]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Nextcloud Photos settings on a real server](#nextcloud-photos-settings-on-a-real-server-672) | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#672]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
 
 ## mpv integration (#563)
 
@@ -1623,7 +1623,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Nextcloud settings on Plasma (#368)
 
 - **Milestone and issue:** [M30](ROADMAP.md#m30-nextcloud-settings), [#368]
-  (Review).
+  (Completed).
 - **Blocker:** The development container has no Nextcloud server, Plasma
   session, KDE Online Accounts or Nextcloud desktop client, so
   **Preferences › Remote and Cloud › Nextcloud** is tested only with fake
@@ -1665,7 +1665,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Nextcloud Photos settings on a real server (#672)
 
 - **Milestone and issue:** [M30](ROADMAP.md#m30-nextcloud-settings), [#672]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no Nextcloud server with the
   Photos app or Plasma session, so the **Photos** group of **Preferences ›
   Remote and Cloud › Nextcloud** is tested only against a fake server. The
