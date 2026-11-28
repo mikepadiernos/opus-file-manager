@@ -339,6 +339,13 @@ ecm_add_test(listingexporttest.cpp
     GUI
 )
 
+# The keyboard map writes PDF references, which need a GUI application.
+ecm_add_test(keyboardmaptest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
 ecm_add_test(contentcharttest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"

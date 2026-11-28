@@ -28,6 +28,7 @@
 #include "indexstatusdialog.h"
 #include "informationpanel.h"
 #include "interfacelanguage.h"
+#include "keyboardmapdialog.h"
 #include "libraryregistry.h"
 #include "localizeddates.h"
 #include "metadataeditdialog.h"
@@ -2779,6 +2780,106 @@ private Q_SLOTS:
         QCOMPARE(KActionCollection::defaultShortcuts(gallery), QList<QKeySequence>{QKeySequence(Qt::Key_Space)});
         // Actions without stored shortcuts get the defaults the window applies, such as Tab switching panes.
         QVERIFY(window.actionCollection()->action(QStringLiteral("switch_pane"))->shortcuts().contains(QKeySequence(Qt::Key_Tab)));
+    }
+
+    void keyboardMapListsSearchesAndExportsShortcuts()
+    {
+        MainWindow window;
+        const ShortcutFilesGuard guard(window.localXMLFile());
+        QAction *mapAction = window.actionCollection()->action(QStringLiteral("keyboard_map"));
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        QVERIFY(mapAction && gallery);
+        // Help › Keyboard Map… takes no key from another action.
+        QVERIFY(mapAction->shortcuts().isEmpty());
+        auto *help = qobject_cast<QMenu *>(window.guiFactory()->container(QStringLiteral("help"), &window));
+        QVERIFY(help);
+        QVERIFY(help->actions().contains(mapAction));
+
+        mapAction->trigger();
+        auto *dialog = window.findChild<KeyboardMapDialog *>();
+        QVERIFY(dialog);
+        QVERIFY(dialog->isVisible());
+        mapAction->trigger();
+        QCOMPARE(window.findChildren<KeyboardMapDialog *>().size(), 1);
+        auto *search = dialog->findChild<QLineEdit *>(QStringLiteral("keyboardMapSearch"));
+        auto *withShortcuts = dialog->findChild<QCheckBox *>(QStringLiteral("keyboardMapWithShortcuts"));
+        auto *list = dialog->findChild<QTreeWidget *>(QStringLiteral("keyboardMapList"));
+        QVERIFY(search && withShortcuts && list);
+        const auto names = [dialog] {
+            QStringList found;
+            for (const KeyboardMap::Entry &entry : dialog->shownEntries()) {
+                found.append(entry.name);
+            }
+            return found;
+        };
+        const auto entryNamed = [dialog](const QString &name) {
+            for (const KeyboardMap::Entry &entry : dialog->shownEntries()) {
+                if (entry.name == name) {
+                    return entry;
+                }
+            }
+            return KeyboardMap::Entry{};
+        };
+
+        // Window actions, the gallery's keys and the Yazi mode preset are listed, each with where it applies.
+        QCOMPARE(list->topLevelItemCount(), dialog->shownEntries().size());
+        QCOMPARE(list->headerItem()->text(2), QStringLiteral("Applies in"));
+        QCOMPARE(entryNamed(QStringLiteral("search_folder")).shortcuts, QList<QKeySequence>{QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F)});
+        QCOMPARE(entryNamed(QStringLiteral("search_folder")).context, QStringLiteral("Window"));
+        bool gallerySeen = false;
+        bool yaziSeen = false;
+        for (const KeyboardMap::Entry &entry : dialog->shownEntries()) {
+            gallerySeen = gallerySeen || entry.context == QStringLiteral("Image gallery");
+            yaziSeen = yaziSeen || entry.context == QStringLiteral("Yazi mode columns");
+        }
+        QVERIFY(gallerySeen && yaziSeen);
+        // Pressing Shift twice is listed with the search it opens.
+        QCOMPARE(entryNamed(QStringLiteral("double_shift_search")).keysText, QStringLiteral("Shift twice"));
+        QCOMPARE(entryNamed(QStringLiteral("double_shift_search")).context, QStringLiteral("Window"));
+        QVERIFY(!names().contains(QStringLiteral("keyboard_map")));
+        // A search that only finds actions without shortcuts says they are hidden.
+        auto *count = dialog->findChild<QLabel *>(QStringLiteral("keyboardMapCount"));
+        QVERIFY(count);
+        search->setText(QStringLiteral("keyboard_map"));
+        QVERIFY(names().isEmpty());
+        QVERIFY(count->text().contains(QStringLiteral("1 more without a shortcut is hidden")));
+        search->clear();
+        withShortcuts->setChecked(false);
+        QVERIFY(names().contains(QStringLiteral("keyboard_map")));
+        QVERIFY(!entryNamed(QStringLiteral("keyboard_map")).description.isEmpty());
+        withShortcuts->setChecked(true);
+
+        // Typing searches names; pressing keys finds what they run.
+        search->setText(QStringLiteral("search current"));
+        QVERIFY(names().contains(QStringLiteral("search_folder")));
+        QVERIFY(!names().contains(QStringLiteral("open_gallery")));
+        search->clear();
+        dialog->setSearchKeys(QKeySequence(Qt::Key_Space));
+        QVERIFY(names().contains(QStringLiteral("open_gallery")));
+        QVERIFY(!names().contains(QStringLiteral("search_folder")));
+
+        // Saved shortcuts show at once.
+        gallery->setShortcuts({QKeySequence(Qt::Key_F9), QKeySequence(Qt::CTRL | Qt::Key_K, QKeyCombination(Qt::Key_G))});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QVERIFY(!names().contains(QStringLiteral("open_gallery")));
+        dialog->setSearchKeys(QKeySequence(Qt::CTRL | Qt::Key_K));
+        QCOMPARE(names(), QStringList{QStringLiteral("open_gallery")});
+
+        // The listed actions export as a printable reference.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath(QStringLiteral("keys.html"));
+        QVERIFY(dialog->exportTo(path).isEmpty());
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QString html = QString::fromUtf8(file.readAll());
+        QVERIFY(html.contains(QStringLiteral("Open Gallery")));
+        QVERIFY(!html.contains(QStringLiteral("Search Current Folder")));
+        dialog->setSearchKeys({});
+        QVERIFY(dialog->exportTo(dir.filePath(QStringLiteral("keys.pdf"))).isEmpty());
+
+        gallery->setShortcuts({QKeySequence(Qt::Key_Space)});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
     }
 
     void defaultToolbarSpacingSurvivesCustomization()

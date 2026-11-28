@@ -2521,6 +2521,11 @@ private Q_SLOTS:
         QVERIFY(opens(QStringLiteral("keyboardShowSearchSettings"), QStringLiteral("searchSettingsPage")));
         QVERIFY(opens(QStringLiteral("keyboardShowYaziKeys"), QStringLiteral("yaziKeyboardPage")));
         QVERIFY(opens(QStringLiteral("keyboardShowGlobalShortcuts"), QStringLiteral("shortcutsIntegrationPage")));
+
+        // Keyboard Map… opens Help › Keyboard Map….
+        QSignalSpy mapShown(window.actionCollection()->action(QStringLiteral("keyboard_map")), &QAction::triggered);
+        dialog.findChild<QPushButton *>(QStringLiteral("keyboardShowMap"))->click();
+        QCOMPARE(mapShown.size(), 1);
     }
 
     void keyboardShortcutsNeedTheMainWindow()
@@ -2529,6 +2534,7 @@ private Q_SLOTS:
         SettingsDialog dialog(&places, nullptr);
         QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardConfigureShortcuts"))->isEnabled());
         QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardResetShortcuts"))->isEnabled());
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardShowMap"))->isEnabled());
         QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("keyboardCustomizedSummary"))->text().startsWith(QStringLiteral("Open Preferences from")));
         QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("keyboardGlobalKeys"))->text().startsWith(QStringLiteral("Open Preferences from")));
         // Nothing to reset, and nothing is asked.
