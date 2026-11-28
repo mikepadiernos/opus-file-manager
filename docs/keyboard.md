@@ -198,9 +198,10 @@ Yazi mode key preset. <kbd>Ctrl</kbd>+<kbd>Page Down</kbd> and
 previous tab, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> is KDE's
 standard **Deselect** and <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F4</kbd> is
 the key Dolphin uses to focus its terminal. While you type in the embedded
-terminal, it keeps keys with fewer than two modifiers, such as
-<kbd>Alt</kbd>+<kbd>1</kbd>; <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F4</kbd>
-leaves it.
+terminal, it keeps keys with a single modifier, such as
+<kbd>Alt</kbd>+<kbd>1</kbd> and <kbd>Ctrl</kbd>+<kbd>Page Down</kbd>; keys
+with two, such as <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F4</kbd>, which
+leaves it, still reach the window.
 
 **Configure Keyboard Shortcuts…** and **Keyboard Map…** below the list open
 KDE's editor and the keyboard map. The tab updates when shortcuts are saved
