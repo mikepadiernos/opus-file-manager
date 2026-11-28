@@ -5,7 +5,7 @@
 [![Caveats: Keyboard shortcuts](https://img.shields.io/badge/caveats-Keyboard%20shortcuts-bf8700?style=flat-square)](CAVEATS.md#keyboard-shortcuts)
 
 ![Milestone M31](https://img.shields.io/badge/milestone-M31-8957e5?style=flat-square)
-![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)
+![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)
 
 Plasma Opus uses KDE's own shortcut editor, **Settings › Configure Keyboard
 Shortcuts…**, for every window action. **Preferences › Keyboard** (M31) adds a
