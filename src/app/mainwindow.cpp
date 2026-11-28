@@ -8244,14 +8244,22 @@ void MainWindow::refreshCustomCommandActions()
                 showCustomCommandPreset(name);
             });
             m_customCommandActions.insert(command.name, action);
+            if (factory()) {
+                // Saved after the window applied the stored shortcuts.
+                WindowShortcuts::apply(action);
+            }
         }
-        action->setText(command.name);
+        // Configure Keyboard Shortcuts lists the text; toolbars show the name.
+        action->setText(i18nc("@action %1 is a saved command's name", "Saved Command: %1", command.name));
+        action->setIconText(command.name);
         action->setToolTip(i18nc("@info:tooltip", "Preview saved command: %1", command.name));
     }
     for (auto it = m_customCommandActions.begin(); it != m_customCommandActions.end();) {
         if (!current.contains(it.key())) {
             QAction *action = it.value();
             it = m_customCommandActions.erase(it);
+            // A command saved again under this name starts without the deleted one's shortcuts.
+            WindowShortcuts::forget(action->objectName());
             actionCollection()->removeAction(action);
         } else {
             ++it;

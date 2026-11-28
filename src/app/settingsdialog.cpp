@@ -1705,7 +1705,8 @@ QWidget *SettingsDialog::createAutomationPage()
     auto *page = new QWidget;
     auto *layout = new QVBoxLayout(page);
     auto *notice = new QLabel(i18nc("@info",
-                                    "Manage scripts and custom command presets. Add saved commands using Configure Toolbars. "
+                                    "Manage scripts and custom command presets. Add saved commands using Configure Toolbars, or give them "
+                                    "shortcuts in Configure Keyboard Shortcuts, where they are listed as Saved Command. "
                                     "Changes are saved immediately, even if Preferences is canceled. "
                                     "Commands run with your permissions and require a preview and confirmation."),
                               page);
