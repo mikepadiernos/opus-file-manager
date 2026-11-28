@@ -37,13 +37,13 @@
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. Since then, `main` has gained M15–M30: workspaces
+> released after M14. Since then, `main` has gained M15–M31: workspaces
 > (M15–M16), themes (M17–M18), branding (M19–M20), advanced search (M21–M22),
 > native tagging (M23–M24), Yazi mode (M25–M26), desktop integrations
 > (M27–M28) and Nextcloud integration (M29–M30), each followed by a settings
-> milestone. Features marked with a milestone badge below are on `main` but not
-> in v0.2.0. See the [roadmap](docs/ROADMAP.md#at-a-glance) for status and the
-> planned M31–M32.
+> milestone, and keyboard shortcut settings (M31). Features marked with a
+> milestone badge below are on `main` but not in v0.2.0. See the
+> [roadmap](docs/ROADMAP.md#at-a-glance) for status and the planned M32.
 
 ## Features
 
