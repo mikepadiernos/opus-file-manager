@@ -20,9 +20,8 @@ uses, its settings and ideas considered beyond the roadmap.
 > previews, asset search, Photos albums, shares and the desktop client's
 > folders; and the Nextcloud settings of
 > [M30](../ROADMAP.md#m30-nextcloud-settings) under **Preferences › Remote and
-> Cloud › Nextcloud**, described under
-> [Implemented features](#implemented-features). **Planned:** only the Photos
-> settings in M30, summarized under [Planned features](#planned-features).
+> Cloud › Nextcloud**, including the Photos settings, described under
+> [Implemented features](#implemented-features). **Planned:** nothing else.
 > Everything under [Considered features](#considered-features) is outside the
 > roadmap.
 
@@ -31,7 +30,6 @@ uses, its settings and ideas considered beyond the roadmap.
 - [Goals](#goals)
 - [Boundaries](#boundaries)
 - [Implemented features](#implemented-features)
-- [Planned features](#planned-features)
 - [Nextcloud app interfaces](#nextcloud-app-interfaces)
 - [Photos](#photos)
 - [Considered features](#considered-features)
@@ -207,10 +205,11 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   date and place the server read from them, without downloading the files.
   **Sort** orders them newest or oldest first, by name or by place, and
   **Group by** groups them by the month taken or by place; the window
-  remembers both. Photos without a capture date or place come last, and the
-  status line counts those without a capture date. Selecting a photo shows the
-  server's preview, and **Show in Pane**, or a double-click, reveals the file
-  in the active pane when it is in your own files.
+  remembers both, unless Preferences sets the grouping it opens with. Photos
+  without a capture date or place come last, and the status line counts those
+  without a capture date. Selecting a photo shows the server's preview, and
+  **Show in Pane**, or a double-click, reveals the file in the active pane
+  when it is in your own files.
   - **Albums:** **New Album…** creates an album. **Remove from Album…** asks
     for confirmation, saying that the files aren't deleted, then deletes only
     the album's entry for each photo; Plasma Opus refuses to send a `DELETE`
@@ -348,11 +347,30 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   See [Nextcloud settings](../CAVEATS.md#nextcloud-settings).
   ([#368](https://github.com/mikepadiernos/plasma-opus/issues/368))
 
-## Planned features
+- **Photos settings:** the **Photos** group of **Preferences › Remote and
+  Cloud › Nextcloud** chooses what the **Photos…** window and **Add to
+  Nextcloud Album…** offer; every default keeps the behaviour described under
+  **Photos** above. The settings apply to windows opened afterwards.
+  - **Albums, shared albums and places:** **Show** lists only the kinds
+    checked, and is disabled when only one is. Without your albums, **New
+    Album…** isn't offered and **Add to Nextcloud Album…** lists only shared
+    albums that accept photos. Without any album, the context menu doesn't
+    offer **Add to Nextcloud Album…**, and without any kind, **Go › Nextcloud**
+    doesn't offer **Photos…**. Hiding a kind changes nothing on the server.
+  - **Grouping:** **Group photos by** opens the window grouped as last chosen
+    there, the default, or always without groups, by the month taken or by
+    place. **Group by** in the window still changes it until the window is
+    closed.
+  - **Confirmation:** **Ask before adding photos to or removing them from
+    your albums** can be cleared to add and remove photos in your own albums
+    without a question. Changes to an album shared with others, or shared
+    with you, are always confirmed, because everyone it is shared with sees
+    them.
+  - **Storage:** the `Photos` entries of the `Nextcloud` group of the Plasma
+    Opus settings.
 
-| Feature         | Plan                                                                                                               | Milestone                                   |
-| --------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| Photos settings | Show or hide albums, shared albums and places, choose their default grouping and whether to confirm album changes. | [M30](../ROADMAP.md#m30-nextcloud-settings) |
+  See [Nextcloud Photos settings](../CAVEATS.md#nextcloud-photos-settings).
+  ([#672](https://github.com/mikepadiernos/plasma-opus/issues/672))
 
 ## Nextcloud app interfaces
 
@@ -377,7 +395,8 @@ document describes how Plasma Opus could also work with Nextcloud apps.
 
 Implemented in [M29](../ROADMAP.md#m29-nextcloud-integration) as the
 **Photos…** window described under
-[Implemented features](#implemented-features), with settings planned in
+[Implemented features](#implemented-features), with its settings under
+**Preferences › Remote and Cloud › Nextcloud** from
 [M30](../ROADMAP.md#m30-nextcloud-settings):
 
 - Albums, shared albums and places are browsed as virtual folders in their
@@ -389,9 +408,9 @@ Implemented in [M29](../ROADMAP.md#m29-nextcloud-integration) as the
   counted; the server's modification date is only shown in a tooltip.
 - Adding files to an album, creating an album and removing photos from an
   album each need an explicit action, and adding or removing needs
-  confirmation. Removing a photo from an album never deletes the file, and
-  the question says so; deleting a file remains a separate, explicit Files
-  action.
+  confirmation, which Preferences can skip for albums that aren't shared.
+  Removing a photo from an album never deletes the file, and the question
+  says so; deleting a file remains a separate, explicit Files action.
 - Shared-album permissions are respected, and places are read-only server
   groupings. The window reports when the Photos app is unavailable.
 - **Not yet:** renaming albums, browsing albums in a pane, and, **with Plasma
