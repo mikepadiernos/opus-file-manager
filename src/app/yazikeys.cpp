@@ -103,6 +103,36 @@ QString YaziKeys::pendingText() const
     return m_matcher.pendingText();
 }
 
+YaziMode::KeySequence YaziKeys::pendingKeys() const
+{
+    return m_matcher.pendingKeys();
+}
+
+int YaziKeys::pendingCount() const
+{
+    return m_matcher.pendingCount();
+}
+
+const YaziMode::Keymap &YaziKeys::keymap() const
+{
+    return m_matcher.keymap();
+}
+
+bool YaziKeys::continues(QKeyCombination key) const
+{
+    return m_matcher.isPending() && m_matcher.continues(key);
+}
+
+void YaziKeys::pauseTimeout()
+{
+    m_timeout->stop();
+}
+
+void YaziKeys::setPendingKeyHandler(std::function<bool(QKeyCombination, bool)> handler)
+{
+    m_pendingKeyHandler = std::move(handler);
+}
+
 void YaziKeys::cancel()
 {
     m_timeout->stop();
@@ -219,6 +249,11 @@ bool YaziKeys::eventFilter(QObject *watched, QEvent *event)
         key = QKeyCombination(key.keyboardModifiers(), key.key() == Qt::Key_Left ? Qt::Key_Right : Qt::Key_Left);
     }
     using Result = YaziMode::KeyMatcher::Result;
+    if (m_matcher.isPending() && m_pendingKeyHandler && key.key() != Qt::Key_Escape && !m_matcher.continues(key)
+        && m_pendingKeyHandler(key, type == QEvent::KeyPress)) {
+        event->accept();
+        return true;
+    }
     if (type == QEvent::ShortcutOverride) {
         if (overridesEscape(key)) {
             event->accept();

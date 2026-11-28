@@ -64,7 +64,27 @@ public:
     bool isPending() const;
     /// The count and keys typed so far of an incomplete sequence, such as "g", or empty.
     QString pendingText() const;
+    /// The keys typed so far of an incomplete sequence, without its count.
+    YaziMode::KeySequence pendingKeys() const;
+    /// The count typed so far, or 0.
+    int pendingCount() const;
+    /// The keymap the keys are matched against.
+    const YaziMode::Keymap &keymap() const;
+    /// Whether @p key continues the pending sequence.
+    bool continues(QKeyCombination key) const;
     void cancel();
+    /**
+     * Stops the pending sequence from expiring until the next key, as while
+     * the shortcut hint popup lists what can follow it.
+     */
+    void pauseTimeout();
+    /**
+     * Lets @p handler take keys that would break a pending sequence, such as
+     * the keys that turn the pages of the shortcut hint popup: it returns
+     * whether it takes @p key, and acts on it only when @p apply is true. A
+     * taken key keeps the sequence pending. Escape always cancels it.
+     */
+    void setPendingKeyHandler(std::function<bool(QKeyCombination key, bool apply)> handler);
 
     /// Sends @p key to @p target as the widget's own key, bypassing the preset.
     void sendKey(QWidget *target, Qt::Key key, Qt::KeyboardModifiers modifiers = Qt::NoModifier);
@@ -109,6 +129,7 @@ private:
     QTimer *m_timeout = nullptr;
     std::function<bool(QWidget *)> m_accepts;
     std::function<bool()> m_escapeActive;
+    std::function<bool(QKeyCombination, bool)> m_pendingKeyHandler;
     bool m_enabled = false;
     bool m_sending = false;
     bool m_modifiedKeysYield = false;

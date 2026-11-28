@@ -21,6 +21,7 @@ class KUrlNavigator;
 class TabColors;
 class TabModel;
 class YaziColumns;
+class ShortcutHintPopup;
 class YaziKeys;
 class QLabel;
 class QTabBar;
@@ -269,6 +270,15 @@ public:
      * navigation applies to the pane.
      */
     QLabel *vimModeIndicator() const;
+    /**
+     * The popup that lists the keys that can follow a partly typed sequence
+     * of the pane's Vim-style or Yazi mode keys, after a short delay, or
+     * other hints the window shows over the pane. It is created when first
+     * needed.
+     */
+    ShortcutHintPopup *shortcutHintPopup();
+    /// The widget the shortcut hint popup floats over: the file view, or the columns in Yazi mode.
+    QWidget *shortcutHintArea() const;
 
 public Q_SLOTS:
     void setUrl(const QUrl &url);
@@ -347,6 +357,12 @@ private:
     void reportVimMessage(const QString &message);
     /// Shows the current vimMode() and pending keys, and announces a change while the pane has the focus.
     void updateVimModeIndicator();
+    /// The pane's keys that wait for the rest of a sequence, or null.
+    YaziKeys *pendingSequenceKeys() const;
+    /// Starts the hint delay while a sequence of the pane's keys is pending, updates shown hints, or hides them.
+    void updateShortcutHints();
+    /// Lists the keys that can follow the pending sequence in the shortcut hint popup.
+    void showSequenceHints();
     /// Closes the pane's tabs and opens those of @p state with their pins, locks and names.
     void rebuildTabs(const PaneSession &state);
     void saveHistoryViewState();
@@ -414,6 +430,8 @@ private:
     QLabel *m_vimModeIndicator = nullptr;
     VimNavigation::Mode m_announcedVimMode = VimNavigation::Mode::Normal;
     QString m_announcedVimPending;
+    ShortcutHintPopup *m_hintPopup = nullptr;
+    QTimer *m_hintDelay = nullptr;
     QVBoxLayout *m_layout = nullptr;
     QHBoxLayout *m_outerLayout = nullptr;
     QBoxLayout *m_stripLayout = nullptr;

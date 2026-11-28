@@ -80,6 +80,7 @@ class PreviewPanel;
 class SearchPanel;
 class TaggingController;
 class TabColors;
+class WindowSequenceHints;
 class TerminalPanel;
 class ToolbarCustomizer;
 class QDockWidget;
@@ -115,6 +116,8 @@ public:
 
     Pane *activePane() const;
     Pane *inactivePane() const;
+    /// Shows hints while the first keys of a multi-key window shortcut wait for the rest.
+    WindowSequenceHints *windowSequenceHints() const;
 
     ActivityController *activityController() const;
     /// Opens Preferences › KDE Plasma › Activities, where Plasma Activities are associated with workspaces and default folders.
@@ -812,6 +815,7 @@ private:
     SearchPanel *m_searchPanel = nullptr;
     /// Opens search on two Shift taps, while enabled and available.
     QObject *m_doubleShift = nullptr;
+    WindowSequenceHints *m_windowSequenceHints = nullptr;
     /// Whether a terminal profile asks for blur behind the window.
     bool m_terminalBlur = false;
     EditorPanel *m_editor = nullptr;

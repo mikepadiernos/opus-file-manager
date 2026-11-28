@@ -184,6 +184,8 @@ add_library(opusfm_app STATIC
     settingswidgets.h
     shortcutguard.cpp
     shortcutguard.h
+    shortcuthintpopup.cpp
+    shortcuthintpopup.h
     startuppresentation.cpp
     startuppresentation.h
     symbolicactionicons.cpp
@@ -216,6 +218,8 @@ add_library(opusfm_app STATIC
     treelines.h
     windoweffects.cpp
     windoweffects.h
+    windowsequencehints.cpp
+    windowsequencehints.h
     windowshortcuts.cpp
     windowshortcuts.h
     workspacedialog.cpp

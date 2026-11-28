@@ -13,6 +13,7 @@
 #include "foldergates.h"
 #include "folderview.h"
 #include "settings.h"
+#include "shortcuthintpopup.h"
 #include "symbolicicon.h"
 #include "symlinks.h"
 #include "tabcolors.h"
@@ -411,6 +412,24 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     connect(m_vimKeys, &YaziKeys::stateChanged, this, &Pane::updateVimModeIndicator);
     connect(qApp, &QApplication::focusChanged, this, &Pane::updateVimModeIndicator);
     reloadVimNavigationSetting();
+    m_hintDelay = new QTimer(this);
+    m_hintDelay->setSingleShot(true);
+    m_hintDelay->setInterval(ShortcutHints::DefaultDelay);
+    connect(m_hintDelay, &QTimer::timeout, this, &Pane::showSequenceHints);
+    for (YaziKeys *keys : {m_vimKeys, m_yaziColumns->keys()}) {
+        connect(keys, &YaziKeys::stateChanged, this, &Pane::updateShortcutHints);
+        // While the hints show, their paging keys turn pages rather than break the sequence.
+        keys->setPendingKeyHandler([this](QKeyCombination key, bool apply) {
+            const int delta = ShortcutHintPopup::pageDelta(key);
+            if (delta == 0 || !m_hintPopup || !m_hintPopup->isShowing(ShortcutHintPopup::Source::Keys)) {
+                return false;
+            }
+            if (apply) {
+                m_hintPopup->turnPage(delta);
+            }
+            return true;
+        });
+    }
 
     // Model -> widgets
     connect(m_tabs, &TabModel::tabInserted, this, &Pane::syncTabBar);
@@ -603,8 +622,10 @@ Pane::~Pane()
     m_view->disconnect(this);
     m_yaziColumns->disconnect(this);
     m_yaziColumns->keys()->disconnect(this);
+    m_yaziColumns->keys()->setPendingKeyHandler({});
     // Focus moves while the children are destroyed; the mode indicator may already be gone.
     m_vimKeys->disconnect(this);
+    m_vimKeys->setPendingKeyHandler({});
     disconnect(qApp, &QApplication::focusChanged, this, nullptr);
 }
 
@@ -1514,6 +1535,68 @@ bool Pane::vimNavigationActive() const
 YaziKeys *Pane::vimKeys() const
 {
     return m_vimKeys;
+}
+
+ShortcutHintPopup *Pane::shortcutHintPopup()
+{
+    if (!m_hintPopup) {
+        m_hintPopup = new ShortcutHintPopup(this);
+    }
+    return m_hintPopup;
+}
+
+QWidget *Pane::shortcutHintArea() const
+{
+    return m_yaziMode ? static_cast<QWidget *>(m_yaziColumns) : m_view;
+}
+
+YaziKeys *Pane::pendingSequenceKeys() const
+{
+    for (YaziKeys *keys : {m_yaziColumns->keys(), m_vimKeys}) {
+        if (keys->isEnabled() && keys->isPending()) {
+            return keys;
+        }
+    }
+    return nullptr;
+}
+
+void Pane::updateShortcutHints()
+{
+    if (!pendingSequenceKeys()) {
+        m_hintDelay->stop();
+        if (m_hintPopup) {
+            m_hintPopup->dismiss(ShortcutHintPopup::Source::Keys);
+        }
+        return;
+    }
+    if (m_hintPopup && m_hintPopup->isShowing(ShortcutHintPopup::Source::Keys)) {
+        showSequenceHints();
+    } else if (!m_hintDelay->isActive()) {
+        m_hintDelay->start();
+    }
+}
+
+void Pane::showSequenceHints()
+{
+    YaziKeys *keys = pendingSequenceKeys();
+    if (!keys) {
+        return;
+    }
+    const QList<ShortcutHints::Hint> hints =
+        ShortcutHints::hints(ShortcutHints::keymapEntries(keys->keymap(), keys->pendingCount() > 0), keys->pendingKeys(), ShortcutHints::KeyStyle::Typed);
+    if (hints.isEmpty()) {
+        return;
+    }
+    // When the sequence itself takes the paging keys, as a count takes Page Down, the wheel turns pages.
+    const bool keysPage = !keys->continues(QKeyCombination(Qt::Key_PageUp)) && !keys->continues(QKeyCombination(Qt::Key_PageDown));
+    shortcutHintPopup()->showHints(ShortcutHintPopup::Source::Keys,
+                                   i18nc("@title shortcut hints; %1 is the keys typed so far", "%1…", keys->pendingText()),
+                                   hints,
+                                   keysPage ? i18nc("@info shortcut hints footer", "Page Up and Page Down turn pages · Escape cancels")
+                                            : i18nc("@info shortcut hints footer", "Scroll to turn pages · Escape cancels"),
+                                   shortcutHintArea());
+    // As in which-key.nvim, the sequence waits while its hints show.
+    keys->pauseTimeout();
 }
 
 void Pane::reportVimMessage(const QString &message)

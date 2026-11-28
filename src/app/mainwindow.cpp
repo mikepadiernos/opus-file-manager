@@ -96,6 +96,7 @@
 #include "settings.h"
 #include "settingsdialog.h"
 #include "shortcutguard.h"
+#include "shortcuthintpopup.h"
 #include "startup.h"
 #include "symbolicicon.h"
 #include "tabcolors.h"
@@ -114,6 +115,7 @@
 #include "themeprofiles.h"
 #include "viewsettings.h"
 #include "windoweffects.h"
+#include "windowsequencehints.h"
 #include "windowshortcuts.h"
 #include "workspaceappearance.h"
 #include "workspacedialog.h"
@@ -573,6 +575,10 @@ MainWindow::MainWindow(QWidget *parent)
     setupStatusBar();
     setupActions();
     new ShortcutGuard(this);
+    // Installed after the guard, so it sees the keys the guard keeps from shortcuts.
+    m_windowSequenceHints = new WindowSequenceHints(this, [this] {
+        return activePane();
+    });
     m_desktopTray = new DesktopTray(this, actionCollection());
     connect(m_desktopTray, &DesktopTray::openRequested, this, [this](const QUrl &url) {
         openUrls({url});
@@ -4316,6 +4322,11 @@ Pane *MainWindow::activePane() const
 Pane *MainWindow::inactivePane() const
 {
     return activePane() == m_left ? m_right : m_left;
+}
+
+WindowSequenceHints *MainWindow::windowSequenceHints() const
+{
+    return m_windowSequenceHints;
 }
 
 void MainWindow::setActivePane(Pane *pane)
