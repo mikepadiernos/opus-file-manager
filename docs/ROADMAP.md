@@ -2146,7 +2146,7 @@ using KDE shortcut facilities where supported.
       controls without overriding existing bindings. Plasma-session
       verification is a
       [pending handoff](TODO.md#keyboard-shortcuts-on-plasma-230). [#230]
-- [ ] Scope bindings to the applicable view, folder tree, viewer or application;
+- [x] Scope bindings to the applicable view, folder tree, viewer or application;
       detect conflicts between overlapping contexts and preserve typing and
       accessibility keys in input controls. Plasma-session verification is a
       [pending handoff](TODO.md#shortcut-contexts-on-plasma-233). [#233]
