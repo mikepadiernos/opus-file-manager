@@ -39,6 +39,7 @@
 #include "searchwidget.h"
 #include "settings.h"
 #include "settingsdialog.h"
+#include "shortcutguard.h"
 #include "tabmodel.h"
 #include "tagfieldmanagerwidget.h"
 #include "taggroupdialog.h"
@@ -93,6 +94,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListView>
 #include <QListWidget>
 #include <QMediaPlayer>
@@ -105,6 +107,7 @@
 #include <QRegularExpression>
 #include <QScopeGuard>
 #include <QScrollBar>
+#include <QShortcut>
 #include <QSignalSpy>
 #include <QSplitter>
 #include <QStandardPaths>
@@ -3548,6 +3551,77 @@ private Q_SLOTS:
         QCOMPARE(label->grab().toImage().pixelColor(label->width() / 2, label->height() / 2), QColor(35, 35, 35));
         gallery->close();
         QTRY_VERIFY(gallery.isNull());
+    }
+
+    void textFieldsAndListsKeepTheirKeys()
+    {
+        const bool tabSwitched = Settings::tabSwitchesPanes();
+        const auto restore = qScopeGuard([tabSwitched] {
+            Settings::setTabSwitchesPanes(tabSwitched);
+        });
+        Settings::setTabSwitchesPanes(true);
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a"))), QUrl::fromLocalFile(m_root.filePath(QStringLiteral("b")))});
+        window.applySettings();
+        window.show();
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        auto *probe = new QAction(&window);
+        probe->setShortcuts({QKeySequence(Qt::Key_Down), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_J)});
+        window.addAction(probe);
+        QSignalSpy probed(probe, &QAction::triggered);
+        QSignalSpy switched(window.actionCollection()->action(QStringLiteral("switch_pane")), &QAction::triggered);
+
+        // A file view keeps the arrow keys, but other shortcuts and Tab still work there.
+        Pane *pane = window.activePane();
+        QAbstractItemView *items = pane->view()->currentView();
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        QCOMPARE(ShortcutGuard::focusContext(items), std::optional(KeyBindings::Context::FileView));
+        QTest::keyClick(items, Qt::Key_Down);
+        QCOMPARE(probed.count(), 0);
+        QTest::keyClick(items, Qt::Key_J, Qt::ControlModifier | Qt::AltModifier);
+        QCOMPARE(probed.count(), 1);
+
+        // A text field keeps its typing keys and Tab, but other shortcuts still work there.
+        pane->editUrl();
+        QWidget *field = QApplication::focusWidget();
+        QVERIFY(field);
+        QCOMPARE(ShortcutGuard::focusContext(field), std::optional(KeyBindings::Context::TextInput));
+        QTest::keyClick(field, Qt::Key_Down);
+        QCOMPARE(probed.count(), 1);
+        QTest::keyClick(field, Qt::Key_J, Qt::ControlModifier | Qt::AltModifier);
+        QCOMPARE(probed.count(), 2);
+        QTest::keyClick(field, Qt::Key_Tab);
+        QCOMPARE(switched.count(), 0);
+
+        // So does the folder tree, while widgets that take no text or keys are left alone.
+        auto *tree = window.findChild<FolderTree *>();
+        QVERIFY(tree);
+        auto *treeView = tree->findChild<QTreeView *>();
+        QVERIFY(treeView);
+        QCOMPARE(ShortcutGuard::focusContext(treeView), std::optional(KeyBindings::Context::FolderTree));
+        QCOMPARE(ShortcutGuard::focusContext(window.findChild<QTabBar *>()), std::nullopt);
+        QLineEdit readOnly;
+        readOnly.setReadOnly(true);
+        QCOMPARE(ShortcutGuard::focusContext(&readOnly), std::nullopt);
+        QComboBox choices;
+        QCOMPARE(ShortcutGuard::focusContext(&choices), std::nullopt);
+    }
+
+    void galleryKeysFollowTheirTable()
+    {
+        GalleryWindow gallery({}, {}, 0);
+        const QList<KeyBindings::Binding> bindings = GalleryWindow::keyBindings();
+        QCOMPARE(gallery.findChildren<QShortcut *>().size(), bindings.size());
+        for (const KeyBindings::Binding &binding : bindings) {
+            auto *shortcut = gallery.findChild<QShortcut *>(binding.name);
+            QVERIFY2(shortcut, qPrintable(binding.name));
+            QCOMPARE(shortcut->keys(), binding.shortcuts);
+            QCOMPARE(binding.defaults, binding.shortcuts);
+            QCOMPARE(binding.context, KeyBindings::Context::Viewer);
+            QVERIFY(!binding.text.isEmpty());
+        }
     }
 
     void opensCustomCommandForLocalFolder()

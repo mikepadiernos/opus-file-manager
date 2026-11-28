@@ -2400,7 +2400,8 @@ private Q_SLOTS:
         QCOMPARE(row->text(2), QKeySequence(Qt::Key_Space).toString(QKeySequence::NativeText));
         QVERIFY(summary->text().startsWith(QStringLiteral("1 action has")));
         QCOMPARE(conflicts->count(), 1);
-        QVERIFY2(conflicts->item(0)->text().contains(QStringLiteral("“Copy to Other Pane”")) && conflicts->item(0)->text().contains(QStringLiteral("“Open Gallery”")),
+        QVERIFY2(conflicts->item(0)->text().contains(QStringLiteral("“Copy to Other Pane”"))
+                     && conflicts->item(0)->text().contains(QStringLiteral("“Open Gallery”")),
                  qPrintable(conflictTexts()));
         QVERIFY(conflictSummary->text().startsWith(QStringLiteral("1 conflict")));
         QVERIFY(reset->isEnabled());
@@ -2442,6 +2443,42 @@ private Q_SLOTS:
         Settings::self()->save();
         window.applySettings();
         window.actionCollection()->writeSettings();
+    }
+
+    void keyboardShortcutsReportKeysThatTextFieldsAndListsKeep()
+    {
+        MainWindow window;
+        QAction *copyTo = window.actionCollection()->action(QStringLiteral("copy_to_other_pane"));
+        QVERIFY(copyTo);
+        const QList<QKeySequence> defaults = copyTo->shortcuts();
+        const auto restore = qScopeGuard([&window, copyTo, defaults] {
+            copyTo->setShortcuts(defaults);
+            window.actionCollection()->writeSettings();
+        });
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+        auto *customized = dialog.findChild<QTreeWidget *>(QStringLiteral("keyboardCustomizedShortcuts"));
+        auto *conflicts = dialog.findChild<QListWidget *>(QStringLiteral("keyboardConflicts"));
+        QVERIFY(customized && conflicts);
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("keyboardContextsNotice")));
+        QCOMPARE(customized->headerItem()->text(3), QStringLiteral("Applies in"));
+        QCOMPARE(conflicts->count(), 0);
+
+        // Down moves through text, lists and the folder tree, so each keeps it; the default F5 is fine.
+        copyTo->setShortcuts({QKeySequence(Qt::Key_F5), QKeySequence(Qt::Key_Down)});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(customized->topLevelItemCount(), 1);
+        QCOMPARE(customized->topLevelItem(0)->text(3), QStringLiteral("Window"));
+        QStringList texts;
+        for (int i = 0; i < conflicts->count(); ++i) {
+            texts.append(conflicts->item(i)->text());
+        }
+        QCOMPARE(texts.size(), 3);
+        QVERIFY2(texts.at(0).contains(QStringLiteral("text field")), qPrintable(texts.at(0)));
+        QVERIFY2(texts.at(1).contains(QStringLiteral("file view")), qPrintable(texts.at(1)));
+        QVERIFY2(texts.at(2).contains(QStringLiteral("folder tree")), qPrintable(texts.at(2)));
+        for (const QString &text : std::as_const(texts)) {
+            QVERIFY2(text.contains(QStringLiteral("“Copy to Other Pane”")) && !text.startsWith(QStringLiteral("F5")), qPrintable(text));
+        }
     }
 
     void keyboardShortcutsLinkSearchYaziAndGlobalShortcuts()
