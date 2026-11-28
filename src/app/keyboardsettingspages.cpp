@@ -7,6 +7,7 @@
 #include "gallerywindow.h"
 #include "keybindings.h"
 #include "settings.h"
+#include "windowshortcuts.h"
 
 #include <KActionCollection>
 #include <KGlobalAccel>
@@ -36,20 +37,6 @@ namespace
 /// The actions whose shortcuts KDE's global shortcut service can reserve.
 const QStringList GlobalActionNames{QStringLiteral("toggle_window_visibility"), QStringLiteral("toggle_drop_down")};
 
-/**
- * The default shortcuts of @p action as the window applies them. Switch Pane
- * leaves out Tab while Tab doesn't switch panes, so turning that setting off
- * isn't a customized shortcut.
- */
-QList<QKeySequence> defaultShortcuts(QAction *action)
-{
-    QList<QKeySequence> defaults = KActionCollection::defaultShortcuts(action);
-    if (action->objectName() == QLatin1String("switch_pane") && !Settings::tabSwitchesPanes()) {
-        defaults.removeAll(QKeySequence(Qt::Key_Tab));
-    }
-    return defaults;
-}
-
 QString actionText(const QAction *action)
 {
     const QString text = KLocalizedString::removeAcceleratorMarker(action->text());
@@ -73,7 +60,7 @@ WindowBindings windowBindings(KXmlGuiWindow *window)
     for (QAction *action : actions) {
         if (KActionCollection::isShortcutsConfigurable(action)) {
             found.actions.append(action);
-            found.bindings.append({action->objectName(), actionText(action), action->shortcuts(), defaultShortcuts(action)});
+            found.bindings.append({action->objectName(), actionText(action), action->shortcuts(), WindowShortcuts::defaults(action)});
         }
     }
     for (const KeyBindings::Binding &binding : GalleryWindow::keyBindings()) {
@@ -209,7 +196,8 @@ QWidget *SettingsDialog::createKeyboardShortcutsPage()
                                    "Configure Keyboard Shortcuts gives each action a shortcut and an alternate one, each a key "
                                    "combination such as Ctrl+Alt+F or a sequence of up to four, such as Ctrl+K, Ctrl+C. It warns "
                                    "before taking a shortcut from another action and restores the defaults of one action or all "
-                                   "of them. Shortcuts take effect as soon as they are saved there.")));
+                                   "of them. Shortcuts take effect as soon as they are saved there, in every Plasma Opus window, "
+                                   "and are stored in the Shortcuts group of opus-file-managerrc.")));
     layout->addWidget(notice(QStringLiteral("keyboardContextsNotice"),
                              i18nc("@info",
                                    "Window shortcuts apply anywhere in the window, except that a text field keeps the keys used "
@@ -285,10 +273,11 @@ QWidget *SettingsDialog::createKeyboardShortcutsPage()
                                              shadowed));
 
         QStringList globalLines;
+        const KeyBindings::GlobalAvailability availability = DesktopTray::globalShortcutAvailability();
         if (!window) {
             globalLines.append(i18nc("@info", "Open Preferences from a Plasma Opus window to see its global shortcuts."));
-        } else if (!DesktopTray::globalShortcutServiceAvailable()) {
-            globalLines.append(i18nc("@info", "KDE's global shortcut service is not running, so global shortcuts don't work in this session."));
+        } else if (availability == KeyBindings::GlobalAvailability::NoService) {
+            globalLines.append(KeyBindings::globalAvailabilityText(availability));
         } else {
             for (const QString &name : GlobalActionNames) {
                 QAction *action = window->actionCollection()->action(name);
@@ -296,7 +285,18 @@ QWidget *SettingsDialog::createKeyboardShortcutsPage()
                     continue;
                 }
                 const QList<QKeySequence> keys = KGlobalAccel::self()->hasShortcut(action) ? KGlobalAccel::self()->shortcut(action) : QList<QKeySequence>();
-                globalLines.append(i18nc("@info %1 action, %2 shortcuts", "%1: %2", actionText(action), shortcutsText(keys)));
+                if (keys.isEmpty() && name == GlobalActionNames.first() && Settings::globalShortcut()) {
+                    globalLines.append(i18nc("@info %1 action",
+                                             "%1: none. KDE didn't assign a key combination, usually because another application "
+                                             "already uses it.",
+                                             actionText(action)));
+                } else {
+                    globalLines.append(i18nc("@info %1 action, %2 shortcuts", "%1: %2", actionText(action), shortcutsText(keys)));
+                }
+            }
+            const QString limitation = KeyBindings::globalAvailabilityText(availability);
+            if (!limitation.isEmpty()) {
+                globalLines.append(limitation);
             }
         }
         global->setText(globalLines.join(QLatin1Char('\n')));
@@ -353,7 +353,7 @@ void SettingsDialog::resetShortcutsToDefaults()
             found.actions.at(i)->setShortcuts(found.bindings.at(i).defaults);
         }
     }
-    window->actionCollection()->writeSettings();
+    WindowShortcuts::save(window);
     if (window->guiFactory()) {
         // Everything that follows Configure Keyboard Shortcuts, such as the Yazi Mode conflicts, updates too.
         Q_EMIT window->guiFactory()->shortcutsSaved();

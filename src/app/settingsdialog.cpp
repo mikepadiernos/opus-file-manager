@@ -15,6 +15,7 @@
 #include "folderpreview.h"
 #include "indexbackend.h"
 #include "interfacelanguage.h"
+#include "keybindings.h"
 #include "kwinscript.h"
 #include "libraryarchive.h"
 #include "libraryconfirmations.h"
@@ -4400,15 +4401,20 @@ void SettingsDialog::updateSettings()
         // KConfigDialog announces only changes to kcfg_ widgets, and the main window applies the vaults when it hears.
         settingsChangedSlot();
     }
+    QList<QKeySequence> requestedGlobalShortcut;
     if (DesktopTray *tray = desktopTray(); tray && m_globalShortcutKey->keySequence() != tray->globalShortcut()) {
         // Before the main window applies the settings, so a shortcut turned on
         // at the same time gets the chosen key.
         tray->setGlobalShortcut(m_globalShortcutKey->keySequence());
+        requestedGlobalShortcut = {m_globalShortcutKey->keySequence()};
+        m_refusedGlobalShortcut.clear();
     }
     if (m_writeDropDownShortcut && m_dropDownShortcut->keySequence() != m_savedDropDownShortcut) {
-        m_writeDropDownShortcut(m_dropDownShortcut->keySequence());
+        const QKeySequence requested = m_dropDownShortcut->keySequence();
+        m_writeDropDownShortcut(requested);
         // Show the key KDE accepted, which is none when it is already taken.
         m_savedDropDownShortcut = m_readDropDownShortcut();
+        m_refusedDropDownShortcut = KeyBindings::refusedKeys({requested}, {m_savedDropDownShortcut});
         m_dropDownShortcut->setKeySequence(m_savedDropDownShortcut);
         m_refreshDropDownShortcut();
     }
@@ -4416,8 +4422,11 @@ void SettingsDialog::updateSettings()
     // show the key KDE accepted, which is none when it is already taken.
     QMetaObject::invokeMethod(
         this,
-        [this] {
+        [this, requestedGlobalShortcut] {
             if (const DesktopTray *tray = desktopTray()) {
+                if (tray->globalShortcutRegistered() && !requestedGlobalShortcut.isEmpty()) {
+                    m_refusedGlobalShortcut = KeyBindings::refusedKeys(requestedGlobalShortcut, {tray->globalShortcut()});
+                }
                 m_globalShortcutKey->setKeySequence(tray->globalShortcut());
             }
             m_refreshGlobalShortcut();

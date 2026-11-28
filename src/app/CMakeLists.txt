@@ -210,6 +210,8 @@ add_library(opusfm_app STATIC
     treelines.h
     windoweffects.cpp
     windoweffects.h
+    windowshortcuts.cpp
+    windowshortcuts.h
     workspacedialog.cpp
     workspacedialog.h
     workspaceappearanceeditor.cpp

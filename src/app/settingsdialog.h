@@ -515,6 +515,8 @@ private:
     KKeySequenceWidget *m_dropDownShortcut = nullptr;
     /// The drop-down window's global shortcut when it was last loaded or assigned, to tell whether the dialog changed it.
     QKeySequence m_savedDropDownShortcut;
+    /// The drop-down window's key combination KDE last refused, to tell why it has none.
+    QList<QKeySequence> m_refusedDropDownShortcut;
     /// Read and assign the drop-down window's global shortcut; empty without a main window.
     std::function<QKeySequence()> m_readDropDownShortcut;
     std::function<void(const QKeySequence &)> m_writeDropDownShortcut;
@@ -563,6 +565,8 @@ private:
     KKeySequenceWidget *m_globalShortcutKey = nullptr;
     /// Shows whether the applied global shortcut works.
     std::function<void()> m_refreshGlobalShortcut;
+    /// The global shortcut's key combination KDE last refused, to tell why it has none.
+    QList<QKeySequence> m_refusedGlobalShortcut;
     /// Whether Yazi mode defaults were restored since the settings were last applied or reloaded.
     bool m_yaziResetPending = false;
     /// A checkbox for a setting kept outside Settings, in config that KIO

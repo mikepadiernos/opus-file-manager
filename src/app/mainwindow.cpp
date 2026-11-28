@@ -112,6 +112,7 @@
 #include "themeprofiles.h"
 #include "viewsettings.h"
 #include "windoweffects.h"
+#include "windowshortcuts.h"
 #include "workspaceappearance.h"
 #include "workspacedialog.h"
 #include "workspacelocations.h"
@@ -672,7 +673,36 @@ MainWindow::MainWindow(QWidget *parent)
     watchWorkspaceCatalog();
 
     setStandardToolBarMenuEnabled(true);
+    // Before the window loads its ui.rc file, so KXmlGui doesn't keep shortcuts that are now stored elsewhere.
+    WindowShortcuts::migrate(WindowShortcuts::uiRcPath(componentName(), QStringLiteral("opus-file-managerui.rc")));
     setupGUI(QSize(1100, 700), Default, QStringLiteral("opus-file-managerui.rc"));
+    WindowShortcuts::apply(this);
+    // Rebuilding the menus and toolbars gives every action its default shortcuts again.
+    connect(guiFactory(), &KXMLGUIFactory::makingChanges, this, [this](bool changing) {
+        if (changing) {
+            WindowShortcuts::prepareRebuild(this);
+        } else {
+            WindowShortcuts::apply(this);
+        }
+    });
+    // Made before anything else follows shortcutsSaved, so it all sees the stored shortcuts.
+    connect(guiFactory(), &KXMLGUIFactory::shortcutsSaved, this, [this] {
+        static bool sharing = false;
+        if (sharing) {
+            // Another window stored its shortcuts, which this one already has.
+            return;
+        }
+        WindowShortcuts::save(this);
+        const QScopedValueRollback<bool> rollback(sharing, true);
+        const QList<KMainWindow *> windows = KMainWindow::memberList();
+        for (KMainWindow *member : windows) {
+            auto *window = qobject_cast<MainWindow *>(member);
+            if (window && window != this && window->guiFactory()) {
+                WindowShortcuts::apply(window);
+                Q_EMIT window->guiFactory()->shortcutsSaved();
+            }
+        }
+    });
     m_toolbarCustomizer = new ToolbarCustomizer(toolBar(), actionCollection(), this, {m_left, m_right});
     connect(m_toolbarCustomizer, &ToolbarCustomizer::toolbarSettingsRequested, this, &MainWindow::showToolbarSettings);
     connect(guiFactory(), &KXMLGUIFactory::makingChanges, m_toolbarCustomizer, [this](bool changing) {

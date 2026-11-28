@@ -24,6 +24,7 @@
 #include "foldergates.h"
 #include "indexbackend.h"
 #include "indexstatus.h"
+#include "keybindings.h"
 #include "kwinintegration.h"
 #include "kwinscript.h"
 #include "lanshare.h"
@@ -636,24 +637,31 @@ QWidget *SettingsDialog::createShortcutsIntegrationPage()
             return;
         }
         const QKeySequence key = tray->globalShortcut();
-        switch (TrayPolicy::shortcutStatus(tray->globalShortcutRegistered(), DesktopTray::globalShortcutServiceAvailable(), !key.isEmpty())) {
+        const KeyBindings::GlobalAvailability availability = DesktopTray::globalShortcutAvailability();
+        QString text;
+        switch (TrayPolicy::shortcutStatus(tray->globalShortcutRegistered(), availability != KeyBindings::GlobalAvailability::NoService, !key.isEmpty())) {
         case TrayPolicy::ShortcutStatus::Off:
             status->setText(i18nc("@info", "The global shortcut is off."));
-            break;
+            return;
         case TrayPolicy::ShortcutStatus::Unavailable:
             status->setText(i18nc("@info", "KDE's global shortcut service is not running, so the shortcut does not work in this session."));
-            break;
+            return;
         case TrayPolicy::ShortcutStatus::Unassigned:
-            status->setText(i18nc("@info",
-                                  "No key combination is assigned, so the shortcut does nothing. KDE leaves a key unassigned when "
-                                  "another application already uses it; choose another one."));
+            text = m_refusedGlobalShortcut.isEmpty() ? i18nc("@info",
+                                                             "No key combination is assigned, so the shortcut does nothing. KDE leaves a key "
+                                                             "unassigned when another application already uses it; choose another one.")
+                                                     : i18nc("@info %1 why KDE refused the key",
+                                                             "No key combination is assigned, so the shortcut does nothing. %1",
+                                                             KeyBindings::refusedText(m_refusedGlobalShortcut));
             break;
         case TrayPolicy::ShortcutStatus::Assigned:
-            status->setText(i18nc("@info %1 is a key combination",
-                                  "Press %1 to show Plasma Opus, or to hide it when it is in front.",
-                                  key.toString(QKeySequence::NativeText)));
+            text = i18nc("@info %1 is a key combination",
+                         "Press %1 to show Plasma Opus, or to hide it when it is in front.",
+                         key.toString(QKeySequence::NativeText));
             break;
         }
+        const QString limitation = KeyBindings::globalAvailabilityText(availability);
+        status->setText(limitation.isEmpty() ? text : text + QLatin1Char(' ') + limitation);
     };
     group->refresh = m_refreshGlobalShortcut;
     m_refreshGlobalShortcut();
@@ -1370,19 +1378,31 @@ QGroupBox *SettingsDialog::createDropDownGroup()
             widget->setEnabled(enabled->isChecked());
         }
         m_dropDownShortcut->setEnabled(enabled->isChecked() && m_writeDropDownShortcut);
+        const KeyBindings::GlobalAvailability availability = DesktopTray::globalShortcutAvailability();
+        QString text;
         if (!m_writeDropDownShortcut) {
             status->setText(i18nc("@info", "Open Preferences from a Plasma Opus window to change the drop-down window's global shortcut."));
-        } else if (!DesktopTray::globalShortcutServiceAvailable()) {
-            status->setText(i18nc("@info", "KDE's global shortcut service is not running, so the shortcut does not work in this session."));
-        } else if (m_savedDropDownShortcut.isEmpty()) {
-            status->setText(i18nc("@info",
-                                  "No global shortcut is assigned; KDE leaves a key unassigned when another application already uses "
-                                  "it. View › Show or Hide Drop-Down Window also shows the window."));
-        } else {
-            status->setText(i18nc("@info %1 is a key combination",
-                                  "Press %1 anywhere in Plasma to show or hide the drop-down window.",
-                                  m_savedDropDownShortcut.toString(QKeySequence::NativeText)));
+            return;
         }
+        if (availability == KeyBindings::GlobalAvailability::NoService) {
+            status->setText(i18nc("@info", "KDE's global shortcut service is not running, so the shortcut does not work in this session."));
+            return;
+        }
+        if (m_savedDropDownShortcut.isEmpty() && !m_refusedDropDownShortcut.isEmpty()) {
+            text = i18nc("@info %1 why KDE refused the key",
+                         "No global shortcut is assigned. %1 View › Show or Hide Drop-Down Window also shows the window.",
+                         KeyBindings::refusedText(m_refusedDropDownShortcut));
+        } else if (m_savedDropDownShortcut.isEmpty()) {
+            text = i18nc("@info",
+                         "No global shortcut is assigned; KDE leaves a key unassigned when another application already uses "
+                         "it. View › Show or Hide Drop-Down Window also shows the window.");
+        } else {
+            text = i18nc("@info %1 is a key combination",
+                         "Press %1 anywhere in Plasma to show or hide the drop-down window.",
+                         m_savedDropDownShortcut.toString(QKeySequence::NativeText));
+        }
+        const QString limitation = KeyBindings::globalAvailabilityText(availability);
+        status->setText(limitation.isEmpty() ? text : text + QLatin1Char(' ') + limitation);
     };
     group->refresh = m_refreshDropDownShortcut;
     connect(enabled, &QCheckBox::toggled, group, [this] {

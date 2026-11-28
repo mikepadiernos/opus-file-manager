@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "keybindings.h"
 #include "traypolicy.h"
 
 #include <QKeySequence>
@@ -47,6 +48,8 @@ public:
     static QKeySequence defaultGlobalShortcut();
     /// Whether KDE's global shortcut service is running or can be started.
     static bool globalShortcutServiceAvailable();
+    /// Whether global shortcuts can work in this session: the service, and whether a Wayland session is Plasma's.
+    static KeyBindings::GlobalAvailability globalShortcutAvailability();
     /// Whether the global shortcut is registered with KDE.
     bool globalShortcutRegistered() const;
     /// The global shortcut's key combination: the one KDE assigns while it is
