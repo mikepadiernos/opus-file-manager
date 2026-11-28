@@ -79,6 +79,7 @@
 #include <QColor>
 #include <QComboBox>
 #include <QContextMenuEvent>
+#include <QCryptographicHash>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QDockWidget>
@@ -2306,18 +2307,20 @@ private Q_SLOTS:
         window.show();
         const auto actions = window.actionCollection()->actions();
         const auto it = std::find_if(actions.cbegin(), actions.cend(), [&command](const QAction *action) {
-            return action->text() == command.name && action->objectName().startsWith(QLatin1String("custom_command_preset_"));
+            return action->iconText() == command.name && action->objectName().startsWith(QLatin1String("custom_command_preset_"));
         });
         QVERIFY(it != actions.cend());
         QPointer<QAction> action = *it;
         QVERIFY(action->isEnabled());
+        // Configure Keyboard Shortcuts and the toolbar editor's available actions list the text.
+        QCOMPARE(action->text(), QStringLiteral("Saved Command: Toolbar command"));
         KEditToolBar editor(window.guiFactory(), &window);
         editor.show();
-        const auto listed = [&editor, &command] {
+        const auto listed = [&editor, &action] {
             const auto views = editor.findChildren<QAbstractItemView *>();
-            return std::any_of(views.cbegin(), views.cend(), [&command](QAbstractItemView *view) {
+            return std::any_of(views.cbegin(), views.cend(), [&action](QAbstractItemView *view) {
                 return view->model()
-                    && !view->model()->match(view->model()->index(0, 0), Qt::DisplayRole, command.name, 1, Qt::MatchExactly | Qt::MatchRecursive).isEmpty();
+                    && !view->model()->match(view->model()->index(0, 0), Qt::DisplayRole, action->text(), 1, Qt::MatchExactly | Qt::MatchRecursive).isEmpty();
             });
         };
         QTRY_VERIFY(listed());
@@ -2349,9 +2352,104 @@ private Q_SLOTS:
         dialog->findChild<QPushButton *>(QStringLiteral("commandSavePreset"))->click();
         const auto refreshed = window.actionCollection()->actions();
         QVERIFY(std::any_of(refreshed.cbegin(), refreshed.cend(), [](const QAction *candidate) {
-            return candidate->text() == QLatin1String("New toolbar command") && candidate->objectName().startsWith(QLatin1String("custom_command_preset_"));
+            return candidate->iconText() == QLatin1String("New toolbar command") && candidate->objectName().startsWith(QLatin1String("custom_command_preset_"));
         }));
         dialog->close();
+    }
+
+    void savedCommandsAndAlternatesTakeStoredShortcuts()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup group = config->group(QStringLiteral("CustomCommands"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup saved = backup->group(QStringLiteral("CustomCommands"));
+        group.copyTo(&saved);
+        const auto cleanup = qScopeGuard([&] {
+            group.deleteGroup();
+            saved.copyTo(&group);
+            config->sync();
+        });
+        const auto presetId = [](const QString &name) {
+            return QStringLiteral("custom_command_preset_") + QString::fromLatin1(QCryptographicHash::hash(name.toUtf8(), QCryptographicHash::Sha256).toHex());
+        };
+        QString error;
+        const CustomCommands::Command command{QStringLiteral("Shortcut command"), QStringLiteral("/bin/echo"), {QStringLiteral("{dir}")}, {}};
+        const CustomCommands::Command later{QStringLiteral("Later command"), QStringLiteral("/bin/echo"), {}, {}};
+        QVERIFY2(CustomCommands::save(group, {command}, &error), qPrintable(error));
+        QString xmlPath;
+        {
+            MainWindow probe;
+            xmlPath = probe.localXMLFile();
+        }
+        const ShortcutFilesGuard guard(xmlPath);
+        KConfigGroup stored = config->group(QLatin1String(ShortcutStorage::Group));
+        // A primary shortcut and two alternates, more than KDE's editor shows.
+        const QList<QKeySequence> keys{QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F10),
+                                       QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F11),
+                                       QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F12)};
+        stored.writeEntry(presetId(command.name), QStringLiteral("Ctrl+Alt+F10; Ctrl+Alt+F11; Ctrl+Alt+F12"));
+        stored.writeEntry(presetId(later.name), QStringLiteral("Ctrl+Alt+F9"));
+        stored.writeEntry("open_gallery", QStringLiteral("Space; Ctrl+Alt+F8"));
+        config->sync();
+
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        // A window action keeps its default shortcut and gets the stored alternate.
+        QCOMPARE(window.actionCollection()->action(QStringLiteral("open_gallery"))->shortcuts(),
+                 (QList<QKeySequence>{QKeySequence(Qt::Key_Space), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F8)}));
+        QPointer<QAction> action = window.actionCollection()->action(presetId(command.name));
+        QVERIFY(action);
+        QCOMPARE(action->text(), QStringLiteral("Saved Command: Shortcut command"));
+        QCOMPARE(action->shortcuts(), keys);
+        // The command is on no menu or toolbar, yet each of its shortcuts opens its preview.
+        QVERIFY(!window.toolBar()->actions().contains(action));
+        QSignalSpy triggered(action.data(), &QAction::triggered);
+        for (const QKeySequence &key : keys) {
+            QTest::keySequence(&window, key);
+            QCOMPARE(triggered.count(), int(keys.indexOf(key)) + 1);
+            auto *dialog = window.findChild<CustomCommandDialog *>(QStringLiteral("customCommandDialog"));
+            QVERIFY(dialog);
+            QCOMPARE(dialog->findChild<QLineEdit *>(QStringLiteral("commandProgram"))->text(), command.program);
+            QVERIFY(!dialog->findChild<QPushButton *>(QStringLiteral("commandRun"))->isEnabled());
+            QPointer<CustomCommandDialog> closed = dialog;
+            dialog->close();
+            QTRY_VERIFY(closed.isNull());
+            window.activateWindow();
+            QVERIFY(QTest::qWaitForWindowActive(&window));
+        }
+
+        // Saving it in KDE's editor keeps the alternates it doesn't show.
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(stored.readEntry(presetId(command.name), QString()), QStringLiteral("Ctrl+Alt+F10; Ctrl+Alt+F11; Ctrl+Alt+F12"));
+
+        // As the commands dialog announces commands saved or deleted there.
+        const auto announce = [&window] {
+            window.actionCollection()->action(QStringLiteral("custom_command"))->trigger();
+            QPointer<CustomCommandDialog> dialog = window.findChild<CustomCommandDialog *>(QStringLiteral("customCommandDialog"));
+            QVERIFY(dialog);
+            Q_EMIT dialog->presetsChanged();
+            dialog->close();
+            QTRY_VERIFY(dialog.isNull());
+        };
+
+        // A command saved while the window is open gets its stored shortcut.
+        QVERIFY2(CustomCommands::save(group, {command, later}, &error), qPrintable(error));
+        announce();
+        QAction *laterAction = window.actionCollection()->action(presetId(later.name));
+        QVERIFY(laterAction);
+        QCOMPARE(laterAction->shortcuts(), QList<QKeySequence>{QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F9)});
+
+        // Deleting a command forgets its shortcuts.
+        QVERIFY2(CustomCommands::save(group, {later}, &error), qPrintable(error));
+        announce();
+        QVERIFY(action.isNull());
+        QVERIFY(!stored.hasKey(presetId(command.name)));
+        QVERIFY(stored.hasKey(presetId(later.name)));
     }
 
     void kdeToolbarEditorAppliesSeparatorAndSpacer()
