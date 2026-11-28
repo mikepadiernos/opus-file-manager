@@ -165,7 +165,10 @@ preview. Both behaviours can be changed in Preferences.
   FILTER or INSERT; `/` or `i` filters, and Escape returns to the items.
   While a key sequence waits for its next key, a which-key style popup lists
   what can follow it, grouped with what each key does, without taking the
-  focus.
+  focus. The **Hints** tab in **Preferences › Keyboard** turns the popup on or
+  off and sets its delay and how long an unfinished sequence waits, and
+  **Help › Shortcut Hints** shows the keys for the focused part of the window
+  on demand.
 
 ## Screenshots
 
