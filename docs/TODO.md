@@ -18,54 +18,54 @@ state and the steps to resume.
 
 Board statuses were last confirmed on 2026-11-27.
 
-| Handoff                                                                                 | Milestone                                                                      | Issues         | Board status                                                                                                                                    |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| [mpv integration](#mpv-integration-563)                                                 | [M27](ROADMAP.md#m27-integrations)                                             | [#563], [#578] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) |
-| [Markdown editor and backlinks](#markdown-editor-and-backlinks-564)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Workspace vault editing](#workspace-vault-editing-565)                                 | [M27](ROADMAP.md#m27-integrations), [M28](ROADMAP.md#m28-integration-settings) | [#565], [#566] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) |
-| [System file chooser on Plasma](#system-file-chooser-on-plasma-286)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Mount manager on Plasma](#mount-manager-on-plasma-703)                                 | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [KWin script on Plasma](#kwin-script-on-plasma-707-708)                                 | [M27](ROADMAP.md#m27-integrations)                                             | [#707], [#708] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) |
-| [Administrator mode on Plasma](#administrator-mode-on-plasma-288)                       | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Plasma Vault on Plasma](#plasma-vault-on-plasma-654)                                   | [M27](ROADMAP.md#m27-integrations)                                             | [#654]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [File encryption on Plasma](#file-encryption-on-plasma-655)                             | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Send by Email on Plasma](#send-by-email-on-plasma-656)                                 | [M27](ROADMAP.md#m27-integrations)                                             | [#656]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Mail attachments on Plasma](#mail-attachments-on-plasma-657)                           | [M27](ROADMAP.md#m27-integrations)                                             | [#657]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Mail file preview on Plasma](#mail-file-preview-on-plasma-658)                         | [M27](ROADMAP.md#m27-integrations)                                             | [#658]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Shared Activity context on Plasma](#shared-activity-context-on-plasma-659)             | [M27](ROADMAP.md#m27-integrations)                                             | [#659]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Default file manager on Plasma](#default-file-manager-on-plasma-293)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#293]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [File chooser settings on Plasma](#file-chooser-settings-on-plasma-292)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#292]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Chooser start folder on Plasma](#chooser-start-folder-on-plasma-750)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#750]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Operation notifications on Plasma](#operation-notifications-on-plasma-392)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#392]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Start hidden in tray on Plasma](#start-hidden-in-tray-on-plasma-290)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#290]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Global shortcut on Plasma](#global-shortcut-on-plasma-291)                             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#291]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Activity associations on Plasma](#activity-associations-on-plasma-391)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#391]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [KDE Connect settings on Plasma](#kde-connect-settings-on-plasma-393)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#393]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [KRunner settings on Plasma](#krunner-settings-on-plasma-394)                           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#394]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Online account settings on Plasma](#online-account-settings-on-plasma-371)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#371]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [KWin script settings on Plasma](#kwin-script-settings-on-plasma-709)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#709]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Drop-down settings on Plasma](#drop-down-settings-on-plasma-710)                       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#710]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Baloo search settings on Plasma](#baloo-search-settings-on-plasma-443)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#443]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Office settings on Plasma](#office-settings-on-plasma-676)                             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#676]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Mail client settings on Plasma](#mail-client-settings-on-plasma-666)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#666]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Remote connection settings on Plasma](#remote-connection-settings-on-plasma-297)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#297]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [rclone settings on Plasma](#rclone-settings-on-plasma-663)                             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#663]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Remote drive settings on Plasma](#remote-drive-settings-on-plasma-704)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#704]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Cloud sync settings on Plasma](#cloud-sync-settings-on-plasma-720)                     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#720]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [rsync settings on Plasma](#rsync-settings-on-plasma-366)                               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#366]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Transfer and cache settings on Plasma](#transfer-and-cache-settings-on-plasma-721)     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#721]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [LAN sharing settings on Plasma](#lan-sharing-settings-on-plasma-664)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#664]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Plasma Vault settings on Plasma](#plasma-vault-settings-on-plasma-669)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#669]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [File encryption settings on Plasma](#file-encryption-settings-on-plasma-670)           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#670]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Nextcloud accounts on a real server](#nextcloud-accounts-on-a-real-server-588)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#588]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Nextcloud browsing on a real server](#nextcloud-browsing-on-a-real-server-365)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#365]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Nextcloud previews on a real server](#nextcloud-previews-on-a-real-server-589)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#589]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Nextcloud asset search on a real server](#nextcloud-asset-search-on-a-real-server-590) | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#590]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Nextcloud Photos on a real server](#nextcloud-photos-on-a-real-server-671)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#671]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Nextcloud shares on a real server](#nextcloud-shares-on-a-real-server-591)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#591]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Nextcloud desktop client on Plasma](#nextcloud-desktop-client-on-plasma-592)           | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#592]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Nextcloud settings on Plasma](#nextcloud-settings-on-plasma-368)                       | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#368]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                         |
-| [Nextcloud Photos settings build](#nextcloud-photos-settings-build-672)                 | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#672]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| Handoff                                                                                       | Milestone                                                                      | Issues         | Board status                                                                                                                                    |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| [mpv integration](#mpv-integration-563)                                                       | [M27](ROADMAP.md#m27-integrations)                                             | [#563], [#578] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) |
+| [Markdown editor and backlinks](#markdown-editor-and-backlinks-564)                           | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Workspace vault editing](#workspace-vault-editing-565)                                       | [M27](ROADMAP.md#m27-integrations), [M28](ROADMAP.md#m28-integration-settings) | [#565], [#566] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) |
+| [System file chooser on Plasma](#system-file-chooser-on-plasma-286)                           | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Mount manager on Plasma](#mount-manager-on-plasma-703)                                       | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [KWin script on Plasma](#kwin-script-on-plasma-707-708)                                       | [M27](ROADMAP.md#m27-integrations)                                             | [#707], [#708] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) |
+| [Administrator mode on Plasma](#administrator-mode-on-plasma-288)                             | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Plasma Vault on Plasma](#plasma-vault-on-plasma-654)                                         | [M27](ROADMAP.md#m27-integrations)                                             | [#654]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [File encryption on Plasma](#file-encryption-on-plasma-655)                                   | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Send by Email on Plasma](#send-by-email-on-plasma-656)                                       | [M27](ROADMAP.md#m27-integrations)                                             | [#656]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Mail attachments on Plasma](#mail-attachments-on-plasma-657)                                 | [M27](ROADMAP.md#m27-integrations)                                             | [#657]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Mail file preview on Plasma](#mail-file-preview-on-plasma-658)                               | [M27](ROADMAP.md#m27-integrations)                                             | [#658]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Shared Activity context on Plasma](#shared-activity-context-on-plasma-659)                   | [M27](ROADMAP.md#m27-integrations)                                             | [#659]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Default file manager on Plasma](#default-file-manager-on-plasma-293)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#293]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [File chooser settings on Plasma](#file-chooser-settings-on-plasma-292)                       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#292]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Chooser start folder on Plasma](#chooser-start-folder-on-plasma-750)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#750]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Operation notifications on Plasma](#operation-notifications-on-plasma-392)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#392]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Start hidden in tray on Plasma](#start-hidden-in-tray-on-plasma-290)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#290]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Global shortcut on Plasma](#global-shortcut-on-plasma-291)                                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#291]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Activity associations on Plasma](#activity-associations-on-plasma-391)                       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#391]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [KDE Connect settings on Plasma](#kde-connect-settings-on-plasma-393)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#393]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [KRunner settings on Plasma](#krunner-settings-on-plasma-394)                                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#394]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Online account settings on Plasma](#online-account-settings-on-plasma-371)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#371]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [KWin script settings on Plasma](#kwin-script-settings-on-plasma-709)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#709]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Drop-down settings on Plasma](#drop-down-settings-on-plasma-710)                             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#710]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Baloo search settings on Plasma](#baloo-search-settings-on-plasma-443)                       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#443]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Office settings on Plasma](#office-settings-on-plasma-676)                                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#676]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Mail client settings on Plasma](#mail-client-settings-on-plasma-666)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#666]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Remote connection settings on Plasma](#remote-connection-settings-on-plasma-297)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#297]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [rclone settings on Plasma](#rclone-settings-on-plasma-663)                                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#663]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Remote drive settings on Plasma](#remote-drive-settings-on-plasma-704)                       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#704]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Cloud sync settings on Plasma](#cloud-sync-settings-on-plasma-720)                           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#720]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [rsync settings on Plasma](#rsync-settings-on-plasma-366)                                     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#366]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Transfer and cache settings on Plasma](#transfer-and-cache-settings-on-plasma-721)           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#721]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [LAN sharing settings on Plasma](#lan-sharing-settings-on-plasma-664)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#664]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Plasma Vault settings on Plasma](#plasma-vault-settings-on-plasma-669)                       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#669]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [File encryption settings on Plasma](#file-encryption-settings-on-plasma-670)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#670]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Nextcloud accounts on a real server](#nextcloud-accounts-on-a-real-server-588)               | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#588]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Nextcloud browsing on a real server](#nextcloud-browsing-on-a-real-server-365)               | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#365]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Nextcloud previews on a real server](#nextcloud-previews-on-a-real-server-589)               | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#589]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Nextcloud asset search on a real server](#nextcloud-asset-search-on-a-real-server-590)       | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#590]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Nextcloud Photos on a real server](#nextcloud-photos-on-a-real-server-671)                   | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#671]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Nextcloud shares on a real server](#nextcloud-shares-on-a-real-server-591)                   | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#591]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Nextcloud desktop client on Plasma](#nextcloud-desktop-client-on-plasma-592)                 | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#592]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Nextcloud settings on Plasma](#nextcloud-settings-on-plasma-368)                             | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#368]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                         |
+| [Nextcloud Photos settings on a real server](#nextcloud-photos-settings-on-a-real-server-672) | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#672]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1620,37 +1620,6 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
    its roadmap link.
 
-## Nextcloud Photos settings build (#672)
-
-- **Milestone and issue:** [M30](ROADMAP.md#m30-nextcloud-settings), [#672]
-  (Development).
-- **Blocker:** The Colima virtual machine that runs the development container
-  stopped during the #672 build on 2026-11-27 and no longer starts. `colima
-  start` fails with `VZErrorDomain Code=2` ("The storage device attachment is
-  invalid") on its data disk, although no process holds the disk. Without the
-  container, #672 cannot be formatted, built or tested on the macOS host, and
-  M30 and M31 cannot continue.
-- **Confirmed state:** #368 is committed on `feature/M30-nextcloud-settings`
-  and in Review; it passed `settingstest`, `integrationsettingstest` and the
-  `nextcloud` tests before the failure. The #672 Photos settings are written
-  but never compiled, and are kept in a local Git stash named
-  `M30 #672 WIP (unbuilt)` on that branch. They add a **Photos** group to
-  **Preferences › Remote and Cloud › Nextcloud**, with its kcfg entries,
-  Photos window and Add to Album changes, tests and docs.
-
-**Steps to resume:**
-
-1. Start Colima from a normal terminal with `colima start`, or restart the
-   Mac first if it still reports the storage device error. Do not delete the
-   data disk; it holds the cached `plasma-impresario-dev` image.
-2. On `feature/M30-nextcloud-settings`, run `git stash pop`, then the
-   clang-format target, the build and `settingstest`,
-   `integrationsettingstest`, `mainwindowtest` and the `nextcloud` tests in the
-   container as described in [development](development.md).
-3. Fix any failures, commit #672 by scope and remove this entry and its
-   contents row. Then continue M30 as the
-   [project workflow](development.md) describes.
-
 ## Nextcloud settings on Plasma (#368)
 
 - **Milestone and issue:** [M30](ROADMAP.md#m30-nextcloud-settings), [#368]
@@ -1690,6 +1659,48 @@ Board statuses were last confirmed on 2026-11-27.
 4. Set **New public links expire after** to 7 days and create a link, then
    enforce a 3-day maximum on the server and check that new links start with
    3 days. Record any differences in
+   [CAVEATS](CAVEATS.md#nextcloud-settings), then remove this entry and its
+   roadmap link.
+
+## Nextcloud Photos settings on a real server (#672)
+
+- **Milestone and issue:** [M30](ROADMAP.md#m30-nextcloud-settings), [#672]
+  (Development).
+- **Blocker:** The development container has no Nextcloud server with the
+  Photos app or Plasma session, so the **Photos** group of **Preferences ›
+  Remote and Cloud › Nextcloud** is tested only against a fake server. The
+  group's layout in Plasma, and its effect on real albums, shared albums and
+  places, are unverified.
+- **Confirmed state:** The `PhotosShowAlbums`, `PhotosShowSharedAlbums`,
+  `PhotosShowPlaces`, `PhotosGrouping` and `PhotosConfirmChanges` entries of
+  the `Nextcloud` group in `src/core/opusfilemanager.kcfg` hold the settings,
+  and `SettingsDialog::createNextcloudIntegrationPage` in
+  `src/app/integrationsettingspages.cpp` provides the group. `MainWindow`
+  passes them to `NextcloudPhotosDialog` and `NextcloudAddToAlbumDialog` as
+  `NextcloudPhotos::Options`, and offers **Photos…** and **Add to Nextcloud
+  Album…** only when a kind they list is shown. See
+  [Nextcloud Photos settings](CAVEATS.md#nextcloud-settings).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh` and a disposable
+   Nextcloud server with the Photos app, a synthetic account, an album of
+   your own shared with a second synthetic user, an album that user shares
+   with you and indexed photos with places, open **Preferences › Remote and
+   Cloud › Nextcloud** and check that the **Photos** group fits the tab and
+   its status explains what isn't offered.
+2. Clear each kind in turn, choosing **Apply**, and check **Show** in
+   **Photos…**, **New Album…** in both windows, the albums listed in **Add
+   to Nextcloud Album…** and whether **Go › Nextcloud** and the context menu
+   offer them.
+3. Choose each **Group photos by** option and check the grouping **Photos…**
+   opens with, and that **As last chosen in the window** restores the
+   previous behaviour.
+4. Clear **Ask before adding photos to or removing them from your albums**
+   and check that an unshared album of your own changes without a question,
+   while your album shared with the second user and the album shared with
+   you still ask. Record any differences, in particular whether the server
+   reports `nc:collaborators` for your shared album, in
    [CAVEATS](CAVEATS.md#nextcloud-settings), then remove this entry and its
    roadmap link.
 
