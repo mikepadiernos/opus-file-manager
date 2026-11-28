@@ -2339,6 +2339,170 @@ private Q_SLOTS:
         QVERIFY(dialog.isVisible());
     }
 
+    void keyboardShortcutsSummarizeCustomizedShortcutsAndConflicts()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        QAction *copyTo = window.actionCollection()->action(QStringLiteral("copy_to_other_pane"));
+        QAction *search = window.actionCollection()->action(QStringLiteral("search_folder"));
+        QVERIFY(gallery && copyTo && search);
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+
+        // Keyboard comes right after Yazi Mode, with the Shortcuts tab first.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("keyboardShortcutsPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(page), 0);
+        QCOMPARE(tabs->tabText(0), QStringLiteral("Shortcuts"));
+
+        auto *summary = page->findChild<QLabel *>(QStringLiteral("keyboardCustomizedSummary"));
+        auto *customized = page->findChild<QTreeWidget *>(QStringLiteral("keyboardCustomizedShortcuts"));
+        auto *conflictSummary = page->findChild<QLabel *>(QStringLiteral("keyboardConflictSummary"));
+        auto *conflicts = page->findChild<QListWidget *>(QStringLiteral("keyboardConflicts"));
+        auto *configure = page->findChild<QPushButton *>(QStringLiteral("keyboardConfigureShortcuts"));
+        auto *reset = page->findChild<QPushButton *>(QStringLiteral("keyboardResetShortcuts"));
+        QVERIFY(summary && customized && conflictSummary && conflicts && configure && reset);
+        const auto conflictTexts = [conflicts] {
+            QStringList texts;
+            for (int i = 0; i < conflicts->count(); ++i) {
+                texts.append(conflicts->item(i)->text());
+            }
+            return texts.join(QLatin1Char('\n'));
+        };
+
+        // The default shortcuts don't conflict, and Tab switching panes when that is off isn't a customization.
+        QCOMPARE(customized->topLevelItemCount(), 0);
+        QCOMPARE(summary->text(), QStringLiteral("Every action has its default shortcuts."));
+        QVERIFY2(conflicts->count() == 0, qPrintable(conflictTexts()));
+        QVERIFY(conflictSummary->text().startsWith(QStringLiteral("No conflicts")));
+        QVERIFY(configure->isEnabled());
+        QVERIFY(!reset->isEnabled());
+        Settings::setTabSwitchesPanes(false);
+        Settings::self()->save();
+        window.applySettings();
+        QTRY_COMPARE(customized->topLevelItemCount(), 0);
+
+        // A shortcut saved in Configure Keyboard Shortcuts is listed, with its conflict.
+        const QKeySequence f5(Qt::Key_F5);
+        gallery->setShortcuts({f5, QKeySequence(Qt::CTRL | Qt::Key_K, QKeyCombination(Qt::Key_G))});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(customized->topLevelItemCount(), 1);
+        QTreeWidgetItem *row = customized->topLevelItem(0);
+        QCOMPARE(row->data(0, Qt::UserRole).toString(), QStringLiteral("open_gallery"));
+        QCOMPARE(row->text(0), QStringLiteral("Open Gallery"));
+        QVERIFY2(row->text(1).contains(f5.toString(QKeySequence::NativeText)), qPrintable(row->text(1)));
+        QVERIFY2(row->text(1).contains(QStringLiteral("Ctrl+K, G")), qPrintable(row->text(1)));
+        QCOMPARE(row->text(2), QKeySequence(Qt::Key_Space).toString(QKeySequence::NativeText));
+        QVERIFY(summary->text().startsWith(QStringLiteral("1 action has")));
+        QCOMPARE(conflicts->count(), 1);
+        QVERIFY2(conflicts->item(0)->text().contains(QStringLiteral("“Copy to Other Pane”")) && conflicts->item(0)->text().contains(QStringLiteral("“Open Gallery”")),
+                 qPrintable(conflictTexts()));
+        QVERIFY(conflictSummary->text().startsWith(QStringLiteral("1 conflict")));
+        QVERIFY(reset->isEnabled());
+
+        // A shortcut that begins another's key sequence is a conflict too.
+        search->setShortcuts({QKeySequence(Qt::CTRL | Qt::Key_K)});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(customized->topLevelItemCount(), 2);
+        QCOMPARE(conflicts->count(), 2);
+        QVERIFY2(conflictTexts().contains(QStringLiteral("can't be typed")), qPrintable(conflictTexts()));
+
+        // Declining the reset keeps them; accepting gives every action its defaults and saves them.
+        int asked = 0;
+        bool answer = false;
+        QString question;
+        dialog.setShortcutResetConfirmation([&](const QString &text) {
+            ++asked;
+            question = text;
+            return answer;
+        });
+        reset->click();
+        QCOMPARE(asked, 1);
+        QVERIFY2(question.contains(QStringLiteral("2 actions")), qPrintable(question));
+        QCOMPARE(gallery->shortcut(), f5);
+        answer = true;
+        reset->click();
+        QCOMPARE(asked, 2);
+        QCOMPARE(gallery->shortcuts(), QList<QKeySequence>{QKeySequence(Qt::Key_Space)});
+        QCOMPARE(search->shortcuts(), QList<QKeySequence>{QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F)});
+        QCOMPARE(copyTo->shortcuts(), QList<QKeySequence>{f5});
+        // Tab still doesn't switch panes, as Preferences says.
+        QVERIFY(!window.actionCollection()->action(QStringLiteral("switch_pane"))->shortcuts().contains(QKeySequence(Qt::Key_Tab)));
+        QCOMPARE(customized->topLevelItemCount(), 0);
+        QCOMPARE(conflicts->count(), 0);
+        QVERIFY(!reset->isEnabled());
+
+        // Leave Tab switching panes for the next tests.
+        Settings::setTabSwitchesPanes(true);
+        Settings::self()->save();
+        window.applySettings();
+        window.actionCollection()->writeSettings();
+    }
+
+    void keyboardShortcutsLinkSearchYaziAndGlobalShortcuts()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+        auto *search = dialog.findChild<QLabel *>(QStringLiteral("keyboardSearchKeys"));
+        auto *yazi = dialog.findChild<QLabel *>(QStringLiteral("keyboardYaziKeys"));
+        auto *global = dialog.findChild<QLabel *>(QStringLiteral("keyboardGlobalKeys"));
+        QVERIFY(search && yazi && global);
+
+        // The Search shortcut and pressing Shift twice are listed together.
+        const QString searchKeys = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F).toString(QKeySequence::NativeText);
+        QVERIFY2(search->text().contains(searchKeys), qPrintable(search->text()));
+        QVERIFY2(search->text().contains(QStringLiteral("Shift twice")), qPrintable(search->text()));
+        Settings::setDoubleShiftSearch(false);
+        Settings::self()->save();
+        QTRY_VERIFY2(search->text().contains(QStringLiteral("is off")), qPrintable(search->text()));
+
+        // The Yazi mode preset chosen in Preferences counts the window shortcuts it takes.
+        QVERIFY2(yazi->text().contains(QStringLiteral("leaves every window shortcut working")), qPrintable(yazi->text()));
+        choosePreset(dialog.findChild<QComboBox *>(QStringLiteral("kcfg_YaziKeyPreset")), Settings::EnumYaziKeyPreset::Vim);
+        QVERIFY2(yazi->text().contains(QStringLiteral("window shortcuts while a Yazi mode column")), qPrintable(yazi->text()));
+
+        // The container has no global shortcut service, which is reported.
+        QVERIFY(!global->text().isEmpty());
+
+        // Each row shows where its keys are configured.
+        const auto opens = [&dialog](const QString &buttonName, const QString &tabName) {
+            dialog.findChild<QPushButton *>(buttonName)->click();
+            QWidget *tab = dialog.findChild<QWidget *>(tabName);
+            const auto *tabs = qobject_cast<QTabWidget *>(tab->parentWidget()->parentWidget());
+            return dialog.currentPage()->widget()->isAncestorOf(tab) && tabs && tabs->currentWidget() == tab;
+        };
+        QVERIFY(opens(QStringLiteral("keyboardShowSearchSettings"), QStringLiteral("searchSettingsPage")));
+        QVERIFY(opens(QStringLiteral("keyboardShowYaziKeys"), QStringLiteral("yaziKeyboardPage")));
+        QVERIFY(opens(QStringLiteral("keyboardShowGlobalShortcuts"), QStringLiteral("shortcutsIntegrationPage")));
+    }
+
+    void keyboardShortcutsNeedTheMainWindow()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardConfigureShortcuts"))->isEnabled());
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardResetShortcuts"))->isEnabled());
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("keyboardCustomizedSummary"))->text().startsWith(QStringLiteral("Open Preferences from")));
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("keyboardGlobalKeys"))->text().startsWith(QStringLiteral("Open Preferences from")));
+        // Nothing to reset, and nothing is asked.
+        bool asked = false;
+        dialog.setShortcutResetConfirmation([&asked](const QString &) {
+            asked = true;
+            return true;
+        });
+        dialog.resetShortcutsToDefaults();
+        QVERIFY(!asked);
+    }
+
     void yaziPreviewSettings()
     {
         const auto restore = qScopeGuard([] {

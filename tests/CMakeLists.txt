@@ -117,6 +117,7 @@ ecm_add_tests(
     mailmessagetest.cpp
     mediabackendtest.cpp
     onlineaccountstest.cpp
+    keybindingstest.cpp
     kwinscripttest.cpp
     mounttabletest.cpp
     libraryscantest.cpp
