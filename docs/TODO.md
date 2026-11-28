@@ -66,6 +66,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Nextcloud desktop client on Plasma](#nextcloud-desktop-client-on-plasma-592)                 | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#592]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Nextcloud settings on Plasma](#nextcloud-settings-on-plasma-368)                             | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#368]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
 | [Nextcloud Photos settings on a real server](#nextcloud-photos-settings-on-a-real-server-672) | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#672]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Keyboard shortcuts on Plasma](#keyboard-shortcuts-on-plasma-230)                             | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#230]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1704,8 +1705,44 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#nextcloud-settings), then remove this entry and its
    roadmap link.
 
+## Keyboard shortcuts on Plasma (#230)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#230] (Development).
+- **Blocker:** The development container has no Plasma session, D-Bus session
+  services or KDE global shortcut service (KGlobalAccel), and only an
+  offscreen platform without real keyboard layouts. **Preferences › Keyboard
+  › Shortcuts** is tested with window shortcuts only; its global shortcut
+  rows, conflicts between global and window shortcuts, its layout in Plasma
+  and key sequences recorded in KDE's editor are unverified.
+- **Confirmed state:** `src/core/keybindings.cpp` finds customized shortcuts
+  and conflicts, and `SettingsDialog::createKeyboardShortcutsPage` in
+  `src/app/keyboardsettingspages.cpp` provides the tab. `keybindingstest`,
+  `settingsdialogtest`, `settingstest` and `mainwindowtest` pass in the
+  container. See [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, open
+   **Preferences › Keyboard › Shortcuts** and check that the tab fits the
+   dialog, says every action has its default shortcuts and lists no
+   conflicts, and that **Global Shortcuts** shows the keys of **Show or Hide
+   Plasma Opus** and the drop-down window.
+2. In **Configure Keyboard Shortcuts…**, give **Copy to Other Pane** the
+   sequence <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>Ctrl</kbd>+<kbd>C</kbd> with a
+   non-US layout as well as US English, save, and check that the sequence
+   runs the action and that the tab lists it as customized.
+3. Give a window action the key of the global shortcut and check that the
+   tab lists the conflict and which one runs. Stop `kglobalacceld` and check
+   that the tab says global shortcuts don't work.
+4. Choose **Reset All Shortcuts…** and check that window shortcuts return to
+   their defaults while global shortcuts are kept. Record any differences in
+   [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
+   roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
+[#230]: https://github.com/mikepadiernos/plasma-opus/issues/230
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
 [#288]: https://github.com/mikepadiernos/plasma-opus/issues/288
 [#290]: https://github.com/mikepadiernos/plasma-opus/issues/290
