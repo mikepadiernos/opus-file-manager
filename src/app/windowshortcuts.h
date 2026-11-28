@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "keybindings.h"
+
 #include <QKeySequence>
 #include <QList>
 #include <QString>
+#include <QStringList>
 
 class KXmlGuiWindow;
 class QAction;
@@ -24,6 +27,19 @@ namespace WindowShortcuts
  * isn't a customized shortcut.
  */
 QList<QKeySequence> defaults(QAction *action);
+
+/// The names of the window actions whose shortcuts KDE's global shortcut service can reserve.
+QStringList globalActionNames();
+
+/// A window's actions whose shortcuts can be configured and their bindings, the gallery's fixed keys, then the global shortcuts KDE has registered.
+struct Bindings {
+    /// The action of each binding, or null for the gallery's keys.
+    QList<QAction *> actions;
+    QList<KeyBindings::Binding> bindings;
+};
+
+/// The bindings of @p window, or none without a window.
+Bindings bindings(KXmlGuiWindow *window);
 
 /// The path of the local ui.rc file @p xmlFile of component @p componentName, where KXmlGui saves a window's changes.
 QString uiRcPath(const QString &componentName, const QString &xmlFile);

@@ -32,6 +32,7 @@
 
 class ActivityController;
 class CloudActivityDialog;
+class KeyboardMapDialog;
 class CloudSyncDialog;
 namespace CloudActivity
 {
@@ -612,6 +613,8 @@ private:
     void showNewMenu();
     void toggleLayout(bool dual);
     void showSettings();
+    /// Shows Help › Keyboard Map…, or raises it when it is open.
+    void showKeyboardMap();
     void showToolbarSettings();
     /// Applies the settings that only take effect in a new window.
     void applyViewDefaults();
@@ -684,6 +687,7 @@ private:
     QPointer<CloudSyncDialog> m_cloudSyncDialog;
     CloudActivity::Monitor *m_cloudActivity = nullptr;
     QPointer<CloudActivityDialog> m_cloudActivityDialog;
+    QPointer<KeyboardMapDialog> m_keyboardMap;
     ActivityController *m_activityController = nullptr;
     KdeConnectClient *m_kdeConnect = nullptr;
     MountBackend *m_mountBackend = nullptr;

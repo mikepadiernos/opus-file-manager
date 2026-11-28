@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="76" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="77" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -200,6 +200,10 @@
       <Action name="options_configure"/>
       <Action name="kwin_integration"/>
       <Action name="customize_main_toolbar"/>
+    </Menu>
+    <Menu name="help">
+      <text>&amp;Help</text>
+      <Action name="keyboard_map" append="help_whats_this_merge"/>
     </Menu>
   </MenuBar>
   <ToolBar name="mainToolBar" noMerge="1">

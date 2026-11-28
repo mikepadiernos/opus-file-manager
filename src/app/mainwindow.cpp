@@ -58,6 +58,7 @@
 #include "kdeconnectclient.h"
 #include "kdeconnectshare.h"
 #include "kdeconnectsharedialog.h"
+#include "keyboardmapdialog.h"
 #include "kwinintegration.h"
 
 #include "labelcolor.h"
@@ -4217,6 +4218,11 @@ void MainWindow::setupActions()
 
     // Settings
     KStandardAction::preferences(this, &MainWindow::showSettings, actions);
+    QAction *keyboardMap = actions->addAction(QStringLiteral("keyboard_map"), this, &MainWindow::showKeyboardMap);
+    keyboardMap->setText(i18nc("@action", "Keyboard Map…"));
+    keyboardMap->setIcon(QIcon::fromTheme(QStringLiteral("help-keybord-shortcuts")));
+    keyboardMap->setToolTip(
+        i18nc("@info:tooltip", "List every action with its shortcuts, search them by name or by pressing keys, and export a printable reference"));
     QAction *showMenuBar = KStandardAction::showMenubar(menuBar(), &QMenuBar::setVisible, actions);
     KHamburgerMenu *hamburger = KStandardAction::hamburgerMenu(nullptr, nullptr, actions);
     hamburger->setMenuBar(menuBar());
@@ -9366,6 +9372,17 @@ void MainWindow::applyViewDefaults()
     }
     m_previewsAction->setChecked(Settings::showPreviews());
     setPreviewsEnabled(Settings::showPreviews());
+}
+
+void MainWindow::showKeyboardMap()
+{
+    if (!m_keyboardMap) {
+        m_keyboardMap = new KeyboardMapDialog(this, this);
+        m_keyboardMap->setAttribute(Qt::WA_DeleteOnClose);
+    }
+    m_keyboardMap->show();
+    m_keyboardMap->raise();
+    m_keyboardMap->activateWindow();
 }
 
 void MainWindow::showSettings()

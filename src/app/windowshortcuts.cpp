@@ -2,11 +2,14 @@
 
 #include "windowshortcuts.h"
 
+#include "gallerywindow.h"
 #include "settings.h"
 #include "shortcutstorage.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
+#include <KGlobalAccel>
+#include <KLocalizedString>
 #include <KSharedConfig>
 #include <KXmlGuiWindow>
 
@@ -77,6 +80,43 @@ QList<QKeySequence> defaults(QAction *action)
         defaults.removeAll(QKeySequence(Qt::Key_Tab));
     }
     return defaults;
+}
+
+QStringList globalActionNames()
+{
+    return {QStringLiteral("toggle_window_visibility"), QStringLiteral("toggle_drop_down")};
+}
+
+Bindings bindings(KXmlGuiWindow *window)
+{
+    const auto actionText = [](const QAction *action) {
+        const QString text = KLocalizedString::removeAcceleratorMarker(action->text());
+        return text.isEmpty() ? action->objectName() : text;
+    };
+    Bindings found;
+    if (!window) {
+        return found;
+    }
+    const QList<QAction *> actions = window->actionCollection()->actions();
+    for (QAction *action : actions) {
+        if (KActionCollection::isShortcutsConfigurable(action)) {
+            found.actions.append(action);
+            found.bindings.append({action->objectName(), actionText(action), action->shortcuts(), defaults(action)});
+        }
+    }
+    for (const KeyBindings::Binding &binding : GalleryWindow::keyBindings()) {
+        found.actions.append(nullptr);
+        found.bindings.append(binding);
+    }
+    const QStringList globalNames = globalActionNames();
+    for (QAction *action : actions) {
+        if (globalNames.contains(action->objectName()) && KGlobalAccel::self()->hasShortcut(action)) {
+            found.actions.append(action);
+            found.bindings.append(
+                {action->objectName(), actionText(action), KGlobalAccel::self()->shortcut(action), KGlobalAccel::self()->defaultShortcut(action), true});
+        }
+    }
+    return found;
 }
 
 QString uiRcPath(const QString &componentName, const QString &xmlFile)

@@ -4,7 +4,6 @@
 
 #include "desktoptray.h"
 #include "doubleshift.h"
-#include "gallerywindow.h"
 #include "keybindings.h"
 #include "settings.h"
 #include "windowshortcuts.h"
@@ -34,47 +33,17 @@
 
 namespace
 {
-/// The actions whose shortcuts KDE's global shortcut service can reserve.
-const QStringList GlobalActionNames{QStringLiteral("toggle_window_visibility"), QStringLiteral("toggle_drop_down")};
-
 QString actionText(const QAction *action)
 {
     const QString text = KLocalizedString::removeAcceleratorMarker(action->text());
     return text.isEmpty() ? action->objectName() : text;
 }
 
-/// The window's actions whose shortcuts can be configured and their bindings, the gallery's fixed keys, then the global shortcuts KDE has registered.
-struct WindowBindings {
-    /// The action of each binding, or null for the gallery's keys.
-    QList<QAction *> actions;
-    QList<KeyBindings::Binding> bindings;
-};
+using WindowBindings = WindowShortcuts::Bindings;
 
 WindowBindings windowBindings(KXmlGuiWindow *window)
 {
-    WindowBindings found;
-    if (!window) {
-        return found;
-    }
-    const QList<QAction *> actions = window->actionCollection()->actions();
-    for (QAction *action : actions) {
-        if (KActionCollection::isShortcutsConfigurable(action)) {
-            found.actions.append(action);
-            found.bindings.append({action->objectName(), actionText(action), action->shortcuts(), WindowShortcuts::defaults(action)});
-        }
-    }
-    for (const KeyBindings::Binding &binding : GalleryWindow::keyBindings()) {
-        found.actions.append(nullptr);
-        found.bindings.append(binding);
-    }
-    for (QAction *action : actions) {
-        if (GlobalActionNames.contains(action->objectName()) && KGlobalAccel::self()->hasShortcut(action)) {
-            found.actions.append(action);
-            found.bindings.append(
-                {action->objectName(), actionText(action), KGlobalAccel::self()->shortcut(action), KGlobalAccel::self()->defaultShortcut(action), true});
-        }
-    }
-    return found;
+    return WindowShortcuts::bindings(window);
 }
 
 QString shortcutsText(const QList<QKeySequence> &shortcuts)
@@ -160,9 +129,19 @@ QWidget *SettingsDialog::createKeyboardShortcutsPage()
         }
     });
     connect(reset, &QPushButton::clicked, this, &SettingsDialog::resetShortcutsToDefaults);
+    QPushButton *map = iconButton(QStringLiteral("keyboardShowMap"), i18nc("@action:button", "Keyboard Map…"), QStringLiteral("help-keybord-shortcuts"));
+    map->setToolTip(i18nc("@info:tooltip", "Search every action and its shortcuts by name or by pressing keys, and export a printable reference"));
+    const QPointer<QAction> mapAction = window ? window->actionCollection()->action(QStringLiteral("keyboard_map")) : nullptr;
+    map->setEnabled(!mapAction.isNull());
+    connect(map, &QPushButton::clicked, this, [mapAction] {
+        if (mapAction) {
+            mapAction->trigger();
+        }
+    });
     auto *buttons = new QHBoxLayout;
     buttons->addWidget(configure);
     buttons->addWidget(reset);
+    buttons->addWidget(map);
     buttons->addStretch();
     layout->addLayout(buttons);
 
@@ -279,13 +258,13 @@ QWidget *SettingsDialog::createKeyboardShortcutsPage()
         } else if (availability == KeyBindings::GlobalAvailability::NoService) {
             globalLines.append(KeyBindings::globalAvailabilityText(availability));
         } else {
-            for (const QString &name : GlobalActionNames) {
+            for (const QString &name : WindowShortcuts::globalActionNames()) {
                 QAction *action = window->actionCollection()->action(name);
                 if (!action) {
                     continue;
                 }
                 const QList<QKeySequence> keys = KGlobalAccel::self()->hasShortcut(action) ? KGlobalAccel::self()->shortcut(action) : QList<QKeySequence>();
-                if (keys.isEmpty() && name == GlobalActionNames.first() && Settings::globalShortcut()) {
+                if (keys.isEmpty() && name == WindowShortcuts::globalActionNames().constFirst() && Settings::globalShortcut()) {
                     globalLines.append(i18nc("@info %1 action",
                                              "%1: none. KDE didn't assign a key combination, usually because another application "
                                              "already uses it.",
