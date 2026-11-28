@@ -33,6 +33,7 @@ Yazi mode.
 - [Keyboard map](#keyboard-map)
 - [Command palette](#command-palette)
 - [Vim-style navigation](#vim-style-navigation)
+- [Shortcut hints](#shortcut-hints)
 - [Import and export](#import-and-export)
 - [Configuration reference](#configuration-reference)
 - [Accessibility](#accessibility)
@@ -523,7 +524,8 @@ ranger; they also work when a window shortcut keeps
 - **Sequences.** <kbd>g</kbd> waits for the next key. A pending sequence or
   count is cancelled after about one second without a key, by
   <kbd>Escape</kbd>, or by a key that doesn't continue it, which then works on
-  its own.
+  its own. While the [shortcut hints](#shortcut-hints) show, it waits for the
+  next key instead of expiring.
 - **Moving** sends the view its own arrow, <kbd>Home</kbd> and
   <kbd>End</kbd> keys, so the focus and the selection move as they always do,
   in lists, details, icons and cards alike. A movement stops at the first or
@@ -599,6 +601,68 @@ The **Vim Mode** tab shows:
 
 The [Shortcuts tab](#the-shortcuts-tab)'s **Conflicts** list doesn't include
 the Vim-style keys; the **Vim Mode** tab lists them.
+
+## Shortcut hints
+
+While a key sequence waits for its next key, a hint popup lists the keys that
+can follow it and what they do, as
+[which-key.nvim](https://github.com/folke/which-key.nvim) does in Neovim. It
+floats at the bottom of the active pane's file view, or of its columns in
+[Yazi mode](yazi-mode.md), about half a second after the sequence begins, so
+a sequence typed quickly never shows it. It lists:
+
+- after the first keys of a [Vim-style](#vim-style-navigation) or
+  [Yazi mode](yazi-mode.md#keyboard) sequence, such as <kbd>g</kbd>, the keys
+  that complete it, such as <kbd>g</kbd> for **Move to the first item**;
+- after a count, such as <kbd>5</kbd>, the commands that a count repeats;
+- after the first key combination of a window shortcut of several, such as
+  <kbd>Ctrl</kbd>+<kbd>K</kbd> of <kbd>Ctrl</kbd>+<kbd>K</kbd>,
+  <kbd>G</kbd>, the key combinations that can follow it and their actions.
+
+The title shows the keys typed so far, such as **g…** or **5…**. The hints
+are grouped under headings: the Vim-style and Yazi mode keys under **Move**,
+**Folders and history**, **View**, **Selection**, **Files**, **Filter and
+search**, **Sort** and **Tabs**, and window shortcuts under their menu, such
+as **File** or **Go**, or **Other actions**. Keys that begin longer sequences
+are one hint, such as **+3 commands**, under **More keys** when those
+commands are in different groups. The hints fill as many columns as fit; a
+list taller than about two-fifths of the view is split into pages, and the
+footer shows the page, such as **1 of 3**.
+
+- **The focus stays.** The popup never takes the keyboard focus or a typed
+  key: the file view keeps both, and the next key goes to the sequence as
+  without the popup.
+- **No hurry.** While the popup shows, a Vim-style or Yazi mode sequence
+  doesn't expire; it waits for the next key.
+- **Completing or continuing.** A key that completes the sequence runs it and
+  closes the popup; a key that continues it updates the popup at once.
+- **Cancelling.** <kbd>Escape</kbd> cancels the sequence and closes the
+  popup, as does moving the focus elsewhere. Before the popup shows, a key
+  that doesn't continue a Vim-style or Yazi mode sequence still cancels it
+  and works on its own.
+- **Turning pages.** While the popup lists Vim-style or Yazi mode keys,
+  <kbd>Page Up</kbd> and <kbd>Page Down</kbd>, and the arrow keys, turn its
+  pages instead of cancelling the sequence. When the sequence itself uses
+  them, as a count uses <kbd>Page Down</kbd> to move pages down, they work as
+  keys of the sequence, and the footer says to scroll instead. Scrolling over
+  the popup always turns its pages.
+- **Window shortcuts.** Qt matches window shortcuts of several key
+  combinations itself and takes every key while one waits, so the popup
+  can't take keys then: scroll to turn its pages. A key combination that
+  doesn't continue the shortcut ends it, as without the popup, and
+  <kbd>Escape</kbd> or moving the focus ends Qt's sequence too, so the next
+  key doesn't complete it. Only the window shortcuts that work where the
+  keyboard focus is are listed, without those whose first key the focused
+  text field or list keeps (see [Where shortcuts apply](#where-shortcuts-apply))
+  and those of disabled actions.
+- **Typing is never taken.** The Vim-style and Yazi mode keys never apply in
+  text fields or the embedded terminal, so their hints don't either. A
+  window shortcut that a text field or the terminal lets through shows its
+  hints over the active pane, but the keys still go where they always do.
+- **Motion.** The popup slides up into place when **Animations** in
+  **Preferences › Themes › Motion and Accessibility** follows Plasma and
+  Plasma's animations are on; with reduced or no animations, it appears in
+  place.
 
 ## Import and export
 
@@ -920,6 +984,13 @@ The **Set in** column names pages of Preferences.
   a sequence, are announced to screen readers in the pane being typed in;
   moving between panes isn't. The indicator uses the highlight colours with
   its mode written out, so it doesn't rely on colour.
+- The shortcut hint popup never takes the keyboard focus, and it has the
+  accessible name “Shortcut hints”. Its accessible description, which is
+  also announced to screen readers when it appears, changes or turns a page,
+  reads the title, each hint's keys and what they do, and the page, such as
+  “g…: g, Move to the first item; …”. <kbd>Escape</kbd> closes it, and it
+  turns pages with keys as well as the mouse wheel where it can. It slides
+  only while Plasma Opus's animations follow Plasma's.
 
 ## Known limitations
 
