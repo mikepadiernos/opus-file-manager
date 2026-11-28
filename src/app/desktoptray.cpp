@@ -127,6 +127,13 @@ bool DesktopTray::globalShortcutServiceAvailable()
     return bus.interface()->isServiceRegistered(service) || bus.interface()->activatableServiceNames().value().contains(service);
 }
 
+KeyBindings::GlobalAvailability DesktopTray::globalShortcutAvailability()
+{
+    return KeyBindings::globalAvailability(globalShortcutServiceAvailable(),
+                                           qEnvironmentVariable("XDG_SESSION_TYPE"),
+                                           qEnvironmentVariable("XDG_CURRENT_DESKTOP"));
+}
+
 bool DesktopTray::globalShortcutRegistered() const
 {
     return KGlobalAccel::self()->hasShortcut(m_toggleAction);

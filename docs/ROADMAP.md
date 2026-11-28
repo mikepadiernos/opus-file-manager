@@ -14,7 +14,7 @@ record the Max File Manager behaviour that informs its parity goals.
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. M15–M30 have since been merged into `main`; M31–M32 are
+> released after M14. M15–M31 have since been merged into `main`; M32 is
 > planned. See [pending tasks](TODO.md) for blocked work and branch-specific
 > handoffs.
 
@@ -23,9 +23,8 @@ record the Max File Manager behaviour that informs its parity goals.
 Status reflects the milestones' parent issues on the
 [project board](https://github.com/users/mikepadiernos/projects/3): Merged
 groups have every feature checked and merged into `main`, Development groups
-have a milestone in progress, and Planned groups have not started. In the
-M27–M31 group, M27–M30 are merged and their Plasma checks are recorded in
-[pending tasks](TODO.md); M31 is planned.
+have a milestone in progress, and Planned groups have not started. M27–M31
+are merged, and their Plasma checks are recorded in [pending tasks](TODO.md).
 
 | Milestones | Focus                                        | Status                                                                            | Jump to                         |
 | ---------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------- |
@@ -38,7 +37,7 @@ M27–M31 group, M27–M30 are merged and their Plasma checks are recorded in
 | M21–M22    | Advanced search and its settings             | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M21](#m21-advanced-search)     |
 | M23–M24    | Native tagging and its settings              | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M23](#m23-native-tagging)      |
 | M25–M26    | Yazi mode and its settings                   | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M25](#m25-yazi-mode)           |
-| M27–M31    | Integrations, Nextcloud and shortcuts        | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square) | [M27](#m27-integrations)        |
+| M27–M31    | Integrations, Nextcloud and shortcuts        | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)           | [M27](#m27-integrations)        |
 | M32        | Refinements                                  | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)         | [M32](#m32-refinements)         |
 
 ## Contents
@@ -2139,49 +2138,70 @@ Configure keyboard shortcuts, key chords, optional Vim-style navigation, a
 shortcut hint pane, a command palette and keyboard hints across Plasma Opus,
 using KDE shortcut facilities where supported.
 
-- [ ] Configure simultaneous key combinations and sequential key chords with
+- [x] Configure simultaneous key combinations and sequential key chords with
       conflict detection, clear feedback and reset to defaults; use KDE shortcut
       facilities where supported. Integrate advanced-search shortcuts, Yazi
       navigation and presets, and the integration global shortcut with these
-      controls without overriding existing bindings. [#230]
-- [ ] Scope bindings to the applicable view, folder tree, viewer or application;
+      controls without overriding existing bindings. Plasma-session
+      verification is a
+      [pending handoff](TODO.md#keyboard-shortcuts-on-plasma-230). [#230]
+- [x] Scope bindings to the applicable view, folder tree, viewer or application;
       detect conflicts between overlapping contexts and preserve typing and
-      accessibility keys in input controls [#233]
-- [ ] Store Vim-style mode and app-local bindings in KConfig; manage optional
+      accessibility keys in input controls. Plasma-session verification is a
+      [pending handoff](TODO.md#shortcut-contexts-on-plasma-233). [#233]
+- [x] Store Vim-style mode and app-local bindings in KConfig; manage optional
       global shortcuts through KDE facilities and report registration failures
-      or platform limitations [#238]
-- [ ] Allow alternative bindings for an action and configurable shortcuts for
-      commands outside a toolbar, including custom commands [#231]
-- [ ] Show a searchable keyboard map of action names, descriptions, bindings and
+      or platform limitations. Plasma-session verification is a
+      [pending handoff](TODO.md#shortcut-storage-on-plasma-238). [#238]
+- [x] Allow alternative bindings for an action and configurable shortcuts for
+      commands outside a toolbar, including custom commands. Plasma-session
+      verification is a
+      [pending handoff](TODO.md#alternate-and-command-shortcuts-on-plasma-231).
+      [#231]
+- [x] Show a searchable keyboard map of action names, descriptions, bindings and
       contexts. Search by action name or key combination and export a printable
-      reference. [#232]
-- [ ] Provide shortcuts for pane and tab navigation, selection, filtering,
+      reference. Plasma-session verification is a
+      [pending handoff](TODO.md#keyboard-map-on-plasma-232). [#232]
+- [x] Provide shortcuts for pane and tab navigation, selection, filtering,
       preview and terminal focus as features become available, without
-      overriding existing bindings by default [#236]
-- [ ] Offer optional Vim-style navigation in listings and panes with a
+      overriding existing bindings by default. Plasma-session verification is
+      a [pending handoff](TODO.md#navigation-shortcuts-on-plasma-236). [#236]
+- [x] Offer optional Vim-style navigation in listings and panes with a
       discoverable shortcut reference. Keep it off by default and do not
-      intercept typing in text fields or the embedded terminal. [#228]
-- [ ] Show the active Vim-style mode and provide a clear way to enter filtering
-      or text without conflicting with navigation keys [#229]
-- [ ] Provide a native sliding or floating shortcut hint pane inspired by
+      intercept typing in text fields or the embedded terminal.
+      Plasma-session verification is a
+      [pending handoff](TODO.md#vim-style-navigation-on-plasma-228). [#228]
+- [x] Show the active Vim-style mode and provide a clear way to enter filtering
+      or text without conflicting with navigation keys. Plasma-session
+      verification is a
+      [pending handoff](TODO.md#vim-style-mode-indicator-on-plasma-229).
+      [#229]
+- [x] Provide a native sliding or floating shortcut hint pane inspired by
       [which-key.nvim](https://github.com/folke/which-key.nvim). Show pending
       key sequences and context-appropriate continuations grouped with action
-      descriptions; support keyboard navigation and dismissal. [#234]
-- [ ] Configure the hint panel's enablement and display delay, and offer an
+      descriptions; support keyboard navigation and dismissal. Plasma-session
+      verification is a
+      [pending handoff](TODO.md#shortcut-hints-on-plasma-234). [#234]
+- [x] Configure the hint panel's enablement and display delay, and offer an
       on-demand shortcut reference. Cancel or time out incomplete sequences
-      without unexpectedly running a conflicting action. [#235]
-- [ ] Offer a command palette through KDE's `KCommandBar`, as in Dolphin and
+      without unexpectedly running a conflicting action. Plasma-session
+      verification is a
+      [pending handoff](TODO.md#shortcut-hint-settings-on-plasma-235). [#235]
+- [x] Offer a command palette through KDE's `KCommandBar`, as in Dolphin and
       Kate: search menu, toolbar and custom command actions by name and run
       them, showing each action's shortcut and recently used actions first.
       Skip disabled actions, apply pane actions to the active pane and leave
-      shortcuts unchanged. (Lektra) [#761]
-- [ ] Offer keyboard hints: on a shortcut, label the visible items, breadcrumb
+      shortcuts unchanged. (Lektra) Plasma-session verification is a
+      [pending handoff](TODO.md#command-palette-on-plasma-761). [#761]
+- [x] Offer keyboard hints: on a shortcut, label the visible items, breadcrumb
       segments, places and tabs of the active pane with short key sequences,
       and open or select a target when its keys are typed. Cancel with Escape,
       give labels accessible names and do not intercept typing in text fields
-      or the embedded terminal. (Lektra) [#762]
-- [ ] Import and export shortcut bindings with conflict preview; do not execute
-      commands from imported files [#237]
+      or the embedded terminal. (Lektra) Plasma-session verification is a
+      [pending handoff](TODO.md#keyboard-hints-on-plasma-762). [#762]
+- [x] Import and export shortcut bindings with conflict preview; do not execute
+      commands from imported files. Plasma-session verification is a
+      [pending handoff](TODO.md#keymap-files-on-plasma-237). [#237]
 
 ### M32: Refinements
 

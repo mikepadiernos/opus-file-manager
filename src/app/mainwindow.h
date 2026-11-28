@@ -32,6 +32,8 @@
 
 class ActivityController;
 class CloudActivityDialog;
+class KeyboardMapDialog;
+class CommandPaletteBar;
 class CloudSyncDialog;
 namespace CloudActivity
 {
@@ -76,8 +78,11 @@ class KToggleAction;
 class Pane;
 class PreviewPanel;
 class SearchPanel;
+class KeyboardHintOverlay;
+class ShortcutReference;
 class TaggingController;
 class TabColors;
+class WindowSequenceHints;
 class TerminalPanel;
 class ToolbarCustomizer;
 class QDockWidget;
@@ -113,6 +118,12 @@ public:
 
     Pane *activePane() const;
     Pane *inactivePane() const;
+    /// Shows hints while the first keys of a multi-key window shortcut wait for the rest.
+    WindowSequenceHints *windowSequenceHints() const;
+    /// The on-demand shortcut reference, Help › Shortcut Hints.
+    ShortcutReference *shortcutReference() const;
+    /// Keyboard hints, Go › Keyboard Hints: key labels over the active pane's items, locations and tabs and the places.
+    KeyboardHintOverlay *keyboardHintOverlay() const;
 
     ActivityController *activityController() const;
     /// Opens Preferences › KDE Plasma › Activities, where Plasma Activities are associated with workspaces and default folders.
@@ -440,6 +451,12 @@ private:
     void updateDoubleShift();
 
     void setActivePane(Pane *pane);
+    /// Makes @p pane active and gives its view the keyboard focus, raising its window when it has one of its own.
+    void focusPane(Pane *pane);
+    /// Shows the preview panel and gives it the keyboard focus, or gives the focus back to the active pane when the panel has it.
+    void focusPreviewPanel();
+    /// Shows the embedded terminal and gives its session the keyboard focus, or gives the focus back to the active pane when the terminal has it.
+    void focusTerminal();
     void connectPane(Pane *pane);
     void updateActions();
     /// Reads the server permissions of the folder shown in @p pane when it belongs to a Nextcloud account.
@@ -612,6 +629,16 @@ private:
     void showNewMenu();
     void toggleLayout(bool dual);
     void showSettings();
+    /// Shows Help › Keyboard Map…, or raises it when it is open.
+    void showKeyboardMap();
+    /// Shows Help › Command Palette…, or gives it the focus when it is open.
+    void showCommandPalette();
+    /**
+     * Shows Go › Keyboard Hints over the active pane and the places, or hides
+     * them when they show. Refused while the keyboard focus is in a text
+     * field, an inline rename editor or the terminal.
+     */
+    void showKeyboardHints();
     void showToolbarSettings();
     /// Applies the settings that only take effect in a new window.
     void applyViewDefaults();
@@ -684,6 +711,8 @@ private:
     QPointer<CloudSyncDialog> m_cloudSyncDialog;
     CloudActivity::Monitor *m_cloudActivity = nullptr;
     QPointer<CloudActivityDialog> m_cloudActivityDialog;
+    QPointer<KeyboardMapDialog> m_keyboardMap;
+    QPointer<CommandPaletteBar> m_commandPalette;
     ActivityController *m_activityController = nullptr;
     KdeConnectClient *m_kdeConnect = nullptr;
     MountBackend *m_mountBackend = nullptr;
@@ -798,6 +827,9 @@ private:
     SearchPanel *m_searchPanel = nullptr;
     /// Opens search on two Shift taps, while enabled and available.
     QObject *m_doubleShift = nullptr;
+    WindowSequenceHints *m_windowSequenceHints = nullptr;
+    ShortcutReference *m_shortcutReference = nullptr;
+    KeyboardHintOverlay *m_keyboardHints = nullptr;
     /// Whether a terminal profile asks for blur behind the window.
     bool m_terminalBlur = false;
     EditorPanel *m_editor = nullptr;
@@ -831,6 +863,7 @@ private:
     KToggleAction *m_yaziParentColumnAction = nullptr;
     QToolButton *m_yaziModeStatusButton = nullptr;
     KToggleAction *m_yaziVimKeysAction = nullptr;
+    KToggleAction *m_vimNavigationAction = nullptr;
     QList<QAction *> m_yaziColumnActions;
     KToggleAction *m_stackedLayoutAction = nullptr;
     KToggleAction *m_hiddenFilesAction = nullptr;

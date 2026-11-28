@@ -49,20 +49,6 @@ QString parentColumnDescription()
     return i18nc("@info:accessibility", "The items next to the current folder; choose one to open it");
 }
 
-/// About half the rows @p view shows at once.
-int halfPageRows(const QAbstractItemView *view)
-{
-    QModelIndex probe = view->currentIndex();
-    if (!probe.isValid() && view->model()) {
-        probe = view->model()->index(0, 0, view->rootIndex());
-    }
-    int rowHeight = probe.isValid() ? view->visualRect(probe).height() : 0;
-    if (rowHeight <= 0) {
-        rowHeight = view->fontMetrics().height();
-    }
-    return qMax(1, view->viewport()->height() / qMax(1, rowHeight) / 2);
-}
-
 /// Hides items inside locked password-gated folders.
 class GateFilterProxyModel : public KDirSortFilterProxyModel
 {
@@ -1053,21 +1039,12 @@ void YaziColumns::updateIndicator()
     }
 }
 
-bool YaziColumns::isEditing(const QAbstractItemView *view)
-{
-    // QAbstractItemView::state() is protected; an inline editor is a typing widget on the viewport.
-    const QList<QWidget *> children = view->viewport()->findChildren<QWidget *>(Qt::FindDirectChildrenOnly);
-    return std::any_of(children.cbegin(), children.cend(), [](const QWidget *child) {
-        return child->isVisible() && YaziKeys::isTypingWidget(child);
-    });
-}
-
 bool YaziColumns::acceptsKeys(QWidget *widget) const
 {
     if (!m_view || !widget) {
         return false;
     }
-    if (auto *items = qobject_cast<QAbstractItemView *>(widget); items && isEditing(items)) {
+    if (auto *items = qobject_cast<QAbstractItemView *>(widget); items && YaziKeys::isEditing(items)) {
         return false;
     }
     return widget == m_parentColumn || widget == m_view->currentView() || m_previewSlot->isAncestorOf(widget);
@@ -1115,41 +1092,6 @@ bool YaziColumns::moveFocus(YaziMode::Command command, int count)
     if (!view || !view->model() || view->model()->rowCount(view->rootIndex()) == 0) {
         return false;
     }
-    using YaziMode::Command;
-    Qt::Key key = Qt::Key_unknown;
-    int steps = qBound(1, count, YaziMode::MaximumCount);
-    switch (command) {
-    case Command::MoveUp:
-        key = Qt::Key_Up;
-        break;
-    case Command::MoveDown:
-        key = Qt::Key_Down;
-        break;
-    case Command::MoveFirst:
-        key = Qt::Key_Home;
-        steps = 1;
-        break;
-    case Command::MoveLast:
-        key = Qt::Key_End;
-        steps = 1;
-        break;
-    case Command::PageUp:
-        key = Qt::Key_PageUp;
-        break;
-    case Command::PageDown:
-        key = Qt::Key_PageDown;
-        break;
-    case Command::HalfPageUp:
-        key = Qt::Key_Up;
-        steps *= halfPageRows(view);
-        break;
-    case Command::HalfPageDown:
-        key = Qt::Key_Down;
-        steps *= halfPageRows(view);
-        break;
-    default:
-        return true;
-    }
     // The view's own keys move the focus and selection as they always do,
     // in every view mode and through expanded folders. While marking, Ctrl
     // moves only the current item, so the marked selection isn't rebuilt (and
@@ -1158,15 +1100,13 @@ bool YaziColumns::moveFocus(YaziMode::Command command, int count)
     const bool keepMarks = m_marking && m_view && view == m_view->currentView() && selection;
     const QScopedValueRollback changing(m_changingSelection, m_changingSelection || keepMarks);
     const QItemSelection marked = keepMarks ? selection->selection() : QItemSelection();
-    for (int step = 0; step < steps; ++step) {
-        const QPersistentModelIndex before = view->currentIndex();
-        m_keys->sendKey(view, key, keepMarks ? Qt::ControlModifier : Qt::NoModifier);
+    const bool moved = m_keys->move(view, command, count, keepMarks ? Qt::ControlModifier : Qt::NoModifier, [keepMarks, selection, &marked] {
         if (keepMarks && selection->selection() != marked) {
             selection->select(marked, QItemSelectionModel::ClearAndSelect);
         }
-        if (before == view->currentIndex()) {
-            break;
-        }
+    });
+    if (!moved) {
+        return true;
     }
     if (keepMarks && m_visual) {
         applyVisualRange();

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="76" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="81" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -79,12 +79,15 @@
       <Action name="copy_path"/>
       <Separator/>
       <Action name="edit_select_all"/>
+      <Action name="deselect_all"/>
+      <Action name="invert_selection"/>
       <Action name="select_menu"/>
       <Action name="selection_mode"/>
       <Action name="yazi_toggle_selection"/>
       <Action name="yazi_visual_selection"/>
       <Separator/>
       <Action name="show_filter_bar"/>
+      <Action name="clear_filter"/>
     </Menu>
     <Menu name="view">
       <text>&amp;View</text>
@@ -122,6 +125,7 @@
       <Action name="toggle_yazi_preview_information"/>
       <Action name="toggle_yazi_parent_column"/>
       <Action name="toggle_yazi_vim_keys"/>
+      <Action name="toggle_vim_navigation"/>
       <Action name="folder_format_source"/>
       <Action name="open_folder_format_source"/>
       <Action name="clear_folder_format"/>
@@ -135,8 +139,10 @@
       <Action name="selection_markers"/>
       <Action name="show_previews"/>
       <Action name="show_preview_panel"/>
+      <Action name="focus_preview_panel"/>
       <Action name="show_information_panel"/>
       <Action name="show_embedded_terminal"/>
+      <Action name="focus_terminal"/>
       <Action name="show_search_panel"/>
       <Action name="open_gallery"/>
       <Action name="show_hidden_files"/>
@@ -166,6 +172,9 @@
       <Action name="edit_location"/>
       <Action name="add_to_favorites"/>
       <Action name="switch_pane"/>
+      <Action name="focus_first_pane"/>
+      <Action name="focus_second_pane"/>
+      <Action name="keyboard_hints"/>
       <Menu name="yazi_columns">
         <text context="@title:menu">Yazi Columns</text>
         <Action name="yazi_focus_parent_column"/>
@@ -178,6 +187,7 @@
       <Action name="reopen_closed_tab"/>
       <Action name="next_tab"/>
       <Action name="previous_tab"/>
+      <Action name="activate_last_tab"/>
     </Menu>
     <Menu name="tags">
       <text>&amp;Tags</text>
@@ -200,6 +210,11 @@
       <Action name="options_configure"/>
       <Action name="kwin_integration"/>
       <Action name="customize_main_toolbar"/>
+    </Menu>
+    <Menu name="help">
+      <text>&amp;Help</text>
+      <Action name="keyboard_map" append="help_whats_this_merge"/>
+      <Action name="show_shortcut_hints" append="help_whats_this_merge"/>
     </Menu>
   </MenuBar>
   <ToolBar name="mainToolBar" noMerge="1">

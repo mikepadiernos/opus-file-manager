@@ -288,8 +288,6 @@ private:
     bool selectionIsFocusOnly() const;
     /// Whether @p widget takes the keys with the focus in it.
     bool acceptsKeys(QWidget *widget) const;
-    /// Whether @p view has an inline editor open, as when renaming in place.
-    static bool isEditing(const QAbstractItemView *view);
     /// The column item view the movement keys act on.
     QAbstractItemView *movementTarget() const;
 

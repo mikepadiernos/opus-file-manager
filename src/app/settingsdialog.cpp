@@ -15,6 +15,7 @@
 #include "folderpreview.h"
 #include "indexbackend.h"
 #include "interfacelanguage.h"
+#include "keybindings.h"
 #include "kwinscript.h"
 #include "libraryarchive.h"
 #include "libraryconfirmations.h"
@@ -265,6 +266,13 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                                KStandardGuiItem::cancel())
             == KMessageBox::PrimaryAction;
     };
+    m_confirmShortcutReset = [this](const QString &question) {
+        return KMessageBox::warningContinueCancel(this,
+                                                  question,
+                                                  i18nc("@title:window", "Reset Keyboard Shortcuts"),
+                                                  KGuiItem(i18nc("@action:button", "Reset Shortcuts"), QStringLiteral("edit-reset")))
+            == KMessageBox::Continue;
+    };
     addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
     addTabbedPage({{createLanguagePage(), i18nc("@title:tab", "Language and Layout")}, {createDateLanguagePage(), i18nc("@title:tab", "Dates")}},
                   i18nc("@title:group", "Translation"),
@@ -318,6 +326,14 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   QStringLiteral("view-file-columns"),
                   nullptr,
                   createYaziResetRow());
+    addTabbedPage({{createKeyboardShortcutsPage(), i18nc("@title:tab", "Shortcuts")},
+                   {createKeyboardNavigationPage(), i18nc("@title:tab", "Navigation")},
+                   {createKeyboardVimPage(), i18nc("@title:tab", "Vim Mode")},
+                   {createKeyboardHintsPage(), i18nc("@title:tab", "Hints")},
+                   {createKeyboardCommandPalettePage(), i18nc("@title:tab", "Command Palette")},
+                   {createKeyboardLabelHintsPage(), i18nc("@title:tab", "Keyboard Hints")}},
+                  i18nc("@title:group", "Keyboard"),
+                  QStringLiteral("input-keyboard"));
     addTabbedPage({{createContextMenuActionsPage(), i18nc("@title:tab", "Actions")}, {createServiceMenusPage(), i18nc("@title:tab", "Service Menus")}},
                   i18nc("@title:group", "Context Menu"),
                   QStringLiteral("application-menu"));
@@ -498,6 +514,26 @@ void SettingsDialog::showKWinPage()
 {
     setCurrentPage(m_plasmaPage);
     m_plasmaTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("kwinIntegrationPage")));
+}
+
+void SettingsDialog::showSettingsTab(const QString &tabName)
+{
+    QWidget *tab = findChild<QWidget *>(tabName);
+    if (!tab) {
+        return;
+    }
+    for (const auto &[page, iconName] : std::as_const(m_pageIcons)) {
+        if (page->widget()->isAncestorOf(tab)) {
+            setCurrentPage(page);
+            break;
+        }
+    }
+    for (QWidget *parent = tab->parentWidget(); parent; parent = parent->parentWidget()) {
+        if (auto *tabs = qobject_cast<QTabWidget *>(parent)) {
+            tabs->setCurrentWidget(tab);
+            break;
+        }
+    }
 }
 
 void SettingsDialog::applySidebarStyle()
@@ -1676,7 +1712,8 @@ QWidget *SettingsDialog::createAutomationPage()
     auto *page = new QWidget;
     auto *layout = new QVBoxLayout(page);
     auto *notice = new QLabel(i18nc("@info",
-                                    "Manage scripts and custom command presets. Add saved commands using Configure Toolbars. "
+                                    "Manage scripts and custom command presets. Add saved commands using Configure Toolbars, or give them "
+                                    "shortcuts in Configure Keyboard Shortcuts, where they are listed as Saved Command. "
                                     "Changes are saved immediately, even if Preferences is canceled. "
                                     "Commands run with your permissions and require a preview and confirmation."),
                               page);
@@ -2967,6 +3004,16 @@ void SettingsDialog::updateYaziKeyPreview()
 QStringList SettingsDialog::yaziKeyConflicts(int preset) const
 {
     const YaziMode::Keymap keymap = YaziMode::presetKeymap(yaziPreset(preset));
+    return keymapConflicts(keymap, YaziMode::shadowedShortcuts(keymap, windowActionShortcuts()));
+}
+
+QList<YaziMode::ActionShortcuts> SettingsDialog::windowActionShortcuts() const
+{
+    return windowShortcuts(parentWidget());
+}
+
+QStringList SettingsDialog::keymapConflicts(const YaziMode::Keymap &keymap, const QList<YaziMode::ShadowedShortcut> &shadowed)
+{
     const auto keysText = [&keymap](int binding) {
         return YaziMode::sequenceText(keymap.bindings.at(binding).keys);
     };
@@ -2988,7 +3035,6 @@ QStringList SettingsDialog::yaziKeyConflicts(int preset) const
                                commandText(conflict.second)));
         }
     }
-    const QList<YaziMode::ShadowedShortcut> shadowed = YaziMode::shadowedShortcuts(keymap, windowShortcuts(parentWidget()));
     for (const YaziMode::ShadowedShortcut &shortcut : shadowed) {
         const QString shortcutText = shortcut.shortcut.toString(QKeySequence::NativeText);
         const QString key = YaziMode::keyText(YaziMode::normalizedKey(shortcut.shortcut[0]));
@@ -3233,6 +3279,11 @@ void SettingsDialog::resetYaziModeToDefaults()
 void SettingsDialog::setYaziResetConfirmation(std::function<bool(const QString &)> confirm)
 {
     m_confirmYaziReset = std::move(confirm);
+}
+
+int SettingsDialog::yaziShadowedShortcutCount(int preset) const
+{
+    return YaziMode::shadowedShortcuts(YaziMode::presetKeymap(yaziPreset(preset)), windowShortcuts(parentWidget())).size();
 }
 
 void SettingsDialog::accept()
@@ -4367,15 +4418,20 @@ void SettingsDialog::updateSettings()
         // KConfigDialog announces only changes to kcfg_ widgets, and the main window applies the vaults when it hears.
         settingsChangedSlot();
     }
+    QList<QKeySequence> requestedGlobalShortcut;
     if (DesktopTray *tray = desktopTray(); tray && m_globalShortcutKey->keySequence() != tray->globalShortcut()) {
         // Before the main window applies the settings, so a shortcut turned on
         // at the same time gets the chosen key.
         tray->setGlobalShortcut(m_globalShortcutKey->keySequence());
+        requestedGlobalShortcut = {m_globalShortcutKey->keySequence()};
+        m_refusedGlobalShortcut.clear();
     }
     if (m_writeDropDownShortcut && m_dropDownShortcut->keySequence() != m_savedDropDownShortcut) {
-        m_writeDropDownShortcut(m_dropDownShortcut->keySequence());
+        const QKeySequence requested = m_dropDownShortcut->keySequence();
+        m_writeDropDownShortcut(requested);
         // Show the key KDE accepted, which is none when it is already taken.
         m_savedDropDownShortcut = m_readDropDownShortcut();
+        m_refusedDropDownShortcut = KeyBindings::refusedKeys({requested}, {m_savedDropDownShortcut});
         m_dropDownShortcut->setKeySequence(m_savedDropDownShortcut);
         m_refreshDropDownShortcut();
     }
@@ -4383,8 +4439,11 @@ void SettingsDialog::updateSettings()
     // show the key KDE accepted, which is none when it is already taken.
     QMetaObject::invokeMethod(
         this,
-        [this] {
+        [this, requestedGlobalShortcut] {
             if (const DesktopTray *tray = desktopTray()) {
+                if (tray->globalShortcutRegistered() && !requestedGlobalShortcut.isEmpty()) {
+                    m_refusedGlobalShortcut = KeyBindings::refusedKeys(requestedGlobalShortcut, {tray->globalShortcut()});
+                }
                 m_globalShortcutKey->setKeySequence(tray->globalShortcut());
             }
             m_refreshGlobalShortcut();

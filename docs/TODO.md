@@ -64,8 +64,21 @@ Board statuses were last confirmed on 2026-11-27.
 | [Nextcloud Photos on a real server](#nextcloud-photos-on-a-real-server-671)                   | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#671]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Nextcloud shares on a real server](#nextcloud-shares-on-a-real-server-591)                   | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#591]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Nextcloud desktop client on Plasma](#nextcloud-desktop-client-on-plasma-592)                 | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#592]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Nextcloud settings on Plasma](#nextcloud-settings-on-plasma-368)                             | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#368]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
-| [Nextcloud Photos settings on a real server](#nextcloud-photos-settings-on-a-real-server-672) | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#672]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Nextcloud settings on Plasma](#nextcloud-settings-on-plasma-368)                             | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#368]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Nextcloud Photos settings on a real server](#nextcloud-photos-settings-on-a-real-server-672) | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#672]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Keyboard shortcuts on Plasma](#keyboard-shortcuts-on-plasma-230)                             | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#230]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Shortcut contexts on Plasma](#shortcut-contexts-on-plasma-233)                               | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#233]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Shortcut storage on Plasma](#shortcut-storage-on-plasma-238)                                 | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#238]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Alternate and command shortcuts on Plasma](#alternate-and-command-shortcuts-on-plasma-231)   | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#231]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Keyboard map on Plasma](#keyboard-map-on-plasma-232)                                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#232]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Navigation shortcuts on Plasma](#navigation-shortcuts-on-plasma-236)                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#236]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Keymap files on Plasma](#keymap-files-on-plasma-237)                                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#237]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Command palette on Plasma](#command-palette-on-plasma-761)                                   | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#761]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Vim-style navigation on Plasma](#vim-style-navigation-on-plasma-228)                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#228]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Vim-style mode indicator on Plasma](#vim-style-mode-indicator-on-plasma-229)                 | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#229]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Shortcut hints on Plasma](#shortcut-hints-on-plasma-234)                                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#234]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Shortcut hint settings on Plasma](#shortcut-hint-settings-on-plasma-235)                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#235]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Keyboard hints on Plasma](#keyboard-hints-on-plasma-762)                                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#762]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
 
 ## mpv integration (#563)
 
@@ -1131,7 +1144,7 @@ Board statuses were last confirmed on 2026-11-27.
    Drives** also checked, check that a single tray instance starts. Clear the
    setting and check that the entry is removed.
 3. With NetworkManager, mark the connection as metered (`nmcli connection
-   modify ID connection.metered yes`), check that the tab reports it and that
+modify ID connection.metered yes`), check that the tab reports it and that
    background runs wait, then clear **Pause background synchronization on
    metered connections** and check that they run.
 4. With rclone 1.66 or later, give an rclone pair **Keep Local Version**,
@@ -1468,7 +1481,7 @@ Board statuses were last confirmed on 2026-11-27.
    enabled and a disposable Nextcloud server with a synthetic user and the
    Collaborative tags app, upload photos, documents and a folder, and sign in
    under **Go › Nextcloud › Manage Nextcloud Accounts…**.
-2. Open **Go › Nextcloud › *account* › Search and Organize…**. Search by name
+2. Open **Go › Nextcloud › _account_ › Search and Organize…**. Search by name
    and by each kind, and check that **Show in Pane** opens the results. Search
    for a common letter and check that more than 500 matches are reported as
    cut short.
@@ -1502,7 +1515,7 @@ Board statuses were last confirmed on 2026-11-27.
   requests through KIO, and `Nextcloud::albumEntryUrl` refuses any `DELETE`
   target but a photo directly in an album. `NextcloudPhotosDialog` and
   `NextcloudAddToAlbumDialog` in `src/app/nextcloudphotosdialog.cpp` provide
-  **Go › Nextcloud › *account* › Photos…** and **Nextcloud › Add to
+  **Go › Nextcloud › _account_ › Photos…** and **Nextcloud › Add to
   Nextcloud Album…**. `nextcloudphotostest` and `nextcloudphotosdialogtest`
   pass in the container. See
   [Nextcloud integration](CAVEATS.md#nextcloud-integration).
@@ -1514,7 +1527,7 @@ Board statuses were last confirmed on 2026-11-27.
    synthetic users, upload photos with EXIF dates and GPS data and a photo
    without them as the first user, and sign in under **Go › Nextcloud ›
    Manage Nextcloud Accounts…**.
-2. Open **Go › Nextcloud › *account* › Photos…**, create an album with **New
+2. Open **Go › Nextcloud › _account_ › Photos…**, create an album with **New
    Album…**, and add photos to it from a pane with **Nextcloud › Add to
    Nextcloud Album…**. Check that the album lists them, sorted and grouped by
    capture date and place, and that the undated photo is listed last.
@@ -1547,7 +1560,7 @@ Board statuses were last confirmed on 2026-11-27.
   `src/core/nextcloudshares.cpp` send OCS requests through KIO and never keep
   share passwords or password hashes. `NextcloudSharesDialog` and
   `NextcloudShareEditor` in `src/app/nextcloudsharesdialog.cpp` provide **Go ›
-  Nextcloud › *account* › Shares…** and **Nextcloud › Nextcloud Shares…**,
+  Nextcloud › _account_ › Shares…** and **Nextcloud › Nextcloud Shares…**,
   confirm creating, broadening and revoking shares, and open a reviewed link
   through `SendByEmailDialog::composeMessage`. `nextcloudsharestest` and
   `nextcloudsharesdialogtest` pass in the container. See
@@ -1623,7 +1636,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Nextcloud settings on Plasma (#368)
 
 - **Milestone and issue:** [M30](ROADMAP.md#m30-nextcloud-settings), [#368]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Nextcloud server, Plasma
   session, KDE Online Accounts or Nextcloud desktop client, so
   **Preferences › Remote and Cloud › Nextcloud** is tested only with fake
@@ -1665,7 +1678,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Nextcloud Photos settings on a real server (#672)
 
 - **Milestone and issue:** [M30](ROADMAP.md#m30-nextcloud-settings), [#672]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Nextcloud server with the
   Photos app or Plasma session, so the **Photos** group of **Preferences ›
   Remote and Cloud › Nextcloud** is tested only against a fake server. The
@@ -1704,8 +1717,512 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#nextcloud-settings), then remove this entry and its
    roadmap link.
 
+## Keyboard shortcuts on Plasma (#230)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#230] (Completed).
+- **Blocker:** The development container has no Plasma session, D-Bus session
+  services or KDE global shortcut service (KGlobalAccel), and only an
+  offscreen platform without real keyboard layouts. **Preferences › Keyboard
+  › Shortcuts** is tested with window shortcuts only; its global shortcut
+  rows, conflicts between global and window shortcuts, its layout in Plasma
+  and key sequences recorded in KDE's editor are unverified.
+- **Confirmed state:** `src/core/keybindings.cpp` finds customized shortcuts
+  and conflicts, and `SettingsDialog::createKeyboardShortcutsPage` in
+  `src/app/keyboardsettingspages.cpp` provides the tab. `keybindingstest`,
+  `settingsdialogtest`, `settingstest` and `mainwindowtest` pass in the
+  container. See [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, open
+   **Preferences › Keyboard › Shortcuts** and check that the tab fits the
+   dialog, says every action has its default shortcuts and lists no
+   conflicts, and that **Global Shortcuts** shows the keys of **Show or Hide
+   Plasma Opus** and the drop-down window.
+2. In **Configure Keyboard Shortcuts…**, give **Copy to Other Pane** the
+   sequence <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>Ctrl</kbd>+<kbd>C</kbd> with a
+   non-US layout as well as US English, save, and check that the sequence
+   runs the action and that the tab lists it as customized.
+3. Give a window action the key of the global shortcut and check that the
+   tab lists the conflict and which one runs. Stop `kglobalacceld` and check
+   that the tab says global shortcuts don't work.
+4. Choose **Reset All Shortcuts…** and check that window shortcuts return to
+   their defaults while global shortcuts are kept. Record any differences in
+   [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
+   roadmap link.
+
+## Shortcut contexts on Plasma (#233)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#233] (Completed).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events, no real keyboard layouts or input methods, and no
+  Konsole session to type into. Whether text fields, lists and the folder tree
+  keep their keys with real layouts and input methods is unverified.
+- **Confirmed state:** `KeyBindings::isReserved` in
+  `src/core/keybindings.cpp` decides which keys each context keeps,
+  `ShortcutGuard` in `src/app/shortcutguard.cpp` keeps them for the focused
+  widget of the main window, and the **Applies in** column and the reserved
+  key conflicts are on **Preferences › Keyboard › Shortcuts**.
+  `keybindingstest`, `settingsdialogtest` and `mainwindowtest` pass in the
+  container. See [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, turn on
+   **Tab switches panes** and check that <kbd>Tab</kbd> in the location bar,
+   the filter bar and an inline rename editor moves the focus or completes
+   rather than switching panes, and still switches panes from a file view.
+2. In **Configure Keyboard Shortcuts…**, give **Copy to Other Pane** the
+   alternate shortcut <kbd>Down</kbd>, save, and check that
+   **Preferences › Keyboard › Shortcuts** lists three conflicts, that
+   <kbd>Down</kbd> still moves in a file view, the folder tree and a text
+   field, and that it runs the action with the focus on a toolbar button.
+3. Repeat step 1 with a non-Latin layout, such as Russian, and with an input
+   method, such as Fcitx 5 or IBus, and check that typing in the location bar
+   still works and <kbd>Ctrl</kbd>+<kbd>C</kbd> copies text there.
+4. Open the embedded terminal and check that its keys behave as before.
+   Restore the shortcuts. Record any differences in
+   [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
+   roadmap link.
+
+## Shortcut storage on Plasma (#238)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#238] (Completed).
+- **Blocker:** The development container has no Plasma session, no KDE global
+  shortcut service (KGlobalAccel) and no earlier Plasma Opus installation.
+  Moving the shortcuts of a real installation out of its layout file, keys
+  KDE refuses for a global shortcut and the status in a Wayland session that
+  isn't Plasma are unverified.
+- **Confirmed state:** `src/core/shortcutstorage.cpp` reads, writes and
+  migrates the `Shortcuts` group of `opus-file-managerrc`, and
+  `src/app/windowshortcuts.cpp` applies it to every window, saves it after
+  **Configure Keyboard Shortcuts…** and **Reset All Shortcuts…** and strips
+  the shortcuts from the layout file. `KeyBindings::globalAvailability` and
+  `KeyBindings::refusedKeys` give the global shortcut statuses on
+  **Preferences › KDE Plasma**. `shortcutstoragetest`, `keybindingstest`,
+  `settingsdialogtest`, `settingstest` and `mainwindowtest` pass in the
+  container. See [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6, with shortcuts customized in a Plasma Opus build from before
+   #238, install this one by `./install.sh` and start it. Check that the
+   shortcuts are kept, that `~/.config/opus-file-managerrc` has them in its
+   `Shortcuts` group and that
+   `~/.local/share/kxmlgui5/opus-file-manager/opus-file-managerui.rc` no
+   longer has `shortcut` attributes but keeps customized toolbars.
+2. With two windows open, change a shortcut in **Configure Keyboard
+   Shortcuts…** and check that both windows use it at once and after a
+   restart, then use **Reset All Shortcuts…** and check that the group no
+   longer has entries for the window's actions.
+3. On **Preferences › KDE Plasma › Shortcuts**, give **Show or Hide Plasma
+   Opus** a key another application already has globally, such as
+   <kbd>Meta</kbd>+<kbd>E</kbd> when Dolphin has it, choose **Apply** and
+   check that the status names the refused key. Repeat for the drop-down
+   window's shortcut on **Preferences › KDE Plasma › KWin**.
+4. Log in to a Wayland session of another desktop, such as GNOME, with
+   `kglobalacceld` running, and check that both statuses add that the
+   shortcut works only if the desktop passes keys on, and whether it does.
+   Record any differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then
+   remove this entry and its roadmap link.
+
+## Alternate and command shortcuts on Plasma (#231)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#231] (Completed).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, so KDE's shortcut editor and
+  real keyboards are unverified with saved commands and with more than two
+  shortcuts for an action.
+- **Confirmed state:** `MainWindow::refreshCustomCommandActions` in
+  `src/app/mainwindow.cpp` names saved commands **Saved Command:** in
+  **Configure Keyboard Shortcuts…**, gives commands saved later their stored
+  shortcuts and forgets the shortcuts of deleted ones, and
+  `src/core/shortcutstorage.cpp` stores every alternate. `mainwindowtest`
+  passes in the container. See
+  [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, save a command
+   in **File › Scripts and Custom Commands…**, give **Saved Command:** and its
+   name a shortcut and an alternate in **Configure Keyboard Shortcuts…**, and
+   check that both open its preview without running it while it is on no
+   toolbar.
+2. Add a third shortcut to an action's entry in the `Shortcuts` group of
+   `~/.config/opus-file-managerrc`, restart, check that all three work and
+   that **Preferences › Keyboard › Shortcuts** lists them, then change the
+   alternate in KDE's editor and check that the third is kept.
+3. Delete the command and check that its entry leaves the group. Record any
+   differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this
+   entry and its roadmap link.
+
+## Keyboard map on Plasma (#232)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#232] (Completed).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, printer or global shortcut
+  service, so recording real keys in **Find by key**, the Help menu's layout
+  in Plasma's style and the printed reference are unverified.
+- **Confirmed state:** `KeyboardMapDialog` in
+  `src/app/keyboardmapdialog.cpp` lists the window's actions, pressing
+  <kbd>Shift</kbd> twice, the gallery's keys, the Yazi mode preset and the
+  registered global shortcuts; `src/core/keyboardmap.cpp` filters them and
+  writes the HTML and PDF reference. `keyboardmaptest`, `mainwindowtest` and
+  `settingsdialogtest` pass in the container. See
+  [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, check that
+   **Help › Keyboard Map…** sits with KDE's own Help entries and that
+   **Keyboard Map…** on **Preferences › Keyboard › Shortcuts** opens it.
+2. Click **Find by key** and press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd>,
+   <kbd>Space</kbd>, a two-key sequence given to an action, and a global
+   shortcut such as **Show or Hide Plasma Opus**, on X11 and Wayland and with
+   a non-US keyboard layout; check that each lists the right actions, that
+   none runs, and that <kbd>Escape</kbd> then closes the map.
+3. Export an HTML page and a PDF, open both, print them, and check that the
+   tables and key names are legible. With Orca, check that the list and the
+   count line are read. Record any differences in
+   [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
+   roadmap link.
+
+## Navigation shortcuts on Plasma (#236)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#236] (Completed).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, KWin or global shortcut
+  service, so real keys, the embedded terminal's handling of the extra keys
+  and clashes with the desktop's shortcuts are unverified.
+- **Confirmed state:** `src/core/navigationshortcuts.cpp` lists the
+  navigation actions and their extra keys, and
+  `WindowShortcuts::applyNavigationKeys` in `src/app/windowshortcuts.cpp`
+  adds each free extra key as a default while **Preferences › Keyboard ›
+  Navigation** has them on. `navigationshortcutstest`, `mainwindowtest`,
+  `settingsdialogtest` and `settingstest` pass in the container. See [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, turn on the
+   extra keys on **Preferences › Keyboard › Navigation**, apply, and check
+   that each status reads **Added** and that **Configure Keyboard
+   Shortcuts…** and **Help › Keyboard Map…** show the keys as defaults.
+2. Press each extra key on X11 and Wayland and with a non-US keyboard
+   layout, and check that it moves between the panes and tabs, changes the
+   selection or moves the focus to the preview panel or the embedded
+   terminal. In the terminal, check that <kbd>Alt</kbd>+<kbd>1</kbd> and
+   <kbd>Ctrl</kbd>+<kbd>Page Down</kbd> reach the shell and that
+   <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F4</kbd> goes back to the pane.
+3. Give one extra key to a global shortcut in System Settings and check
+   whether KWin or Plasma takes it first; give another to a window action in
+   KDE's editor and check that its status changes to **Not added**. With
+   Orca, check that the tab's list and statuses are read. Record any
+   differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this
+   entry and its roadmap link.
+
+## Keymap files on Plasma (#237)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#237] (Completed).
+- **Blocker:** The development container has only an offscreen platform and
+  no Plasma session or file dialog portal, so the **Import…** and
+  **Export…** file dialogs, the preview's layout in Plasma's style and
+  imported shortcuts reaching real keyboards in other open windows are
+  unverified.
+- **Confirmed state:** `src/core/keymapfile.cpp` writes, validates and
+  previews keymap files; `KeymapImportDialog` in
+  `src/app/keymapimportdialog.cpp` shows the preview, and
+  `SettingsDialog::importShortcuts` in `src/app/keyboardsettingspages.cpp`
+  saves the shortcuts as **Configure Keyboard Shortcuts…** does.
+  `keymapfiletest`, `settingsdialogtest`, `mainwindowtest` and
+  `shortcutstoragetest` pass in the container. See
+  [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, customize a few
+   shortcuts, including a key sequence and a saved command's, and choose
+   **Export…** on **Preferences › Keyboard › Shortcuts**; check that KDE's
+   file dialog opens in Documents with `plasma-opus-keymap.json` and that
+   the file matches [Keymap files](keyboard.md#keymap-files).
+2. With two windows open, give the actions their defaults, then **Import…**
+   the file; check the preview's changes, conflicts and **Not Imported**
+   list, choose **Apply**, and press the imported keys in both windows on
+   X11 and Wayland. Check that **Help › Keyboard Map…** and **Yazi Mode ›
+   Keyboard** update.
+3. Import a file that turns on the extra navigation keys, choose **Apply** in
+   Preferences, and check the **Navigation** tab's statuses. With Orca,
+   check that the preview's lists are read. Record any differences in
+   [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
+   roadmap link.
+
+## Command palette on Plasma (#761)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#761] (Completed).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, Breeze style or screen reader,
+  so <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd> from the embedded terminal
+  and with other keyboard layouts, the palette's look and the focus it gives
+  back are unverified.
+- **Confirmed state:** `src/core/commandpalette.cpp` decides which actions
+  are listed and reads the recently used actions, and `CommandPaletteBar` in
+  `src/app/commandpalettebar.cpp` collects the menu bar's, toolbars' and
+  saved commands' actions for KDE's `KCommandBar` and gives the focus back
+  when it closes. `MainWindow::showCommandPalette` in `src/app/mainwindow.cpp`
+  opens it from **Help › Command Palette…**. `commandpalettetest`,
+  `mainwindowtest`, `settingsdialogtest`, `settingstest`, `keybindingstest`
+  and `keyboardmaptest` pass in the container. See
+  [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, press
+   <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd> from each pane, a text field
+   such as the location bar and the embedded terminal, on X11 and Wayland
+   and with a layout that uses <kbd>AltGr</kbd>, such as German; check that
+   the palette opens, or note where the key is kept, and that typing in a
+   text field never opens it.
+2. Search for and run **Select All**, **Rename…** and **Copy to Other Pane**
+   with the second pane active, and check that they act on that pane and
+   that the focus returns to the widget that had it. Run a saved command and
+   check that it opens in **Scripts and Custom Commands** with its preview.
+3. Check the palette's look, the shortcuts and grey menu paths in Breeze
+   light and dark, and that the recently used actions come first after a
+   restart and are listed on **Preferences › Keyboard › Command Palette**.
+   With Orca, check that the search field and the list are read. Record any
+   differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this
+   entry and its roadmap link.
+
+## Vim-style navigation on Plasma (#228)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#228] (Completed).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, input method or screen reader,
+  so real keyboards and layouts, input methods composing text in a file view,
+  the embedded terminal and the announcements are unverified.
+- **Confirmed state:** `VimNavigation` in `src/core/vimnavigation.cpp` binds
+  the keys to Yazi mode's commands, and `Pane` in `src/app/pane.cpp` matches
+  them with a `YaziKeys` filter on the file view, only outside Yazi mode and
+  never while an item is renamed, and runs them in `Pane::runVimCommand`.
+  **Preferences › Keyboard › Vim Mode** (`createKeyboardVimPage` in
+  `src/app/keyboardsettingspages.cpp`) and **View › Vim-Style Navigation**
+  set `VimNavigation`. `vimnavigationtest`, `vimnavigationuitest`,
+  `settingsdialogtest`, `keymapfiletest`, `keyboardmaptest`,
+  `mainwindowtest` and the Yazi mode and pane tests pass in the container.
+  See [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, turn on **View ›
+   Vim-Style Navigation** and, on X11 and Wayland, press <kbd>j</kbd>,
+   <kbd>k</kbd>, <kbd>5</kbd> <kbd>j</kbd>, <kbd>g</kbd> <kbd>g</kbd>,
+   <kbd>G</kbd>, <kbd>J</kbd>, <kbd>K</kbd>, <kbd>h</kbd>, <kbd>l</kbd>,
+   <kbd>H</kbd>, <kbd>L</kbd>, <kbd>g</kbd> <kbd>t</kbd> and <kbd>/</kbd> in
+   each view mode of both panes, with a US and a German layout.
+2. Type the same letters in the location bar, the filter bar, a search field,
+   an inline rename editor and the embedded terminal, and check that they are
+   typed, not run. With Fcitx 5 or IBus and a Chinese or Japanese input
+   method active in a file view, note whether the keys are composed or run.
+3. Put a pane in Yazi mode and check that the Yazi preset's keys apply there
+   and the Vim-style keys apply in the other pane. Give **Open Gallery**
+   <kbd>G</kbd> and check that the **Vim Mode** tab lists it and that
+   <kbd>Ctrl</kbd>+<kbd>D</kbd> still adds to Favorites. With Orca, check
+   that the messages, such as pressing <kbd>h</kbd> at `/`, are read. Record
+   any differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove
+   this entry and its roadmap link.
+
+## Vim-style mode indicator on Plasma (#229)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#229] (Completed).
+- **Blocker:** The development container has only an offscreen platform with
+  no Plasma session, colour scheme or screen reader, so the indicator's look
+  in Plasma themes and its announcements are unverified.
+- **Confirmed state:** `VimNavigation::modeText` and
+  `VimNavigation::modeAccessibleName` in `src/core/vimnavigation.cpp` name
+  the modes, and <kbd>i</kbd> enters the filter as <kbd>/</kbd> does. `Pane`
+  in `src/app/pane.cpp` shows the indicator in `vimModeBar` at the bottom of
+  each pane outside Yazi mode, updates it in `updateVimModeIndicator` and
+  announces a new mode for the pane being typed in. `FilterBar` keeps the
+  filter on <kbd>Escape</kbd> while the keys are on. `vimnavigationtest`,
+  `vimnavigationuitest`, `filtertest`, `settingsdialogtest`, `mainwindowtest`
+  and the Yazi mode and pane tests pass in the container. See
+  [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, turn on **View ›
+   Vim-Style Navigation** and, with Breeze, Breeze Dark and a high-contrast
+   colour scheme, check that each pane's indicator is readable and shows
+   **NORMAL**, **NORMAL · 5g…** after <kbd>5</kbd> <kbd>g</kbd>, **FILTER**
+   after <kbd>/</kbd> or <kbd>i</kbd>, and **INSERT** in the location bar
+   and a rename editor.
+2. Press <kbd>Escape</kbd> in the filter bar and check that the filter is
+   kept and <kbd>j</kbd> moves through the filtered items, that
+   <kbd>\\</kbd> clears it, and that a pane in Yazi mode shows the Yazi mode
+   indicator instead.
+3. With Orca, check that each indicator's name can be read and that a new
+   mode and a begun sequence are announced only for the pane being typed in.
+   Record any differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then
+   remove this entry and its roadmap link.
+
+## Shortcut hints on Plasma (#234)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#234] (Completed).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, colour scheme, animation
+  settings or screen reader, so the popup's place and look, its slide, real
+  keyboards typing window shortcut sequences and its announcements are
+  unverified.
+- **Confirmed state:** `ShortcutHints` in `src/core/shortcuthints.cpp` lists
+  and pages the continuations and infers pending window sequences in
+  `WindowSequenceTracker`. `ShortcutHintPopup` in
+  `src/app/shortcuthintpopup.cpp` shows them over the pane without taking
+  the focus; `Pane::updateShortcutHints` in `src/app/pane.cpp` shows the
+  Vim-style and Yazi mode keys, and `WindowSequenceHints` in
+  `src/app/windowsequencehints.cpp` the window shortcuts. `shortcuthintstest`,
+  `shortcuthintsuitest`, `vimnavigationuitest`, `yazimodeuitest`,
+  `keybindingstest`, `keyboardmaptest`, `settingsdialogtest` and
+  `mainwindowtest` pass in the container. See
+  [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, turn on **View ›
+   Vim-Style Navigation**, press <kbd>g</kbd> and wait: check that the popup
+   appears at the bottom of the file view in each view mode, slides in with
+   Plasma's animations on and appears in place with **Animations** reduced,
+   is readable with Breeze, Breeze Dark and a high-contrast colour scheme,
+   and leaves the focus in the view. Press <kbd>5</kbd> in a narrow pane and
+   turn its pages by scrolling.
+2. Put a pane in Yazi mode with the Yazi-style keys, press <kbd>,</kbd> and
+   check the popup over the columns. Give an action
+   <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>Ctrl</kbd>+<kbd>T</kbd> and another
+   <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>D</kbd>, <kbd>D</kbd>, then, on X11
+   and Wayland, type them with a US and a German layout, releasing
+   <kbd>Ctrl</kbd> early and late: check the listed keys, that
+   <kbd>Escape</kbd> cancels without running either, and that the embedded
+   terminal and text fields still get their keys.
+3. With Orca, check that the popup's hints are read when it appears and
+   turns a page. Record any differences in
+   [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
+   roadmap link.
+
+## Shortcut hint settings on Plasma (#235)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#235] (Completed).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, colour scheme, global menu or
+  screen reader, so the **Hints** tab's look, real keyboards typing slowly
+  against the key sequence timeout, and **Help › Shortcut Hints** in the
+  menu bar, the hamburger menu and with Orca are unverified.
+- **Confirmed state:** `ShortcutHints`, `ShortcutHintDelay` and
+  `KeySequenceTimeout` are in the `Keyboard` group of
+  `src/core/opusfilemanager.kcfg`, and `KeymapFile` in
+  `src/core/keymapfile.cpp` imports and exports them. The tab is
+  `createKeyboardHintsPage` in `src/app/keyboardsettingspages.cpp`.
+  `Pane::reloadShortcutHintSettings` in `src/app/pane.cpp` and
+  `WindowSequenceHints::reloadSettings` in
+  `src/app/windowsequencehints.cpp` apply them, `YaziKeys::setPendingTimeout`
+  times out the Vim-style and Yazi mode keys, and `ShortcutReference` in
+  `src/app/shortcutreference.cpp` is **Help › Shortcut Hints**.
+  `keymapfiletest`, `settingsdialogtest`, `shortcuthintsuitest`,
+  `settingstest`, `mainwindowtest`, `keybindingstest`, `keyboardmaptest`,
+  `vimnavigation*` and the Yazi mode and pane tests pass in the container.
+  See [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, open
+   **Preferences › Keyboard › Hints** with Breeze, Breeze Dark and a
+   high-contrast colour scheme: check that the tab is readable, that the
+   note appears when **Show hints after** is as long as **Cancel incomplete
+   sequences after**, and that **Configure Keyboard Shortcuts…** and
+   **Keyboard Map…** open.
+2. Turn the hints off and set the timeout to 500 ms. With **View ›
+   Vim-Style Navigation** on, type <kbd>g</kbd>, wait, then <kbd>g</kbd>, and
+   check that the second <kbd>g</kbd> begins a new sequence. Give an action
+   <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>Ctrl</kbd>+<kbd>T</kbd>, and on X11 and
+   Wayland type it slowly and quickly: check that a slow
+   <kbd>Ctrl</kbd>+<kbd>T</kbd> opens a tab rather than running the action,
+   and that **Never** waits.
+3. Choose **Help › Shortcut Hints** from the menu bar and the hamburger menu
+   with the focus in a file view, the folder tree, the location bar and the
+   embedded terminal: check the title and keys, that <kbd>Page Down</kbd> and
+   <kbd>Escape</kbd> work in the file view without moving through the items,
+   and that typing in the terminal and the location bar is never taken. With
+   Orca, check that the popup is read when it opens. Record any differences
+   in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
+   roadmap link.
+
+## Keyboard hints on Plasma (#762)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#762] (Completed).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, Wayland compositor, input
+  method, colour scheme or screen reader, so where the labels sit over the
+  file views, location bar, tabs and **Places** panel, how they look in
+  Plasma themes, the keyboard focus returning after they close, input
+  methods and Orca's announcements are unverified.
+- **Confirmed state:** `KeyboardHints` in `src/core/keyboardhints.cpp` makes
+  the labels and matches typed keys; `KeyboardHintOverlay` in
+  `src/app/keyboardhintoverlay.cpp` finds the targets, shows the labels and
+  activates them; `MainWindow::showKeyboardHints` in `src/app/mainwindow.cpp`
+  is **Go › Keyboard Hints** (`keyboard_hints`,
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd>). `KeyboardHintKeys` and
+  `KeyboardHintItemAction` are in the `Keyboard` group of
+  `src/core/opusfilemanager.kcfg`, `KeymapFile` imports and exports them,
+  and the tab is `createKeyboardLabelHintsPage` in
+  `src/app/keyboardsettingspages.cpp`. `keyboardhintstest`,
+  `keymapfiletest`, `settingsdialogtest`, `settingstest`, `mainwindowtest`,
+  `keybindingstest`, `keyboardmaptest`, `vimnavigation*` and the Yazi mode
+  tests pass in the container. See
+  [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, under Wayland
+   and X11, with Breeze, Breeze Dark and a high-contrast colour scheme,
+   press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd> in the icons, compact
+   and details views, in Yazi mode and in a split window with the **Places**
+   panel docked: check that each label sits on its item, location segment,
+   tab and place, is readable, and that nothing else takes the shortcut.
+2. Type a label, a label with <kbd>Shift</kbd> on its last key, part of a
+   label then <kbd>Backspace</kbd>, and <kbd>Escape</kbd>; check that items
+   are selected or opened, segments and places open, tabs switch, and that
+   the keyboard focus returns where it was. Scroll, resize the window and
+   switch panes while labels show, and check that they close.
+3. With the focus in the location bar, the filter bar, a rename editor, the
+   embedded terminal and an input method such as Fcitx 5 or IBus active,
+   press the shortcut and check that typing is never taken. With Orca,
+   check that the number of labels and each label's name are read. Record
+   any differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove
+   this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
+[#228]: https://github.com/mikepadiernos/plasma-opus/issues/228
+[#229]: https://github.com/mikepadiernos/plasma-opus/issues/229
+[#230]: https://github.com/mikepadiernos/plasma-opus/issues/230
+[#231]: https://github.com/mikepadiernos/plasma-opus/issues/231
+[#232]: https://github.com/mikepadiernos/plasma-opus/issues/232
+[#233]: https://github.com/mikepadiernos/plasma-opus/issues/233
+[#234]: https://github.com/mikepadiernos/plasma-opus/issues/234
+[#235]: https://github.com/mikepadiernos/plasma-opus/issues/235
+[#236]: https://github.com/mikepadiernos/plasma-opus/issues/236
+[#237]: https://github.com/mikepadiernos/plasma-opus/issues/237
+[#238]: https://github.com/mikepadiernos/plasma-opus/issues/238
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
 [#288]: https://github.com/mikepadiernos/plasma-opus/issues/288
 [#290]: https://github.com/mikepadiernos/plasma-opus/issues/290
@@ -1755,3 +2272,5 @@ Board statuses were last confirmed on 2026-11-27.
 [#720]: https://github.com/mikepadiernos/plasma-opus/issues/720
 [#721]: https://github.com/mikepadiernos/plasma-opus/issues/721
 [#750]: https://github.com/mikepadiernos/plasma-opus/issues/750
+[#761]: https://github.com/mikepadiernos/plasma-opus/issues/761
+[#762]: https://github.com/mikepadiernos/plasma-opus/issues/762

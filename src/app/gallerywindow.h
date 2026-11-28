@@ -3,6 +3,7 @@
 #pragma once
 
 #include "imagedetails.h"
+#include "keybindings.h"
 #include "previewcontent.h"
 
 #include <QDateTime>
@@ -37,6 +38,12 @@ public:
     explicit GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, int initialIndex, QWidget *parent = nullptr);
     ~GalleryWindow() override;
     void applyPresentationSettings();
+
+    /**
+     * The gallery's own keys, which apply only in its window. They are fixed;
+     * Left and Right swap in right-to-left layouts.
+     */
+    static QList<KeyBindings::Binding> keyBindings();
 
 Q_SIGNALS:
     void currentUrlChanged(const QUrl &url);

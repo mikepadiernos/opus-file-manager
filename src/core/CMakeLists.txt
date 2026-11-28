@@ -37,6 +37,8 @@ add_library(opusfm_core STATIC
     cloudsyncrunner.h
     colorschemes.cpp
     colorschemes.h
+    commandpalette.cpp
+    commandpalette.h
     customcommands.cpp
     customcommands.h
     defaultfilemanager.cpp
@@ -99,6 +101,14 @@ add_library(opusfm_core STATIC
     mailmessage.h
     mcpsettings.cpp
     mcpsettings.h
+    keybindings.cpp
+    keybindings.h
+    keyboardhints.cpp
+    keyboardhints.h
+    keyboardmap.cpp
+    keyboardmap.h
+    keymapfile.cpp
+    keymapfile.h
     kwinscript.cpp
     kwinscript.h
     mediabackend.cpp
@@ -150,6 +160,8 @@ add_library(opusfm_core STATIC
     imageediting.cpp
     imageediting.h
     navigationhistory.cpp
+    navigationshortcuts.cpp
+    navigationshortcuts.h
     nextcloudaccount.cpp
     nextcloudaccount.h
     nextcloudassets.cpp
@@ -217,6 +229,10 @@ add_library(opusfm_core STATIC
     servicemenus.h
     sharedsearch.cpp
     sharedsearch.h
+    shortcuthints.cpp
+    shortcuthints.h
+    shortcutstorage.cpp
+    shortcutstorage.h
     session.h
     tabcolors.cpp
     tabcolors.h
@@ -249,6 +265,8 @@ add_library(opusfm_core STATIC
     vaultsettings.h
     viewsettings.cpp
     viewsettings.h
+    vimnavigation.cpp
+    vimnavigation.h
     wikilinks.cpp
     wikilinks.h
     workspacecatalog.cpp
@@ -302,3 +320,6 @@ target_link_libraries(opusfm_core
         KF6::KIOGui
         LibArchive::LibArchive
 )
+
+# KDE's shortcut editor saves shortcuts in XML ui.rc files, which shortcutstorage reads.
+target_link_libraries(opusfm_core PRIVATE Qt6::Xml)

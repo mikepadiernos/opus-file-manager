@@ -4,6 +4,7 @@
 
 #include "navigationhistory.h"
 #include "session.h"
+#include "vimnavigation.h"
 #include "yazimode.h"
 
 #include <QColor>
@@ -20,6 +21,9 @@ class KUrlNavigator;
 class TabColors;
 class TabModel;
 class YaziColumns;
+class ShortcutHintPopup;
+class YaziKeys;
+class QLabel;
 class QTabBar;
 class QGraphicsOpacityEffect;
 class QBoxLayout;
@@ -236,6 +240,59 @@ public:
      * assistive technology.
      */
     void reportYaziMessage(const QString &message);
+    /**
+     * Applies the VimNavigation setting: while it is on, Vim-style keys move
+     * through the pane's file view. A pane in Yazi mode uses Yazi mode's key
+     * preset instead.
+     */
+    void reloadVimNavigationSetting();
+    /**
+     * Applies the shortcut hint settings: whether pending sequences show
+     * hints, after which delay, and how long a sequence waits for its next
+     * key.
+     */
+    void reloadShortcutHintSettings();
+    /// Whether Vim-style keys apply to the pane's file view now.
+    bool vimNavigationActive() const;
+    /// The keys of Vim-style navigation; see VimNavigation.
+    YaziKeys *vimKeys() const;
+    /**
+     * Runs a Vim-style navigation command in this pane, as its keys do.
+     * Does nothing while the pane is in Yazi mode or the keys are off.
+     * @param command the command to run
+     * @param count how many times to repeat a command that takes a count
+     */
+    void runVimCommand(YaziMode::Command command, int count = 1);
+    /**
+     * Where the pane's keys go while Vim-style navigation is on: Filter while
+     * its filter bar has the keyboard focus, Insert while another of its text
+     * fields has it, such as the location bar or an inline rename editor, and
+     * Normal otherwise.
+     */
+    VimNavigation::Mode vimMode() const;
+    /**
+     * The label at the bottom of the pane that shows vimMode() and the keys
+     * of an incomplete sequence, such as "NORMAL · 5g…", while Vim-style
+     * navigation applies to the pane.
+     */
+    QLabel *vimModeIndicator() const;
+    /**
+     * The popup that lists the keys that can follow a partly typed sequence
+     * of the pane's Vim-style or Yazi mode keys, after a short delay, or
+     * other hints the window shows over the pane. It is created when first
+     * needed.
+     */
+    ShortcutHintPopup *shortcutHintPopup();
+    /// The widget the shortcut hint popup floats over: the file view, or the columns in Yazi mode.
+    QWidget *shortcutHintArea() const;
+    /// The pane's tab bar, hidden while the pane has one tab unless always shown.
+    QTabBar *tabBar() const;
+    /**
+     * The location widget the pane shows: its KUrlNavigator, or the
+     * abbreviated breadcrumbs, whose segments are buttons named
+     * paneBreadcrumbSegment.
+     */
+    QWidget *locationBar() const;
 
 public Q_SLOTS:
     void setUrl(const QUrl &url);
@@ -256,6 +313,8 @@ public Q_SLOTS:
     void editUrl();
     /// Shows the filter bar and focuses it.
     void showFilterBar();
+    /// Clears the filter and closes the filter bar; false when there was neither.
+    bool clearFilter();
 
 Q_SIGNALS:
     void activated();
@@ -308,6 +367,16 @@ private:
     /// Records ratios the user dragged the columns to, and saves them as the setting once dragging pauses.
     void rememberYaziColumnRatios(const YaziMode::Ratios &ratios);
     void saveYaziColumnRatiosSetting();
+    /// Shows @p message in the window's status bar and announces it, as for a Vim-style command that can't run.
+    void reportVimMessage(const QString &message);
+    /// Shows the current vimMode() and pending keys, and announces a change while the pane has the focus.
+    void updateVimModeIndicator();
+    /// The pane's keys that wait for the rest of a sequence, or null.
+    YaziKeys *pendingSequenceKeys() const;
+    /// Starts the hint delay while a sequence of the pane's keys is pending, updates shown hints, or hides them.
+    void updateShortcutHints();
+    /// Lists the keys that can follow the pending sequence in the shortcut hint popup.
+    void showSequenceHints();
     /// Closes the pane's tabs and opens those of @p state with their pins, locks and names.
     void rebuildTabs(const PaneSession &state);
     void saveHistoryViewState();
@@ -370,6 +439,13 @@ private:
     QAction *m_yaziMenuAction = nullptr;
     QAction *m_yaziToolbarAction = nullptr;
     FilterBar *m_filterBar = nullptr;
+    YaziKeys *m_vimKeys = nullptr;
+    QWidget *m_vimModeBar = nullptr;
+    QLabel *m_vimModeIndicator = nullptr;
+    VimNavigation::Mode m_announcedVimMode = VimNavigation::Mode::Normal;
+    QString m_announcedVimPending;
+    ShortcutHintPopup *m_hintPopup = nullptr;
+    QTimer *m_hintDelay = nullptr;
     QVBoxLayout *m_layout = nullptr;
     QHBoxLayout *m_outerLayout = nullptr;
     QBoxLayout *m_stripLayout = nullptr;

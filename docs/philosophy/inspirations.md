@@ -42,19 +42,19 @@ interface or implementation.
 | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Max File Manager](#max-file-manager--origin-and-behaviour-reference)                         | Origin and primary behaviour reference                         | [Parity notes](../README.md#behaviour-references) | ![Reference](https://img.shields.io/badge/Reference-6e7781?style=flat-square)                                                                                         |
 | [Dolphin](#dolphin--kde-desktop-model)                                                        | KDE desktop model and shared components                        | M01 onwards                                       | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
-| [Directory Opus](#directory-opus--power-user-benchmark)                                       | Power-user depth, layout, shortcuts and help                   | M03, M09, M11; M31, M32                           | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                     |
+| [Directory Opus](#directory-opus--power-user-benchmark)                                       | Power-user depth, layout, shortcuts and help                   | M03, M09, M11, M31; M32                           | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                     |
 | [Krusader](#krusader--two-pane-tools)                                                         | Two-pane tools, transfer queue, folder sync and mount manager  | M03, M09; M27                                     | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                     |
 | [MiXplorer](#mixplorer--mobile-power-tools)                                                   | Encryption, LAN servers, cloud, archives, menu customization   | M27, M32                                          | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
 | [RaiDrive](#raidrive--cloud-storage-as-drives)                                                | Remote storage mounted as local folders                        | M27                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
 | [Syncative, SDrive and DucksDrive](#syncative-sdrive-and-ducksdrive--cloud-sync-and-activity) | Two-way cloud sync and cloud activity                          | M27                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
 | [Strata](#strata--system-file-chooser)                                                        | Opt-in system file chooser                                     | M27                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
 | [Luciole](#luciole--interaction-details)                                                      | Interaction details, archive checks, operations and thumbnails | M28, M32                                          | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
-| [Lektra](#lektra--document-viewer-and-keyboard-control)                                       | Command palette, keyboard hints and document comparison        | M31, M32                                          | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
+| [Lektra](#lektra--document-viewer-and-keyboard-control)                                       | Command palette, keyboard hints and document comparison        | M31, M32                                          | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                     |
 | [Orcinus](#orcinus--power-user-workflows-for-dolphin)                                         | Per-pane styles, expandable folders, filters, linked panes     | M03, M09                                          | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Source unverified](https://img.shields.io/badge/source-unverified-bf8700?style=flat-square) |
 | [TagSpaces](#tagspaces--focused-workspaces)                                                   | Workspaces that scope locations and search                     | M15                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
 | [TagStudio](#tagstudio--native-tagging)                                                       | Native tag libraries                                           | M23                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
 | [Yazi](#yazi--keyboard-first-browsing)                                                        | Keyboard-first browsing mode                                   | M25                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
-| [which-key.nvim](#which-keynvim--shortcut-discovery)                                          | Shortcut hint pane                                             | M31                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
+| [which-key.nvim](#which-keynvim--shortcut-discovery)                                          | Shortcut hint pane                                             | M31                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
 
 ## Max File Manager — origin and behaviour reference
 
@@ -79,8 +79,11 @@ Directory Opus sets the benchmark for power-user depth: dual panes, tabs,
 viewers, flat browsing, automation and metadata. Its workflows inform
 [folder formats and navigation history](../ROADMAP.md#m03-listing-depth),
 [collections and duplicate selection](../ROADMAP.md#m09-tools),
-[layout customization](../ROADMAP.md#m11-ui-customizations) and the planned
-[shortcut settings](../ROADMAP.md#m31-keyboard-shortcut-settings). Its
+[layout customization](../ROADMAP.md#m11-ui-customizations) and the
+[shortcut settings](../ROADMAP.md#m31-keyboard-shortcut-settings), which
+summarize customized and conflicting shortcuts around KDE's editor and list
+every key in a searchable, printable keyboard map; see
+[Keyboard shortcuts](../keyboard.md). Its
 [manual](https://docs.dopus.com/doku.php?id=introduction) also informs planned
 [interface refinements](../ROADMAP.md#m32-refinements), such as contextual help,
 filter visibility and discoverable customization. These are adapted to Linux and
@@ -168,11 +171,15 @@ settings.
 document and image viewer built with Qt 6 and MuPDF. Plasma Opus already
 previews PDFs, ebooks, comics and DjVu through Okular's viewer component, so
 Lektra informs workflows rather than replacing that preview. Its command
-palette and link hints inform a
-[command palette and keyboard hints](../ROADMAP.md#m31-keyboard-shortcut-settings)
-built on KDE's `KCommandBar`, and its synchronized views and page-aware command
-line inform side-by-side image comparison in the gallery and opening documents
-at the previewed page in an external viewer, as
+palette informs the [command palette](../keyboard.md#command-palette), built on
+KDE's `KCommandBar` as in Dolphin and Kate, which finds menu, toolbar and saved
+command actions by name and runs them in the active pane. Its link hints inform
+the [keyboard hints](../keyboard.md#keyboard-hints) of
+[M31](../ROADMAP.md#m31-keyboard-shortcut-settings), which label the active
+pane's visible items, location segments, tabs and places with short home-row
+key sequences to type instead of clicking. Its synchronized views and
+page-aware command line inform side-by-side image comparison in the gallery
+and opening documents at the previewed page in an external viewer, as
 [interaction refinements](../ROADMAP.md#m32-refinements).
 
 Lektra and MuPDF are licensed under the AGPL, while Plasma Opus is GPL-3.0.
@@ -213,15 +220,21 @@ files; see the [tagging guide](../tagging.md).
 [Yazi mode](../ROADMAP.md#m25-yazi-mode) with keyboard-first navigation, folder
 context and previews. Plasma Opus reuses its own KDE file operations rather
 than embedding Yazi or assuming plugin compatibility; see the
-[Yazi mode guide](../yazi-mode.md).
+[Yazi mode guide](../yazi-mode.md). The optional
+[Vim-style navigation](../keyboard.md#vim-style-navigation) of
+[M31](../ROADMAP.md#m31-keyboard-shortcut-settings) brings the same key
+matching, counts and commands to the panes outside Yazi mode.
 
 ## which-key.nvim — shortcut discovery
 
-[which-key.nvim](https://github.com/folke/which-key.nvim) inspires the planned
-native sliding or floating hint pane in
-[shortcut settings](../ROADMAP.md#m31-keyboard-shortcut-settings). It will show
-available continuations and action descriptions for pending key sequences in the
-applicable context.
+[which-key.nvim](https://github.com/folke/which-key.nvim) inspires the
+[shortcut hints](../keyboard.md#shortcut-hints) of
+[shortcut settings](../ROADMAP.md#m31-keyboard-shortcut-settings): while a
+Vim-style, Yazi mode or window shortcut sequence waits for its next key, a
+floating popup over the pane lists the keys that can follow it, grouped, with
+what they do. Like which-key.nvim, it appears after a short delay, merges
+keys that begin longer sequences into one entry and pages long lists, but it
+never takes the keyboard focus.
 
 ---
 

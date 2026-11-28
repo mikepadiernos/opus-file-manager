@@ -3,6 +3,7 @@
 #pragma once
 
 #include "activityassociations.h"
+#include "yazimode.h"
 
 #include <KConfigDialog>
 #include <KFilePlacesModel>
@@ -22,6 +23,7 @@ class EmbeddedMetadataMappingTable;
 class FieldTemplateEditor;
 class HiddenItemsList;
 class KKeySequenceWidget;
+class KeymapImportDialog;
 class KPageWidgetItem;
 class KWinIntegration;
 class PreviewSizeSpinBox;
@@ -105,6 +107,30 @@ public:
     void resetYaziModeToDefaults();
     /// Replaces the yes or no question asked before Restore Yazi Mode Defaults, for tests.
     void setYaziResetConfirmation(std::function<bool(const QString &)> confirm);
+    /**
+     * Gives every action of the main window whose shortcuts can be configured
+     * its default shortcuts, after asking, and saves them right away. Global
+     * shortcuts are left alone.
+     */
+    void resetShortcutsToDefaults();
+    /// Replaces the yes or no question asked before resetShortcutsToDefaults(), for tests.
+    void setShortcutResetConfirmation(std::function<bool(const QString &)> confirm);
+    /**
+     * Writes the main window's customized shortcuts and the keyboard settings
+     * to the keymap file at @p path (see KeymapFile), and reports the result
+     * on the Keyboard › Shortcuts tab.
+     */
+    void exportShortcuts(const QString &path);
+    /**
+     * Reads the keymap file at @p path and previews what it changes. When the
+     * preview is applied, the main window's actions get the file's shortcuts,
+     * saved right away as Configure Keyboard Shortcuts saves them, and the
+     * file's keyboard settings are shown in Preferences without being saved.
+     * Reports the result on the Keyboard › Shortcuts tab.
+     */
+    void importShortcuts(const QString &path);
+    /// Replaces showing the import preview, for tests; @p review returns whether to apply it.
+    void setKeymapImportReview(std::function<bool(KeymapImportDialog &)> review);
     /**
      * Replaces how KDE Plasma › File Manager checks for and restarts
      * xdg-desktop-portal, and the question asked before restarting it, for tests.
@@ -238,6 +264,13 @@ private:
     void updateYaziKeyPreview();
     /// The conflicts of key preset @p preset, as shown to the user: its own, then the window shortcuts it shadows.
     QStringList yaziKeyConflicts(int preset) const;
+    /// The shortcuts of the window's actions and of its panes' toolbar actions that key bindings can shadow.
+    QList<YaziMode::ActionShortcuts> windowActionShortcuts() const;
+    /**
+     * The conflicts of @p keymap, as shown to the user: those among its own
+     * bindings, then the window shortcuts in @p shadowed that it takes over.
+     */
+    static QStringList keymapConflicts(const YaziMode::Keymap &keymap, const QList<YaziMode::ShadowedShortcut> &shadowed);
     /**
      * Asks before applying a key preset with conflicts; when that is
      * declined, chooses the applied preset again.
@@ -250,6 +283,22 @@ private:
     void updateYaziWorkspaceDefault();
     /// The Restore Yazi Mode Defaults button and its note, shown below the Yazi Mode tabs.
     QWidget *createYaziResetRow();
+    /// The number of window shortcuts that key preset @p preset shadows while a Yazi mode column has the keyboard focus.
+    int yaziShadowedShortcutCount(int preset) const;
+    /// The Keyboard › Shortcuts tab.
+    QWidget *createKeyboardShortcutsPage();
+    /// The Keyboard › Navigation tab: the pane, tab, selection, filter, preview and terminal actions and their extra keys.
+    QWidget *createKeyboardNavigationPage();
+    /// The Keyboard › Vim Mode tab: Vim-style navigation in the file views of panes that aren't in Yazi mode, its keys and conflicts.
+    QWidget *createKeyboardVimPage();
+    /// The Keyboard › Hints tab: the shortcut hint popup's enablement and delay, the key sequence timeout and the on-demand shortcut reference.
+    QWidget *createKeyboardHintsPage();
+    /// The Keyboard › Command Palette tab: the palette's shortcut, whether it lists saved commands and its recently used actions.
+    QWidget *createKeyboardCommandPalettePage();
+    /// The Keyboard › Keyboard Hints tab: the label keys and what typing a file or folder label does.
+    QWidget *createKeyboardLabelHintsPage();
+    /// Shows the tab whose widget is named @p tabName and the sidebar page it is on.
+    void showSettingsTab(const QString &tabName);
     /**
      * Shows @p values, by entry name, in the entries' widgets without saving
      * them. Entries without a widget are skipped.
@@ -501,6 +550,8 @@ private:
     KKeySequenceWidget *m_dropDownShortcut = nullptr;
     /// The drop-down window's global shortcut when it was last loaded or assigned, to tell whether the dialog changed it.
     QKeySequence m_savedDropDownShortcut;
+    /// The drop-down window's key combination KDE last refused, to tell why it has none.
+    QList<QKeySequence> m_refusedDropDownShortcut;
     /// Read and assign the drop-down window's global shortcut; empty without a main window.
     std::function<QKeySequence()> m_readDropDownShortcut;
     std::function<void(const QKeySequence &)> m_writeDropDownShortcut;
@@ -540,12 +591,26 @@ private:
     int m_confirmedYaziKeyPreset = -1;
     std::function<bool(const QString &, const QStringList &)> m_confirmYaziKeys;
     std::function<bool(const QString &)> m_confirmYaziReset;
+    std::function<bool(const QString &)> m_confirmShortcutReset;
+    std::function<bool(KeymapImportDialog &)> m_reviewKeymapImport;
+    /// What the last keymap import or export did, on the Keyboard › Shortcuts tab.
+    QLabel *m_keymapStatus = nullptr;
+    /// Lists the customized shortcuts and conflicts on the Keyboard › Shortcuts tab again.
+    std::function<void()> m_refreshKeyboardShortcuts;
+    /// Lists the navigation actions and their extra keys on the Keyboard › Navigation tab again.
+    std::function<void()> m_refreshKeyboardNavigation;
+    /// Lists the Vim-style keys and the window shortcuts they shadow on the Keyboard › Vim Mode tab again.
+    std::function<void()> m_refreshKeyboardVim;
+    /// Shows the command palette's shortcut and recently used actions on the Keyboard › Command Palette tab again.
+    std::function<void()> m_refreshCommandPalette;
     std::function<bool()> m_portalAvailable;
     std::function<QString()> m_restartPortal;
     std::function<bool(const QString &)> m_confirmPortalRestart;
     KKeySequenceWidget *m_globalShortcutKey = nullptr;
     /// Shows whether the applied global shortcut works.
     std::function<void()> m_refreshGlobalShortcut;
+    /// The global shortcut's key combination KDE last refused, to tell why it has none.
+    QList<QKeySequence> m_refusedGlobalShortcut;
     /// Whether Yazi mode defaults were restored since the settings were last applied or reloaded.
     bool m_yaziResetPending = false;
     /// A checkbox for a setting kept outside Settings, in config that KIO

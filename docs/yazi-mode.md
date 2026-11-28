@@ -402,7 +402,10 @@ digit.
 The keys apply only while the pane is in Yazi mode and the keyboard focus is
 in one of its columns: the parent column, the current column's items or the
 preview. Elsewhere, and in panes outside Yazi mode, keys behave as they always
-do.
+do, unless [Vim-style navigation](keyboard.md#vim-style-navigation) is on: it
+gives the file views of panes outside Yazi mode Vim-style keys of their own,
+from the same commands and key matching. A pane in Yazi mode uses only its
+preset, so the Yazi-style keys win there.
 
 - **Typing is never intercepted.** Text fields, such as the filter bar, the
   location bar, search fields and an inline rename editor, spin boxes and
@@ -485,10 +488,17 @@ added to a toolbar:
   toggle are enabled only while the active pane is in Yazi mode.
 - A test checks that every `toggle_yazi_*` and `yazi_*` action has no default
   shortcut.
+- **View › Vim-Style Navigation** (`toggle_vim_navigation`) isn't a Yazi mode
+  action: it turns on the Vim-style keys of the panes outside Yazi mode, and
+  doesn't change the preset. See
+  [Vim-style navigation](keyboard.md#vim-style-navigation).
 - The file keys use the window's existing actions, which already have their
   own shortcuts, and the filtering, search, sorting and tab keys use the
   pane's filter bar, the search panel, the pane's sort menu and the pane's
   tabs, which have their own menus and shortcuts too.
+- **Preferences › Keyboard › Shortcuts** lists these actions once they have
+  shortcuts, with any conflicts, and its **Yazi Mode Keys** button opens
+  **Yazi Mode › Keyboard**; see [Keyboard shortcuts](keyboard.md).
 
 ## Selection and file actions
 
@@ -1107,7 +1117,9 @@ Each entry names the shortcut, the action and what runs instead, such as
 "Space runs “Select or deselect the focused item, then move down” instead of
 “Open Gallery”". A shadowed shortcut still runs from its menu or toolbar
 button, and from the keyboard when the focus is elsewhere, such as in a pane
-outside Yazi mode. The standard keys shadow none of the default shortcuts.
+outside Yazi mode, unless
+[Vim-style navigation](keyboard.md#vim-style-navigation) takes the same plain
+key there. The standard keys shadow none of the default shortcuts.
 
 **Configure Keyboard Shortcuts…** opens the window's standard KDE shortcut
 editor, the same as **Settings › Configure Keyboard Shortcuts…**, so a

@@ -95,6 +95,7 @@ ecm_add_tests(
     cloudactivitytest.cpp
     cloudsynctest.cpp
     cloudsyncrunnertest.cpp
+    commandpalettetest.cpp
     customcommandstest.cpp
     diskimagestest.cpp
     favoritesmodeltest.cpp
@@ -117,6 +118,9 @@ ecm_add_tests(
     mailmessagetest.cpp
     mediabackendtest.cpp
     onlineaccountstest.cpp
+    keybindingstest.cpp
+    keyboardhintstest.cpp
+    keymapfiletest.cpp
     kwinscripttest.cpp
     mounttabletest.cpp
     libraryscantest.cpp
@@ -140,6 +144,7 @@ ecm_add_tests(
     metadataeditortest.cpp
     metadataimporttest.cpp
     navigationhistorytest.cpp
+    navigationshortcutstest.cpp
     nextcloudaccounttest.cpp
     nextcloudassetstest.cpp
     nextcloudclienttest.cpp
@@ -158,6 +163,8 @@ ecm_add_tests(
     runnermatchestest.cpp
     servicemenustest.cpp
     sharedsearchtest.cpp
+    shortcuthintstest.cpp
+    shortcutstoragetest.cpp
     sessiontest.cpp
     savedpathfilterstest.cpp
     savedsearchestest.cpp
@@ -185,10 +192,13 @@ ecm_add_tests(
     workspacecatalogtest.cpp
     workspacerestoretest.cpp
     workspacestartuptest.cpp
+    vimnavigationtest.cpp
     yazimodetest.cpp
     LINK_LIBRARIES opusfm_core Qt6::Test KF6::ConfigCore
     NAME_PREFIX "opusfm-"
 )
+# The test reads the ui.rc files it strips.
+target_link_libraries(shortcutstoragetest Qt6::Xml)
 if(AccountsQt6_FOUND)
     target_compile_definitions(onlineaccountstest PRIVATE OPUSFM_HAVE_ACCOUNTS)
     target_include_directories(onlineaccountstest SYSTEM PRIVATE ${ACCOUNTSQT_INCLUDE_DIRS})
@@ -206,6 +216,18 @@ ecm_add_test(mcpsettingstest.cpp
 )
 add_dependencies(mcpsettingstest opus-file-manager-mcp)
 target_compile_definitions(mcpsettingstest PRIVATE OPUSFM_MCP_EXECUTABLE="$<TARGET_FILE:opus-file-manager-mcp>")
+
+ecm_add_test(vimnavigationuitest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(shortcuthintsuitest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
 
 ecm_add_test(yazimodeuitest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
@@ -330,6 +352,13 @@ ecm_add_test(previeweditingtest.cpp
 )
 
 ecm_add_test(listingexporttest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+# The keyboard map writes PDF references, which need a GUI application.
+ecm_add_test(keyboardmaptest.cpp
     LINK_LIBRARIES opusfm_core Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI

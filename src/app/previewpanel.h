@@ -47,6 +47,8 @@ public:
     void setItems(const KFileItemList &items, const QList<QUrl> &images = {});
     void applyPresentationSettings();
     void clear();
+    /// Gives the keyboard focus to the shown content, such as a text or image view, or else to the panel's first control; false when nothing can take it.
+    bool focusContent();
     void setPlacement(Placement placement);
     void setTitleVisible(bool visible);
     /**

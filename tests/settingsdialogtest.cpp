@@ -5,17 +5,21 @@
 #include "archivewriter.h"
 #include "batchrenamedialog.h"
 #include "branding.h"
+#include "commandpalette.h"
 #include "customcommanddialog.h"
 #include "embeddedmetadata.h"
 #include "embeddedmetadatasettings.h"
 #include "filecolorrules.h"
 #include "folderpreview.h"
 #include "ignorelist.h"
+#include "keymapimportdialog.h"
 #include "libraryarchive.h"
 #include "libraryconfirmations.h"
 #include "libraryregistry.h"
 #include "libraryscan.h"
 #include "mainwindow.h"
+#include "navigationshortcuts.h"
+#include "pane.h"
 #include "pathfilterpresetsdialog.h"
 #include "savedpathfilters.h"
 #include "searchhistory.h"
@@ -24,6 +28,7 @@
 #include "settings.h"
 #include "settingsbackup.h"
 #include "settingswidgets.h"
+#include "shortcutstorage.h"
 #include "tagfieldmanagerwidget.h"
 #include "taggingsettings.h"
 #include "taglibrary.h"
@@ -38,6 +43,7 @@
 #include <KConfigGroup>
 #include <KEditListWidget>
 #include <KFilePlacesModel>
+#include <KLocalizedString>
 #include <KNSCore/Entry>
 #include <KNSWidgets/Button>
 #include <KPageWidget>
@@ -62,6 +68,9 @@
 #include <QFileDialog>
 #include <QGroupBox>
 #include <QInputDialog>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -77,7 +86,9 @@
 #include <QTest>
 #include <QTimer>
 #include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 
+#include <algorithm>
 #include <array>
 
 class SettingsDialogTest : public QObject
@@ -112,6 +123,7 @@ private Q_SLOTS:
                                      QStringLiteral("ContextMenu"),
                                      QStringLiteral("Tagging"),
                                      QStringLiteral("Branding"),
+                                     QStringLiteral("Shortcuts"),
                                      QStringLiteral("YaziMode")}) {
             KSharedConfig::openConfig()->deleteGroup(group);
         }
@@ -2337,6 +2349,818 @@ private Q_SLOTS:
         QTRY_VERIFY(editorOpened);
         // Preferences stays open to show the updated conflicts.
         QVERIFY(dialog.isVisible());
+    }
+
+    void keyboardShortcutsSummarizeCustomizedShortcutsAndConflicts()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        QAction *copyTo = window.actionCollection()->action(QStringLiteral("copy_to_other_pane"));
+        QAction *search = window.actionCollection()->action(QStringLiteral("search_folder"));
+        QVERIFY(gallery && copyTo && search);
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+
+        // Keyboard comes right after Yazi Mode, with the Shortcuts tab first.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("keyboardShortcutsPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(page), 0);
+        QCOMPARE(tabs->tabText(0), QStringLiteral("Shortcuts"));
+
+        auto *summary = page->findChild<QLabel *>(QStringLiteral("keyboardCustomizedSummary"));
+        auto *customized = page->findChild<QTreeWidget *>(QStringLiteral("keyboardCustomizedShortcuts"));
+        auto *conflictSummary = page->findChild<QLabel *>(QStringLiteral("keyboardConflictSummary"));
+        auto *conflicts = page->findChild<QListWidget *>(QStringLiteral("keyboardConflicts"));
+        auto *configure = page->findChild<QPushButton *>(QStringLiteral("keyboardConfigureShortcuts"));
+        auto *reset = page->findChild<QPushButton *>(QStringLiteral("keyboardResetShortcuts"));
+        QVERIFY(summary && customized && conflictSummary && conflicts && configure && reset);
+        const auto conflictTexts = [conflicts] {
+            QStringList texts;
+            for (int i = 0; i < conflicts->count(); ++i) {
+                texts.append(conflicts->item(i)->text());
+            }
+            return texts.join(QLatin1Char('\n'));
+        };
+
+        // The default shortcuts don't conflict, and Tab switching panes when that is off isn't a customization.
+        QCOMPARE(customized->topLevelItemCount(), 0);
+        QCOMPARE(summary->text(), QStringLiteral("Every action has its default shortcuts."));
+        QVERIFY2(conflicts->count() == 0, qPrintable(conflictTexts()));
+        QVERIFY(conflictSummary->text().startsWith(QStringLiteral("No conflicts")));
+        QVERIFY(configure->isEnabled());
+        QVERIFY(!reset->isEnabled());
+        Settings::setTabSwitchesPanes(false);
+        Settings::self()->save();
+        window.applySettings();
+        QTRY_COMPARE(customized->topLevelItemCount(), 0);
+
+        // A shortcut saved in Configure Keyboard Shortcuts is listed, with its conflict.
+        const QKeySequence f5(Qt::Key_F5);
+        gallery->setShortcuts({f5, QKeySequence(Qt::CTRL | Qt::Key_K, QKeyCombination(Qt::Key_G))});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(customized->topLevelItemCount(), 1);
+        QTreeWidgetItem *row = customized->topLevelItem(0);
+        QCOMPARE(row->data(0, Qt::UserRole).toString(), QStringLiteral("open_gallery"));
+        QCOMPARE(row->text(0), QStringLiteral("Open Gallery"));
+        QVERIFY2(row->text(1).contains(f5.toString(QKeySequence::NativeText)), qPrintable(row->text(1)));
+        QVERIFY2(row->text(1).contains(QStringLiteral("Ctrl+K, G")), qPrintable(row->text(1)));
+        QCOMPARE(row->text(2), QKeySequence(Qt::Key_Space).toString(QKeySequence::NativeText));
+        QVERIFY(summary->text().startsWith(QStringLiteral("1 action has")));
+        QCOMPARE(conflicts->count(), 1);
+        QVERIFY2(conflicts->item(0)->text().contains(QStringLiteral("“Copy to Other Pane”"))
+                     && conflicts->item(0)->text().contains(QStringLiteral("“Open Gallery”")),
+                 qPrintable(conflictTexts()));
+        QVERIFY(conflictSummary->text().startsWith(QStringLiteral("1 conflict")));
+        QVERIFY(reset->isEnabled());
+
+        // A shortcut that begins another's key sequence is a conflict too.
+        search->setShortcuts({QKeySequence(Qt::CTRL | Qt::Key_K)});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(customized->topLevelItemCount(), 2);
+        QCOMPARE(conflicts->count(), 2);
+        QVERIFY2(conflictTexts().contains(QStringLiteral("can't be typed")), qPrintable(conflictTexts()));
+
+        // Declining the reset keeps them; accepting gives every action its defaults and saves them.
+        int asked = 0;
+        bool answer = false;
+        QString question;
+        dialog.setShortcutResetConfirmation([&](const QString &text) {
+            ++asked;
+            question = text;
+            return answer;
+        });
+        reset->click();
+        QCOMPARE(asked, 1);
+        QVERIFY2(question.contains(QStringLiteral("2 actions")), qPrintable(question));
+        QCOMPARE(gallery->shortcut(), f5);
+        answer = true;
+        reset->click();
+        QCOMPARE(asked, 2);
+        QCOMPARE(gallery->shortcuts(), QList<QKeySequence>{QKeySequence(Qt::Key_Space)});
+        QCOMPARE(search->shortcuts(), QList<QKeySequence>{QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F)});
+        QCOMPARE(copyTo->shortcuts(), QList<QKeySequence>{f5});
+        // Tab still doesn't switch panes, as Preferences says.
+        QVERIFY(!window.actionCollection()->action(QStringLiteral("switch_pane"))->shortcuts().contains(QKeySequence(Qt::Key_Tab)));
+        QCOMPARE(customized->topLevelItemCount(), 0);
+        QCOMPARE(conflicts->count(), 0);
+        QVERIFY(!reset->isEnabled());
+
+        // Leave Tab switching panes for the next tests.
+        Settings::setTabSwitchesPanes(true);
+        Settings::self()->save();
+        window.applySettings();
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+    }
+
+    void keyboardNavigationAddsFreeExtraKeysOnlyWhenOn()
+    {
+        MainWindow window;
+        QAction *closeTab = window.actionCollection()->action(QStringLiteral("close_tab"));
+        QAction *nextTab = window.actionCollection()->action(QStringLiteral("next_tab"));
+        QAction *invert = window.actionCollection()->action(QStringLiteral("invert_selection"));
+        QAction *firstPane = window.actionCollection()->action(QStringLiteral("focus_first_pane"));
+        QVERIFY(closeTab && nextTab && invert && firstPane);
+        const QList<QKeySequence> closeTabDefaults = closeTab->shortcuts();
+        const QList<QKeySequence> nextTabDefaults = nextTab->shortcuts();
+        const auto restore = qScopeGuard([&] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            window.applySettings();
+            closeTab->setShortcuts(closeTabDefaults);
+            nextTab->setShortcuts(nextTabDefaults);
+            Q_EMIT window.guiFactory()->shortcutsSaved();
+        });
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+
+        // Navigation is the second tab of Keyboard.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("keyboardNavigationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(page), 1);
+        QCOMPARE(tabs->tabText(1), QStringLiteral("Navigation"));
+        auto *extra = page->findChild<QCheckBox *>(QStringLiteral("kcfg_ExtraNavigationShortcuts"));
+        auto *tree = page->findChild<QTreeWidget *>(QStringLiteral("keyboardNavigationShortcuts"));
+        auto *configure = page->findChild<QPushButton *>(QStringLiteral("keyboardNavigationConfigure"));
+        auto *map = page->findChild<QPushButton *>(QStringLiteral("keyboardNavigationMap"));
+        QVERIFY(extra && tree && configure && map);
+        QVERIFY(!extra->isChecked());
+        QVERIFY(configure->isEnabled());
+        QVERIFY(map->isEnabled());
+
+        const auto row = [tree](const QString &name) -> QTreeWidgetItem * {
+            for (QTreeWidgetItemIterator it(tree); *it; ++it) {
+                if ((*it)->data(0, Qt::UserRole).toString() == name) {
+                    return *it;
+                }
+            }
+            return nullptr;
+        };
+        const auto native = [](const QKeySequence &key) {
+            return key.toString(QKeySequence::NativeText);
+        };
+        const QKeySequence ctrlShiftI(Qt::CTRL | Qt::SHIFT | Qt::Key_I);
+        const QKeySequence ctrlPageDown(Qt::CTRL | Qt::Key_PageDown);
+        const QKeySequence alt1(Qt::ALT | Qt::Key_1);
+
+        // Every navigation action is listed under its area; the new ones have no shortcut by default.
+        for (const NavigationShortcuts::Action &navigation : NavigationShortcuts::actions()) {
+            QTreeWidgetItem *item = row(navigation.name);
+            QVERIFY2(item, qPrintable(navigation.name));
+            QCOMPARE(item->parent()->text(0), NavigationShortcuts::areaText(navigation.area));
+            QCOMPARE(item->text(2), navigation.extra.isEmpty() ? QString() : native(navigation.extra));
+        }
+        QTreeWidgetItem *terminal = row(QStringLiteral("focus_terminal"));
+        QCOMPARE(terminal->text(0), QStringLiteral("Focus Embedded Terminal"));
+        QCOMPARE(terminal->text(1), QStringLiteral("None"));
+        QCOMPARE(terminal->text(2), native(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F4)));
+        QCOMPARE(terminal->text(3), QStringLiteral("Off"));
+        QVERIFY(firstPane->shortcuts().isEmpty());
+        QVERIFY(!nextTab->shortcuts().contains(ctrlPageDown));
+
+        // A key of your own is named while the extra keys are off.
+        closeTab->setShortcuts(closeTabDefaults + QList<QKeySequence>{ctrlShiftI});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(row(QStringLiteral("invert_selection"))->text(3), QStringLiteral("Off; “Close Tab” uses it"));
+
+        // Turning them on adds the free keys and leaves out the one Close Tab uses.
+        extra->setChecked(true);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        window.applySettings();
+        QVERIFY(Settings::extraNavigationShortcuts());
+        QTRY_COMPARE(row(QStringLiteral("focus_first_pane"))->text(3), QStringLiteral("Added"));
+        QCOMPARE(firstPane->shortcuts(), QList<QKeySequence>{alt1});
+        QVERIFY(nextTab->shortcuts().contains(ctrlPageDown));
+        QVERIFY(row(QStringLiteral("next_tab"))->text(1).contains(native(ctrlPageDown)));
+        QCOMPARE(row(QStringLiteral("focus_terminal"))->text(3), QStringLiteral("Added"));
+        QCOMPARE(row(QStringLiteral("invert_selection"))->text(3), QStringLiteral("Not added: “Close Tab” uses it"));
+        QVERIFY(invert->shortcuts().isEmpty());
+        QCOMPARE(closeTab->shortcuts(), closeTabDefaults + QList<QKeySequence>{ctrlShiftI});
+
+        // Freeing the key adds it.
+        closeTab->setShortcuts(closeTabDefaults);
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(invert->shortcuts(), QList<QKeySequence>{ctrlShiftI});
+        QCOMPARE(row(QStringLiteral("invert_selection"))->text(3), QStringLiteral("Added"));
+
+        // Shortcuts of your own for the action are kept.
+        nextTab->setShortcuts(nextTabDefaults);
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(nextTab->shortcuts(), nextTabDefaults);
+        QCOMPARE(row(QStringLiteral("next_tab"))->data(3, Qt::UserRole).toInt(), static_cast<int>(NavigationShortcuts::Status::Replaced));
+        window.applySettings();
+        QCOMPARE(nextTab->shortcuts(), nextTabDefaults);
+
+        // Turning them off again removes the extra keys.
+        extra->setChecked(false);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        window.applySettings();
+        QVERIFY(!Settings::extraNavigationShortcuts());
+        QTRY_COMPARE(row(QStringLiteral("focus_first_pane"))->text(3), QStringLiteral("Off"));
+        QVERIFY(firstPane->shortcuts().isEmpty());
+        QVERIFY(invert->shortcuts().isEmpty());
+    }
+
+    void keyboardCommandPaletteShowsItsShortcutSettingAndHistory()
+    {
+        MainWindow window;
+        QAction *palette = window.actionCollection()->action(QString::fromLatin1(CommandPalette::ActionName));
+        QVERIFY(palette);
+        KConfigGroup state = KSharedConfig::openStateConfig()->group(QString::fromLatin1(CommandPalette::HistoryGroup));
+        const auto restore = qScopeGuard([&] {
+            CommandPalette::clearHistory(state);
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            palette->setShortcuts(KActionCollection::defaultShortcuts(palette));
+            Q_EMIT window.guiFactory()->shortcutsSaved();
+        });
+        state.writeEntry(CommandPalette::HistoryKey, QStringList{QStringLiteral("Select &All"), QStringLiteral("&New Folder…"), QStringLiteral("Select All")});
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+
+        // Command Palette is the fifth tab of Keyboard, after Hints.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("keyboardCommandPalettePage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(page), 4);
+        QCOMPARE(tabs->tabText(4), QStringLiteral("Command Palette"));
+        auto *savedCommands = page->findChild<QCheckBox *>(QStringLiteral("kcfg_CommandPaletteSavedCommands"));
+        auto *shortcut = page->findChild<QLabel *>(QStringLiteral("keyboardCommandPaletteShortcut"));
+        auto *history = page->findChild<QListWidget *>(QStringLiteral("keyboardCommandPaletteHistory"));
+        auto *clear = page->findChild<QPushButton *>(QStringLiteral("keyboardCommandPaletteClearHistory"));
+        auto *configure = page->findChild<QPushButton *>(QStringLiteral("keyboardCommandPaletteConfigure"));
+        QVERIFY(savedCommands && shortcut && history && clear && configure);
+        QVERIFY(savedCommands->isChecked());
+        QVERIFY(configure->isEnabled());
+        QVERIFY(!history->accessibleName().isEmpty());
+
+        // The palette's shortcut, and the recently used actions without accelerators or repeats.
+        const auto native = [](const QKeySequence &key) {
+            return key.toString(QKeySequence::NativeText);
+        };
+        QCOMPARE(shortcut->text(), QStringLiteral("Shortcut: ") + native(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_I)));
+        QCOMPARE(history->count(), 2);
+        QCOMPARE(history->item(0)->text(), QStringLiteral("Select All"));
+        QCOMPARE(history->item(1)->text(), QStringLiteral("New Folder…"));
+        QVERIFY(clear->isEnabled());
+
+        // A changed shortcut shows once saved.
+        palette->setShortcuts({QKeySequence(Qt::Key_F12)});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(shortcut->text(), QStringLiteral("Shortcut: ") + native(QKeySequence(Qt::Key_F12)));
+
+        // Clear History forgets the recently used actions.
+        clear->click();
+        QVERIFY(CommandPalette::history(state).isEmpty());
+        QCOMPARE(history->count(), 0);
+        QVERIFY(!clear->isEnabled());
+
+        // The setting is saved like the others.
+        savedCommands->setChecked(false);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::commandPaletteSavedCommands());
+    }
+
+    void keyboardHintsShowsItsSettingsAndTheReference()
+    {
+        MainWindow window;
+        QAction *reference = window.actionCollection()->action(QStringLiteral("show_shortcut_hints"));
+        QVERIFY(reference);
+        const auto restore = qScopeGuard([&window, reference] {
+            reference->setShortcuts({});
+            Q_EMIT window.guiFactory()->shortcutsSaved();
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+
+        // Hints is the fourth tab of Keyboard, after Vim Mode.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("keyboardHintsPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(page), 3);
+        QCOMPARE(tabs->tabText(3), QStringLiteral("Hints"));
+        auto *enabled = page->findChild<QCheckBox *>(QStringLiteral("kcfg_ShortcutHints"));
+        auto *delay = page->findChild<QSpinBox *>(QStringLiteral("kcfg_ShortcutHintDelay"));
+        auto *timeout = page->findChild<QSpinBox *>(QStringLiteral("kcfg_KeySequenceTimeout"));
+        auto *tooLate = page->findChild<QLabel *>(QStringLiteral("keyboardHintsDelayNotice"));
+        auto *shortcut = page->findChild<QLabel *>(QStringLiteral("keyboardHintsShortcut"));
+        auto *configure = page->findChild<QPushButton *>(QStringLiteral("keyboardHintsConfigure"));
+        auto *map = page->findChild<QPushButton *>(QStringLiteral("keyboardHintsMap"));
+        QVERIFY(enabled && delay && timeout && tooLate && shortcut && configure && map);
+        QVERIFY(enabled->isChecked());
+        QCOMPARE(delay->value(), 500);
+        QCOMPARE(timeout->value(), 1000);
+        QCOMPARE(delay->specialValueText(), QStringLiteral("At once"));
+        QCOMPARE(timeout->specialValueText(), QStringLiteral("Never"));
+        QVERIFY(configure->isEnabled());
+        QVERIFY(map->isEnabled());
+
+        // A delay as long as the timeout would never show hints, and the tab says so.
+        QVERIFY(tooLate->isHidden());
+        delay->setValue(1000);
+        QVERIFY(!tooLate->isHidden());
+        timeout->setValue(0);
+        QVERIFY(tooLate->isHidden());
+        timeout->setValue(1000);
+        enabled->setChecked(false);
+        QVERIFY(tooLate->isHidden());
+        QVERIFY(!delay->isEnabled());
+        enabled->setChecked(true);
+        delay->setValue(500);
+
+        // The reference has no shortcut by default; a changed one shows once saved.
+        QVERIFY(reference->shortcuts().isEmpty());
+        QCOMPARE(shortcut->text(), QStringLiteral("Shortcut: None"));
+        reference->setShortcuts({QKeySequence(Qt::Key_F12)});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(shortcut->text(), QStringLiteral("Shortcut: ") + QKeySequence(Qt::Key_F12).toString(QKeySequence::NativeText));
+
+        // The settings are saved like the others.
+        timeout->setValue(2000);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::keySequenceTimeout(), 2000);
+
+        // A keymap file sets them, shown in its preview with their units.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString keymap = dir.filePath(QStringLiteral("hints.json"));
+        QFile file(keymap);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(QJsonDocument(QJsonObject{{QStringLiteral("format"), QStringLiteral("plasma-opus-keymap")},
+                                             {QStringLiteral("version"), 1},
+                                             {QStringLiteral("application"), QStringLiteral("opus-file-manager")},
+                                             {QStringLiteral("actions"), QJsonObject()},
+                                             {QStringLiteral("settings"),
+                                              QJsonObject{{QStringLiteral("ShortcutHintDelay"), 250}, {QStringLiteral("KeySequenceTimeout"), 0}}}})
+                       .toJson());
+        file.close();
+        QStringList settings;
+        dialog.setKeymapImportReview([&settings](KeymapImportDialog &review) {
+            const auto *list = review.findChild<QListWidget *>(QStringLiteral("keymapImportSettings"));
+            for (int i = 0; list && i < list->count(); ++i) {
+                settings.append(list->item(i)->text());
+            }
+            return true;
+        });
+        dialog.importShortcuts(keymap);
+        settings.sort();
+        QCOMPARE(settings, (QStringList{QStringLiteral("Key sequence timeout: 2000 ms → Never"), QStringLiteral("Shortcut hint delay: 500 ms → 250 ms")}));
+        QCOMPARE(delay->value(), 250);
+        QCOMPARE(timeout->value(), 0);
+    }
+
+    void keyboardLabelHintsShowsItsSettings()
+    {
+        MainWindow window;
+        QAction *hints = window.actionCollection()->action(QStringLiteral("keyboard_hints"));
+        QVERIFY(hints);
+        const QList<QKeySequence> defaults = hints->shortcuts();
+        const auto restore = qScopeGuard([&window, hints, defaults] {
+            hints->setShortcuts(defaults);
+            Q_EMIT window.guiFactory()->shortcutsSaved();
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+
+        // Keyboard Hints is the last tab of Keyboard, after Command Palette.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("keyboardLabelHintsPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(page), 5);
+        QCOMPARE(tabs->count(), 6);
+        QCOMPARE(tabs->tabText(5), QStringLiteral("Keyboard Hints"));
+        auto *keys = page->findChild<QComboBox *>(QStringLiteral("kcfg_KeyboardHintKeys"));
+        auto *action = page->findChild<QComboBox *>(QStringLiteral("kcfg_KeyboardHintItemAction"));
+        auto *shortcut = page->findChild<QLabel *>(QStringLiteral("keyboardLabelHintsShortcut"));
+        auto *configure = page->findChild<QPushButton *>(QStringLiteral("keyboardLabelHintsConfigure"));
+        QVERIFY(keys && action && shortcut && configure);
+        QCOMPARE(keys->count(), 4);
+        QCOMPARE(action->count(), 2);
+        QCOMPARE(keys->currentIndex(), int(Settings::EnumKeyboardHintKeys::Qwerty));
+        QCOMPARE(action->currentIndex(), int(Settings::EnumKeyboardHintItemAction::Select));
+        QVERIFY(keys->currentText().contains(QStringLiteral("f j d k s l a g h")));
+        QVERIFY(configure->isEnabled());
+
+        // The action's shortcut, updated once a changed one is saved.
+        const auto native = [](const QKeySequence &key) {
+            return key.toString(QKeySequence::NativeText);
+        };
+        QCOMPARE(shortcut->text(), QStringLiteral("Shortcut: ") + native(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_J)));
+        hints->setShortcuts({QKeySequence(Qt::Key_F12)});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(shortcut->text(), QStringLiteral("Shortcut: ") + native(QKeySequence(Qt::Key_F12)));
+
+        // The settings are saved like the others.
+        keys->setCurrentIndex(int(Settings::EnumKeyboardHintKeys::Dvorak));
+        action->setCurrentIndex(int(Settings::EnumKeyboardHintItemAction::Open));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(int(Settings::keyboardHintKeys()), int(Settings::EnumKeyboardHintKeys::Dvorak));
+        QCOMPARE(int(Settings::keyboardHintItemAction()), int(Settings::EnumKeyboardHintItemAction::Open));
+
+        // A keymap file sets them by choice name, shown in its preview as the tab shows them.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString keymap = dir.filePath(QStringLiteral("labels.json"));
+        QFile file(keymap);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(QJsonDocument(QJsonObject{{QStringLiteral("format"), QStringLiteral("plasma-opus-keymap")},
+                                             {QStringLiteral("version"), 1},
+                                             {QStringLiteral("application"), QStringLiteral("opus-file-manager")},
+                                             {QStringLiteral("actions"), QJsonObject()},
+                                             {QStringLiteral("settings"),
+                                              QJsonObject{{QStringLiteral("KeyboardHintKeys"), QStringLiteral("Colemak")},
+                                                          {QStringLiteral("KeyboardHintItemAction"), QStringLiteral("Select")}}}})
+                       .toJson());
+        file.close();
+        QStringList settings;
+        dialog.setKeymapImportReview([&settings](KeymapImportDialog &review) {
+            const auto *list = review.findChild<QListWidget *>(QStringLiteral("keymapImportSettings"));
+            for (int i = 0; list && i < list->count(); ++i) {
+                settings.append(list->item(i)->text());
+            }
+            return true;
+        });
+        dialog.importShortcuts(keymap);
+        settings.sort();
+        QCOMPARE(settings,
+                 (QStringList{QStringLiteral("Keyboard hint action for files and folders: Open it → Select it"),
+                              QStringLiteral("Keyboard hint label keys: %1 → %2").arg(keys->itemText(2), keys->itemText(3))}));
+        QCOMPARE(keys->currentIndex(), int(Settings::EnumKeyboardHintKeys::Colemak));
+        QCOMPARE(action->currentIndex(), int(Settings::EnumKeyboardHintItemAction::Select));
+    }
+
+    void keyboardVimModeListsKeysAndConflicts()
+    {
+        MainWindow window;
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        QVERIFY(gallery);
+        const QList<QKeySequence> defaults = gallery->shortcuts();
+        const auto restore = qScopeGuard([&window, gallery, defaults] {
+            gallery->setShortcuts(defaults);
+            Q_EMIT window.guiFactory()->shortcutsSaved();
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+
+        // Vim Mode is the third tab of Keyboard, after Navigation.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("keyboardVimPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(page), 2);
+        QCOMPARE(tabs->tabText(2), QStringLiteral("Vim Mode"));
+        auto *enabled = page->findChild<QCheckBox *>(QStringLiteral("kcfg_VimNavigation"));
+        auto *keys = page->findChild<QTreeWidget *>(QStringLiteral("keyboardVimKeys"));
+        auto *summary = page->findChild<QLabel *>(QStringLiteral("keyboardVimConflictSummary"));
+        auto *conflicts = page->findChild<QListWidget *>(QStringLiteral("keyboardVimConflicts"));
+        auto *configure = page->findChild<QPushButton *>(QStringLiteral("keyboardVimConfigure"));
+        auto *map = page->findChild<QPushButton *>(QStringLiteral("keyboardVimMap"));
+        QVERIFY(enabled && keys && summary && conflicts && configure && map);
+        QVERIFY(!enabled->isChecked());
+        QVERIFY(configure->isEnabled());
+        QVERIFY(map->isEnabled());
+        QVERIFY(!keys->accessibleName().isEmpty());
+        QVERIFY(!conflicts->accessibleName().isEmpty());
+
+        // One row per command, with all its keys.
+        QStringList commands;
+        for (int i = 0; i < keys->topLevelItemCount(); ++i) {
+            commands.append(keys->topLevelItem(i)->data(0, Qt::UserRole).toString());
+        }
+        QCOMPARE(commands.first(), QStringLiteral("move-up"));
+        QCOMPARE(commands.removeDuplicates(), 0);
+        QTreeWidgetItem *down = keys->topLevelItem(commands.indexOf(QStringLiteral("move-down")));
+        QCOMPARE(down->text(0), QStringLiteral("j"));
+        QTreeWidgetItem *halfDown = keys->topLevelItem(commands.indexOf(QStringLiteral("half-page-down")));
+        QVERIFY2(halfDown->text(0).contains(QStringLiteral("J")), qPrintable(halfDown->text(0)));
+        QVERIFY(commands.contains(QStringLiteral("filter")));
+        // / and i both enter the filter, and the tab says how the modes show.
+        QTreeWidgetItem *filterRow = keys->topLevelItem(commands.indexOf(QStringLiteral("filter")));
+        QVERIFY2(filterRow->text(0).contains(QStringLiteral("/")) && filterRow->text(0).contains(QStringLiteral("i")), qPrintable(filterRow->text(0)));
+        auto *modes = page->findChild<QLabel *>(QStringLiteral("keyboardVimModesNotice"));
+        QVERIFY(modes);
+        QVERIFY(modes->text().contains(QStringLiteral("FILTER")));
+        QVERIFY(commands.contains(QStringLiteral("clear-filter")));
+
+        // Ctrl+D keeps running Add to Favorites, and that is listed.
+        const auto texts = [conflicts] {
+            QStringList found;
+            for (int i = 0; i < conflicts->count(); ++i) {
+                found.append(conflicts->item(i)->text());
+            }
+            return found;
+        };
+        QStringList listed = texts();
+        QVERIFY2(std::any_of(listed.cbegin(),
+                             listed.cend(),
+                             [](const QString &text) {
+                                 return text.contains(QStringLiteral("Add to Favorites")) && text.contains(QStringLiteral("half a page down"));
+                             }),
+                 qPrintable(listed.join(QLatin1Char('\n'))));
+        const int before = listed.size();
+        QVERIFY(summary->text().contains(QString::number(before)) || before == 1);
+
+        // A plain-key window shortcut that the keys take over is listed once saved.
+        gallery->setShortcuts({QKeySequence(Qt::Key_G)});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        listed = texts();
+        QCOMPARE(listed.size(), before + 1);
+        QVERIFY2(std::any_of(listed.cbegin(),
+                             listed.cend(),
+                             [gallery](const QString &text) {
+                                 return text.contains(KLocalizedString::removeAcceleratorMarker(gallery->text())) && text.contains(QStringLiteral("gg"));
+                             }),
+                 qPrintable(listed.join(QLatin1Char('\n'))));
+
+        // The setting is saved like the others, and the window applies it to its panes.
+        enabled->setChecked(true);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::vimNavigation());
+        window.applySettings();
+        QVERIFY(window.activePane()->vimNavigationActive());
+    }
+
+    void keyboardShortcutsReportKeysThatTextFieldsAndListsKeep()
+    {
+        MainWindow window;
+        QAction *copyTo = window.actionCollection()->action(QStringLiteral("copy_to_other_pane"));
+        QVERIFY(copyTo);
+        const QList<QKeySequence> defaults = copyTo->shortcuts();
+        const auto restore = qScopeGuard([&window, copyTo, defaults] {
+            copyTo->setShortcuts(defaults);
+            Q_EMIT window.guiFactory()->shortcutsSaved();
+        });
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+        auto *customized = dialog.findChild<QTreeWidget *>(QStringLiteral("keyboardCustomizedShortcuts"));
+        auto *conflicts = dialog.findChild<QListWidget *>(QStringLiteral("keyboardConflicts"));
+        QVERIFY(customized && conflicts);
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("keyboardContextsNotice")));
+        QCOMPARE(customized->headerItem()->text(3), QStringLiteral("Applies in"));
+        QCOMPARE(conflicts->count(), 0);
+
+        // Down moves through text, lists and the folder tree, so each keeps it; the default F5 is fine.
+        copyTo->setShortcuts({QKeySequence(Qt::Key_F5), QKeySequence(Qt::Key_Down)});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(customized->topLevelItemCount(), 1);
+        QCOMPARE(customized->topLevelItem(0)->text(3), QStringLiteral("Window"));
+        QStringList texts;
+        for (int i = 0; i < conflicts->count(); ++i) {
+            texts.append(conflicts->item(i)->text());
+        }
+        QCOMPARE(texts.size(), 3);
+        QVERIFY2(texts.at(0).contains(QStringLiteral("text field")), qPrintable(texts.at(0)));
+        QVERIFY2(texts.at(1).contains(QStringLiteral("file view")), qPrintable(texts.at(1)));
+        QVERIFY2(texts.at(2).contains(QStringLiteral("folder tree")), qPrintable(texts.at(2)));
+        for (const QString &text : std::as_const(texts)) {
+            QVERIFY2(text.contains(QStringLiteral("“Copy to Other Pane”")) && !text.startsWith(QStringLiteral("F5")), qPrintable(text));
+        }
+    }
+
+    void keyboardShortcutsLinkSearchYaziAndGlobalShortcuts()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+        auto *search = dialog.findChild<QLabel *>(QStringLiteral("keyboardSearchKeys"));
+        auto *yazi = dialog.findChild<QLabel *>(QStringLiteral("keyboardYaziKeys"));
+        auto *global = dialog.findChild<QLabel *>(QStringLiteral("keyboardGlobalKeys"));
+        QVERIFY(search && yazi && global);
+
+        // The Search shortcut and pressing Shift twice are listed together.
+        const QString searchKeys = QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F).toString(QKeySequence::NativeText);
+        QVERIFY2(search->text().contains(searchKeys), qPrintable(search->text()));
+        QVERIFY2(search->text().contains(QStringLiteral("Shift twice")), qPrintable(search->text()));
+        Settings::setDoubleShiftSearch(false);
+        Settings::self()->save();
+        QTRY_VERIFY2(search->text().contains(QStringLiteral("is off")), qPrintable(search->text()));
+
+        // The Yazi mode preset chosen in Preferences counts the window shortcuts it takes.
+        QVERIFY2(yazi->text().contains(QStringLiteral("leaves every window shortcut working")), qPrintable(yazi->text()));
+        choosePreset(dialog.findChild<QComboBox *>(QStringLiteral("kcfg_YaziKeyPreset")), Settings::EnumYaziKeyPreset::Vim);
+        QVERIFY2(yazi->text().contains(QStringLiteral("window shortcuts while a Yazi mode column")), qPrintable(yazi->text()));
+
+        // The container has no global shortcut service, which is reported.
+        QVERIFY(!global->text().isEmpty());
+
+        // Each row shows where its keys are configured.
+        const auto opens = [&dialog](const QString &buttonName, const QString &tabName) {
+            dialog.findChild<QPushButton *>(buttonName)->click();
+            QWidget *tab = dialog.findChild<QWidget *>(tabName);
+            const auto *tabs = qobject_cast<QTabWidget *>(tab->parentWidget()->parentWidget());
+            return dialog.currentPage()->widget()->isAncestorOf(tab) && tabs && tabs->currentWidget() == tab;
+        };
+        QVERIFY(opens(QStringLiteral("keyboardShowSearchSettings"), QStringLiteral("searchSettingsPage")));
+        QVERIFY(opens(QStringLiteral("keyboardShowYaziKeys"), QStringLiteral("yaziKeyboardPage")));
+        QVERIFY(opens(QStringLiteral("keyboardShowGlobalShortcuts"), QStringLiteral("shortcutsIntegrationPage")));
+
+        // Keyboard Map… opens Help › Keyboard Map….
+        QSignalSpy mapShown(window.actionCollection()->action(QStringLiteral("keyboard_map")), &QAction::triggered);
+        dialog.findChild<QPushButton *>(QStringLiteral("keyboardShowMap"))->click();
+        QCOMPARE(mapShown.size(), 1);
+    }
+
+    void keyboardShortcutsImportAndExportKeymaps()
+    {
+        MainWindow window;
+        MainWindow other;
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        QAction *search = window.actionCollection()->action(QStringLiteral("search_folder"));
+        QAction *otherGallery = other.actionCollection()->action(QStringLiteral("open_gallery"));
+        QVERIFY(gallery && search && otherGallery);
+        const QList<QKeySequence> galleryDefaults = gallery->shortcuts();
+        const QList<QKeySequence> searchDefaults = search->shortcuts();
+        const auto restore = qScopeGuard([&] {
+            gallery->setShortcuts(galleryDefaults);
+            search->setShortcuts(searchDefaults);
+            Q_EMIT window.guiFactory()->shortcutsSaved();
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+        auto *importButton = dialog.findChild<QPushButton *>(QStringLiteral("keyboardImportShortcuts"));
+        auto *exportButton = dialog.findChild<QPushButton *>(QStringLiteral("keyboardExportShortcuts"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("keyboardKeymapStatus"));
+        auto *extra = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ExtraNavigationShortcuts"));
+        auto *customized = dialog.findChild<QTreeWidget *>(QStringLiteral("keyboardCustomizedShortcuts"));
+        QVERIFY(importButton && exportButton && status && extra && customized);
+        QVERIFY(importButton->isEnabled() && exportButton->isEnabled());
+        QVERIFY(status->isHidden());
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QKeySequence f5(Qt::Key_F5);
+        const QKeySequence f9(Qt::Key_F9);
+
+        // Export writes the customized shortcuts and the saved keyboard settings.
+        gallery->setShortcuts({f9});
+        search->setShortcuts({});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        const QString exported = dir.filePath(QStringLiteral("exported.json"));
+        dialog.exportShortcuts(exported);
+        QVERIFY(!status->isHidden());
+        QVERIFY2(status->text().startsWith(QStringLiteral("Exported the keyboard settings and the shortcuts of 2 customized actions")),
+                 qPrintable(status->text()));
+        QFile file(exported);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QJsonObject object = QJsonDocument::fromJson(file.readAll()).object();
+        file.close();
+        QCOMPARE(object.value(QStringLiteral("format")).toString(), QStringLiteral("plasma-opus-keymap"));
+        QCOMPARE(object.value(QStringLiteral("application")).toString(), QStringLiteral("opus-file-manager"));
+        QCOMPARE(object.value(QStringLiteral("actions")).toObject(),
+                 (QJsonObject{{QStringLiteral("open_gallery"), QJsonArray{QStringLiteral("F9")}}, {QStringLiteral("search_folder"), QJsonArray()}}));
+        const QJsonObject exportedSettings = object.value(QStringLiteral("settings")).toObject();
+        QCOMPARE(exportedSettings.value(QStringLiteral("ExtraNavigationShortcuts")), QJsonValue(false));
+        QCOMPARE(exportedSettings.value(QStringLiteral("YaziKeyPreset")), QJsonValue(QStringLiteral("Standard")));
+
+        // A keymap that takes Copy to Other Pane's key, names a saved command this window doesn't have and turns on the extra keys.
+        gallery->setShortcuts(galleryDefaults);
+        search->setShortcuts(searchDefaults);
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        const QString keymap = dir.filePath(QStringLiteral("keymap.json"));
+        QFile keymapFile(keymap);
+        QVERIFY(keymapFile.open(QIODevice::WriteOnly));
+        keymapFile.write(QJsonDocument(QJsonObject{{QStringLiteral("format"), QStringLiteral("plasma-opus-keymap")},
+                                                   {QStringLiteral("version"), 1},
+                                                   {QStringLiteral("application"), QStringLiteral("opus-file-manager")},
+                                                   {QStringLiteral("comment"), QStringLiteral("from my laptop")},
+                                                   {QStringLiteral("actions"),
+                                                    QJsonObject{{QStringLiteral("open_gallery"), QJsonArray{QStringLiteral("F5")}},
+                                                                {QStringLiteral("custom_command_preset_deadbeef"), QJsonArray{QStringLiteral("F9")}}}},
+                                                   {QStringLiteral("settings"), QJsonObject{{QStringLiteral("ExtraNavigationShortcuts"), true}}}})
+                             .toJson());
+        keymapFile.close();
+
+        // The preview lists the change, the conflict it adds, the setting and what is skipped.
+        int reviewed = 0;
+        bool answer = false;
+        bool resetUnlisted = false;
+        QStringList changes;
+        QStringList conflicts;
+        QStringList settings;
+        QStringList skipped;
+        bool applyEnabled = false;
+        const auto texts = [](const QListWidget *list) {
+            QStringList found;
+            for (int i = 0; list && i < list->count(); ++i) {
+                found.append(list->item(i)->text());
+            }
+            return found;
+        };
+        dialog.setKeymapImportReview([&](KeymapImportDialog &review) {
+            ++reviewed;
+            if (resetUnlisted) {
+                review.findChild<QCheckBox *>(QStringLiteral("keymapImportResetUnlisted"))->setChecked(true);
+            }
+            changes.clear();
+            const auto *tree = review.findChild<QTreeWidget *>(QStringLiteral("keymapImportChanges"));
+            for (int i = 0; tree && i < tree->topLevelItemCount(); ++i) {
+                const QTreeWidgetItem *item = tree->topLevelItem(i);
+                changes.append(QStringList{item->text(0), item->text(1), item->text(2), item->text(3)}.join(QLatin1Char('|')));
+            }
+            conflicts = texts(review.findChild<QListWidget *>(QStringLiteral("keymapImportConflicts")));
+            settings = texts(review.findChild<QListWidget *>(QStringLiteral("keymapImportSettings")));
+            skipped = texts(review.findChild<QListWidget *>(QStringLiteral("keymapImportSkipped")));
+            applyEnabled = review.findChild<QPushButton *>(QStringLiteral("keymapImportApply"))->isEnabled();
+            return answer;
+        });
+        dialog.importShortcuts(keymap);
+        QCOMPARE(reviewed, 1);
+        const QString space = QKeySequence(Qt::Key_Space).toString(QKeySequence::NativeText);
+        QCOMPARE(changes, QStringList{QStringLiteral("Open Gallery|%1|F5|Window").arg(space)});
+        QCOMPARE(conflicts.size(), 1);
+        QVERIFY2(conflicts.at(0).contains(QStringLiteral("“Copy to Other Pane”")) && conflicts.at(0).contains(QStringLiteral("“Open Gallery”")),
+                 qPrintable(conflicts.at(0)));
+        QCOMPARE(settings, QStringList{QStringLiteral("Extra navigation shortcuts: Off → On")});
+        QCOMPARE(skipped.size(), 2);
+        QVERIFY2(skipped.at(0).startsWith(QStringLiteral("A saved command")), qPrintable(skipped.at(0)));
+        QVERIFY2(skipped.at(1).contains(QStringLiteral("“comment”")), qPrintable(skipped.at(1)));
+        QVERIFY(applyEnabled);
+
+        // Cancel changes nothing.
+        QCOMPARE(gallery->shortcuts(), galleryDefaults);
+        QVERIFY(!extra->isChecked());
+        QVERIFY2(status->text().startsWith(QStringLiteral("Didn't import")), qPrintable(status->text()));
+
+        // Apply saves the shortcuts for every window right away, and shows the setting for Apply or OK to save.
+        answer = true;
+        dialog.importShortcuts(keymap);
+        QCOMPARE(reviewed, 2);
+        QCOMPARE(gallery->shortcuts(), QList<QKeySequence>{f5});
+        QCOMPARE(otherGallery->shortcuts(), QList<QKeySequence>{f5});
+        const KConfigGroup stored = KSharedConfig::openConfig()->group(QLatin1String(ShortcutStorage::Group));
+        QCOMPARE(stored.readEntry("open_gallery", QString()), QStringLiteral("F5"));
+        QCOMPARE(customized->topLevelItemCount(), 1);
+        QVERIFY(extra->isChecked());
+        QVERIFY(!Settings::extraNavigationShortcuts());
+        QVERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        QVERIFY2(status->text().startsWith(QStringLiteral("Imported the shortcuts of 1 action")), qPrintable(status->text()));
+        QVERIFY2(status->text().contains(QStringLiteral("Apply or OK saves the keyboard setting")), qPrintable(status->text()));
+        extra->setChecked(false);
+
+        // Optionally, the actions the file doesn't list get their defaults.
+        search->setShortcuts({f9});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        resetUnlisted = true;
+        dialog.importShortcuts(keymap);
+        QCOMPARE(reviewed, 3);
+        QCOMPARE(changes.size(), 1);
+        QVERIFY2(changes.at(0).startsWith(QStringLiteral("Search Current Folder")) && changes.at(0).contains(QStringLiteral("|F9|")),
+                 qPrintable(changes.at(0)));
+        QCOMPARE(search->shortcuts(), searchDefaults);
+        QCOMPARE(gallery->shortcuts(), QList<QKeySequence>{f5});
+        QVERIFY(!stored.hasKey("search_folder"));
+
+        // A file that isn't a keymap this version reads is reported, without a preview.
+        QFile newer(dir.filePath(QStringLiteral("newer.json")));
+        QVERIFY(newer.open(QIODevice::WriteOnly));
+        newer.write(R"({"format": "plasma-opus-keymap", "version": 2, "application": "opus-file-manager", "actions": {}})");
+        newer.close();
+        dialog.importShortcuts(newer.fileName());
+        QCOMPARE(reviewed, 3);
+        QVERIFY2(status->text().startsWith(QStringLiteral("Could not import")), qPrintable(status->text()));
+        QVERIFY2(status->text().contains(QStringLiteral("newer version")), qPrintable(status->text()));
+        dialog.importShortcuts(dir.filePath(QStringLiteral("missing.json")));
+        QCOMPARE(reviewed, 3);
+        QVERIFY2(status->text().startsWith(QStringLiteral("Could not import")), qPrintable(status->text()));
+    }
+
+    void keyboardShortcutsNeedTheMainWindow()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardImportShortcuts"))->isEnabled());
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardExportShortcuts"))->isEnabled());
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardConfigureShortcuts"))->isEnabled());
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardResetShortcuts"))->isEnabled());
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardShowMap"))->isEnabled());
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("keyboardCustomizedSummary"))->text().startsWith(QStringLiteral("Open Preferences from")));
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("keyboardGlobalKeys"))->text().startsWith(QStringLiteral("Open Preferences from")));
+        // Nothing to reset, and nothing is asked.
+        bool asked = false;
+        dialog.setShortcutResetConfirmation([&asked](const QString &) {
+            asked = true;
+            return true;
+        });
+        dialog.resetShortcutsToDefaults();
+        QVERIFY(!asked);
     }
 
     void yaziPreviewSettings()

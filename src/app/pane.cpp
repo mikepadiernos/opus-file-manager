@@ -13,10 +13,12 @@
 #include "foldergates.h"
 #include "folderview.h"
 #include "settings.h"
+#include "shortcuthintpopup.h"
 #include "symbolicicon.h"
 #include "symlinks.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
+#include "vimnavigation.h"
 #include "windoweffects.h"
 #include "yazicolumns.h"
 #include "yazikeys.h"
@@ -380,6 +382,55 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     m_filterBar = new FilterBar(this);
     m_defaultFilterScope = Settings::defaultFilterScope();
     m_layout->addWidget(m_filterBar);
+    m_vimModeBar = new QWidget(this);
+    m_vimModeBar->setObjectName(QStringLiteral("vimModeBar"));
+    auto *vimModeLayout = new QHBoxLayout(m_vimModeBar);
+    vimModeLayout->setContentsMargins(2, 1, 2, 1);
+    m_vimModeIndicator = new QLabel(m_vimModeBar);
+    m_vimModeIndicator->setObjectName(QStringLiteral("vimModeIndicator"));
+    m_vimModeIndicator->setAccessibleDescription(i18nc("@info:accessibility", "Where this pane's keys go while Vim-style navigation is on"));
+    m_vimModeIndicator->setToolTip(
+        i18nc("@info:tooltip", "Vim-style navigation: press / or i to filter, Escape to return to the items and \\ to clear the filter"));
+    m_vimModeIndicator->setBackgroundRole(QPalette::Highlight);
+    m_vimModeIndicator->setForegroundRole(QPalette::HighlightedText);
+    m_vimModeIndicator->setAutoFillBackground(true);
+    m_vimModeIndicator->setContentsMargins(6, 0, 6, 0);
+    vimModeLayout->addWidget(m_vimModeIndicator);
+    vimModeLayout->addStretch();
+    m_vimModeBar->hide();
+    m_layout->addWidget(m_vimModeBar);
+    m_vimKeys = new YaziKeys(this);
+    m_vimKeys->setKeymap(VimNavigation::keymap());
+    m_vimKeys->setModifiedKeysYield(true);
+    m_vimKeys->setFocusFilter([this](QWidget *widget) {
+        auto *items = m_view->currentView();
+        return !m_yaziMode && widget == items && !YaziKeys::isEditing(items);
+    });
+    // Installed after the view's own filter, so the keys are matched before type-ahead sees them.
+    m_vimKeys->watch(m_view->currentView());
+    connect(m_vimKeys, &YaziKeys::commandTriggered, this, &Pane::runVimCommand);
+    connect(m_vimKeys, &YaziKeys::stateChanged, this, &Pane::updateVimModeIndicator);
+    connect(qApp, &QApplication::focusChanged, this, &Pane::updateVimModeIndicator);
+    reloadVimNavigationSetting();
+    m_hintDelay = new QTimer(this);
+    m_hintDelay->setSingleShot(true);
+    m_hintDelay->setInterval(ShortcutHints::DefaultDelay);
+    connect(m_hintDelay, &QTimer::timeout, this, &Pane::showSequenceHints);
+    reloadShortcutHintSettings();
+    for (YaziKeys *keys : {m_vimKeys, m_yaziColumns->keys()}) {
+        connect(keys, &YaziKeys::stateChanged, this, &Pane::updateShortcutHints);
+        // While the hints show, their paging keys turn pages rather than break the sequence.
+        keys->setPendingKeyHandler([this](QKeyCombination key, bool apply) {
+            const int delta = ShortcutHintPopup::pageDelta(key);
+            if (delta == 0 || !m_hintPopup || !m_hintPopup->isShowing(ShortcutHintPopup::Source::Keys)) {
+                return false;
+            }
+            if (apply) {
+                m_hintPopup->turnPage(delta);
+            }
+            return true;
+        });
+    }
 
     // Model -> widgets
     connect(m_tabs, &TabModel::tabInserted, this, &Pane::syncTabBar);
@@ -520,7 +571,12 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     connect(m_filterBar, &FilterBar::closed, this, [this] {
         m_view->currentView()->setFocus();
     });
+    // With Vim-style navigation, Escape keeps the filter and returns to the items, as Vim leaves a mode.
+    connect(m_filterBar, &FilterBar::leaveRequested, this, [this] {
+        m_view->currentView()->setFocus(Qt::ShortcutFocusReason);
+    });
     connect(m_view, &FolderView::viewModeChanged, this, [viewGroup, this] {
+        m_vimKeys->watch(m_view->currentView());
         for (QAction *action : viewGroup->actions()) {
             action->setChecked(action->data().toInt() == static_cast<int>(m_view->viewMode()));
         }
@@ -567,6 +623,11 @@ Pane::~Pane()
     m_view->disconnect(this);
     m_yaziColumns->disconnect(this);
     m_yaziColumns->keys()->disconnect(this);
+    m_yaziColumns->keys()->setPendingKeyHandler({});
+    // Focus moves while the children are destroyed; the mode indicator may already be gone.
+    m_vimKeys->disconnect(this);
+    m_vimKeys->setPendingKeyHandler({});
+    disconnect(qApp, &QApplication::focusChanged, this, nullptr);
 }
 
 void Pane::saveHistoryViewState()
@@ -1228,6 +1289,7 @@ void Pane::setYaziMode(bool enabled)
     m_yaziMenuAction->setChecked(enabled);
     m_yaziToolbarAction->setChecked(enabled);
     YaziColumns::announce(m_view->currentView(), enabled ? i18nc("@info:accessibility", "Yazi mode on") : i18nc("@info:accessibility", "Yazi mode off"));
+    reloadVimNavigationSetting();
     Q_EMIT yaziModeChanged(enabled);
     Q_EMIT workspaceLayoutChanged();
 }
@@ -1415,6 +1477,230 @@ YaziColumns *Pane::yaziColumns() const
 void Pane::reloadYaziKeySettings()
 {
     m_yaziColumns->keys()->setPreset(Settings::yaziKeyPreset() == Settings::EnumYaziKeyPreset::Vim ? YaziMode::Preset::Vim : YaziMode::Preset::Standard);
+}
+
+void Pane::reloadShortcutHintSettings()
+{
+    m_hintDelay->setInterval(Settings::shortcutHintDelay());
+    for (YaziKeys *keys : {m_vimKeys, m_yaziColumns->keys()}) {
+        keys->setPendingTimeout(Settings::keySequenceTimeout());
+    }
+    if (!Settings::shortcutHints()) {
+        m_hintDelay->stop();
+        if (m_hintPopup) {
+            m_hintPopup->dismiss(ShortcutHintPopup::Source::Keys);
+        }
+    }
+}
+
+void Pane::reloadVimNavigationSetting()
+{
+    const bool active = Settings::vimNavigation() && !m_yaziMode;
+    m_vimKeys->setEnabled(active);
+    m_filterBar->setEscapeKeepsFilter(active);
+    updateVimModeIndicator();
+}
+
+VimNavigation::Mode Pane::vimMode() const
+{
+    QWidget *focus = QApplication::focusWidget();
+    if (!focus || !isAncestorOf(focus)) {
+        return VimNavigation::Mode::Normal;
+    }
+    if (m_filterBar->isAncestorOf(focus)) {
+        return VimNavigation::Mode::Filter;
+    }
+    return YaziKeys::isTypingWidget(focus) ? VimNavigation::Mode::Insert : VimNavigation::Mode::Normal;
+}
+
+QLabel *Pane::vimModeIndicator() const
+{
+    return m_vimModeIndicator;
+}
+
+void Pane::updateVimModeIndicator()
+{
+    const bool active = m_vimKeys->isEnabled();
+    m_vimModeBar->setVisible(active);
+    QWidget *focus = QApplication::focusWidget();
+    const bool focused = focus && isAncestorOf(focus);
+    const VimNavigation::Mode mode = vimMode();
+    const QString pending = mode == VimNavigation::Mode::Normal ? m_vimKeys->pendingText() : QString();
+    if (!active) {
+        m_announcedVimMode = VimNavigation::Mode::Normal;
+        m_announcedVimPending.clear();
+        return;
+    }
+    const QString name = VimNavigation::modeAccessibleName(mode, pending);
+    m_vimModeIndicator->setText(VimNavigation::modeText(mode, pending));
+    m_vimModeIndicator->setAccessibleName(name);
+    // Announce a new mode, or keys waiting for the rest of a sequence, only in the pane being typed in.
+    if (focused && (mode != m_announcedVimMode || (!pending.isEmpty() && pending != m_announcedVimPending))) {
+        YaziColumns::announce(m_vimModeIndicator, name);
+    }
+    m_announcedVimMode = focused ? mode : VimNavigation::Mode::Normal;
+    m_announcedVimPending = focused ? pending : QString();
+}
+
+bool Pane::vimNavigationActive() const
+{
+    return m_vimKeys->isEnabled();
+}
+
+YaziKeys *Pane::vimKeys() const
+{
+    return m_vimKeys;
+}
+
+ShortcutHintPopup *Pane::shortcutHintPopup()
+{
+    if (!m_hintPopup) {
+        m_hintPopup = new ShortcutHintPopup(this);
+    }
+    return m_hintPopup;
+}
+
+QWidget *Pane::shortcutHintArea() const
+{
+    return m_yaziMode ? static_cast<QWidget *>(m_yaziColumns) : m_view;
+}
+
+QTabBar *Pane::tabBar() const
+{
+    return m_tabBar;
+}
+
+QWidget *Pane::locationBar() const
+{
+    return m_locationStack->currentWidget();
+}
+
+YaziKeys *Pane::pendingSequenceKeys() const
+{
+    for (YaziKeys *keys : {m_yaziColumns->keys(), m_vimKeys}) {
+        if (keys->isEnabled() && keys->isPending()) {
+            return keys;
+        }
+    }
+    return nullptr;
+}
+
+void Pane::updateShortcutHints()
+{
+    if (!Settings::shortcutHints() || !pendingSequenceKeys()) {
+        m_hintDelay->stop();
+        if (m_hintPopup) {
+            m_hintPopup->dismiss(ShortcutHintPopup::Source::Keys);
+        }
+        return;
+    }
+    if (m_hintPopup && m_hintPopup->isShowing(ShortcutHintPopup::Source::Keys)) {
+        showSequenceHints();
+    } else if (!m_hintDelay->isActive()) {
+        m_hintDelay->start();
+    }
+}
+
+void Pane::showSequenceHints()
+{
+    YaziKeys *keys = pendingSequenceKeys();
+    if (!keys) {
+        return;
+    }
+    const QList<ShortcutHints::Hint> hints =
+        ShortcutHints::hints(ShortcutHints::keymapEntries(keys->keymap(), keys->pendingCount() > 0), keys->pendingKeys(), ShortcutHints::KeyStyle::Typed);
+    if (hints.isEmpty()) {
+        return;
+    }
+    // When the sequence itself takes the paging keys, as a count takes Page Down, the wheel turns pages.
+    const bool keysPage = !keys->continues(QKeyCombination(Qt::Key_PageUp)) && !keys->continues(QKeyCombination(Qt::Key_PageDown));
+    shortcutHintPopup()->showHints(ShortcutHintPopup::Source::Keys,
+                                   i18nc("@title shortcut hints; %1 is the keys typed so far", "%1…", keys->pendingText()),
+                                   hints,
+                                   keysPage ? i18nc("@info shortcut hints footer", "Page Up and Page Down turn pages · Escape cancels")
+                                            : i18nc("@info shortcut hints footer", "Scroll to turn pages · Escape cancels"),
+                                   shortcutHintArea());
+    // As in which-key.nvim, the sequence waits while its hints show.
+    keys->pauseTimeout();
+}
+
+void Pane::reportVimMessage(const QString &message)
+{
+    Q_EMIT statusMessage(message);
+    YaziColumns::announce(m_view->currentView(), message);
+}
+
+void Pane::runVimCommand(YaziMode::Command command, int count)
+{
+    if (m_yaziMode || !m_vimKeys->isEnabled()) {
+        return;
+    }
+    using YaziMode::Command;
+    QAbstractItemView *items = m_view->currentView();
+    switch (command) {
+    case Command::Parent: {
+        const QUrl current = url();
+        const QUrl parent = YaziMode::parentFolder(current);
+        if (parent.isEmpty()) {
+            reportVimMessage(i18nc("@info:status", "This folder has no parent folder to open."));
+        } else {
+            // Highlight the folder just left, once it is listed.
+            showFolderItem(parent, YaziMode::parentItem(current));
+        }
+        break;
+    }
+    case Command::Open:
+        if (!items->currentIndex().isValid()) {
+            reportVimMessage(i18nc("@info:status", "There is no focused item to open."));
+        } else {
+            m_view->activateCurrentItem();
+        }
+        break;
+    case Command::Back:
+        if (m_tabs->canGoBack()) {
+            goBack();
+        } else {
+            reportVimMessage(i18nc("@info:status", "There is no earlier folder in this tab's history."));
+        }
+        break;
+    case Command::Forward:
+        if (m_tabs->canGoForward()) {
+            goForward();
+        } else {
+            reportVimMessage(i18nc("@info:status", "There is no later folder in this tab's history."));
+        }
+        break;
+    case Command::Home:
+        setUrl(Settings::homeUrl());
+        break;
+    case Command::Filter:
+        showFilterBar();
+        break;
+    case Command::ClearFilter:
+        if (m_filterBar->filter().isEmpty()) {
+            reportVimMessage(i18nc("@info:status", "This pane has no filter to clear."));
+        } else {
+            m_filterBar->close();
+        }
+        break;
+    case Command::PreviousTab:
+    case Command::NextTab:
+        if (m_tabs->count() < 2) {
+            reportVimMessage(i18nc("@info:status", "This pane has only one tab."));
+        } else if (command == Command::NextTab) {
+            m_tabs->activateNext();
+        } else {
+            m_tabs->activatePrevious();
+        }
+        break;
+    default:
+        if (!items->model() || items->model()->rowCount(items->rootIndex()) == 0) {
+            reportVimMessage(i18nc("@info:status", "This folder has no items to move through."));
+        } else {
+            m_vimKeys->move(items, command, count);
+        }
+        break;
+    }
 }
 
 void Pane::reportYaziMessage(const QString &message)
@@ -2198,6 +2484,15 @@ void Pane::showTabContextMenu(int index, const QPoint &globalPos)
 void Pane::showFilterBar()
 {
     m_filterBar->open();
+}
+
+bool Pane::clearFilter()
+{
+    if (m_filterBar->filter().isEmpty() && m_filterBar->isHidden()) {
+        return false;
+    }
+    m_filterBar->close();
+    return true;
 }
 
 QString Pane::tabTitle(const QUrl &url)

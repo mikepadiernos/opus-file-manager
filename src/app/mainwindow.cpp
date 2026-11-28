@@ -22,6 +22,7 @@
 #include "cloudsyncrunner.h"
 #include "colorschemes.h"
 #include "combinedpanel.h"
+#include "commandpalettebar.h"
 #include "compressdialog.h"
 #include "contentchartdialog.h"
 #include "customcommanddialog.h"
@@ -58,6 +59,8 @@
 #include "kdeconnectclient.h"
 #include "kdeconnectshare.h"
 #include "kdeconnectsharedialog.h"
+#include "keyboardhintoverlay.h"
+#include "keyboardmapdialog.h"
 #include "kwinintegration.h"
 
 #include "labelcolor.h"
@@ -93,6 +96,9 @@
 #include "session.h"
 #include "settings.h"
 #include "settingsdialog.h"
+#include "shortcutguard.h"
+#include "shortcuthintpopup.h"
+#include "shortcutreference.h"
 #include "startup.h"
 #include "symbolicicon.h"
 #include "tabcolors.h"
@@ -111,10 +117,13 @@
 #include "themeprofiles.h"
 #include "viewsettings.h"
 #include "windoweffects.h"
+#include "windowsequencehints.h"
+#include "windowshortcuts.h"
 #include "workspaceappearance.h"
 #include "workspacedialog.h"
 #include "workspacelocations.h"
 #include "yazicolumns.h"
+#include "yazikeys.h"
 
 #include <KActionCollection>
 #include <KActionMenu>
@@ -568,6 +577,15 @@ MainWindow::MainWindow(QWidget *parent)
     setupPanels();
     setupStatusBar();
     setupActions();
+    new ShortcutGuard(this);
+    // Installed after the guard, so it sees the keys the guard keeps from shortcuts.
+    m_windowSequenceHints = new WindowSequenceHints(this, [this] {
+        return activePane();
+    });
+    m_shortcutReference = new ShortcutReference(this, [this] {
+        return activePane();
+    });
+    m_keyboardHints = new KeyboardHintOverlay(this);
     m_desktopTray = new DesktopTray(this, actionCollection());
     connect(m_desktopTray, &DesktopTray::openRequested, this, [this](const QUrl &url) {
         openUrls({url});
@@ -670,7 +688,38 @@ MainWindow::MainWindow(QWidget *parent)
     watchWorkspaceCatalog();
 
     setStandardToolBarMenuEnabled(true);
+    // Before the window loads its ui.rc file, so KXmlGui doesn't keep shortcuts that are now stored elsewhere.
+    WindowShortcuts::migrate(WindowShortcuts::uiRcPath(componentName(), QStringLiteral("opus-file-managerui.rc")));
     setupGUI(QSize(1100, 700), Default, QStringLiteral("opus-file-managerui.rc"));
+    WindowShortcuts::apply(this);
+    // Rebuilding the menus and toolbars gives every action its default shortcuts again.
+    connect(guiFactory(), &KXMLGUIFactory::makingChanges, this, [this](bool changing) {
+        if (changing) {
+            WindowShortcuts::prepareRebuild(this);
+        } else {
+            WindowShortcuts::apply(this);
+        }
+    });
+    // Made before anything else follows shortcutsSaved, so it all sees the stored shortcuts.
+    connect(guiFactory(), &KXMLGUIFactory::shortcutsSaved, this, [this] {
+        static bool sharing = false;
+        if (sharing) {
+            // Another window stored its shortcuts, which this one already has.
+            return;
+        }
+        WindowShortcuts::save(this);
+        // Keys the user freed or took may change which extra navigation keys apply.
+        WindowShortcuts::applyNavigationKeys(this);
+        const QScopedValueRollback<bool> rollback(sharing, true);
+        const QList<KMainWindow *> windows = KMainWindow::memberList();
+        for (KMainWindow *member : windows) {
+            auto *window = qobject_cast<MainWindow *>(member);
+            if (window && window != this && window->guiFactory()) {
+                WindowShortcuts::apply(window);
+                Q_EMIT window->guiFactory()->shortcutsSaved();
+            }
+        }
+    });
     m_toolbarCustomizer = new ToolbarCustomizer(toolBar(), actionCollection(), this, {m_left, m_right});
     connect(m_toolbarCustomizer, &ToolbarCustomizer::toolbarSettingsRequested, this, &MainWindow::showToolbarSettings);
     connect(guiFactory(), &KXMLGUIFactory::makingChanges, m_toolbarCustomizer, [this](bool changing) {
@@ -3315,6 +3364,18 @@ void MainWindow::setupActions()
             activePane()->view()->selectAll();
         },
         actions);
+    // Navigation actions have no default shortcuts; Preferences › Keyboard › Navigation can give them keys no other action uses.
+    QAction *deselectAll = actions->addAction(QStringLiteral("deselect_all"), this, [this] {
+        activePane()->view()->clearSelection();
+    });
+    deselectAll->setText(i18nc("@action", "Deselect All"));
+    deselectAll->setIcon(SymbolicIcon::fromTheme(QStringLiteral("edit-select-none")));
+    QAction *invertSelection = actions->addAction(QStringLiteral("invert_selection"), this, [this] {
+        activePane()->view()->invertSelection();
+    });
+    invertSelection->setText(i18nc("@action", "Invert Selection"));
+    invertSelection->setToolTip(i18nc("@info:tooltip", "Select the items that aren't selected and deselect the others"));
+    invertSelection->setIcon(SymbolicIcon::fromTheme(QStringLiteral("edit-select-invert")));
 
     auto *selectMenu = new QMenu(i18nc("@menu", "Select"), this);
     QAction *selectPattern = selectMenu->addAction(i18nc("@action:inmenu", "Select by Pattern…"));
@@ -3474,6 +3535,11 @@ void MainWindow::setupActions()
         }
         updateTerminalPanelVisibility();
     });
+    QAction *focusTerminalAction = actions->addAction(QStringLiteral("focus_terminal"), this, &MainWindow::focusTerminal);
+    focusTerminalAction->setText(i18nc("@action", "Focus Embedded Terminal"));
+    focusTerminalAction->setToolTip(
+        i18nc("@info:tooltip", "Show the embedded terminal and type in it; if the terminal has the keyboard focus, go back to the active pane"));
+    focusTerminalAction->setIcon(SymbolicIcon::fromTheme(QStringLiteral("utilities-terminal")));
     QAction *terminalHistory = actions->addAction(QStringLiteral("search_terminal_history"), this, [this] {
         const int sessions = m_terminalPanel->sessionCount();
         if (!m_terminalPanelAction->isChecked()) {
@@ -3667,6 +3733,20 @@ void MainWindow::setupActions()
             pane->reloadYaziKeySettings();
         }
     });
+    m_vimNavigationAction = new KToggleAction(i18nc("@action", "Vim-Style Navigation"), this);
+    m_vimNavigationAction->setToolTip(
+        i18nc("@info:tooltip", "Move through the file views of panes that aren't in Yazi mode with Vim-style keys such as j, k, gg and /"));
+    m_vimNavigationAction->setChecked(Settings::vimNavigation());
+    actions->addAction(QStringLiteral("toggle_vim_navigation"), m_vimNavigationAction);
+    connect(m_vimNavigationAction, &KToggleAction::triggered, this, [this](bool enabled) {
+        Settings::setVimNavigation(enabled);
+        Settings::self()->save();
+        for (Pane *pane : {m_left, m_right}) {
+            pane->reloadVimNavigationSetting();
+        }
+        showStatusMessage(enabled ? i18nc("@info:status", "Vim-style navigation on: j and k move, h opens the parent folder, l opens, / filters")
+                                  : i18nc("@info:status", "Vim-style navigation off"));
+    });
     const auto addYaziColumnAction = [this, actions](const QString &name, const QString &text, const QString &toolTip, YaziMode::Command command) {
         QAction *action = actions->addAction(name, this, [this, command] {
             activePane()->runYaziCommand(command);
@@ -3811,6 +3891,11 @@ void MainWindow::setupActions()
         }
     });
     connect(m_previewPanel, &PreviewPanel::closeRequested, m_previewPanelAction, &QAction::trigger);
+    QAction *focusPreview = actions->addAction(QStringLiteral("focus_preview_panel"), this, &MainWindow::focusPreviewPanel);
+    focusPreview->setText(i18nc("@action", "Focus Preview Panel"));
+    focusPreview->setToolTip(
+        i18nc("@info:tooltip", "Show the preview panel and move the keyboard focus into it; if the panel has the focus, go back to the active pane"));
+    focusPreview->setIcon(SymbolicIcon::fromTheme(QStringLiteral("document-preview")));
     connect(m_previewPanel, &PreviewPanel::placementRequested, this, [this](PreviewPanel::Placement placement) {
         Settings::setPreviewPlacement(static_cast<Settings::EnumPreviewPlacement::type>(placement));
         Settings::self()->save();
@@ -4017,6 +4102,23 @@ void MainWindow::setupActions()
     });
     switchPane->setText(i18nc("@action", "Switch Pane"));
     actions->setDefaultShortcut(switchPane, Qt::Key_Tab);
+    QAction *focusFirstPane = actions->addAction(QStringLiteral("focus_first_pane"), this, [this] {
+        focusPane(m_left);
+    });
+    focusFirstPane->setText(i18nc("@action", "Focus First Pane"));
+    focusFirstPane->setToolTip(i18nc("@info:tooltip", "Make the first pane, on the left or at the top, active and move the keyboard focus to it"));
+    QAction *focusSecondPane = actions->addAction(QStringLiteral("focus_second_pane"), this, [this] {
+        focusPane(m_right);
+    });
+    focusSecondPane->setText(i18nc("@action", "Focus Second Pane"));
+    focusSecondPane->setToolTip(i18nc("@info:tooltip", "Make the second pane, on the right or at the bottom, active and move the keyboard focus to it"));
+    QAction *keyboardHints = actions->addAction(QStringLiteral("keyboard_hints"), this, &MainWindow::showKeyboardHints);
+    keyboardHints->setText(i18nc("@action", "Keyboard Hints"));
+    keyboardHints->setIcon(SymbolicIcon::fromTheme(QStringLiteral("input-keyboard")));
+    keyboardHints->setToolTip(
+        i18nc("@info:tooltip", "Label the visible files and folders, location segments, tabs and places with keys; type a label to go there"));
+    // No other action, text field or Yazi mode preset uses it.
+    actions->setDefaultShortcut(keyboardHints, Qt::CTRL | Qt::SHIFT | Qt::Key_J);
 
     // Tabs
     QAction *newTab = actions->addAction(QStringLiteral("new_tab"), this, [this] {
@@ -4051,6 +4153,13 @@ void MainWindow::setupActions()
     });
     previousTab->setText(i18nc("@action", "Previous Tab"));
     actions->setDefaultShortcut(previousTab, Qt::CTRL | Qt::SHIFT | Qt::Key_Tab);
+
+    QAction *lastTab = actions->addAction(QStringLiteral("activate_last_tab"), this, [this] {
+        TabModel *tabs = activePane()->tabs();
+        tabs->setCurrentIndex(tabs->count() - 1);
+    });
+    lastTab->setText(i18nc("@action", "Activate Last Tab"));
+    lastTab->setIcon(SymbolicIcon::fromTheme(QStringLiteral("go-last-view")));
 
     for (int i = 1; i <= 9; ++i) {
         QAction *tabN = actions->addAction(QStringLiteral("activate_tab_%1").arg(i), this, [this, i] {
@@ -4115,6 +4224,14 @@ void MainWindow::setupActions()
     filter->setText(i18nc("@action", "Filter…"));
     filter->setIcon(QIcon::fromTheme(QStringLiteral("view-filter")));
     actions->setDefaultShortcut(filter, Qt::CTRL | Qt::Key_F);
+    QAction *clearFilter = actions->addAction(QStringLiteral("clear_filter"), this, [this] {
+        if (!activePane()->clearFilter()) {
+            showStatusMessage(i18nc("@info:status", "This pane has no filter to clear."));
+        }
+    });
+    clearFilter->setText(i18nc("@action", "Clear Filter"));
+    clearFilter->setToolTip(i18nc("@info:tooltip", "Show every item of the active pane again and close its filter bar"));
+    clearFilter->setIcon(SymbolicIcon::fromTheme(QStringLiteral("edit-clear")));
 
     QAction *addFavorite = actions->addAction(QStringLiteral("add_to_favorites"), this, &MainWindow::addToFavorites);
     addFavorite->setText(i18nc("@action", "Add to Favorites"));
@@ -4185,6 +4302,28 @@ void MainWindow::setupActions()
 
     // Settings
     KStandardAction::preferences(this, &MainWindow::showSettings, actions);
+    QAction *keyboardMap = actions->addAction(QStringLiteral("keyboard_map"), this, &MainWindow::showKeyboardMap);
+    keyboardMap->setText(i18nc("@action", "Keyboard Map…"));
+    keyboardMap->setIcon(QIcon::fromTheme(QStringLiteral("help-keybord-shortcuts")));
+    keyboardMap->setToolTip(
+        i18nc("@info:tooltip", "List every action with its shortcuts, search them by name or by pressing keys, and export a printable reference"));
+    QAction *shortcutHints = actions->addAction(QStringLiteral("show_shortcut_hints"), this, [this] {
+        m_shortcutReference->toggle();
+    });
+    shortcutHints->setText(i18nc("@action", "Shortcut Hints"));
+    shortcutHints->setIcon(QIcon::fromTheme(QStringLiteral("help-keybord-shortcuts")));
+    shortcutHints->setToolTip(i18nc("@info:tooltip", "Show or hide the keys that work where the keyboard focus is, over the active pane"));
+    // KDE's window creates the command bar action, under Help; it opens the
+    // palette, which lists only the actions it can run where the user is.
+    setCommandBarEnabled(false);
+    if (QAction *palette = actions->action(QString::fromLatin1(CommandPalette::ActionName))) {
+        palette->setText(i18nc("@action", "Command Palette…"));
+        palette->setIcon(SymbolicIcon::fromTheme(QStringLiteral("search")));
+        palette->setToolTip(i18nc("@info:tooltip", "Search the actions of the menus and toolbars and the saved commands by name, and run one"));
+        // Dolphin's and Kate's key, which no other action uses.
+        KActionCollection::setDefaultShortcut(palette, QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_I));
+        connect(palette, &QAction::triggered, this, &MainWindow::showCommandPalette);
+    }
     QAction *showMenuBar = KStandardAction::showMenubar(menuBar(), &QMenuBar::setVisible, actions);
     KHamburgerMenu *hamburger = KStandardAction::hamburgerMenu(nullptr, nullptr, actions);
     hamburger->setMenuBar(menuBar());
@@ -4205,8 +4344,26 @@ Pane *MainWindow::inactivePane() const
     return activePane() == m_left ? m_right : m_left;
 }
 
+WindowSequenceHints *MainWindow::windowSequenceHints() const
+{
+    return m_windowSequenceHints;
+}
+
+ShortcutReference *MainWindow::shortcutReference() const
+{
+    return m_shortcutReference;
+}
+
+KeyboardHintOverlay *MainWindow::keyboardHintOverlay() const
+{
+    return m_keyboardHints;
+}
+
 void MainWindow::setActivePane(Pane *pane)
 {
+    if (m_keyboardHints && pane != m_active) {
+        m_keyboardHints->cancel();
+    }
     if (m_paneTabs && m_secondPaneInTab) {
         m_paneTabs->setCurrentWidget(pane == m_right ? static_cast<QWidget *>(m_right) : m_searchSplitter);
     }
@@ -4232,6 +4389,57 @@ void MainWindow::setActivePane(Pane *pane)
     updateWindowTitle();
     updatePreviewPanel();
     updateInformationPanel();
+}
+
+void MainWindow::focusPane(Pane *pane)
+{
+    if (!pane) {
+        return;
+    }
+    setActivePane(pane);
+    if (QWidget *paneWindow = pane->window(); paneWindow != window()) {
+        paneWindow->raise();
+        paneWindow->activateWindow();
+    }
+    pane->view()->currentView()->setFocus(Qt::ShortcutFocusReason);
+}
+
+void MainWindow::focusPreviewPanel()
+{
+    const QWidget *focus = QApplication::focusWidget();
+    if (m_previewPanelAction->isChecked() && focus && m_previewPanel->isAncestorOf(focus)) {
+        focusPane(activePane());
+        return;
+    }
+    if (!m_previewPanelAction->isChecked()) {
+        m_previewPanelAction->setChecked(true);
+    }
+    if (QWidget *panelWindow = m_previewPanel->window(); panelWindow != window()) {
+        panelWindow->raise();
+        panelWindow->activateWindow();
+    }
+    if (!m_previewPanel->focusContent()) {
+        showStatusMessage(i18nc("@info:status", "The preview panel has nothing to move the keyboard focus to."));
+    }
+}
+
+void MainWindow::focusTerminal()
+{
+    if (m_terminalPanelAction->isChecked() && m_terminalPanel->hasKeyboardFocus()) {
+        focusPane(activePane());
+        return;
+    }
+    if (!m_terminalPanelAction->isChecked()) {
+        m_terminalPanelAction->setChecked(true);
+    } else if (!m_terminalPanel->hasSessions()) {
+        m_terminalPanel->start(activePane()->url());
+    }
+    if (QWidget *panelWindow = m_terminalPanel->window(); panelWindow != window()) {
+        panelWindow->raise();
+        panelWindow->activateWindow();
+    }
+    // Without a session, the panel already tells why it couldn't open one.
+    m_terminalPanel->focusSession();
 }
 
 void MainWindow::openUrls(const QList<QUrl> &urls)
@@ -8212,18 +8420,30 @@ void MainWindow::refreshCustomCommandActions()
                 showCustomCommandPreset(name);
             });
             m_customCommandActions.insert(command.name, action);
+            if (factory()) {
+                // Saved after the window applied the stored shortcuts.
+                WindowShortcuts::apply(action);
+            }
         }
-        action->setText(command.name);
+        // Configure Keyboard Shortcuts lists the text; toolbars show the name.
+        action->setText(i18nc("@action %1 is a saved command's name", "Saved Command: %1", command.name));
+        action->setIconText(command.name);
         action->setToolTip(i18nc("@info:tooltip", "Preview saved command: %1", command.name));
     }
     for (auto it = m_customCommandActions.begin(); it != m_customCommandActions.end();) {
         if (!current.contains(it.key())) {
             QAction *action = it.value();
             it = m_customCommandActions.erase(it);
+            // A command saved again under this name starts without the deleted one's shortcuts.
+            WindowShortcuts::forget(action->objectName());
             actionCollection()->removeAction(action);
         } else {
             ++it;
         }
+    }
+    if (factory()) {
+        // A saved command's stored shortcut may be one of the extra navigation keys.
+        WindowShortcuts::applyNavigationKeys(this);
     }
     if (m_active) {
         updateActions();
@@ -9132,6 +9352,8 @@ void MainWindow::applySettings()
     m_automaticRemoteSizeDefault = Settings::automaticRemoteFolderSizes();
     applyPaneBackgrounds();
     m_yaziVimKeysAction->setChecked(Settings::yaziKeyPreset() == Settings::EnumYaziKeyPreset::Vim);
+    m_vimNavigationAction->setChecked(Settings::vimNavigation());
+    m_windowSequenceHints->reloadSettings();
     for (Pane *pane : {m_left, m_right}) {
         pane->setInactiveDimming(Settings::dimInactivePane(), Settings::inactivePaneOpacity());
         pane->reloadTabSettings();
@@ -9140,6 +9362,8 @@ void MainWindow::applySettings()
         pane->setNewTabsAfterCurrent(Settings::newTabsAfterCurrent());
         pane->reloadYaziPreviewSetting();
         pane->reloadYaziKeySettings();
+        pane->reloadVimNavigationSetting();
+        pane->reloadShortcutHintSettings();
         pane->setFollowSymlinks(Settings::followSymlinks());
 
         FolderView *view = pane->view();
@@ -9189,6 +9413,9 @@ void MainWindow::applySettings()
         shortcuts.prepend(QKeySequence(Qt::Key_Tab));
     }
     switchPane->setShortcuts(shortcuts);
+    if (factory()) {
+        WindowShortcuts::applyNavigationKeys(this);
+    }
     setPreviewPlacement(static_cast<PreviewPanel::Placement>(Settings::previewPlacement()));
     m_previewPanel->applyPresentationSettings();
     updatePreviewPanel();
@@ -9326,6 +9553,72 @@ void MainWindow::applyViewDefaults()
     }
     m_previewsAction->setChecked(Settings::showPreviews());
     setPreviewsEnabled(Settings::showPreviews());
+}
+
+void MainWindow::showCommandPalette()
+{
+    if (m_commandPalette) {
+        m_commandPalette->setFocus(Qt::ShortcutFocusReason);
+        return;
+    }
+    Pane *pane = activePane();
+    m_commandPalette = new CommandPaletteBar(this);
+    m_commandPalette->setFallbackFocus(pane->view()->currentView());
+    // Pane actions run in the pane that had the focus, even when closing the palette moved it.
+    connect(m_commandPalette, &CommandPaletteBar::focusReturned, this, [this, pane = QPointer<Pane>(pane)] {
+        if (pane) {
+            setActivePane(pane);
+        }
+    });
+    CommandPalette::Options options;
+    options.savedCommands = Settings::commandPaletteSavedCommands();
+    m_commandPalette->open(options);
+}
+
+void MainWindow::showKeyboardHints()
+{
+    if (m_keyboardHints->isActive()) {
+        m_keyboardHints->cancel();
+        return;
+    }
+    Pane *pane = activePane();
+    // Labels take every key, so they never start while keys are text: in a text
+    // field, an inline rename editor, the terminal or an input method's editor.
+    QWidget *focus = QApplication::focusWidget();
+    const bool typing = focus
+        && (ShortcutGuard::focusContext(focus) == KeyBindings::Context::TextInput
+            || (focus->testAttribute(Qt::WA_InputMethodEnabled) && !qobject_cast<QAbstractItemView *>(focus))
+            || (m_terminalPanel && m_terminalPanel->isAncestorOf(focus)));
+    QAbstractItemView *view = pane->view()->currentView();
+    if (typing || (view && YaziKeys::isEditing(view))) {
+        showStatusMessage(i18nc("@info:status", "Keyboard hints aren't shown while typing; move the keyboard focus out of the text first."));
+        return;
+    }
+    m_shortcutReference->hide();
+    QList<KFilePlacesView *> places;
+    const QList<KFilePlacesView *> found = findChildren<KFilePlacesView *>();
+    for (KFilePlacesView *placesView : found) {
+        if (placesView->isVisible() && placesView->window() == this) {
+            places.append(placesView);
+        }
+    }
+    const auto layout = static_cast<KeyboardHints::Layout>(Settings::keyboardHintKeys());
+    const auto action = Settings::keyboardHintItemAction() == Settings::EnumKeyboardHintItemAction::Open ? KeyboardHintOverlay::ItemAction::Open
+                                                                                                         : KeyboardHintOverlay::ItemAction::Select;
+    if (!m_keyboardHints->start(pane, places, KeyboardHints::alphabet(layout), action)) {
+        showStatusMessage(i18nc("@info:status", "Nothing to label with keyboard hints."));
+    }
+}
+
+void MainWindow::showKeyboardMap()
+{
+    if (!m_keyboardMap) {
+        m_keyboardMap = new KeyboardMapDialog(this, this);
+        m_keyboardMap->setAttribute(Qt::WA_DeleteOnClose);
+    }
+    m_keyboardMap->show();
+    m_keyboardMap->raise();
+    m_keyboardMap->activateWindow();
 }
 
 void MainWindow::showSettings()

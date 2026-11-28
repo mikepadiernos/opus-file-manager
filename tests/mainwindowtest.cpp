@@ -5,6 +5,7 @@
 #include "batchrenamedialog.h"
 #include "checksumdialog.h"
 #include "combinedpanel.h"
+#include "commandpalettebar.h"
 #include "contentchartdialog.h"
 #include "customcommanddialog.h"
 #include "customcommands.h"
@@ -28,10 +29,13 @@
 #include "indexstatusdialog.h"
 #include "informationpanel.h"
 #include "interfacelanguage.h"
+#include "keyboardhintoverlay.h"
+#include "keyboardmapdialog.h"
 #include "libraryregistry.h"
 #include "localizeddates.h"
 #include "metadataeditdialog.h"
 #include "metadataimportdialog.h"
+#include "navigationshortcuts.h"
 #include "packagetools.h"
 #include "pane.h"
 #include "previewpanel.h"
@@ -39,6 +43,8 @@
 #include "searchwidget.h"
 #include "settings.h"
 #include "settingsdialog.h"
+#include "shortcutguard.h"
+#include "shortcutstorage.h"
 #include "tabmodel.h"
 #include "tagfieldmanagerwidget.h"
 #include "taggroupdialog.h"
@@ -46,11 +52,14 @@
 #include "taglibrary.h"
 #include "tagmanagerwidget.h"
 #include "tagpanel.h"
+#include "terminalpanel.h"
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
 #include "viewsettings.h"
+#include "windowshortcuts.h"
 #include "workspaceappearanceeditor.h"
 #include "workspacedialog.h"
+#include "yazimode.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
@@ -66,6 +75,7 @@
 #include <KSharedConfig>
 #include <KTextEditor/Document>
 #include <KToolBar>
+#include <KXMLGUIFactory>
 
 #include <QAbstractItemModel>
 #include <QApplication>
@@ -75,9 +85,11 @@
 #include <QColor>
 #include <QComboBox>
 #include <QContextMenuEvent>
+#include <QCryptographicHash>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QDockWidget>
+#include <QDomDocument>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
@@ -93,6 +105,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListView>
 #include <QListWidget>
 #include <QMediaPlayer>
@@ -105,6 +118,7 @@
 #include <QRegularExpression>
 #include <QScopeGuard>
 #include <QScrollBar>
+#include <QShortcut>
 #include <QSignalSpy>
 #include <QSplitter>
 #include <QStandardPaths>
@@ -233,6 +247,46 @@ public:
 private:
     QPointer<FolderView> m_view;
     bool *m_emitted;
+};
+
+// Restores the window's ui.rc file, or removes it when there was none, and the stored shortcuts once a test is done.
+class ShortcutFilesGuard
+{
+public:
+    explicit ShortcutFilesGuard(const QString &uiRcPath)
+        : m_path(uiRcPath)
+    {
+        QFile file(m_path);
+        m_existed = file.open(QIODevice::ReadOnly);
+        if (m_existed) {
+            m_contents = file.readAll();
+        }
+    }
+
+    ~ShortcutFilesGuard()
+    {
+        if (m_existed) {
+            QFile file(m_path);
+            if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                file.write(m_contents);
+            }
+        } else {
+            QFile::remove(m_path);
+        }
+        KSharedConfig::openConfig()->deleteGroup(QLatin1String(ShortcutStorage::Group));
+        KSharedConfig::openConfig()->sync();
+    }
+
+    QString contents() const
+    {
+        QFile file(m_path);
+        return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()) : QString();
+    }
+
+private:
+    QString m_path;
+    QByteArray m_contents;
+    bool m_existed = false;
 };
 
 class MainWindowTest : public QObject
@@ -2259,18 +2313,20 @@ private Q_SLOTS:
         window.show();
         const auto actions = window.actionCollection()->actions();
         const auto it = std::find_if(actions.cbegin(), actions.cend(), [&command](const QAction *action) {
-            return action->text() == command.name && action->objectName().startsWith(QLatin1String("custom_command_preset_"));
+            return action->iconText() == command.name && action->objectName().startsWith(QLatin1String("custom_command_preset_"));
         });
         QVERIFY(it != actions.cend());
         QPointer<QAction> action = *it;
         QVERIFY(action->isEnabled());
+        // Configure Keyboard Shortcuts and the toolbar editor's available actions list the text.
+        QCOMPARE(action->text(), QStringLiteral("Saved Command: Toolbar command"));
         KEditToolBar editor(window.guiFactory(), &window);
         editor.show();
-        const auto listed = [&editor, &command] {
+        const auto listed = [&editor, &action] {
             const auto views = editor.findChildren<QAbstractItemView *>();
-            return std::any_of(views.cbegin(), views.cend(), [&command](QAbstractItemView *view) {
+            return std::any_of(views.cbegin(), views.cend(), [&action](QAbstractItemView *view) {
                 return view->model()
-                    && !view->model()->match(view->model()->index(0, 0), Qt::DisplayRole, command.name, 1, Qt::MatchExactly | Qt::MatchRecursive).isEmpty();
+                    && !view->model()->match(view->model()->index(0, 0), Qt::DisplayRole, action->text(), 1, Qt::MatchExactly | Qt::MatchRecursive).isEmpty();
             });
         };
         QTRY_VERIFY(listed());
@@ -2302,9 +2358,104 @@ private Q_SLOTS:
         dialog->findChild<QPushButton *>(QStringLiteral("commandSavePreset"))->click();
         const auto refreshed = window.actionCollection()->actions();
         QVERIFY(std::any_of(refreshed.cbegin(), refreshed.cend(), [](const QAction *candidate) {
-            return candidate->text() == QLatin1String("New toolbar command") && candidate->objectName().startsWith(QLatin1String("custom_command_preset_"));
+            return candidate->iconText() == QLatin1String("New toolbar command") && candidate->objectName().startsWith(QLatin1String("custom_command_preset_"));
         }));
         dialog->close();
+    }
+
+    void savedCommandsAndAlternatesTakeStoredShortcuts()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup group = config->group(QStringLiteral("CustomCommands"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup saved = backup->group(QStringLiteral("CustomCommands"));
+        group.copyTo(&saved);
+        const auto cleanup = qScopeGuard([&] {
+            group.deleteGroup();
+            saved.copyTo(&group);
+            config->sync();
+        });
+        const auto presetId = [](const QString &name) {
+            return QStringLiteral("custom_command_preset_") + QString::fromLatin1(QCryptographicHash::hash(name.toUtf8(), QCryptographicHash::Sha256).toHex());
+        };
+        QString error;
+        const CustomCommands::Command command{QStringLiteral("Shortcut command"), QStringLiteral("/bin/echo"), {QStringLiteral("{dir}")}, {}};
+        const CustomCommands::Command later{QStringLiteral("Later command"), QStringLiteral("/bin/echo"), {}, {}};
+        QVERIFY2(CustomCommands::save(group, {command}, &error), qPrintable(error));
+        QString xmlPath;
+        {
+            MainWindow probe;
+            xmlPath = probe.localXMLFile();
+        }
+        const ShortcutFilesGuard guard(xmlPath);
+        KConfigGroup stored = config->group(QLatin1String(ShortcutStorage::Group));
+        // A primary shortcut and two alternates, more than KDE's editor shows.
+        const QList<QKeySequence> keys{QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F10),
+                                       QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F11),
+                                       QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F12)};
+        stored.writeEntry(presetId(command.name), QStringLiteral("Ctrl+Alt+F10; Ctrl+Alt+F11; Ctrl+Alt+F12"));
+        stored.writeEntry(presetId(later.name), QStringLiteral("Ctrl+Alt+F9"));
+        stored.writeEntry("open_gallery", QStringLiteral("Space; Ctrl+Alt+F8"));
+        config->sync();
+
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        // A window action keeps its default shortcut and gets the stored alternate.
+        QCOMPARE(window.actionCollection()->action(QStringLiteral("open_gallery"))->shortcuts(),
+                 (QList<QKeySequence>{QKeySequence(Qt::Key_Space), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F8)}));
+        QPointer<QAction> action = window.actionCollection()->action(presetId(command.name));
+        QVERIFY(action);
+        QCOMPARE(action->text(), QStringLiteral("Saved Command: Shortcut command"));
+        QCOMPARE(action->shortcuts(), keys);
+        // The command is on no menu or toolbar, yet each of its shortcuts opens its preview.
+        QVERIFY(!window.toolBar()->actions().contains(action));
+        QSignalSpy triggered(action.data(), &QAction::triggered);
+        for (const QKeySequence &key : keys) {
+            QTest::keySequence(&window, key);
+            QCOMPARE(triggered.count(), int(keys.indexOf(key)) + 1);
+            auto *dialog = window.findChild<CustomCommandDialog *>(QStringLiteral("customCommandDialog"));
+            QVERIFY(dialog);
+            QCOMPARE(dialog->findChild<QLineEdit *>(QStringLiteral("commandProgram"))->text(), command.program);
+            QVERIFY(!dialog->findChild<QPushButton *>(QStringLiteral("commandRun"))->isEnabled());
+            QPointer<CustomCommandDialog> closed = dialog;
+            dialog->close();
+            QTRY_VERIFY(closed.isNull());
+            window.activateWindow();
+            QVERIFY(QTest::qWaitForWindowActive(&window));
+        }
+
+        // Saving it in KDE's editor keeps the alternates it doesn't show.
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(stored.readEntry(presetId(command.name), QString()), QStringLiteral("Ctrl+Alt+F10; Ctrl+Alt+F11; Ctrl+Alt+F12"));
+
+        // As the commands dialog announces commands saved or deleted there.
+        const auto announce = [&window] {
+            window.actionCollection()->action(QStringLiteral("custom_command"))->trigger();
+            QPointer<CustomCommandDialog> dialog = window.findChild<CustomCommandDialog *>(QStringLiteral("customCommandDialog"));
+            QVERIFY(dialog);
+            Q_EMIT dialog->presetsChanged();
+            dialog->close();
+            QTRY_VERIFY(dialog.isNull());
+        };
+
+        // A command saved while the window is open gets its stored shortcut.
+        QVERIFY2(CustomCommands::save(group, {command, later}, &error), qPrintable(error));
+        announce();
+        QAction *laterAction = window.actionCollection()->action(presetId(later.name));
+        QVERIFY(laterAction);
+        QCOMPARE(laterAction->shortcuts(), QList<QKeySequence>{QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F9)});
+
+        // Deleting a command forgets its shortcuts.
+        QVERIFY2(CustomCommands::save(group, {later}, &error), qPrintable(error));
+        announce();
+        QVERIFY(action.isNull());
+        QVERIFY(!stored.hasKey(presetId(command.name)));
+        QVERIFY(stored.hasKey(presetId(later.name)));
     }
 
     void kdeToolbarEditorAppliesSeparatorAndSpacer()
@@ -2516,6 +2667,710 @@ private Q_SLOTS:
         }
     }
 
+    void shortcutsKdeSavedInTheUiRcMoveIntoTheConfiguration()
+    {
+        QString xmlPath;
+        {
+            MainWindow probe;
+            xmlPath = probe.localXMLFile();
+            // The window moves the shortcuts before it has loaded the file, so it finds the file itself.
+            QCOMPARE(WindowShortcuts::uiRcPath(probe.componentName(), QStringLiteral("opus-file-managerui.rc")), xmlPath);
+        }
+        const ShortcutFilesGuard guard(xmlPath);
+        KConfigGroup stored = KSharedConfig::openConfig()->group(QLatin1String(ShortcutStorage::Group));
+        const QKeySequence f9(Qt::Key_F9);
+        const QKeySequence ctrlKG(QKeyCombination(Qt::CTRL | Qt::Key_K), QKeyCombination(Qt::Key_G));
+        {
+            MainWindow old;
+            // What KDE's Configure Keyboard Shortcuts saves, as an earlier Plasma Opus left it.
+            old.actionCollection()->action(QStringLiteral("open_gallery"))->setShortcuts({f9, ctrlKG});
+            old.actionCollection()->writeSettings();
+        }
+        QVERIFY2(guard.contents().contains(QStringLiteral("shortcut=")), qPrintable(guard.contents()));
+        QVERIFY(!stored.hasKey("open_gallery"));
+
+        MainWindow window;
+        window.resize(1200, 700);
+        window.show();
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        QCOMPARE(gallery->shortcuts(), (QList<QKeySequence>{f9, ctrlKG}));
+        QCOMPARE(stored.readEntry("open_gallery", QString()), QStringLiteral("F9; Ctrl+K, G"));
+        QCOMPARE(stored.readEntry(ShortcutStorage::VersionKey, 0), ShortcutStorage::Version);
+        // The file keeps the rest of the window's layout.
+        QVERIFY2(!guard.contents().contains(QStringLiteral("shortcut=")), qPrintable(guard.contents()));
+        QVERIFY2(guard.contents().contains(QStringLiteral("mainToolBar")), qPrintable(guard.contents()));
+        // KDE's default stays the default.
+        QCOMPARE(KActionCollection::defaultShortcuts(gallery), QList<QKeySequence>{QKeySequence(Qt::Key_Space)});
+
+        // Configure Toolbars saves the layout the window loaded and rebuilds the menus, which gives every action
+        // its defaults; neither brings the old shortcuts back or loses the stored ones.
+        window.configureToolbars();
+        auto *editor = window.findChild<KEditToolBar *>();
+        QVERIFY(editor);
+        const auto lists = editor->findChildren<QListWidget *>();
+        QCOMPARE(lists.size(), 2);
+        lists.at(0)->setCurrentRow(0);
+        QToolButton *insert = nullptr;
+        for (auto *button : editor->findChildren<QToolButton *>()) {
+            if (button->icon().name() == QLatin1String("go-next")) {
+                insert = button;
+            }
+        }
+        QVERIFY(insert && insert->isEnabled());
+        insert->click();
+        editor->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Apply)->click();
+        editor->reject();
+        QVERIFY2(!guard.contents().contains(QStringLiteral("shortcut=")), qPrintable(guard.contents()));
+        QCOMPARE(gallery->shortcuts(), (QList<QKeySequence>{f9, ctrlKG}));
+        QCOMPARE(KActionCollection::defaultShortcuts(gallery), QList<QKeySequence>{QKeySequence(Qt::Key_Space)});
+
+        // Later windows read the stored shortcuts, with nothing left in the file.
+        MainWindow later;
+        QCOMPARE(later.actionCollection()->action(QStringLiteral("open_gallery"))->shortcuts(), (QList<QKeySequence>{f9, ctrlKG}));
+    }
+
+    void shortcutsSavedInKdeEditorAreStoredForEveryWindow()
+    {
+        MainWindow window;
+        const ShortcutFilesGuard guard(window.localXMLFile());
+        MainWindow other;
+        KConfigGroup stored = KSharedConfig::openConfig()->group(QLatin1String(ShortcutStorage::Group));
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        QAction *search = window.actionCollection()->action(QStringLiteral("search_folder"));
+        QAction *otherGallery = other.actionCollection()->action(QStringLiteral("open_gallery"));
+        QVERIFY(gallery && search && otherGallery);
+        const QList<QKeySequence> galleryDefaults = gallery->shortcuts();
+        const QList<QKeySequence> searchDefaults = search->shortcuts();
+        const QKeySequence f9(Qt::Key_F9);
+
+        // KDE's editor saves into the ui.rc file, then announces it.
+        gallery->setShortcuts({f9});
+        search->setShortcuts({});
+        window.actionCollection()->writeSettings();
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(stored.readEntry("open_gallery", QString()), QStringLiteral("F9"));
+        QCOMPARE(stored.readEntry("search_folder", QString()), QStringLiteral("none"));
+        QVERIFY2(!guard.contents().contains(QStringLiteral("shortcut=")), qPrintable(guard.contents()));
+        // Other windows get them right away.
+        QCOMPARE(otherGallery->shortcuts(), QList<QKeySequence>{f9});
+        QVERIFY(other.actionCollection()->action(QStringLiteral("search_folder"))->shortcuts().isEmpty());
+        // Only actions that differ from their defaults have entries.
+        QVERIFY(!stored.hasKey("go_up"));
+        QVERIFY(!stored.hasKey("switch_pane"));
+
+        // KDE's editor leaves nothing in the file for an action given its defaults again, but the entry goes too.
+        gallery->setShortcuts(galleryDefaults);
+        search->setShortcuts(searchDefaults);
+        window.actionCollection()->writeSettings();
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QVERIFY(!stored.hasKey("open_gallery"));
+        QVERIFY(!stored.hasKey("search_folder"));
+        QCOMPARE(otherGallery->shortcuts(), galleryDefaults);
+        QCOMPARE(other.actionCollection()->action(QStringLiteral("search_folder"))->shortcuts(), searchDefaults);
+    }
+
+    void storedShortcutsSurviveRebuildingTheMenus()
+    {
+        MainWindow window;
+        const ShortcutFilesGuard guard(window.localXMLFile());
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        const QKeySequence f9(Qt::Key_F9);
+        gallery->setShortcuts({f9});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        // As Configure Toolbars rebuilds them.
+        window.guiFactory()->removeClient(&window);
+        window.setXMLGUIBuildDocument(QDomDocument());
+        window.guiFactory()->addClient(&window);
+        QCOMPARE(gallery->shortcuts(), QList<QKeySequence>{f9});
+        QCOMPARE(KActionCollection::defaultShortcuts(gallery), QList<QKeySequence>{QKeySequence(Qt::Key_Space)});
+        // Actions without stored shortcuts get the defaults the window applies, such as Tab switching panes.
+        QVERIFY(window.actionCollection()->action(QStringLiteral("switch_pane"))->shortcuts().contains(QKeySequence(Qt::Key_Tab)));
+    }
+
+    void keyboardMapListsSearchesAndExportsShortcuts()
+    {
+        MainWindow window;
+        const ShortcutFilesGuard guard(window.localXMLFile());
+        QAction *mapAction = window.actionCollection()->action(QStringLiteral("keyboard_map"));
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        QVERIFY(mapAction && gallery);
+        // Help › Keyboard Map… takes no key from another action.
+        QVERIFY(mapAction->shortcuts().isEmpty());
+        auto *help = qobject_cast<QMenu *>(window.guiFactory()->container(QStringLiteral("help"), &window));
+        QVERIFY(help);
+        QVERIFY(help->actions().contains(mapAction));
+
+        mapAction->trigger();
+        auto *dialog = window.findChild<KeyboardMapDialog *>();
+        QVERIFY(dialog);
+        QVERIFY(dialog->isVisible());
+        mapAction->trigger();
+        QCOMPARE(window.findChildren<KeyboardMapDialog *>().size(), 1);
+        auto *search = dialog->findChild<QLineEdit *>(QStringLiteral("keyboardMapSearch"));
+        auto *withShortcuts = dialog->findChild<QCheckBox *>(QStringLiteral("keyboardMapWithShortcuts"));
+        auto *list = dialog->findChild<QTreeWidget *>(QStringLiteral("keyboardMapList"));
+        QVERIFY(search && withShortcuts && list);
+        const auto names = [dialog] {
+            QStringList found;
+            for (const KeyboardMap::Entry &entry : dialog->shownEntries()) {
+                found.append(entry.name);
+            }
+            return found;
+        };
+        const auto entryNamed = [dialog](const QString &name) {
+            for (const KeyboardMap::Entry &entry : dialog->shownEntries()) {
+                if (entry.name == name) {
+                    return entry;
+                }
+            }
+            return KeyboardMap::Entry{};
+        };
+
+        // Window actions, the gallery's keys and the Yazi mode preset are listed, each with where it applies.
+        QCOMPARE(list->topLevelItemCount(), dialog->shownEntries().size());
+        QCOMPARE(list->headerItem()->text(2), QStringLiteral("Applies in"));
+        QCOMPARE(entryNamed(QStringLiteral("search_folder")).shortcuts, QList<QKeySequence>{QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_F)});
+        QCOMPARE(entryNamed(QStringLiteral("search_folder")).context, QStringLiteral("Window"));
+        bool gallerySeen = false;
+        bool yaziSeen = false;
+        for (const KeyboardMap::Entry &entry : dialog->shownEntries()) {
+            gallerySeen = gallerySeen || entry.context == QStringLiteral("Image gallery");
+            yaziSeen = yaziSeen || entry.context == QStringLiteral("Yazi mode columns");
+        }
+        QVERIFY(gallerySeen && yaziSeen);
+        // Pressing Shift twice is listed with the search it opens.
+        QCOMPARE(entryNamed(QStringLiteral("double_shift_search")).keysText, QStringLiteral("Shift twice"));
+        QCOMPARE(entryNamed(QStringLiteral("double_shift_search")).context, QStringLiteral("Window"));
+        QVERIFY(!names().contains(QStringLiteral("keyboard_map")));
+        // A search that only finds actions without shortcuts says they are hidden.
+        auto *count = dialog->findChild<QLabel *>(QStringLiteral("keyboardMapCount"));
+        QVERIFY(count);
+        search->setText(QStringLiteral("keyboard_map"));
+        QVERIFY(names().isEmpty());
+        QVERIFY(count->text().contains(QStringLiteral("1 more without a shortcut is hidden")));
+        search->clear();
+        withShortcuts->setChecked(false);
+        QVERIFY(names().contains(QStringLiteral("keyboard_map")));
+        QVERIFY(!entryNamed(QStringLiteral("keyboard_map")).description.isEmpty());
+        withShortcuts->setChecked(true);
+
+        // Typing searches names; pressing keys finds what they run.
+        search->setText(QStringLiteral("search current"));
+        QVERIFY(names().contains(QStringLiteral("search_folder")));
+        QVERIFY(!names().contains(QStringLiteral("open_gallery")));
+        search->clear();
+        dialog->setSearchKeys(QKeySequence(Qt::Key_Space));
+        QVERIFY(names().contains(QStringLiteral("open_gallery")));
+        QVERIFY(!names().contains(QStringLiteral("search_folder")));
+
+        // Saved shortcuts show at once.
+        gallery->setShortcuts({QKeySequence(Qt::Key_F9), QKeySequence(Qt::CTRL | Qt::Key_K, QKeyCombination(Qt::Key_G))});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QVERIFY(!names().contains(QStringLiteral("open_gallery")));
+        dialog->setSearchKeys(QKeySequence(Qt::CTRL | Qt::Key_K));
+        QCOMPARE(names(), QStringList{QStringLiteral("open_gallery")});
+
+        // The listed actions export as a printable reference.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath(QStringLiteral("keys.html"));
+        QVERIFY(dialog->exportTo(path).isEmpty());
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QString html = QString::fromUtf8(file.readAll());
+        QVERIFY(html.contains(QStringLiteral("Open Gallery")));
+        QVERIFY(!html.contains(QStringLiteral("Search Current Folder")));
+        dialog->setSearchKeys({});
+        QVERIFY(dialog->exportTo(dir.filePath(QStringLiteral("keys.pdf"))).isEmpty());
+
+        gallery->setShortcuts({QKeySequence(Qt::Key_Space)});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+    }
+
+    void keyboardHintsLabelAndActivateTargets()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir(dir.path()).mkpath(QStringLiteral("alpha/inner")));
+        for (const QString &name : {QStringLiteral("beta.txt"), QStringLiteral("gamma.txt")}) {
+            QFile file(dir.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        const QUrl folder = QUrl::fromLocalFile(dir.path());
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+
+        MainWindow window;
+        const ShortcutFilesGuard guard(window.localXMLFile());
+        window.openUrls({folder, m_b});
+        window.show();
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        Pane *left = window.activePane();
+        Pane *right = window.inactivePane();
+        QTRY_COMPARE(left->view()->itemCount(), 3);
+        QAbstractItemView *view = left->view()->currentView();
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+        if (!window.actionCollection()->action(QStringLiteral("show_places"))->isChecked()) {
+            window.actionCollection()->action(QStringLiteral("show_places"))->trigger();
+        }
+        const auto visiblePlaces = [&window]() -> KFilePlacesView * {
+            const QList<KFilePlacesView *> views = window.findChildren<KFilePlacesView *>();
+            for (KFilePlacesView *places : views) {
+                if (places->isVisible()) {
+                    return places;
+                }
+            }
+            return nullptr;
+        };
+        QTRY_VERIFY(visiblePlaces());
+        KeyboardHintOverlay *overlay = window.keyboardHintOverlay();
+        QVERIFY(overlay);
+
+        // Go › Keyboard Hints has a key that no other action, text field or Yazi mode preset uses.
+        QAction *hints = window.actionCollection()->action(QStringLiteral("keyboard_hints"));
+        QVERIFY(hints);
+        QCOMPARE(KLocalizedString::removeAcceleratorMarker(hints->text()), QStringLiteral("Keyboard Hints"));
+        auto *go = qobject_cast<QMenu *>(window.guiFactory()->container(QStringLiteral("go"), &window));
+        QVERIFY(go && go->actions().contains(hints));
+        const QKeySequence key(Qt::CTRL | Qt::SHIFT | Qt::Key_J);
+        QCOMPARE(KActionCollection::defaultShortcuts(hints), QList<QKeySequence>{key});
+        QVERIFY(!KeyBindings::isTypingKey(key[0]));
+        const WindowShortcuts::Bindings bindings = WindowShortcuts::bindings(&window);
+        for (const KeyBindings::Binding &binding : bindings.bindings) {
+            const bool usesKey = std::any_of(binding.shortcuts.cbegin(), binding.shortcuts.cend(), [&key](const QKeySequence &shortcut) {
+                return shortcut.matches(key) != QKeySequence::NoMatch || key.matches(shortcut) != QKeySequence::NoMatch;
+            });
+            QVERIFY2(!usesKey || binding.name == QLatin1String("keyboard_hints"), qPrintable(binding.name));
+        }
+        for (YaziMode::Preset preset : {YaziMode::Preset::Standard, YaziMode::Preset::Vim}) {
+            QVERIFY(YaziMode::shadowedShortcuts(YaziMode::presetKeymap(preset), QList<YaziMode::ActionShortcuts>{{hints->objectName(), hints->text(), {key}}})
+                        .isEmpty());
+        }
+
+        const auto typeKeys = [](const QString &keys, Qt::KeyboardModifiers lastModifiers = Qt::NoModifier) {
+            for (int i = 0; i < keys.size(); ++i) {
+                QTest::keyClick(QApplication::focusWidget(), keys.at(i).toLatin1(), i + 1 == keys.size() ? lastModifiers : Qt::NoModifier);
+            }
+        };
+        const auto labelOf = [overlay](KeyboardHints::Kind kind, const QString &name) {
+            const QList<KeyboardHintOverlay::Target> targets = overlay->targets();
+            for (int i = 0; i < targets.size(); ++i) {
+                if (targets.at(i).kind == kind && targets.at(i).name == name) {
+                    return overlay->labels().at(i);
+                }
+            }
+            return QString();
+        };
+        const auto start = [overlay] {
+            QTest::keyClick(QApplication::focusWidget(), Qt::Key_J, Qt::ControlModifier | Qt::ShiftModifier);
+            QVERIFY(overlay->isActive());
+            QCOMPARE(QApplication::focusWidget(), overlay);
+        };
+        const auto nameAt = [](const QAbstractItemView *itemView) {
+            return itemView->currentIndex().data(Qt::DisplayRole).toString();
+        };
+
+        // The key labels the items, location segments and places; items get the shortest labels.
+        start();
+        const QList<KeyboardHintOverlay::Target> targets = overlay->targets();
+        const QStringList labels = overlay->labels();
+        QCOMPARE(labels.size(), targets.size());
+        QList<KeyboardHints::Kind> kinds;
+        for (const KeyboardHintOverlay::Target &target : targets) {
+            kinds.append(target.kind);
+        }
+        QCOMPARE(kinds.count(KeyboardHints::Kind::Item), 3);
+        QVERIFY(kinds.contains(KeyboardHints::Kind::Location));
+        QVERIFY(kinds.contains(KeyboardHints::Kind::Place));
+        // Tabs other than the current one, when the tab bar shows.
+        QCOMPARE(kinds.count(KeyboardHints::Kind::Tab), left->tabBar()->isVisible() ? left->tabBar()->count() - 1 : 0);
+        QCOMPARE(labels, KeyboardHints::assign(kinds, KeyboardHints::alphabet(KeyboardHints::Layout::Qwerty)));
+        const QString beta = labelOf(KeyboardHints::Kind::Item, QStringLiteral("beta.txt"));
+        QVERIFY(!beta.isEmpty());
+        const int betaIndex = labels.indexOf(beta);
+        QLabel *betaLabel = overlay->labelWidgets().at(betaIndex);
+        QVERIFY(betaLabel->isVisible());
+        QCOMPARE(betaLabel->accessibleName(), beta + QStringLiteral(": beta.txt"));
+        QCOMPARE(betaLabel->accessibleDescription(), QStringLiteral("File or folder"));
+        QVERIFY(window.rect().contains(betaLabel->geometry()));
+
+        // Typing the first key of a longer label narrows the labels to those it begins; Backspace widens them again.
+        const QString longest = labels.constLast();
+        QVERIFY(longest.size() >= 2);
+        typeKeys(longest.left(1));
+        QVERIFY(overlay->isActive());
+        QCOMPARE(overlay->typed(), longest.left(1));
+        for (int i = 0; i < labels.size(); ++i) {
+            QCOMPARE(overlay->labelWidgets().at(i)->isVisible(), labels.at(i).startsWith(longest.left(1)));
+        }
+        QTest::keyClick(overlay, Qt::Key_Backspace);
+        QVERIFY(overlay->isActive());
+        QCOMPARE(overlay->typed(), QString());
+        QVERIFY(betaLabel->isVisible());
+
+        // Typing a label selects its item and gives the focus back.
+        typeKeys(beta);
+        QVERIFY(!overlay->isActive());
+        QCOMPARE(QApplication::focusWidget(), view);
+        QCOMPARE(nameAt(view), QStringLiteral("beta.txt"));
+        QCOMPARE(view->selectionModel()->selectedRows().size(), 1);
+        QCOMPARE(left->url(), folder);
+
+        // Escape, Backspace with nothing typed and a key that continues no label cancel without moving anything.
+        start();
+        QTest::keyClick(overlay, Qt::Key_Escape);
+        QVERIFY(!overlay->isActive());
+        QCOMPARE(QApplication::focusWidget(), view);
+        start();
+        QTest::keyClick(overlay, Qt::Key_Backspace);
+        QVERIFY(!overlay->isActive());
+        start();
+        typeKeys(QStringLiteral("z"));
+        QVERIFY(!overlay->isActive());
+        QCOMPARE(nameAt(view), QStringLiteral("beta.txt"));
+        // A window shortcut doesn't run while labels show; its key cancels them.
+        const int tabs = left->tabBar()->count();
+        start();
+        QTest::keyClick(overlay, Qt::Key_T, Qt::ControlModifier);
+        QVERIFY(!overlay->isActive());
+        QCOMPARE(left->tabBar()->count(), tabs);
+        // Pressing the key again hides them too.
+        start();
+        QTest::keyClick(overlay, Qt::Key_J, Qt::ControlModifier | Qt::ShiftModifier);
+        QVERIFY(!overlay->isActive());
+
+        // Shift on the last key does the other thing: it opens a folder.
+        start();
+        typeKeys(labelOf(KeyboardHints::Kind::Item, QStringLiteral("alpha")), Qt::ShiftModifier);
+        QVERIFY(!overlay->isActive());
+        QTRY_COMPARE(left->url(), QUrl::fromLocalFile(dir.filePath(QStringLiteral("alpha"))));
+
+        // A visible location segment opens its folder, in either breadcrumb presentation.
+        for (Pane::LocationPresentation presentation : {Pane::LocationPresentation::FullBreadcrumbs, Pane::LocationPresentation::AbbreviatedBreadcrumbs}) {
+            left->setLocationPresentation(presentation);
+            left->setUrl(QUrl::fromLocalFile(dir.filePath(QStringLiteral("alpha/inner"))));
+            QTRY_COMPARE(left->url(), QUrl::fromLocalFile(dir.filePath(QStringLiteral("alpha/inner"))));
+            // New segments show once the event loop runs.
+            QTRY_VERIFY(!KeyboardHintOverlay::locationTargets(left).isEmpty());
+            view = left->view()->currentView();
+            view->setFocus();
+            QTRY_COMPARE(QApplication::focusWidget(), view);
+            start();
+            const QString segment = labelOf(KeyboardHints::Kind::Location, QStringLiteral("alpha"));
+            QVERIFY(!segment.isEmpty());
+            const int segmentIndex = overlay->labels().indexOf(segment);
+            QCOMPARE(overlay->labelWidgets().at(segmentIndex)->accessibleDescription(), QStringLiteral("Location segment"));
+            typeKeys(segment);
+            QVERIFY(!overlay->isActive());
+            QTRY_COMPARE(left->url(), QUrl::fromLocalFile(dir.filePath(QStringLiteral("alpha"))));
+        }
+        left->setUrl(folder);
+        QTRY_COMPARE(left->url(), folder);
+        QTRY_COMPARE(left->view()->itemCount(), 3);
+        view = left->view()->currentView();
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+
+        // The other tabs are labelled; typing one's label switches to it.
+        const int tabsBefore = left->tabBar()->count();
+        left->openInNewTab(m_b);
+        QTRY_COMPARE(left->tabBar()->count(), tabsBefore + 1);
+        QTRY_VERIFY(left->tabBar()->isVisible());
+        QCOMPARE(left->url(), folder);
+        start();
+        QCOMPARE(std::count_if(overlay->targets().cbegin(),
+                               overlay->targets().cend(),
+                               [](const KeyboardHintOverlay::Target &target) {
+                                   return target.kind == KeyboardHints::Kind::Tab;
+                               }),
+                 tabsBefore);
+        const int newTab = left->tabBar()->count() - 1;
+        const QString tabLabel = labelOf(KeyboardHints::Kind::Tab, KLocalizedString::removeAcceleratorMarker(left->tabBar()->tabText(newTab)));
+        QVERIFY(!tabLabel.isEmpty());
+        typeKeys(tabLabel);
+        QVERIFY(!overlay->isActive());
+        QCOMPARE(left->tabBar()->currentIndex(), newTab);
+        QTRY_COMPARE(left->url(), m_b);
+        left->closeCurrentTab();
+        QTRY_COMPARE(left->url(), folder);
+        QTRY_COMPARE(left->view()->itemCount(), 3);
+        view = left->view()->currentView();
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+
+        // A place opens in the active pane.
+        KFilePlacesView *places = visiblePlaces();
+        QString placeName;
+        QUrl placeUrl;
+        for (int row = 0; row < places->model()->rowCount() && placeName.isEmpty(); ++row) {
+            const QModelIndex index = places->model()->index(row, 0);
+            const QUrl url = index.data(KFilePlacesModel::UrlRole).toUrl();
+            if (!places->isRowHidden(row) && url == QUrl::fromLocalFile(QDir::homePath())) {
+                placeName = index.data(Qt::DisplayRole).toString();
+                placeUrl = url;
+            }
+        }
+        QVERIFY(!placeName.isEmpty());
+        start();
+        const QString place = labelOf(KeyboardHints::Kind::Place, placeName);
+        QVERIFY(!place.isEmpty());
+        typeKeys(place);
+        QVERIFY(!overlay->isActive());
+        QTRY_COMPARE(left->url().adjusted(QUrl::StripTrailingSlash), placeUrl.adjusted(QUrl::StripTrailingSlash));
+        QCOMPARE(window.activePane(), left);
+        left->setUrl(folder);
+        QTRY_COMPARE(left->view()->itemCount(), 3);
+        view = left->view()->currentView();
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+
+        // Resizing the window, moving the focus or switching panes hides the labels.
+        start();
+        window.resize(window.size() + QSize(20, 20));
+        QTRY_VERIFY(!overlay->isActive());
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+        start();
+        right->view()->currentView()->setFocus();
+        QVERIFY(!overlay->isActive());
+        view->setFocus();
+        QTRY_COMPARE(window.activePane(), left);
+        start();
+        window.actionCollection()->action(QStringLiteral("switch_pane"))->trigger();
+        QCOMPARE(window.activePane(), right);
+        QVERIFY(!overlay->isActive());
+        window.actionCollection()->action(QStringLiteral("switch_pane"))->trigger();
+        QCOMPARE(window.activePane(), left);
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+
+        // Scrolling the places hides them.
+        start();
+        places->verticalScrollBar()->setRange(0, 100);
+        places->verticalScrollBar()->setValue(50);
+        QVERIFY(!overlay->isActive());
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+
+        // Never while typing: the filter bar keeps the key's focus and gets no labels.
+        left->showFilterBar();
+        QTRY_VERIFY(qobject_cast<QLineEdit *>(QApplication::focusWidget()));
+        hints->trigger();
+        QVERIFY(!overlay->isActive());
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("typing")));
+        left->clearFilter();
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+
+        // Labels in Open mode open items, and Shift selects; Vim-style keys don't take the label keys.
+        Settings::setKeyboardHintItemAction(Settings::EnumKeyboardHintItemAction::Open);
+        Settings::setVimNavigation(true);
+        Settings::self()->save();
+        window.applySettings();
+        QTRY_VERIFY(left->vimNavigationActive());
+        view->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), view);
+        start();
+        typeKeys(labelOf(KeyboardHints::Kind::Item, QStringLiteral("gamma.txt")), Qt::ShiftModifier);
+        QVERIFY(!overlay->isActive());
+        QCOMPARE(nameAt(view), QStringLiteral("gamma.txt"));
+        QCOMPARE(left->url(), folder);
+        start();
+        typeKeys(labelOf(KeyboardHints::Kind::Item, QStringLiteral("alpha")));
+        QVERIFY(!overlay->isActive());
+        QTRY_COMPARE(left->url(), QUrl::fromLocalFile(dir.filePath(QStringLiteral("alpha"))));
+    }
+
+    void commandPaletteRunsListedActionsInTheActivePane()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup commands = config->group(QStringLiteral("CustomCommands"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup saved = backup->group(QStringLiteral("CustomCommands"));
+        commands.copyTo(&saved);
+        KConfigGroup state = KSharedConfig::openStateConfig()->group(QString::fromLatin1(CommandPalette::HistoryGroup));
+        const auto cleanup = qScopeGuard([&] {
+            commands.deleteGroup();
+            saved.copyTo(&commands);
+            config->sync();
+            CommandPalette::clearHistory(state);
+            Settings::setCommandPaletteSavedCommands(true);
+        });
+        CommandPalette::clearHistory(state);
+        QString error;
+        const CustomCommands::Command command{QStringLiteral("Palette command"), QStringLiteral("/bin/echo"), {QStringLiteral("{dir}")}, {}};
+        QVERIFY2(CustomCommands::save(commands, {command}, &error), qPrintable(error));
+
+        MainWindow window;
+        const ShortcutFilesGuard guard(window.localXMLFile());
+        window.openUrls({m_b, m_a});
+        window.show();
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        Pane *left = window.activePane();
+        Pane *right = window.inactivePane();
+        QTRY_COMPARE(right->view()->itemCount(), 2);
+        const auto action = [&window](const QString &name) {
+            return window.actionCollection()->action(name);
+        };
+        const auto paletteActions = [](CommandPaletteBar *palette) {
+            QList<QAction *> found;
+            auto *list = palette->findChild<QTreeView *>(QStringLiteral("commandPaletteActions"));
+            for (int row = 0; list && row < list->model()->rowCount(); ++row) {
+                found.append(list->model()->index(row, 0).data(Qt::UserRole).value<QAction *>());
+            }
+            return found;
+        };
+        const auto choose = [](CommandPaletteBar *palette, QAction *chosen) {
+            auto *list = palette->findChild<QTreeView *>(QStringLiteral("commandPaletteActions"));
+            auto *search = palette->findChild<QLineEdit *>(QStringLiteral("commandPaletteSearch"));
+            QVERIFY(list && search);
+            const QModelIndexList rows = list->model()->match(list->model()->index(0, 0), Qt::UserRole, QVariant::fromValue(chosen), 1, Qt::MatchExactly);
+            QCOMPARE(rows.size(), 1);
+            list->setCurrentIndex(rows.constFirst());
+            QTest::keyClick(search, Qt::Key_Return);
+        };
+        const auto deletePalette = [](QPointer<CommandPaletteBar> palette) {
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            QTRY_VERIFY(palette.isNull());
+        };
+
+        // Help › Command Palette… has Dolphin's and Kate's key, which no other action, text field or Yazi mode preset uses.
+        QAction *paletteAction = action(QString::fromLatin1(CommandPalette::ActionName));
+        QVERIFY(paletteAction);
+        QCOMPARE(paletteAction->text(), QStringLiteral("Command Palette…"));
+        auto *help = qobject_cast<QMenu *>(window.guiFactory()->container(QStringLiteral("help"), &window));
+        QVERIFY(help && help->actions().contains(paletteAction));
+        const QKeySequence key(Qt::CTRL | Qt::ALT | Qt::Key_I);
+        QCOMPARE(paletteAction->shortcuts(), QList<QKeySequence>{key});
+        QCOMPARE(KActionCollection::defaultShortcuts(paletteAction), QList<QKeySequence>{key});
+        QVERIFY(KActionCollection::isShortcutsConfigurable(paletteAction));
+        QVERIFY(!KeyBindings::isTypingKey(key[0]));
+        const WindowShortcuts::Bindings bindings = WindowShortcuts::bindings(&window);
+        for (int index = 0; index < bindings.bindings.size(); ++index) {
+            const KeyBindings::Binding &binding = bindings.bindings.at(index);
+            const bool usesKey = std::any_of(binding.shortcuts.cbegin(), binding.shortcuts.cend(), [&key](const QKeySequence &shortcut) {
+                return shortcut.matches(key) != QKeySequence::NoMatch || key.matches(shortcut) != QKeySequence::NoMatch;
+            });
+            QVERIFY2(!usesKey || binding.name == QLatin1String(CommandPalette::ActionName), qPrintable(binding.name));
+        }
+        for (YaziMode::Preset preset : {YaziMode::Preset::Standard, YaziMode::Preset::Vim}) {
+            QVERIFY(YaziMode::shadowedShortcuts(YaziMode::presetKeymap(preset),
+                                                QList<YaziMode::ActionShortcuts>{{paletteAction->objectName(), paletteAction->text(), {key}}})
+                        .isEmpty());
+        }
+        bool mapped = false;
+        for (const KeyboardMap::Entry &entry : KeyboardMapDialog::entries(&window)) {
+            mapped = mapped || (entry.name == paletteAction->objectName() && entry.shortcuts.contains(key));
+        }
+        QVERIFY(mapped);
+
+        // Enabled menu, toolbar and saved-command actions are listed by menu; disabled ones and the palette itself aren't.
+        QAction *savedCommand = nullptr;
+        for (QAction *candidate : window.actionCollection()->actions()) {
+            if (CommandPalette::isSavedCommand(candidate->objectName()) && candidate->iconText() == command.name) {
+                savedCommand = candidate;
+            }
+        }
+        QVERIFY(savedCommand && savedCommand->isEnabled());
+        QAction *copy = action(QStringLiteral("edit_copy"));
+        QVERIFY(copy && !copy->isEnabled());
+        const QList<KCommandBar::ActionGroup> groups = CommandPaletteBar::actionGroups(&window);
+        QList<QAction *> listed;
+        QString newFolderGroup;
+        for (const KCommandBar::ActionGroup &group : groups) {
+            listed += group.actions;
+            if (group.actions.contains(action(QStringLiteral("new_folder")))) {
+                newFolderGroup = group.name;
+            }
+        }
+        QCOMPARE(newFolderGroup, QStringLiteral("File"));
+        QVERIFY(listed.contains(action(QStringLiteral("edit_select_all"))));
+        QVERIFY(listed.contains(savedCommand));
+        QVERIFY(!listed.contains(copy));
+        QVERIFY(!listed.contains(paletteAction));
+        QCOMPARE(QSet<QAction *>(listed.cbegin(), listed.cend()).size(), listed.size());
+        CommandPalette::Options withoutSaved;
+        withoutSaved.savedCommands = false;
+        for (const KCommandBar::ActionGroup &group : CommandPaletteBar::actionGroups(&window, withoutSaved)) {
+            QVERIFY(!group.actions.contains(savedCommand));
+        }
+
+        // The palette runs an action in the pane that had the focus, which keeps it.
+        action(QStringLiteral("focus_second_pane"))->trigger();
+        QCOMPARE(window.activePane(), right);
+        QTRY_COMPARE(QApplication::focusWidget(), right->view()->currentView());
+        QTest::keyClick(right->view()->currentView(), Qt::Key_I, Qt::ControlModifier | Qt::AltModifier);
+        QPointer<CommandPaletteBar> palette = window.findChild<CommandPaletteBar *>();
+        QVERIFY(palette);
+        QVERIFY(palette->isVisible());
+        QCOMPARE(palette->accessibleName(), QStringLiteral("Command Palette"));
+        QTRY_COMPARE(QApplication::focusWidget(), palette->findChild<QLineEdit *>(QStringLiteral("commandPaletteSearch")));
+        QVERIFY(!paletteActions(palette).contains(copy));
+        QVERIFY(paletteActions(palette).contains(savedCommand));
+        // Opening it again keeps the one palette.
+        paletteAction->trigger();
+        QCOMPARE(window.findChildren<CommandPaletteBar *>().size(), 1);
+        choose(palette, action(QStringLiteral("edit_select_all")));
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        QVERIFY(!palette || palette->isHidden());
+        QCOMPARE(window.activePane(), right);
+        QTRY_COMPARE(QApplication::focusWidget(), right->view()->currentView());
+        QCOMPARE(right->view()->selectedItems().size(), 2);
+        QVERIFY(left->view()->selectedItems().isEmpty());
+        // The shortcuts are left as they were.
+        QCOMPARE(paletteAction->shortcuts(), QList<QKeySequence>{key});
+        QCOMPARE(action(QStringLiteral("edit_select_all"))->shortcuts(), KActionCollection::defaultShortcuts(action(QStringLiteral("edit_select_all"))));
+
+        // KDE's command bar remembers the action once closed, and lists it first next time.
+        deletePalette(palette);
+        QCOMPARE(CommandPalette::history(state).value(0), action(QStringLiteral("edit_select_all"))->text());
+        paletteAction->trigger();
+        palette = window.findChild<CommandPaletteBar *>();
+        QVERIFY(palette);
+        QCOMPARE(paletteActions(palette).value(0), action(QStringLiteral("edit_select_all")));
+        // Escape closes it and gives the focus back.
+        QTest::keyClick(palette->findChild<QLineEdit *>(QStringLiteral("commandPaletteSearch")), Qt::Key_Escape);
+        QVERIFY(!palette || palette->isHidden());
+        QTRY_COMPARE(QApplication::focusWidget(), right->view()->currentView());
+        QCOMPARE(window.activePane(), right);
+        deletePalette(palette);
+
+        // A saved command opens its preview rather than running.
+        paletteAction->trigger();
+        palette = window.findChild<CommandPaletteBar *>();
+        QVERIFY(palette);
+        choose(palette, savedCommand);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        auto *dialog = window.findChild<CustomCommandDialog *>(QStringLiteral("customCommandDialog"));
+        QVERIFY(dialog);
+        QCOMPARE(dialog->findChild<QLineEdit *>(QStringLiteral("commandProgram"))->text(), command.program);
+        QVERIFY(!dialog->findChild<QPushButton *>(QStringLiteral("commandRun"))->isEnabled());
+        dialog->close();
+        deletePalette(palette);
+        QTRY_VERIFY(!window.findChild<CustomCommandDialog *>(QStringLiteral("customCommandDialog")));
+
+        // The setting leaves saved commands out.
+        Settings::setCommandPaletteSavedCommands(false);
+        paletteAction->trigger();
+        palette = window.findChild<CommandPaletteBar *>();
+        QVERIFY(palette);
+        QVERIFY(!paletteActions(palette).contains(savedCommand));
+        QVERIFY(paletteActions(palette).contains(action(QStringLiteral("new_folder"))));
+        QTest::keyClick(palette->findChild<QLineEdit *>(QStringLiteral("commandPaletteSearch")), Qt::Key_Escape);
+        deletePalette(palette);
+    }
+
     void defaultToolbarSpacingSurvivesCustomization()
     {
         QTemporaryDir backupDir;
@@ -2591,6 +3446,181 @@ private Q_SLOTS:
             QVERIFY(!pane->toolbarAction(QStringLiteral("paneFilter"))->isVisible());
             QVERIFY(!pane->toolbarAction(QStringLiteral("paneSearch"))->isVisible());
         }
+    }
+
+    void navigationActionsMoveBetweenPanesTabsAndPanels()
+    {
+        MainWindow window;
+        const ShortcutFilesGuard guard(window.localXMLFile());
+        window.openUrls({m_a, m_b});
+        window.show();
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        Pane *left = window.activePane();
+        Pane *right = window.inactivePane();
+        QTRY_COMPARE(left->view()->itemCount(), 2);
+        const auto action = [&window](const QString &name) {
+            return window.actionCollection()->action(name);
+        };
+
+        // Each new action is in a menu, and has no shortcut until the user gives it one.
+        const QList<std::pair<QString, QStringList>> menus{
+            {QStringLiteral("edit"), {QStringLiteral("deselect_all"), QStringLiteral("invert_selection"), QStringLiteral("clear_filter")}},
+            {QStringLiteral("view"), {QStringLiteral("focus_preview_panel"), QStringLiteral("focus_terminal")}},
+            {QStringLiteral("go"), {QStringLiteral("focus_first_pane"), QStringLiteral("focus_second_pane"), QStringLiteral("activate_last_tab")}},
+        };
+        for (const auto &[menuName, names] : menus) {
+            auto *menu = qobject_cast<QMenu *>(window.guiFactory()->container(menuName, &window));
+            QVERIFY(menu);
+            for (const QString &name : names) {
+                QAction *found = action(name);
+                QVERIFY2(found && menu->actions().contains(found), qPrintable(name));
+                QVERIFY2(found->shortcuts().isEmpty() && KActionCollection::defaultShortcuts(found).isEmpty(), qPrintable(name));
+                QVERIFY(KActionCollection::isShortcutsConfigurable(found));
+            }
+        }
+        QCOMPARE(action(QStringLiteral("next_tab"))->shortcuts(), QList<QKeySequence>{QKeySequence(Qt::CTRL | Qt::Key_Tab)});
+
+        // Focus First Pane and Focus Second Pane make a pane active and focus its view.
+        action(QStringLiteral("focus_second_pane"))->trigger();
+        QCOMPARE(window.activePane(), right);
+        QTRY_COMPARE(QApplication::focusWidget(), right->view()->currentView());
+        action(QStringLiteral("focus_first_pane"))->trigger();
+        QCOMPARE(window.activePane(), left);
+        QTRY_COMPARE(QApplication::focusWidget(), left->view()->currentView());
+
+        // Invert Selection and Deselect All change the active pane's selection.
+        FolderView *view = left->view();
+        const QUrl file = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a/file.txt")));
+        view->selectUrls({file});
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+        action(QStringLiteral("invert_selection"))->trigger();
+        QCOMPARE(view->selectedItems().size(), 1);
+        QCOMPARE(view->selectedItems().constFirst().name(), QStringLiteral("sub"));
+        action(QStringLiteral("invert_selection"))->trigger();
+        QCOMPARE(view->selectedItems().size(), 1);
+        QCOMPARE(view->selectedItems().constFirst().url(), file);
+        action(QStringLiteral("edit_select_all"))->trigger();
+        QCOMPARE(view->selectedItems().size(), 2);
+        action(QStringLiteral("deselect_all"))->trigger();
+        QVERIFY(view->selectedItems().isEmpty());
+
+        // Clear Filter shows every item again and closes the filter bar.
+        auto *filterBar = left->findChild<FilterBar *>();
+        QVERIFY(filterBar);
+        action(QStringLiteral("show_filter_bar"))->trigger();
+        filterBar->setFilter(NameFilter(QStringLiteral("file"), NameFilter::Scope::FilesAndFolders));
+        QTRY_COMPARE(view->itemCount(), 1);
+        action(QStringLiteral("clear_filter"))->trigger();
+        QVERIFY(filterBar->isHidden());
+        QVERIFY(filterBar->filter().isEmpty());
+        QTRY_COMPARE(view->itemCount(), 2);
+        QTRY_COMPARE(QApplication::focusWidget(), view->currentView());
+
+        // Focus Preview Panel moves the focus into the shown preview, and back to the pane.
+        auto *panel = window.findChild<PreviewPanel *>(QStringLiteral("previewPanel"));
+        QVERIFY(panel);
+        view->selectUrls({file});
+        action(QStringLiteral("focus_preview_panel"))->trigger();
+        QVERIFY(action(QStringLiteral("show_preview_panel"))->isChecked());
+        auto *text = panel->findChild<QPlainTextEdit *>(QStringLiteral("previewText"));
+        QVERIFY(text);
+        QTRY_COMPARE(text->toPlainText(), QStringLiteral("hello"));
+        action(QStringLiteral("focus_preview_panel"))->trigger();
+        if (!panel->isAncestorOf(QApplication::focusWidget())) {
+            // The first time, the text may not have been shown yet.
+            action(QStringLiteral("focus_preview_panel"))->trigger();
+        }
+        QTRY_COMPARE(QApplication::focusWidget(), text);
+        action(QStringLiteral("focus_preview_panel"))->trigger();
+        QTRY_COMPARE(QApplication::focusWidget(), window.activePane()->view()->currentView());
+        action(QStringLiteral("show_preview_panel"))->trigger();
+
+        // Focus Embedded Terminal shows the terminal, and gives the focus to its session and back.
+        auto *terminal = window.findChild<TerminalPanel *>();
+        QVERIFY(terminal);
+        action(QStringLiteral("focus_terminal"))->trigger();
+        QVERIFY(action(QStringLiteral("show_embedded_terminal"))->isChecked());
+        QVERIFY(terminal->isVisible());
+        if (terminal->hasSessions()) {
+            QTRY_VERIFY(terminal->hasKeyboardFocus());
+            action(QStringLiteral("focus_terminal"))->trigger();
+            QTRY_COMPARE(QApplication::focusWidget(), window.activePane()->view()->currentView());
+        }
+        action(QStringLiteral("show_embedded_terminal"))->setChecked(false);
+
+        // With the extra keys on, none conflicts, none is a key text fields or lists keep and no Yazi mode preset takes one.
+        Settings::setExtraNavigationShortcuts(true);
+        Settings::self()->save();
+        window.applySettings();
+        QList<YaziMode::ActionShortcuts> extras;
+        for (const NavigationShortcuts::Action &navigation : NavigationShortcuts::actions()) {
+            QAction *found = action(navigation.name);
+            QVERIFY2(found, qPrintable(navigation.name));
+            if (!navigation.extra.isEmpty()) {
+                QVERIFY2(found->shortcuts().contains(navigation.extra), qPrintable(navigation.name));
+                QVERIFY(KActionCollection::defaultShortcuts(found).contains(navigation.extra));
+                extras.append({navigation.name, found->text(), {navigation.extra}});
+            }
+        }
+        QCOMPARE(extras.size(), 8);
+        QCOMPARE(action(QStringLiteral("next_tab"))->shortcuts(),
+                 (QList<QKeySequence>{QKeySequence(Qt::CTRL | Qt::Key_Tab), QKeySequence(Qt::CTRL | Qt::Key_PageDown)}));
+        const WindowShortcuts::Bindings bindings = WindowShortcuts::bindings(&window);
+        const QList<KeyBindings::Conflict> conflicts = KeyBindings::conflicts(bindings.bindings);
+        QVERIFY2(conflicts.isEmpty(), qPrintable(conflicts.isEmpty() ? QString() : KeyBindings::conflictText(conflicts.constFirst(), bindings.bindings)));
+        // Global shortcuts are KGlobalAccel's, which earlier tests may have changed.
+        for (int index : KeyBindings::customized(bindings.bindings)) {
+            QVERIFY2(bindings.bindings.at(index).global, qPrintable(bindings.bindings.at(index).name));
+        }
+        for (YaziMode::Preset preset : {YaziMode::Preset::Standard, YaziMode::Preset::Vim}) {
+            QVERIFY(YaziMode::shadowedShortcuts(YaziMode::presetKeymap(preset), extras).isEmpty());
+        }
+        // Nothing is stored for actions with their defaults.
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        const KConfigGroup stored = KSharedConfig::openConfig()->group(QLatin1String(ShortcutStorage::Group));
+        QVERIFY(!stored.hasKey("next_tab"));
+        QVERIFY(!stored.hasKey("focus_terminal"));
+        // The keys run their actions.
+        QTest::keyClick(left->view()->currentView(), Qt::Key_2, Qt::AltModifier);
+        QTRY_COMPARE(window.activePane(), right);
+        QTest::keyClick(right->view()->currentView(), Qt::Key_1, Qt::AltModifier);
+        QTRY_COMPARE(window.activePane(), left);
+        // The keyboard map lists them.
+        bool mapped = false;
+        for (const KeyboardMap::Entry &entry : KeyboardMapDialog::entries(&window)) {
+            mapped = mapped || (entry.name == QStringLiteral("focus_terminal") && entry.shortcuts.contains(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F4)));
+        }
+        QVERIFY(mapped);
+
+        // Activate Last Tab.
+        action(QStringLiteral("new_tab"))->trigger();
+        action(QStringLiteral("new_tab"))->trigger();
+        TabModel *tabs = window.activePane()->tabs();
+        QVERIFY(tabs->count() >= 3);
+        tabs->setCurrentIndex(0);
+        action(QStringLiteral("activate_last_tab"))->trigger();
+        QCOMPARE(tabs->currentIndex(), tabs->count() - 1);
+
+        // Turning the setting off takes the extra keys away again.
+        Settings::setExtraNavigationShortcuts(false);
+        Settings::self()->save();
+        window.applySettings();
+        QVERIFY(action(QStringLiteral("focus_terminal"))->shortcuts().isEmpty());
+        QVERIFY(KActionCollection::defaultShortcuts(action(QStringLiteral("focus_terminal"))).isEmpty());
+        QCOMPARE(action(QStringLiteral("next_tab"))->shortcuts(), QList<QKeySequence>{QKeySequence(Qt::CTRL | Qt::Key_Tab)});
+
+        // Rebuilding the menus, as Configure Toolbars does, keeps them once they are on again.
+        Settings::setExtraNavigationShortcuts(true);
+        Settings::self()->save();
+        window.applySettings();
+        window.guiFactory()->removeClient(&window);
+        window.setXMLGUIBuildDocument(QDomDocument());
+        window.guiFactory()->addClient(&window);
+        QVERIFY(action(QStringLiteral("next_tab"))->shortcuts().contains(QKeySequence(Qt::CTRL | Qt::Key_PageDown)));
+        QVERIFY(action(QStringLiteral("focus_terminal"))->shortcuts().contains(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F4)));
+        Settings::setExtraNavigationShortcuts(false);
+        Settings::self()->save();
     }
 
     void yaziModeIsDiscoverableWithoutShortcuts()
@@ -3550,6 +4580,77 @@ private Q_SLOTS:
         QTRY_VERIFY(gallery.isNull());
     }
 
+    void textFieldsAndListsKeepTheirKeys()
+    {
+        const bool tabSwitched = Settings::tabSwitchesPanes();
+        const auto restore = qScopeGuard([tabSwitched] {
+            Settings::setTabSwitchesPanes(tabSwitched);
+        });
+        Settings::setTabSwitchesPanes(true);
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a"))), QUrl::fromLocalFile(m_root.filePath(QStringLiteral("b")))});
+        window.applySettings();
+        window.show();
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        auto *probe = new QAction(&window);
+        probe->setShortcuts({QKeySequence(Qt::Key_Down), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_J)});
+        window.addAction(probe);
+        QSignalSpy probed(probe, &QAction::triggered);
+        QSignalSpy switched(window.actionCollection()->action(QStringLiteral("switch_pane")), &QAction::triggered);
+
+        // A file view keeps the arrow keys, but other shortcuts and Tab still work there.
+        Pane *pane = window.activePane();
+        QAbstractItemView *items = pane->view()->currentView();
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        QCOMPARE(ShortcutGuard::focusContext(items), std::optional(KeyBindings::Context::FileView));
+        QTest::keyClick(items, Qt::Key_Down);
+        QCOMPARE(probed.count(), 0);
+        QTest::keyClick(items, Qt::Key_J, Qt::ControlModifier | Qt::AltModifier);
+        QCOMPARE(probed.count(), 1);
+
+        // A text field keeps its typing keys and Tab, but other shortcuts still work there.
+        pane->editUrl();
+        QWidget *field = QApplication::focusWidget();
+        QVERIFY(field);
+        QCOMPARE(ShortcutGuard::focusContext(field), std::optional(KeyBindings::Context::TextInput));
+        QTest::keyClick(field, Qt::Key_Down);
+        QCOMPARE(probed.count(), 1);
+        QTest::keyClick(field, Qt::Key_J, Qt::ControlModifier | Qt::AltModifier);
+        QCOMPARE(probed.count(), 2);
+        QTest::keyClick(field, Qt::Key_Tab);
+        QCOMPARE(switched.count(), 0);
+
+        // So does the folder tree, while widgets that take no text or keys are left alone.
+        auto *tree = window.findChild<FolderTree *>();
+        QVERIFY(tree);
+        auto *treeView = tree->findChild<QTreeView *>();
+        QVERIFY(treeView);
+        QCOMPARE(ShortcutGuard::focusContext(treeView), std::optional(KeyBindings::Context::FolderTree));
+        QCOMPARE(ShortcutGuard::focusContext(window.findChild<QTabBar *>()), std::nullopt);
+        QLineEdit readOnly;
+        readOnly.setReadOnly(true);
+        QCOMPARE(ShortcutGuard::focusContext(&readOnly), std::nullopt);
+        QComboBox choices;
+        QCOMPARE(ShortcutGuard::focusContext(&choices), std::nullopt);
+    }
+
+    void galleryKeysFollowTheirTable()
+    {
+        GalleryWindow gallery({}, {}, 0);
+        const QList<KeyBindings::Binding> bindings = GalleryWindow::keyBindings();
+        QCOMPARE(gallery.findChildren<QShortcut *>().size(), bindings.size());
+        for (const KeyBindings::Binding &binding : bindings) {
+            auto *shortcut = gallery.findChild<QShortcut *>(binding.name);
+            QVERIFY2(shortcut, qPrintable(binding.name));
+            QCOMPARE(shortcut->keys(), binding.shortcuts);
+            QCOMPARE(binding.defaults, binding.shortcuts);
+            QCOMPARE(binding.context, KeyBindings::Context::Viewer);
+            QVERIFY(!binding.text.isEmpty());
+        }
+    }
+
     void opensCustomCommandForLocalFolder()
     {
         QTemporaryDir root;
@@ -3962,6 +5063,8 @@ private Q_SLOTS:
                                      QStringLiteral("Confirmations"),
                                      QStringLiteral("StatusBar"),
                                      QStringLiteral("Views"),
+                                     QStringLiteral("Shortcuts"),
+                                     QStringLiteral("Keyboard"),
                                      QStringLiteral("ContextMenu")}) {
             KSharedConfig::openConfig()->deleteGroup(group);
         }

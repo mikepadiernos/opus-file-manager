@@ -125,6 +125,54 @@
     <entry name="RestoreHistorySelection" type="Bool"><default>true</default></entry>
     <entry name="RestoreHistoryScroll" type="Bool"><default>true</default></entry>
   </group>
+  <group name="Keyboard">
+    <entry name="ExtraNavigationShortcuts" type="Bool">
+      <label>Give the pane, tab, selection, preview and terminal navigation actions extra default shortcuts that no other action uses</label>
+      <default>false</default>
+    </entry>
+    <entry name="VimNavigation" type="Bool">
+      <label>Move through the file views of panes that aren't in Yazi mode with Vim-style keys, such as j, k, gg and /</label>
+      <default>false</default>
+    </entry>
+    <entry name="CommandPaletteSavedCommands" type="Bool">
+      <label>List saved commands in the command palette; choosing one opens its preview rather than running it</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShortcutHints" type="Bool">
+      <label>While a key sequence waits for its next key, show a popup that lists the keys that can follow it</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShortcutHintDelay" type="Int">
+      <label>How long a key sequence waits before its shortcut hints show, in milliseconds</label>
+      <default>500</default>
+      <min>0</min>
+      <max>5000</max>
+    </entry>
+    <entry name="KeySequenceTimeout" type="Int">
+      <label>How long a partly typed key sequence waits for its next key before it is cancelled, in milliseconds; 0 waits until Escape or another key</label>
+      <default>1000</default>
+      <min>0</min>
+      <max>10000</max>
+    </entry>
+    <entry name="KeyboardHintKeys" type="Enum">
+      <label>Keyboard layout whose home-row keys label the targets of keyboard hints</label>
+      <choices>
+        <choice name="Qwerty"/>
+        <choice name="Azerty"/>
+        <choice name="Dvorak"/>
+        <choice name="Colemak"/>
+      </choices>
+      <default>Qwerty</default>
+    </entry>
+    <entry name="KeyboardHintItemAction" type="Enum">
+      <label>What typing the label of a file or folder does; holding Shift on the last key does the other</label>
+      <choices>
+        <choice name="Select"/>
+        <choice name="Open"/>
+      </choices>
+      <default>Select</default>
+    </entry>
+  </group>
   <group name="FolderSizes">
     <entry name="AutomaticLocalFolderSizes" key="AutomaticLocal" type="Bool"><default>false</default></entry>
     <entry name="AutomaticRemoteFolderSizes" key="AutomaticRemote" type="Bool"><default>false</default></entry>

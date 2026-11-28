@@ -37,13 +37,13 @@
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. Since then, `main` has gained M15–M30: workspaces
+> released after M14. Since then, `main` has gained M15–M31: workspaces
 > (M15–M16), themes (M17–M18), branding (M19–M20), advanced search (M21–M22),
 > native tagging (M23–M24), Yazi mode (M25–M26), desktop integrations
 > (M27–M28) and Nextcloud integration (M29–M30), each followed by a settings
-> milestone. Features marked with a milestone badge below are on `main` but not
-> in v0.2.0. See the [roadmap](docs/ROADMAP.md#at-a-glance) for status and the
-> planned M31–M32.
+> milestone, and keyboard shortcut settings (M31). Features marked with a
+> milestone badge below are on `main` but not in v0.2.0. See the
+> [roadmap](docs/ROADMAP.md#at-a-glance) for status and the planned M32.
 
 ## Features
 
@@ -143,6 +143,34 @@ preview. Both behaviours can be changed in Preferences.
   optional startup presentation that never blocks use.
 - **Languages:** translation catalogues, right-to-left layouts, Jalali dates
   and regional format overrides; see the [translation guide](po/README.md).
+- **Keyboard**
+  [![M31](https://img.shields.io/badge/M31-8957e5?style=flat-square)](docs/ROADMAP.md#m31-keyboard-shortcut-settings):
+  change any action's [shortcuts](docs/keyboard.md), including key sequences,
+  in KDE's shortcut editor. **Preferences › Keyboard** lists the changed and
+  conflicting shortcuts, resets them to the defaults and shows the search,
+  Yazi mode and global keys. Text fields and lists keep their typing and
+  navigation keys. Shortcuts are stored in the configuration file and shared
+  by every window, and the global shortcuts' status says when KDE refused a
+  key or the session can't pass keys on. Saved commands can have shortcuts,
+  and an action can have more than one alternate. **Help › Keyboard Map…**
+  finds any action by name or by pressing its keys and exports a printable
+  reference. Actions move the focus between panes, tabs and panels and change
+  the selection or filter, with optional extra keys that never take a key
+  already in use. Shortcuts export to a keymap file, and importing one shows
+  the changes and conflicts before applying them. **Help › Command Palette…**
+  finds menu, toolbar and saved command actions by name and runs them in the
+  active pane, with recently used actions first. Optional Vim-style keys, such
+  as `j`, `k`, `gg` and counts, move through the file views outside Yazi mode
+  without taking keys from typing. Each pane then shows its mode, NORMAL,
+  FILTER or INSERT; `/` or `i` filters, and Escape returns to the items.
+  While a key sequence waits for its next key, a which-key style popup lists
+  what can follow it, grouped with what each key does, without taking the
+  focus. The **Hints** tab in **Preferences › Keyboard** turns the popup on or
+  off and sets its delay and how long an unfinished sequence waits, and
+  **Help › Shortcut Hints** shows the keys for the focused part of the window
+  on demand. **Go › Keyboard Hints** labels the visible files, location
+  segments, tabs and places with short home-row keys, and typing a label
+  selects, opens or switches to it.
 
 ## Screenshots
 

@@ -431,6 +431,34 @@ private Q_SLOTS:
         QVERIFY(view->currentView()->hasFocus());
     }
 
+    void escapeCanKeepTheFilter()
+    {
+        FilterBar bar;
+        QVERIFY(!bar.escapeKeepsFilter());
+        bar.setEscapeKeepsFilter(true);
+        QVERIFY(bar.escapeKeepsFilter());
+        bar.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&bar));
+        QSignalSpy closed(&bar, &FilterBar::closed);
+        QSignalSpy left(&bar, &FilterBar::leaveRequested);
+        auto *text = bar.findChild<QLineEdit *>();
+        QTest::keyClicks(text, QStringLiteral("*.jpg"));
+
+        // With text, Escape keeps the filter and only asks to leave the bar.
+        QTest::keyClick(text, Qt::Key_Escape);
+        QCOMPARE(left.count(), 1);
+        QCOMPARE(closed.count(), 0);
+        QCOMPARE(bar.filter().text(), QStringLiteral("*.jpg"));
+        QVERIFY(bar.isVisible());
+
+        // Without text, it closes the bar as usual.
+        text->clear();
+        QTest::keyClick(text, Qt::Key_Escape);
+        QCOMPARE(left.count(), 1);
+        QCOMPARE(closed.count(), 1);
+        QVERIFY(!bar.isVisible());
+    }
+
     void enterOpensTheFirstMatch()
     {
         MainWindow window;

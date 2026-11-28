@@ -93,12 +93,26 @@ void FilterBar::close()
     Q_EMIT closed();
 }
 
+void FilterBar::setEscapeKeepsFilter(bool keep)
+{
+    m_escapeKeepsFilter = keep;
+}
+
+bool FilterBar::escapeKeepsFilter() const
+{
+    return m_escapeKeepsFilter;
+}
+
 bool FilterBar::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == m_text && event->type() == QEvent::KeyPress) {
         const int key = static_cast<QKeyEvent *>(event)->key();
         if (key == Qt::Key_Escape) {
-            close();
+            if (m_escapeKeepsFilter && !m_text->text().isEmpty()) {
+                Q_EMIT leaveRequested();
+            } else {
+                close();
+            }
             return true;
         }
         if (key == Qt::Key_Return || key == Qt::Key_Enter) {

@@ -1315,26 +1315,13 @@ private Q_SLOTS:
         for (int row = 0; row < pages->rowCount(); ++row) {
             titles.append(pages->index(row, 0).data().toString());
         }
-        QCOMPARE(titles, QStringList({QStringLiteral("General"),
-                                      QStringLiteral("Translation"),
-                                      QStringLiteral("Backup"),
-                                      QStringLiteral("Interface"),
-                                      QStringLiteral("Themes"),
-                                      QStringLiteral("Branding"),
-                                      QStringLiteral("View"),
-                                      QStringLiteral("Yazi Mode"),
-                                      QStringLiteral("Context Menu"),
-                                      QStringLiteral("Archives"),
-                                      QStringLiteral("Files"),
-                                      QStringLiteral("Tagging"),
-                                      QStringLiteral("Workspaces"),
-                                      QStringLiteral("Gallery"),
-                                      QStringLiteral("Editor"),
-                                      QStringLiteral("Tools"),
-                                      QStringLiteral("KDE Plasma"),
-                                      QStringLiteral("Applications"),
-                                      QStringLiteral("Remote and Cloud"),
-                                      QStringLiteral("Security")}));
+        QCOMPARE(titles,
+                 QStringList({QStringLiteral("General"),  QStringLiteral("Translation"),  QStringLiteral("Backup"),       QStringLiteral("Interface"),
+                              QStringLiteral("Themes"),   QStringLiteral("Branding"),     QStringLiteral("View"),         QStringLiteral("Yazi Mode"),
+                              QStringLiteral("Keyboard"), QStringLiteral("Context Menu"), QStringLiteral("Archives"),     QStringLiteral("Files"),
+                              QStringLiteral("Tagging"),  QStringLiteral("Workspaces"),   QStringLiteral("Gallery"),      QStringLiteral("Editor"),
+                              QStringLiteral("Tools"),    QStringLiteral("KDE Plasma"),   QStringLiteral("Applications"), QStringLiteral("Remote and Cloud"),
+                              QStringLiteral("Security")}));
 
         const auto tabOf = [&dialog](const QString &entry) {
             return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));

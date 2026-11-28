@@ -23,6 +23,8 @@ add_library(opusfm_app STATIC
     cloudsyncdialog.h
     combinedpanel.cpp
     combinedpanel.h
+    commandpalettebar.cpp
+    commandpalettebar.h
     compressdialog.cpp
     compressdialog.h
     contentheight.cpp
@@ -111,6 +113,13 @@ add_library(opusfm_app STATIC
     informationpanel.cpp
     informationpanel.h
     integrationsettingspages.cpp
+    keyboardhintoverlay.cpp
+    keyboardhintoverlay.h
+    keyboardmapdialog.cpp
+    keyboardmapdialog.h
+    keyboardsettingspages.cpp
+    keymapimportdialog.cpp
+    keymapimportdialog.h
     librarymovetracker.cpp
     librarymovetracker.h
     libraryautorefresh.cpp
@@ -175,6 +184,12 @@ add_library(opusfm_app STATIC
     settingsdialog.h
     settingswidgets.cpp
     settingswidgets.h
+    shortcutguard.cpp
+    shortcutguard.h
+    shortcuthintpopup.cpp
+    shortcuthintpopup.h
+    shortcutreference.cpp
+    shortcutreference.h
     startuppresentation.cpp
     startuppresentation.h
     symbolicactionicons.cpp
@@ -207,6 +222,10 @@ add_library(opusfm_app STATIC
     treelines.h
     windoweffects.cpp
     windoweffects.h
+    windowsequencehints.cpp
+    windowsequencehints.h
+    windowshortcuts.cpp
+    windowshortcuts.h
     workspacedialog.cpp
     workspacedialog.h
     workspaceappearanceeditor.cpp

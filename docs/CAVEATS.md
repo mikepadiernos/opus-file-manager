@@ -56,6 +56,7 @@ are in [reported bugs](BUGS.md), and untested scenarios in
   [integration settings](#integration-settings),
   [Nextcloud integration](#nextcloud-integration),
   [Nextcloud settings](#nextcloud-settings),
+  [keyboard shortcuts](#keyboard-shortcuts),
   [embedded terminal](#embedded-terminal),
   [settings backups](#settings-backups),
   [build and installation](#build-installation-and-references),
@@ -872,9 +873,13 @@ have these limits
   search; its new interface and criteria do not by themselves remove current
   backend limits.
   [M31 keyboard shortcut settings](ROADMAP.md#m31-keyboard-shortcut-settings)
-  plans configurable shortcuts
-  ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230)), which
-  could include focusing the search field and panel.
+  lists the Search shortcut and pressing <kbd>Shift</kbd> twice on
+  **Preferences › Keyboard › Shortcuts**
+  ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230)) and in
+  **Help › Keyboard Map…**
+  ([#232](https://github.com/mikepadiernos/plasma-opus/issues/232)); **Show
+  Search Panel**, which focuses the panel's query, can be given a shortcut in
+  Configure Keyboard Shortcuts.
   [M15 workspaces](ROADMAP.md#m15-workspaces)
   plan search scoping, not a security boundary.
   - Comment: [#362.7023269364][comment-362]
@@ -2842,7 +2847,8 @@ The M28 integration settings have these limits
   tab then says that no key is assigned. Without KDE's global shortcut
   service, as outside Plasma, the shortcut does nothing and the tab says
   so. The tab checks the chosen key only against other global and standard
-  shortcuts, not against Plasma Opus's own window shortcuts. The container
+  shortcuts, not against Plasma Opus's own window shortcuts; **Preferences ›
+  Keyboard › Shortcuts** lists those conflicts. The container
   has no global shortcut service
   ([Plasma check](TODO.md#global-shortcut-on-plasma-291)).
   ([#291](https://github.com/mikepadiernos/plasma-opus/issues/291))
@@ -4151,6 +4157,395 @@ The M30 Nextcloud settings have these limits
   - Apply the Photos settings to open windows, offer **New Album…** while
     your albums are hidden, and read each album's sharing from the server to
     confirm changes to every shared album.
+
+## Keyboard shortcuts
+
+The M31 keyboard shortcut settings have these limits
+([#771](https://github.com/mikepadiernos/plasma-opus/issues/771)):
+
+- **🎹 Shortcut settings:** **Preferences › Keyboard › Shortcuts** summarizes
+  the window's shortcuts; KDE's **Configure Keyboard Shortcuts…** still edits
+  them, and the tab only lists, resets, imports and exports them. It needs
+  Preferences opened from a main window and sees shortcut edits once they
+  are saved. Pressing
+  <kbd>Shift</kbd> twice, the keys of the Yazi mode presets and the gallery's
+  keys aren't listed or editable there, though **Help › Keyboard Map…** lists
+  them; the search panel's own keys and the pane toolbars' buttons are in
+  neither. **Reset All Shortcuts…** keeps global shortcuts, which are
+  changed on **Preferences › KDE Plasma** or in System Settings. Global
+  shortcuts appear, and their conflicts with window shortcuts are found, only
+  while KDE's global shortcut service runs; the container has none
+  ([Plasma check](TODO.md#keyboard-shortcuts-on-plasma-230)).
+  ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230))
+- **🎯 Shortcut contexts:** Every action in **Configure Keyboard Shortcuts…**
+  applies to the whole window; it can't be limited to the file views, the
+  folder tree or the gallery. Instead, the focused text field keeps a fixed
+  list of typing and editing keys, including <kbd>Tab</kbd>, and lists and
+  the folder tree keep the arrow keys, <kbd>Home</kbd>, <kbd>End</kbd>,
+  <kbd>Page Up</kbd> and <kbd>Page Down</kbd>. That list follows KDE's
+  standard editing keys, not a changed key scheme or the field's own extra
+  keys, and only a shortcut's first key is checked. Default shortcuts such as
+  <kbd>Space</kbd>, <kbd>Backspace</kbd> and <kbd>Delete</kbd> still run in
+  file views and aren't reported. <kbd>Escape</kbd>, <kbd>F10</kbd> and
+  <kbd>Menu</kbd> given to an action are reported but not kept back.
+  Read-only text, combo boxes without a text field and the embedded terminal
+  are left alone; the terminal keeps whichever keys it chooses. The gallery's
+  keys are fixed. Keyboard layouts other than the container's are unverified
+  ([Plasma check](TODO.md#shortcut-contexts-on-plasma-233)).
+  ([#233](https://github.com/mikepadiernos/plasma-opus/issues/233))
+- **💾 Shortcut storage:** Window shortcuts are kept in the `Shortcuts`
+  group of `opus-file-managerrc`. Only shortcuts of the current KDE shortcut
+  scheme are moved there from the layout file KDE's editor writes; other
+  schemes aren't supported. An older Plasma Opus reads only the layout file,
+  so it starts with the default shortcuts after a downgrade. When something
+  else, such as an older version, writes shortcuts into the layout file
+  again, they are moved at the next start and replace the stored ones. The
+  Vim-style navigation keys are fixed, so only whether they are on is
+  stored. Global shortcuts depend on KDE's
+  global shortcut service; whether a Wayland desktop other than Plasma passes
+  keys to it is guessed from `XDG_CURRENT_DESKTOP`, and a key KDE refuses is
+  reported only after **Apply**. Neither can be checked in the container
+  ([Plasma check](TODO.md#shortcut-storage-on-plasma-238)).
+  ([#238](https://github.com/mikepadiernos/plasma-opus/issues/238))
+- **🔀 Alternates and commands:** **Configure Keyboard Shortcuts…** shows
+  and changes only an action's first two shortcuts; further alternates can
+  be added only in the `Shortcuts` group of `opus-file-managerrc`, and
+  **Preferences › Keyboard › Shortcuts** lists them. Saved commands are
+  listed as **Saved Command:** and a name; a shortcut is kept with the
+  command's name, so renaming a command loses it, and another open window
+  lists a command saved elsewhere only when its own commands next change.
+  The entries of **Open Terminal With**, **Edit With**, **Open With**,
+  service menus and other submenus can't have shortcuts, nor can the pane
+  toolbars' buttons. Real keyboards in Plasma are unverified
+  ([Plasma check](TODO.md#alternate-and-command-shortcuts-on-plasma-231)).
+  ([#231](https://github.com/mikepadiernos/plasma-opus/issues/231))
+- **📇 Keyboard map:** **Help › Keyboard Map…** only shows keys; KDE's
+  **Configure Keyboard Shortcuts…** still changes them. It lists the window's
+  actions, pressing <kbd>Shift</kbd> twice, the gallery's keys, the chosen
+  Yazi mode preset and the global shortcuts KDE has registered, but not the
+  search panel's own keys, the keys text fields and lists keep, the embedded
+  terminal's or dialogs' keys, or the pane toolbars' buttons. The Yazi mode
+  keys are listed whether or not a pane uses Yazi mode. Descriptions are the
+  actions' tooltips, so many actions have none. **Find by key** records keys
+  only once it is clicked, and can't record <kbd>Shift</kbd> alone, so
+  pressing <kbd>Shift</kbd> twice is found only by typing it; keys the
+  desktop takes first, such as global shortcuts, may never reach it. The
+  reference is exported only as an HTML page or an A4 PDF of the listed
+  actions, without a print dialog or a choice of page size. Real keyboards,
+  layouts and the Help menu on Plasma are unverified
+  ([Plasma check](TODO.md#keyboard-map-on-plasma-232)).
+  ([#232](https://github.com/mikepadiernos/plasma-opus/issues/232))
+- **🕹️ Navigation shortcuts:** The actions added for moving between panes,
+  tabs and panels, changing the selection and clearing the filter have no
+  shortcut by default, and the extra keys on **Preferences › Keyboard ›
+  Navigation** are off. When they are on, a key is left out only if another
+  window action or a global shortcut Plasma Opus registered has it; KWin's,
+  Plasma's and other applications' global shortcuts aren't checked, so the
+  desktop may still take one first. While the embedded terminal has the
+  focus, it keeps keys with a single modifier, so <kbd>Alt</kbd>+<kbd>1</kbd>,
+  <kbd>Alt</kbd>+<kbd>2</kbd>, <kbd>Ctrl</kbd>+<kbd>Page Up</kbd> and
+  <kbd>Ctrl</kbd>+<kbd>Page Down</kbd> don't leave it.
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> follows KDE's standard
+  **Deselect**, whereas Dolphin uses it for **Invert Selection**. **Invert
+  Selection** changes only the items shown, so in the details view it skips
+  the contents of collapsed folders. **Focus Preview Panel** only says so in
+  the status bar when the panel has nothing that takes the focus. When KDE's
+  editor gives an extra key to another action, the extra key is dropped until
+  it is free again. Real keyboards, layouts and the desktop's keys on Plasma
+  are unverified
+  ([Plasma check](TODO.md#navigation-shortcuts-on-plasma-236)).
+  ([#236](https://github.com/mikepadiernos/plasma-opus/issues/236))
+- **🧾 Keymap files:** **Import…** and **Export…** on **Preferences ›
+  Keyboard › Shortcuts** read and write only Plasma Opus keymap files, not
+  the shortcut scheme files of KDE's editor or Plasma Impresario's keymaps.
+  An export lists only the actions whose shortcuts differ from their
+  defaults, with the saved keyboard settings, and leaves out global
+  shortcuts, so importing it keeps the other customized shortcuts unless
+  **Give actions that the file doesn't list their default shortcuts** is
+  chosen. A saved command's shortcut is matched by a hash of the command's
+  name, so it is imported only where a command of the same name is saved;
+  others are listed under **Not Imported**. Imported shortcuts are saved
+  at once and can't be undone, whereas the file's keyboard settings wait for
+  **Apply** or **OK** in Preferences and are lost on **Cancel**. The preview
+  works out the extra navigation keys from the current setting; when the
+  file also changes it, the extra keys are added, only where free, or
+  removed after **Apply**, and the preview doesn't list them. The file
+  dialogs and other open windows on Plasma are unverified
+  ([Plasma check](TODO.md#keymap-files-on-plasma-237)).
+  ([#237](https://github.com/mikepadiernos/plasma-opus/issues/237))
+- **🪄 Command palette:** **Help › Command Palette…** searches only the
+  menu bar's menus, the window's toolbars and the saved commands; actions
+  that have only a shortcut, the pane toolbars' buttons, context menus,
+  service menus, the gallery and Yazi mode keys aren't listed. Menus are read
+  as they are when it opens: a menu that fills itself only as it is shown is
+  filled when empty, but one with old entries may show them until it is
+  opened. Only an action's first shortcut is shown. The recently used
+  actions are KDE's: the last six are kept by their names in the `General`
+  group of `opus-file-managerstaterc`, so renaming an action, a saved
+  command or a language change loses them, actions of the same name share
+  an entry, and they come first only until you type. KDE also adds **Command
+  Bar: Clear History** to the list. Saved commands open in **Scripts and
+  Custom Commands** instead of running. Whether the embedded terminal passes
+  <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd> on, other keyboard layouts,
+  the palette's look and the screen reader on Plasma are unverified
+  ([Plasma check](TODO.md#command-palette-on-plasma-761)).
+  ([#761](https://github.com/mikepadiernos/plasma-opus/issues/761))
+- **🐇 Vim-style navigation:** **Preferences › Keyboard › Vim Mode** and
+  **View › Vim-Style Navigation** turn on a fixed set of Vim-style keys, off
+  by default, in the file views of panes outside Yazi mode. The keys can't
+  be changed or added to, a count only repeats movements, and there are no
+  marks, registers, visual selection, operators such as `dd` or `:`
+  commands. The folder tree, the places panel, the search panel and other
+  lists don't use the keys, and a pane in Yazi mode uses its own preset.
+  While the keys are on, their letters and the digits 1 to 9 no longer find
+  items by their first characters, though other letters still do, and
+  capital letters follow <kbd>Shift</kbd>, so <kbd>Caps Lock</kbd> changes
+  them. Plain keys take over a window shortcut that uses them while a file
+  view has the focus, whereas keys with <kbd>Ctrl</kbd>, <kbd>Alt</kbd> or
+  <kbd>Meta</kbd> give way, so with the default shortcuts
+  <kbd>Ctrl</kbd>+<kbd>D</kbd> stays **Add to Favorites**. Only the **Vim
+  Mode** tab lists these conflicts, once shortcut edits are saved; the
+  **Shortcuts** tab and the command palette don't include the keys. Input
+  methods that compose text from keys typed in a file view, other keyboard
+  layouts and screen readers on Plasma are unverified
+  ([Plasma check](TODO.md#vim-style-navigation-on-plasma-228)).
+  ([#228](https://github.com/mikepadiernos/plasma-opus/issues/228))
+- **🚦 Vim-style modes:** While the Vim-style keys are on, each pane's
+  indicator shows **NORMAL**, **FILTER** or **INSERT** only for the pane's
+  own widgets: with the focus in the folder tree, another panel, the
+  embedded terminal or a dialog, it shows **NORMAL**, and **INSERT** covers
+  only the pane's text fields, such as the location bar or a rename editor.
+  The modes are fixed: there is no visual or command mode, the indicator
+  shows only the keys a sequence waits after, not the filter's text, and
+  it can't be hidden while the keys are on. <kbd>Escape</kbd> keeps the
+  filter only outside Yazi mode, and can't be set to clear it; press
+  <kbd>\\</kbd> in the items for that. Only the pane being typed in announces
+  a new mode, and moving between panes isn't announced. The indicator's look
+  in Plasma themes and Orca's announcements are unverified
+  ([Plasma check](TODO.md#vim-style-mode-indicator-on-plasma-229)).
+  ([#229](https://github.com/mikepadiernos/plasma-opus/issues/229))
+- **💬 Shortcut hints:** The hint popup lists only what can follow a
+  Vim-style or Yazi mode sequence or count and the first key combinations of
+  window shortcuts of several; it doesn't list the keys text fields, lists,
+  the gallery, the search panel or the embedded terminal keep, or global
+  shortcuts. It floats at the bottom of the active pane, even when the
+  sequence was begun in another panel, and there is no sliding side pane.
+  Qt matches window shortcut sequences without saying that one is pending,
+  so Plasma Opus infers it from the key events it sees: a key combination
+  held until it repeats, or a modifier released before its key in a sequence
+  of three or more, can make the popup list the wrong keys or close early,
+  though Qt still runs the shortcut typed. While a window sequence waits, Qt
+  takes every key, so only scrolling turns the popup's pages; moving the
+  focus ends Qt's sequence through a function Qt exports for its own tests,
+  which a later Qt could change. Window shortcuts are grouped by their menu
+  bar menu and described by their names, so actions in no menu are under
+  **Other actions**. The popup's place, look and motion in Plasma
+  themes and Orca's announcements are unverified
+  ([Plasma check](TODO.md#shortcut-hints-on-plasma-234)).
+  ([#234](https://github.com/mikepadiernos/plasma-opus/issues/234))
+- **⏱️ Hint settings and reference:** **Preferences › Keyboard › Hints**
+  sets one delay and one key sequence timeout for every kind of sequence;
+  they can't differ between the Vim-style keys, Yazi mode and window
+  shortcuts. The timeout now also ends window shortcuts of several key
+  combinations, which Qt alone would keep waiting for: with the hints off, a
+  slow second key combination finds the sequence cancelled, and the key runs
+  on its own. Plasma Opus can time out only the window sequences it
+  infers (see Shortcut hints), and ends Qt's sequence through the same
+  function Qt exports for its tests. A delay as long as the timeout or
+  longer is allowed, with a note, and then no hints show. **Help › Shortcut
+  Hints** has no default shortcut, so it is reached from the Help menu, the
+  command palette or a key you give it. It lists the keys for where the
+  focus is when it opens and doesn't follow the focus; it leaves out the
+  keys text fields, lists, the gallery and the search panel keep and global
+  shortcuts, and works out which Vim-style or Yazi mode keys and window
+  shortcuts win from their first key only. In a file view or the folder
+  tree, the arrow keys turn its pages rather than moving through the items
+  until it closes; elsewhere only scrolling turns them. The tab and the
+  reference on Plasma are unverified
+  ([Plasma check](TODO.md#shortcut-hint-settings-on-plasma-235)).
+  ([#235](https://github.com/mikepadiernos/plasma-opus/issues/235))
+- **🪧 Keyboard hints:** **Go › Keyboard Hints** labels only the active
+  pane's visible files and folders, its location segments and other tabs,
+  and the entries of a **Places** panel docked in the window; a floating
+  Places panel, the folder tree, the other pane, the preview panel, toolbars
+  and menus get no labels. In Yazi mode, only the current column is
+  labelled, not the parent or preview column, and the location bar's
+  segments that KDE folds into its drop-down in a narrow window aren't
+  labelled. Labels are made of the Latin home-row letters of the chosen
+  layout, so with a non-Latin keyboard layout typing a label cancels
+  instead; input methods are turned off while labels show. A file or folder
+  label can only select or open; it can't add to the selection. Any change
+  that could move a target cancels the labels, including a folder that
+  loads more items while they show. A full location segment is opened by
+  sending it <kbd>Enter</kbd>, as KDE's location bar has no public way to
+  activate one. The labels' place over the views, tabs, location bar and
+  **Places** in Plasma themes, input methods, the focus returning on Wayland
+  and Orca's announcements are unverified
+  ([Plasma check](TODO.md#keyboard-hints-on-plasma-762)).
+  ([#762](https://github.com/mikepadiernos/plasma-opus/issues/762))
+
+- **Recommendation:**
+  - **Shortcut settings:** Change shortcuts in **Configure Keyboard
+    Shortcuts…**, then check **Preferences › Keyboard › Shortcuts** for
+    conflicts; give one of the actions in each conflict another shortcut.
+    Prefer key sequences, such as <kbd>Ctrl</kbd>+<kbd>K</kbd>,
+    <kbd>Ctrl</kbd>+<kbd>C</kbd>, to taking a key another action uses, and
+    don't give a single combination that begins one of your sequences to
+    another action. Change global shortcuts where they are configured, and
+    open Preferences from a Plasma Opus window when reviewing shortcuts.
+  - **Shortcut contexts:** Give window actions shortcuts with <kbd>Ctrl</kbd>
+    or <kbd>Alt</kbd>, a function key, or a key sequence, so they work
+    wherever the focus is; plain letters, arrows and editing keys only run
+    them outside text fields and lists. Leave <kbd>Escape</kbd>,
+    <kbd>F10</kbd>, <kbd>Menu</kbd> and <kbd>Tab</kbd> to keyboard
+    navigation, and press <kbd>Escape</kbd> or click a pane before using a
+    plain-key shortcut from a text field.
+  - **Shortcut storage:** Change window shortcuts only in **Configure
+    Keyboard Shortcuts…**, with **Reset All Shortcuts…** or by importing a
+    keymap, keep using the Default shortcut scheme, and copy
+    `opus-file-managerrc` before downgrading. Check the status under each
+    global shortcut after **Apply**, and choose another key when KDE didn't
+    accept one. Outside a Plasma session on Wayland, give the command
+    `opus-file-manager` a key in the desktop's own shortcut settings instead;
+    it shows the running window but doesn't hide it.
+  - **Alternates and commands:** Give a saved command a shortcut in
+    **Configure Keyboard Shortcuts…** under **Saved Command:**, and give it
+    again after renaming the command. For a terminal or editor from a
+    submenu, choose it on **Preferences › Applications › Terminal** or
+    **Editor** and use the shortcut of **Open Terminal Here** or **Edit**, or
+    save a command that starts it. Add more than two shortcuts for an action
+    only in the configuration file, and check them on **Preferences ›
+    Keyboard › Shortcuts**, as KDE's editor doesn't show them.
+  - **Keyboard map:** Before giving a key to an action, look it up in
+    **Help › Keyboard Map…** with **Find by key** to see what it already
+    runs and which sequences it begins. To find an action without a key,
+    clear **Only actions with shortcuts**, then give it one in **Configure
+    Keyboard Shortcuts…**. To print, filter the list to what you need and
+    export a PDF, or export an HTML page and print it from a web browser on
+    any page size. For the keys the map doesn't list, see
+    [Where shortcuts apply](keyboard.md#where-shortcuts-apply).
+  - **Navigation shortcuts:** Turn on the extra keys on **Preferences ›
+    Keyboard › Navigation** and check each one's status there; for an action
+    whose key wasn't added, or to move the focus out of the embedded
+    terminal, give it a key with two modifiers or a key sequence in
+    **Configure Keyboard Shortcuts…**. Look a key up in **Help › Keyboard
+    Map…** before choosing it, and change it if Plasma or KWin takes it
+    first. If you are used to Dolphin, give **Invert Selection**
+    <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> yourself; **Deselect All**
+    then loses its extra key. Expand folders in the details view before
+    inverting the selection if their contents should change too.
+  - **Keymap files:** Export your shortcuts before importing a keymap; to go
+    back, import that file with **Give actions that the file doesn't list
+    their default shortcuts** chosen. Read **Conflicts After Importing** and
+    **Not Imported** before **Apply**, then choose **Apply** or **OK** in
+    Preferences to keep the keyboard settings. Save commands under the same
+    names on both computers before importing their shortcuts, and set global
+    shortcuts where they are configured.
+  - **Command palette:** Use **Help › Command Palette…**, or
+    <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd>, to find and run menu and
+    toolbar actions by name, and give the ones you use often a shortcut in
+    **Configure Keyboard Shortcuts…**. For actions it doesn't list, use the
+    pane's toolbar or context menu, or look the key up in **Help › Keyboard
+    Map…**. If the embedded terminal keeps
+    <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd>, click a pane first or give
+    the palette another key. Turn off **List saved commands** on
+    **Preferences › Keyboard › Command Palette** to keep them out of the
+    list, and use **Clear History** there after renaming actions or changing
+    the language.
+  - **Vim-style navigation:** Before turning the keys on, read the
+    **Conflicts** list on **Preferences › Keyboard › Vim Mode**; give an
+    action whose plain-key shortcut they take a key with <kbd>Ctrl</kbd> or
+    <kbd>Alt</kbd>, and use <kbd>J</kbd> and <kbd>K</kbd> while a window
+    shortcut keeps <kbd>Ctrl</kbd>+<kbd>D</kbd> or
+    <kbd>Ctrl</kbd>+<kbd>U</kbd>. Press <kbd>/</kbd> to filter by name, or
+    turn the keys off with **View › Vim-Style Navigation** to find items by
+    typing. Keep <kbd>Caps Lock</kbd> off and switch an input method to
+    direct input while moving with the keys. For the same keys in a pane in
+    Yazi mode, choose the Yazi-style keys on **Preferences › Yazi Mode ›
+    Keyboard**.
+  - **Vim-style modes:** Check a pane's indicator before typing: press
+    <kbd>/</kbd> or <kbd>i</kbd> to filter, and <kbd>Escape</kbd> to return
+    to the items with the filter kept, then <kbd>\\</kbd> to clear it. When
+    the indicator shows **NORMAL** but keys don't move through the items,
+    click the file view or press <kbd>Escape</kbd> in the field that has the
+    focus. Use the filter bar or **Find by key** in the keyboard map rather
+    than the indicator to see the filter's text or a key's command.
+  - **Shortcut hints:** Pause after the first key of a sequence, such as
+    <kbd>g</kbd> or <kbd>Ctrl</kbd>+<kbd>K</kbd>, to see what can follow it,
+    and press <kbd>Escape</kbd> to cancel it. Turn the popup's pages with
+    <kbd>Page Up</kbd> and <kbd>Page Down</kbd>, or scroll over it while a
+    count or a window shortcut waits. Type window shortcuts of several key
+    combinations without holding keys until they repeat; if the popup lists
+    keys that don't fit, press <kbd>Escape</kbd> and type the shortcut again.
+    For keys the popup doesn't list, use **Help › Keyboard Map…**.
+  - **Hint settings and reference:** On **Preferences › Keyboard › Hints**,
+    keep the hint delay shorter than the key sequence timeout; if you type
+    sequences slowly with the hints off, choose a longer timeout or
+    **Never**, and press <kbd>Escape</kbd> to cancel one. Give **Help ›
+    Shortcut Hints** a key that **Find by key** in **Help › Keyboard Map…**
+    shows is free, or run it from the command palette; press
+    <kbd>Escape</kbd> to close it in a file view, and open it again after
+    moving the focus. For keys it doesn't list, use the keyboard map.
+  - **Keyboard hints:** Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd>,
+    or choose **Go › Keyboard Hints**, from a file view rather than a text
+    field; press <kbd>Escape</kbd> first if the location bar or the filter
+    bar has the focus. Choose your keyboard layout's home row under **Label
+    keys** on **Preferences › Keyboard › Keyboard Hints**, and switch to a
+    Latin keyboard layout before typing a label. Hold <kbd>Shift</kbd> on a
+    label's last key to open the item, or choose **Open it** there if you
+    mostly open. Wait for a large folder to finish loading before showing
+    the labels, and dock the **Places** panel to label its entries. To
+    select several items, type a label, then extend the selection with
+    <kbd>Shift</kbd> and the arrow keys.
+  - Comment:
+    [#771.7231940238](https://github.com/mikepadiernos/plasma-opus/issues/771#issuecomment-7231940238)
+- **Proposed improvements:**
+  - Show the Yazi mode preset keys and the gallery's keys on the tab as well
+    as in the keyboard map, review shortcuts before they are saved, and reset
+    global shortcuts from the tab.
+  - Let an action be limited to the file views, the folder tree or the
+    gallery, read the keys text fields keep from the active key scheme, and
+    let the gallery's keys be changed.
+  - Store the shortcuts of every KDE shortcut scheme, ask KDE's global
+    shortcut service whether a key is free before **Apply**.
+  - Show every alternate in the editor, keep a command's shortcut when it is
+    renamed, and give submenu entries such as each terminal or editor their
+    own actions.
+  - List the search panel's keys and the keys text fields and lists keep in
+    the keyboard map, mark the Yazi mode keys while no pane uses Yazi mode,
+    print through KDE's print dialog, and let **Find by key** take keys as
+    soon as the map opens.
+  - Check KDE's global shortcut service and KWin for clashes before adding
+    an extra navigation key, offer keys the embedded terminal passes on, and
+    let each extra key be turned on or chosen per action.
+  - Read and write KDE's shortcut scheme files, include global shortcuts,
+    undo an import, show the extra navigation keys a changed setting adds in
+    the preview, and agree a shared keymap profile with Plasma Impresario.
+  - List the pane toolbars' buttons, context and service menu entries and
+    shortcut-only actions in the command palette, show every shortcut of an
+    action, keep the recently used actions by action name rather than text,
+    and keep them first among matches while typing.
+  - Let the Vim-style keys be changed and extended, use them in the folder
+    tree and other lists, list them on the **Shortcuts** tab and in the
+    command palette, and add visual selection and operators such as `yy`
+    and `p`.
+  - Add visual and command modes, show the filter's text and the mode in the
+    window's status bar, let the indicator be hidden, and let
+    <kbd>Escape</kbd> in the filter bar be set to clear the filter.
+  - Ask Qt to report pending window shortcut sequences rather than inferring
+    them, let keys turn the popup's pages while one waits, list the keys
+    text fields, lists, the gallery and the search panel keep, and offer the
+    hints as a sliding side pane as well.
+  - Set the delay and timeout per kind of key sequence, let the shortcut
+    reference follow the focus and be searched, turn its pages with keys in
+    text fields and the terminal, and offer a free default key for it if one
+    is found.
+  - Label the other pane, the folder tree, the preview panel, toolbars and
+    floating **Places** panels, and the Yazi mode parent column; let a label
+    add an item to the selection; follow the keyboard layout's own letters,
+    including non-Latin layouts, rather than a fixed list; keep the labels
+    through incremental loading by relabelling; and ask KDE for a public way
+    to activate a location bar segment.
 
 ## Embedded terminal
 

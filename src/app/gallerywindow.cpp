@@ -431,50 +431,57 @@ GalleryWindow::GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, 
             showIndex(m_index + 1);
         }
     });
-    const auto shortcut = [this](const QKeySequence &key, auto callback) {
-        auto *binding = new QShortcut(key, this);
+    const QList<KeyBindings::Binding> bindings = keyBindings();
+    const auto shortcut = [this, &bindings](const QString &name, auto callback) {
+        const auto found = std::find_if(bindings.cbegin(), bindings.cend(), [&name](const KeyBindings::Binding &binding) {
+            return binding.name == name;
+        });
+        Q_ASSERT(found != bindings.cend());
+        auto *binding = new QShortcut(this);
+        binding->setObjectName(name);
+        binding->setKeys(found->shortcuts);
         connect(binding, &QShortcut::activated, this, callback);
     };
-    shortcut(Qt::Key_Left, [this] {
+    shortcut(QStringLiteral("gallery_previous"), [this] {
         showIndex(m_index + (layoutDirection() == Qt::RightToLeft ? 1 : -1));
     });
-    shortcut(Qt::Key_Right, [this] {
+    shortcut(QStringLiteral("gallery_next"), [this] {
         showIndex(m_index + (layoutDirection() == Qt::RightToLeft ? -1 : 1));
     });
-    shortcut(Qt::Key_Home, [this] {
+    shortcut(QStringLiteral("gallery_first"), [this] {
         showIndex(0);
     });
-    shortcut(Qt::Key_End, [this] {
+    shortcut(QStringLiteral("gallery_last"), [this] {
         showIndex(m_urls.size() - 1);
     });
-    shortcut(Qt::Key_Plus, [this] {
+    shortcut(QStringLiteral("gallery_zoom_in"), [this] {
         zoom(1.25);
     });
-    shortcut(Qt::Key_Minus, [this] {
+    shortcut(QStringLiteral("gallery_zoom_out"), [this] {
         zoom(1.0 / 1.25);
     });
-    shortcut(Qt::Key_0, [this] {
+    shortcut(QStringLiteral("gallery_fit"), [this] {
         fitImage();
     });
-    shortcut(Qt::Key_Space, [this] {
+    shortcut(QStringLiteral("gallery_slideshow"), [this] {
         toggleSlideshow();
     });
-    shortcut(Qt::Key_I, [info] {
+    shortcut(QStringLiteral("gallery_information"), [info] {
         info->toggle();
     });
-    shortcut(Qt::Key_R, [this] {
+    shortcut(QStringLiteral("gallery_rotate"), [this] {
         if (m_rotate->isEnabled()) {
             m_rotate->click();
         }
     });
-    shortcut(Qt::Key_F, [this] {
+    shortcut(QStringLiteral("gallery_full_screen"), [this] {
         if (isFullScreen()) {
             showNormal();
         } else {
             showFullScreen();
         }
     });
-    shortcut(QKeySequence::Copy, [this] {
+    shortcut(QStringLiteral("gallery_copy_image"), [this] {
         if (!m_image.isNull()) {
             QApplication::clipboard()->setImage(m_image);
         }
@@ -487,6 +494,27 @@ GalleryWindow::GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, 
         m_message->setText(i18nc("@info", "No images are available."));
         updateNavigation();
     }
+}
+
+QList<KeyBindings::Binding> GalleryWindow::keyBindings()
+{
+    const auto binding = [](const QString &name, const QString &text, const QList<QKeySequence> &keys) {
+        return KeyBindings::Binding{name, text, keys, keys, false, KeyBindings::Context::Viewer};
+    };
+    return {
+        binding(QStringLiteral("gallery_previous"), i18nc("@action", "Previous Image"), {QKeySequence(Qt::Key_Left)}),
+        binding(QStringLiteral("gallery_next"), i18nc("@action", "Next Image"), {QKeySequence(Qt::Key_Right)}),
+        binding(QStringLiteral("gallery_first"), i18nc("@action", "First Image"), {QKeySequence(Qt::Key_Home)}),
+        binding(QStringLiteral("gallery_last"), i18nc("@action", "Last Image"), {QKeySequence(Qt::Key_End)}),
+        binding(QStringLiteral("gallery_zoom_in"), i18nc("@action", "Zoom In"), {QKeySequence(Qt::Key_Plus)}),
+        binding(QStringLiteral("gallery_zoom_out"), i18nc("@action", "Zoom Out"), {QKeySequence(Qt::Key_Minus)}),
+        binding(QStringLiteral("gallery_fit"), i18nc("@action", "Fit Image"), {QKeySequence(Qt::Key_0)}),
+        binding(QStringLiteral("gallery_slideshow"), i18nc("@action", "Start or Stop Slideshow"), {QKeySequence(Qt::Key_Space)}),
+        binding(QStringLiteral("gallery_information"), i18nc("@action", "Show or Hide Information"), {QKeySequence(Qt::Key_I)}),
+        binding(QStringLiteral("gallery_rotate"), i18nc("@action", "Rotate Right"), {QKeySequence(Qt::Key_R)}),
+        binding(QStringLiteral("gallery_full_screen"), i18nc("@action", "Full Screen"), {QKeySequence(Qt::Key_F)}),
+        binding(QStringLiteral("gallery_copy_image"), i18nc("@action", "Copy Image"), QKeySequence::keyBindings(QKeySequence::Copy)),
+    };
 }
 
 GalleryWindow::~GalleryWindow()
