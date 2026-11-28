@@ -25,7 +25,7 @@ Status reflects the milestones' parent issues on the
 groups have every feature checked and merged into `main`, Development groups
 have a milestone in progress, and Planned groups have not started. In the
 M27–M31 group, M27–M29 are merged and their Plasma checks are recorded in
-[pending tasks](TODO.md); M30–M31 are planned.
+[pending tasks](TODO.md); M30 is in development and M31 is planned.
 
 | Milestones | Focus                                        | Status                                                                            | Jump to                         |
 | ---------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------- |
