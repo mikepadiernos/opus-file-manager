@@ -11,6 +11,7 @@
 #include "filecolorrules.h"
 #include "folderpreview.h"
 #include "ignorelist.h"
+#include "keymapimportdialog.h"
 #include "libraryarchive.h"
 #include "libraryconfirmations.h"
 #include "libraryregistry.h"
@@ -25,6 +26,7 @@
 #include "settings.h"
 #include "settingsbackup.h"
 #include "settingswidgets.h"
+#include "shortcutstorage.h"
 #include "tagfieldmanagerwidget.h"
 #include "taggingsettings.h"
 #include "taglibrary.h"
@@ -63,6 +65,9 @@
 #include <QFileDialog>
 #include <QGroupBox>
 #include <QInputDialog>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -2641,10 +2646,176 @@ private Q_SLOTS:
         QCOMPARE(mapShown.size(), 1);
     }
 
+    void keyboardShortcutsImportAndExportKeymaps()
+    {
+        MainWindow window;
+        MainWindow other;
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        QAction *search = window.actionCollection()->action(QStringLiteral("search_folder"));
+        QAction *otherGallery = other.actionCollection()->action(QStringLiteral("open_gallery"));
+        QVERIFY(gallery && search && otherGallery);
+        const QList<QKeySequence> galleryDefaults = gallery->shortcuts();
+        const QList<QKeySequence> searchDefaults = search->shortcuts();
+        const auto restore = qScopeGuard([&] {
+            gallery->setShortcuts(galleryDefaults);
+            search->setShortcuts(searchDefaults);
+            Q_EMIT window.guiFactory()->shortcutsSaved();
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+        auto *importButton = dialog.findChild<QPushButton *>(QStringLiteral("keyboardImportShortcuts"));
+        auto *exportButton = dialog.findChild<QPushButton *>(QStringLiteral("keyboardExportShortcuts"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("keyboardKeymapStatus"));
+        auto *extra = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ExtraNavigationShortcuts"));
+        auto *customized = dialog.findChild<QTreeWidget *>(QStringLiteral("keyboardCustomizedShortcuts"));
+        QVERIFY(importButton && exportButton && status && extra && customized);
+        QVERIFY(importButton->isEnabled() && exportButton->isEnabled());
+        QVERIFY(status->isHidden());
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QKeySequence f5(Qt::Key_F5);
+        const QKeySequence f9(Qt::Key_F9);
+
+        // Export writes the customized shortcuts and the saved keyboard settings.
+        gallery->setShortcuts({f9});
+        search->setShortcuts({});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        const QString exported = dir.filePath(QStringLiteral("exported.json"));
+        dialog.exportShortcuts(exported);
+        QVERIFY(!status->isHidden());
+        QVERIFY2(status->text().startsWith(QStringLiteral("Exported the keyboard settings and the shortcuts of 2 customized actions")),
+                 qPrintable(status->text()));
+        QFile file(exported);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QJsonObject object = QJsonDocument::fromJson(file.readAll()).object();
+        file.close();
+        QCOMPARE(object.value(QStringLiteral("format")).toString(), QStringLiteral("plasma-opus-keymap"));
+        QCOMPARE(object.value(QStringLiteral("application")).toString(), QStringLiteral("opus-file-manager"));
+        QCOMPARE(object.value(QStringLiteral("actions")).toObject(),
+                 (QJsonObject{{QStringLiteral("open_gallery"), QJsonArray{QStringLiteral("F9")}}, {QStringLiteral("search_folder"), QJsonArray()}}));
+        const QJsonObject exportedSettings = object.value(QStringLiteral("settings")).toObject();
+        QCOMPARE(exportedSettings.value(QStringLiteral("ExtraNavigationShortcuts")), QJsonValue(false));
+        QCOMPARE(exportedSettings.value(QStringLiteral("YaziKeyPreset")), QJsonValue(QStringLiteral("Standard")));
+
+        // A keymap that takes Copy to Other Pane's key, names a saved command this window doesn't have and turns on the extra keys.
+        gallery->setShortcuts(galleryDefaults);
+        search->setShortcuts(searchDefaults);
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        const QString keymap = dir.filePath(QStringLiteral("keymap.json"));
+        QFile keymapFile(keymap);
+        QVERIFY(keymapFile.open(QIODevice::WriteOnly));
+        keymapFile.write(QJsonDocument(QJsonObject{{QStringLiteral("format"), QStringLiteral("plasma-opus-keymap")},
+                                                   {QStringLiteral("version"), 1},
+                                                   {QStringLiteral("application"), QStringLiteral("opus-file-manager")},
+                                                   {QStringLiteral("comment"), QStringLiteral("from my laptop")},
+                                                   {QStringLiteral("actions"),
+                                                    QJsonObject{{QStringLiteral("open_gallery"), QJsonArray{QStringLiteral("F5")}},
+                                                                {QStringLiteral("custom_command_preset_deadbeef"), QJsonArray{QStringLiteral("F9")}}}},
+                                                   {QStringLiteral("settings"), QJsonObject{{QStringLiteral("ExtraNavigationShortcuts"), true}}}})
+                             .toJson());
+        keymapFile.close();
+
+        // The preview lists the change, the conflict it adds, the setting and what is skipped.
+        int reviewed = 0;
+        bool answer = false;
+        bool resetUnlisted = false;
+        QStringList changes;
+        QStringList conflicts;
+        QStringList settings;
+        QStringList skipped;
+        bool applyEnabled = false;
+        const auto texts = [](const QListWidget *list) {
+            QStringList found;
+            for (int i = 0; list && i < list->count(); ++i) {
+                found.append(list->item(i)->text());
+            }
+            return found;
+        };
+        dialog.setKeymapImportReview([&](KeymapImportDialog &review) {
+            ++reviewed;
+            if (resetUnlisted) {
+                review.findChild<QCheckBox *>(QStringLiteral("keymapImportResetUnlisted"))->setChecked(true);
+            }
+            changes.clear();
+            const auto *tree = review.findChild<QTreeWidget *>(QStringLiteral("keymapImportChanges"));
+            for (int i = 0; tree && i < tree->topLevelItemCount(); ++i) {
+                const QTreeWidgetItem *item = tree->topLevelItem(i);
+                changes.append(QStringList{item->text(0), item->text(1), item->text(2), item->text(3)}.join(QLatin1Char('|')));
+            }
+            conflicts = texts(review.findChild<QListWidget *>(QStringLiteral("keymapImportConflicts")));
+            settings = texts(review.findChild<QListWidget *>(QStringLiteral("keymapImportSettings")));
+            skipped = texts(review.findChild<QListWidget *>(QStringLiteral("keymapImportSkipped")));
+            applyEnabled = review.findChild<QPushButton *>(QStringLiteral("keymapImportApply"))->isEnabled();
+            return answer;
+        });
+        dialog.importShortcuts(keymap);
+        QCOMPARE(reviewed, 1);
+        const QString space = QKeySequence(Qt::Key_Space).toString(QKeySequence::NativeText);
+        QCOMPARE(changes, QStringList{QStringLiteral("Open Gallery|%1|F5|Window").arg(space)});
+        QCOMPARE(conflicts.size(), 1);
+        QVERIFY2(conflicts.at(0).contains(QStringLiteral("“Copy to Other Pane”")) && conflicts.at(0).contains(QStringLiteral("“Open Gallery”")),
+                 qPrintable(conflicts.at(0)));
+        QCOMPARE(settings, QStringList{QStringLiteral("Extra navigation shortcuts: Off → On")});
+        QCOMPARE(skipped.size(), 2);
+        QVERIFY2(skipped.at(0).startsWith(QStringLiteral("A saved command")), qPrintable(skipped.at(0)));
+        QVERIFY2(skipped.at(1).contains(QStringLiteral("“comment”")), qPrintable(skipped.at(1)));
+        QVERIFY(applyEnabled);
+
+        // Cancel changes nothing.
+        QCOMPARE(gallery->shortcuts(), galleryDefaults);
+        QVERIFY(!extra->isChecked());
+        QVERIFY2(status->text().startsWith(QStringLiteral("Didn't import")), qPrintable(status->text()));
+
+        // Apply saves the shortcuts for every window right away, and shows the setting for Apply or OK to save.
+        answer = true;
+        dialog.importShortcuts(keymap);
+        QCOMPARE(reviewed, 2);
+        QCOMPARE(gallery->shortcuts(), QList<QKeySequence>{f5});
+        QCOMPARE(otherGallery->shortcuts(), QList<QKeySequence>{f5});
+        const KConfigGroup stored = KSharedConfig::openConfig()->group(QLatin1String(ShortcutStorage::Group));
+        QCOMPARE(stored.readEntry("open_gallery", QString()), QStringLiteral("F5"));
+        QCOMPARE(customized->topLevelItemCount(), 1);
+        QVERIFY(extra->isChecked());
+        QVERIFY(!Settings::extraNavigationShortcuts());
+        QVERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        QVERIFY2(status->text().startsWith(QStringLiteral("Imported the shortcuts of 1 action")), qPrintable(status->text()));
+        QVERIFY2(status->text().contains(QStringLiteral("Apply or OK saves the keyboard setting")), qPrintable(status->text()));
+        extra->setChecked(false);
+
+        // Optionally, the actions the file doesn't list get their defaults.
+        search->setShortcuts({f9});
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        resetUnlisted = true;
+        dialog.importShortcuts(keymap);
+        QCOMPARE(reviewed, 3);
+        QCOMPARE(changes.size(), 1);
+        QVERIFY2(changes.at(0).startsWith(QStringLiteral("Search Current Folder")) && changes.at(0).contains(QStringLiteral("|F9|")),
+                 qPrintable(changes.at(0)));
+        QCOMPARE(search->shortcuts(), searchDefaults);
+        QCOMPARE(gallery->shortcuts(), QList<QKeySequence>{f5});
+        QVERIFY(!stored.hasKey("search_folder"));
+
+        // A file that isn't a keymap this version reads is reported, without a preview.
+        QFile newer(dir.filePath(QStringLiteral("newer.json")));
+        QVERIFY(newer.open(QIODevice::WriteOnly));
+        newer.write(R"({"format": "plasma-opus-keymap", "version": 2, "application": "opus-file-manager", "actions": {}})");
+        newer.close();
+        dialog.importShortcuts(newer.fileName());
+        QCOMPARE(reviewed, 3);
+        QVERIFY2(status->text().startsWith(QStringLiteral("Could not import")), qPrintable(status->text()));
+        QVERIFY2(status->text().contains(QStringLiteral("newer version")), qPrintable(status->text()));
+        dialog.importShortcuts(dir.filePath(QStringLiteral("missing.json")));
+        QCOMPARE(reviewed, 3);
+        QVERIFY2(status->text().startsWith(QStringLiteral("Could not import")), qPrintable(status->text()));
+    }
+
     void keyboardShortcutsNeedTheMainWindow()
     {
         KFilePlacesModel places;
         SettingsDialog dialog(&places, nullptr);
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardImportShortcuts"))->isEnabled());
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardExportShortcuts"))->isEnabled());
         QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardConfigureShortcuts"))->isEnabled());
         QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardResetShortcuts"))->isEnabled());
         QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("keyboardShowMap"))->isEnabled());
