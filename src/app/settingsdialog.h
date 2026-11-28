@@ -291,6 +291,8 @@ private:
     QWidget *createKeyboardNavigationPage();
     /// The Keyboard › Vim Mode tab: Vim-style navigation in the file views of panes that aren't in Yazi mode, its keys and conflicts.
     QWidget *createKeyboardVimPage();
+    /// The Keyboard › Hints tab: the shortcut hint popup's enablement and delay, the key sequence timeout and the on-demand shortcut reference.
+    QWidget *createKeyboardHintsPage();
     /// The Keyboard › Command Palette tab: the palette's shortcut, whether it lists saved commands and its recently used actions.
     QWidget *createKeyboardCommandPalettePage();
     /// Shows the tab whose widget is named @p tabName and the sidebar page it is on.

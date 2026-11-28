@@ -186,6 +186,8 @@ add_library(opusfm_app STATIC
     shortcutguard.h
     shortcuthintpopup.cpp
     shortcuthintpopup.h
+    shortcutreference.cpp
+    shortcutreference.h
     startuppresentation.cpp
     startuppresentation.h
     symbolicactionicons.cpp

@@ -4,6 +4,7 @@
 
 #include "commandpalettebar.h"
 #include "pane.h"
+#include "settings.h"
 #include "shortcutguard.h"
 #include "shortcuthintpopup.h"
 
@@ -30,6 +31,7 @@ WindowSequenceHints::WindowSequenceHints(KXmlGuiWindow *window, std::function<Pa
     , m_pane(std::move(pane))
     , m_settle(new QTimer(this))
     , m_delay(new QTimer(this))
+    , m_timeout(new QTimer(this))
 {
     // Once the events of the key Qt offered have been delivered.
     m_settle->setSingleShot(true);
@@ -38,6 +40,9 @@ WindowSequenceHints::WindowSequenceHints(KXmlGuiWindow *window, std::function<Pa
     m_delay->setSingleShot(true);
     m_delay->setInterval(ShortcutHints::DefaultDelay);
     connect(m_delay, &QTimer::timeout, this, &WindowSequenceHints::showHints);
+    m_timeout->setSingleShot(true);
+    connect(m_timeout, &QTimer::timeout, this, &WindowSequenceHints::cancel);
+    reloadSettings();
     connect(qApp, &QApplication::focusChanged, this, &WindowSequenceHints::cancel);
     qApp->installEventFilter(this);
 }
@@ -197,6 +202,7 @@ void WindowSequenceHints::update()
 {
     if (!m_tracker.isPending()) {
         m_delay->stop();
+        m_timeout->stop();
         if (m_popup) {
             m_popup->dismiss(ShortcutHintPopup::Source::Window);
         }
@@ -204,15 +210,37 @@ void WindowSequenceHints::update()
     }
     if (m_popup && m_popup->isShowing(ShortcutHintPopup::Source::Window)) {
         showHints();
-    } else if (!m_delay->isActive()) {
+        return;
+    }
+    if (m_hintsEnabled && !m_delay->isActive()) {
         m_delay->start();
+    }
+    // Each key typed gives the sequence the whole timeout again.
+    if (m_timeout->interval() > 0) {
+        m_timeout->start();
+    }
+}
+
+void WindowSequenceHints::reloadSettings()
+{
+    m_hintsEnabled = Settings::shortcutHints();
+    m_delay->setInterval(Settings::shortcutHintDelay());
+    m_timeout->setInterval(qMax(0, Settings::keySequenceTimeout()));
+    if (!m_hintsEnabled) {
+        m_delay->stop();
+        if (m_popup) {
+            m_popup->dismiss(ShortcutHintPopup::Source::Window);
+        }
+    }
+    if (m_timeout->interval() == 0) {
+        m_timeout->stop();
     }
 }
 
 void WindowSequenceHints::showHints()
 {
     Pane *pane = m_pane ? m_pane() : nullptr;
-    if (!pane || !m_tracker.isPending()) {
+    if (!m_hintsEnabled || !pane || !m_tracker.isPending()) {
         return;
     }
     const KeyBindings::Context context = ShortcutGuard::focusContext(QApplication::focusWidget()).value_or(KeyBindings::Context::Application);
@@ -233,4 +261,6 @@ void WindowSequenceHints::showHints()
                        hints,
                        i18nc("@info shortcut hints footer for window shortcuts", "Scroll to turn pages · Escape cancels"),
                        pane->shortcutHintArea());
+    // As in which-key.nvim, the sequence waits while its hints show.
+    m_timeout->stop();
 }

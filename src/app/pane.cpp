@@ -416,6 +416,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     m_hintDelay->setSingleShot(true);
     m_hintDelay->setInterval(ShortcutHints::DefaultDelay);
     connect(m_hintDelay, &QTimer::timeout, this, &Pane::showSequenceHints);
+    reloadShortcutHintSettings();
     for (YaziKeys *keys : {m_vimKeys, m_yaziColumns->keys()}) {
         connect(keys, &YaziKeys::stateChanged, this, &Pane::updateShortcutHints);
         // While the hints show, their paging keys turn pages rather than break the sequence.
@@ -1478,6 +1479,20 @@ void Pane::reloadYaziKeySettings()
     m_yaziColumns->keys()->setPreset(Settings::yaziKeyPreset() == Settings::EnumYaziKeyPreset::Vim ? YaziMode::Preset::Vim : YaziMode::Preset::Standard);
 }
 
+void Pane::reloadShortcutHintSettings()
+{
+    m_hintDelay->setInterval(Settings::shortcutHintDelay());
+    for (YaziKeys *keys : {m_vimKeys, m_yaziColumns->keys()}) {
+        keys->setPendingTimeout(Settings::keySequenceTimeout());
+    }
+    if (!Settings::shortcutHints()) {
+        m_hintDelay->stop();
+        if (m_hintPopup) {
+            m_hintPopup->dismiss(ShortcutHintPopup::Source::Keys);
+        }
+    }
+}
+
 void Pane::reloadVimNavigationSetting()
 {
     const bool active = Settings::vimNavigation() && !m_yaziMode;
@@ -1562,7 +1577,7 @@ YaziKeys *Pane::pendingSequenceKeys() const
 
 void Pane::updateShortcutHints()
 {
-    if (!pendingSequenceKeys()) {
+    if (!Settings::shortcutHints() || !pendingSequenceKeys()) {
         m_hintDelay->stop();
         if (m_hintPopup) {
             m_hintPopup->dismiss(ShortcutHintPopup::Source::Keys);

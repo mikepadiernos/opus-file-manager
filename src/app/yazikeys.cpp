@@ -26,7 +26,7 @@ YaziKeys::YaziKeys(QObject *parent)
     , m_timeout(new QTimer(this))
 {
     m_timeout->setSingleShot(true);
-    m_timeout->setInterval(PendingTimeout);
+    m_timeout->setInterval(DefaultPendingTimeout);
     connect(m_timeout, &QTimer::timeout, this, &YaziKeys::cancel);
     connect(qApp, &QApplication::focusChanged, this, &YaziKeys::cancel);
 }
@@ -65,6 +65,21 @@ void YaziKeys::setEnabled(bool enabled)
     if (!enabled) {
         cancel();
     }
+}
+
+void YaziKeys::setPendingTimeout(int milliseconds)
+{
+    m_pendingTimeout = qMax(0, milliseconds);
+    if (m_pendingTimeout == 0) {
+        m_timeout->stop();
+    } else {
+        m_timeout->setInterval(m_pendingTimeout);
+    }
+}
+
+int YaziKeys::pendingTimeout() const
+{
+    return m_pendingTimeout;
 }
 
 bool YaziKeys::isEnabled() const
@@ -276,7 +291,7 @@ bool YaziKeys::eventFilter(QObject *watched, QEvent *event)
 
     const QString pendingBefore = m_matcher.pendingText();
     const Result result = m_matcher.feed(key);
-    if (result == Result::Pending) {
+    if (result == Result::Pending && m_pendingTimeout > 0) {
         m_timeout->start();
     } else {
         m_timeout->stop();

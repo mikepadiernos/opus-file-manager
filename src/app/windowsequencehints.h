@@ -23,7 +23,8 @@ class ShortcutHintPopup;
  *
  * Qt takes every key while a sequence is pending, so the popup's pages turn
  * only with the mouse wheel; Escape, or any key that doesn't fit, ends the
- * sequence as Qt always does. Moving the focus cancels it too.
+ * sequence as Qt always does. Moving the focus cancels it too, and so does
+ * the key sequence timeout while the popup doesn't show.
  */
 class WindowSequenceHints : public QObject
 {
@@ -39,6 +40,12 @@ public:
     QList<QKeyCombination> pending() const;
     /// Ends the pending sequence, in Qt's shortcut map too, so the next key starts afresh.
     void cancel();
+    /**
+     * Applies the shortcut hint settings: whether pending sequences show
+     * hints, after which delay, and how long a sequence waits for its next
+     * key before it is cancelled.
+     */
+    void reloadSettings();
 
     /**
      * The shortcuts of @p window's enabled actions that work with the
@@ -63,6 +70,8 @@ private:
     ShortcutHints::WindowSequenceTracker m_tracker;
     QTimer *m_settle;
     QTimer *m_delay;
+    QTimer *m_timeout;
+    bool m_hintsEnabled = true;
     QPointer<ShortcutHintPopup> m_popup;
     bool m_cancelling = false;
 };

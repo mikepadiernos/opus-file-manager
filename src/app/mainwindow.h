@@ -78,6 +78,7 @@ class KToggleAction;
 class Pane;
 class PreviewPanel;
 class SearchPanel;
+class ShortcutReference;
 class TaggingController;
 class TabColors;
 class WindowSequenceHints;
@@ -118,6 +119,8 @@ public:
     Pane *inactivePane() const;
     /// Shows hints while the first keys of a multi-key window shortcut wait for the rest.
     WindowSequenceHints *windowSequenceHints() const;
+    /// The on-demand shortcut reference, Help › Shortcut Hints.
+    ShortcutReference *shortcutReference() const;
 
     ActivityController *activityController() const;
     /// Opens Preferences › KDE Plasma › Activities, where Plasma Activities are associated with workspaces and default folders.
@@ -816,6 +819,7 @@ private:
     /// Opens search on two Shift taps, while enabled and available.
     QObject *m_doubleShift = nullptr;
     WindowSequenceHints *m_windowSequenceHints = nullptr;
+    ShortcutReference *m_shortcutReference = nullptr;
     /// Whether a terminal profile asks for blur behind the window.
     bool m_terminalBlur = false;
     EditorPanel *m_editor = nullptr;

@@ -37,8 +37,10 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QListWidget>
+#include <QLocale>
 #include <QPointer>
 #include <QPushButton>
+#include <QSpinBox>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QTreeWidget>
@@ -651,6 +653,108 @@ QWidget *SettingsDialog::createKeyboardVimPage()
     return page;
 }
 
+QWidget *SettingsDialog::createKeyboardHintsPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("keyboardHintsPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *window = qobject_cast<KXmlGuiWindow *>(parentWidget());
+
+    layout->addWidget(notice(QStringLiteral("keyboardHintsIntro"),
+                             i18nc("@info",
+                                   "While a key sequence waits for its next key, such as g with the Vim-style keys, a count, or "
+                                   "the first keys of a window shortcut such as Ctrl+K, Ctrl+T, a popup at the bottom of the "
+                                   "pane lists the keys that can follow it and what they do. It never takes the keyboard focus.")));
+    QCheckBox *enabled = SettingsWidgets::checkBox(QStringLiteral("ShortcutHints"), i18nc("@option:check", "Show shortcut hints while a key sequence waits"));
+    layout->addWidget(enabled);
+
+    auto *form = new QFormLayout;
+    auto *delay = new QSpinBox;
+    delay->setObjectName(QStringLiteral("kcfg_ShortcutHintDelay"));
+    delay->setRange(0, 5000);
+    delay->setSingleStep(100);
+    delay->setSuffix(i18nc("@item:valuesuffix milliseconds", " ms"));
+    delay->setSpecialValueText(i18nc("@item:inrange shortcut hint delay", "At once"));
+    delay->setToolTip(i18nc("@info:tooltip", "A sequence typed faster than this never shows its hints"));
+    form->addRow(i18nc("@label:spinbox", "Show hints after:"), delay);
+    auto *timeout = new QSpinBox;
+    timeout->setObjectName(QStringLiteral("kcfg_KeySequenceTimeout"));
+    timeout->setRange(0, 10000);
+    timeout->setSingleStep(250);
+    timeout->setSuffix(i18nc("@item:valuesuffix milliseconds", " ms"));
+    timeout->setSpecialValueText(i18nc("@item:inrange key sequence timeout", "Never"));
+    timeout->setToolTip(i18nc("@info:tooltip", "How long a partly typed key sequence waits for its next key before it is cancelled"));
+    form->addRow(i18nc("@label:spinbox", "Cancel incomplete sequences after:"), timeout);
+    layout->addLayout(form);
+    QLabel *tooLate = notice(QStringLiteral("keyboardHintsDelayNotice"),
+                             i18nc("@info",
+                                   "Sequences are cancelled before their hints would show. Make the delay shorter than the "
+                                   "timeout to see them."));
+    layout->addWidget(tooLate);
+    layout->addWidget(notice(QStringLiteral("keyboardHintsTimeoutNotice"),
+                             i18nc("@info",
+                                   "A cancelled sequence runs nothing, and the next key works on its own. While the hints show, "
+                                   "a sequence waits for its next key instead; Escape cancels it. The timeout applies to the "
+                                   "Vim-style and Yazi mode keys and to window shortcuts of several key combinations; with "
+                                   "Never, a sequence waits until Escape, a key that doesn't continue it, or the focus moves.")));
+    const auto update = [enabled, delay, tooLate, timeout] {
+        delay->setEnabled(enabled->isChecked());
+        tooLate->setVisible(enabled->isChecked() && timeout->value() > 0 && delay->value() >= timeout->value());
+    };
+    connect(enabled, &QCheckBox::toggled, page, update);
+    connect(delay, &QSpinBox::valueChanged, page, update);
+    connect(timeout, &QSpinBox::valueChanged, page, update);
+    update();
+
+    auto *referenceGroup = new QGroupBox(i18nc("@title:group", "Shortcut Reference"), page);
+    auto *referenceLayout = new QVBoxLayout(referenceGroup);
+    referenceLayout->addWidget(notice(QStringLiteral("keyboardHintsReferenceNotice"),
+                                      i18nc("@info",
+                                            "Help › Shortcut Hints shows the same popup on demand, listing the keys that work where "
+                                            "the keyboard focus is: the Yazi mode keys in a pane in Yazi mode, the Vim-style keys "
+                                            "in a file view while they are on, and otherwise the window's shortcuts. In a file "
+                                            "view or the folder tree, Page Up and Page Down turn its pages and Escape closes it; "
+                                            "elsewhere, as in a text field or the terminal, keys keep working and close it. It "
+                                            "works whether or not the hints above are on.")));
+    QLabel *shortcut = notice(QStringLiteral("keyboardHintsShortcut"));
+    referenceLayout->addWidget(shortcut);
+    QPushButton *configure =
+        iconButton(QStringLiteral("keyboardHintsConfigure"), i18nc("@action:button", "Configure Keyboard Shortcuts…"), QStringLiteral("configure-shortcuts"));
+    const QPointer<QAction> shortcutsAction = window ? window->actionCollection()->action(KStandardAction::name(KStandardAction::KeyBindings)) : nullptr;
+    configure->setEnabled(!shortcutsAction.isNull());
+    connect(configure, &QPushButton::clicked, this, [shortcutsAction] {
+        if (shortcutsAction) {
+            shortcutsAction->trigger();
+        }
+    });
+    QPushButton *map = iconButton(QStringLiteral("keyboardHintsMap"), i18nc("@action:button", "Keyboard Map…"), QStringLiteral("help-keybord-shortcuts"));
+    const QPointer<QAction> mapAction = window ? window->actionCollection()->action(QStringLiteral("keyboard_map")) : nullptr;
+    map->setEnabled(!mapAction.isNull());
+    connect(map, &QPushButton::clicked, this, [mapAction] {
+        if (mapAction) {
+            mapAction->trigger();
+        }
+    });
+    auto *buttons = new QHBoxLayout;
+    buttons->addWidget(configure);
+    buttons->addWidget(map);
+    buttons->addStretch();
+    referenceLayout->addLayout(buttons);
+    layout->addWidget(referenceGroup);
+    layout->addStretch();
+
+    const auto refreshShortcut = [window, shortcut] {
+        const QAction *action = window ? window->actionCollection()->action(QStringLiteral("show_shortcut_hints")) : nullptr;
+        shortcut->setText(action ? i18nc("@info %1 shortcuts", "Shortcut: %1", shortcutsText(action->shortcuts()))
+                                 : i18nc("@info", "Open Preferences from a Plasma Opus window to see the shortcut reference's shortcut."));
+    };
+    if (window && window->guiFactory()) {
+        connect(window->guiFactory(), &KXMLGUIFactory::shortcutsSaved, page, refreshShortcut);
+    }
+    refreshShortcut();
+    return page;
+}
+
 QWidget *SettingsDialog::createKeyboardCommandPalettePage()
 {
     auto *page = new QWidget;
@@ -847,6 +951,22 @@ void SettingsDialog::importShortcuts(const QString &path)
             }
             from = combo->currentText();
             to = combo->itemText(index);
+        } else if (auto *spin = qobject_cast<QSpinBox *>(editor)) {
+            const int value = it.value().toInt();
+            if (value == spin->value()) {
+                continue;
+            }
+            // As the spin box shows a value: without group separators, with its unit, or its special text at the minimum.
+            const auto text = [spin](int shown) -> QString {
+                if (shown == spin->minimum() && !spin->specialValueText().isEmpty()) {
+                    return spin->specialValueText();
+                }
+                QLocale locale = spin->locale();
+                locale.setNumberOptions(locale.numberOptions() | QLocale::OmitGroupSeparator);
+                return spin->prefix() + locale.toString(shown) + spin->suffix();
+            };
+            from = text(spin->value());
+            to = text(value);
         } else {
             continue;
         }

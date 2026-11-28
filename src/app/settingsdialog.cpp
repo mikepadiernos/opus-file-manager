@@ -329,6 +329,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     addTabbedPage({{createKeyboardShortcutsPage(), i18nc("@title:tab", "Shortcuts")},
                    {createKeyboardNavigationPage(), i18nc("@title:tab", "Navigation")},
                    {createKeyboardVimPage(), i18nc("@title:tab", "Vim Mode")},
+                   {createKeyboardHintsPage(), i18nc("@title:tab", "Hints")},
                    {createKeyboardCommandPalettePage(), i18nc("@title:tab", "Command Palette")}},
                   i18nc("@title:group", "Keyboard"),
                   QStringLiteral("input-keyboard"));

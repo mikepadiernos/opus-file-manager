@@ -20,16 +20,16 @@ class QWidget;
  * keys also override window shortcuts while the focus is in a watched
  * widget, so a preset key such as Ctrl+D reaches the columns.
  *
- * A partly typed sequence expires after PendingTimeout milliseconds and is
- * cancelled by Escape or when the focus moves.
+ * A partly typed sequence expires after pendingTimeout() milliseconds, if
+ * set, and is cancelled by Escape or when the focus moves.
  */
 class YaziKeys : public QObject
 {
     Q_OBJECT
 
 public:
-    /// How long a partly typed key sequence waits for its next key, in milliseconds.
-    static constexpr int PendingTimeout = 1000;
+    /// How long a partly typed key sequence waits for its next key by default, in milliseconds.
+    static constexpr int DefaultPendingTimeout = 1000;
 
     explicit YaziKeys(QObject *parent = nullptr);
 
@@ -45,7 +45,12 @@ public:
     void setModifiedKeysYield(bool yield);
     /// Disabling also cancels a pending sequence.
     void setEnabled(bool enabled);
+    /// How long a partly typed sequence waits for its next key, in milliseconds; 0 waits until another key, Escape or a focus change.
+    void setPendingTimeout(int milliseconds);
+    int pendingTimeout() const;
     bool isEnabled() const;
+    /// Whether the keys apply with the keyboard focus in @p focus, when enabled; see setFocusFilter().
+    bool appliesTo(QWidget *focus) const;
     /**
      * Sets which focus widgets the keys apply to. Widgets that take typed
      * text, as isTypingWidget() tells, are always left alone.
@@ -121,12 +126,12 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
-    bool appliesTo(QWidget *focus) const;
     bool overridesEscape(QKeyCombination key) const;
 
     YaziMode::Preset m_preset = YaziMode::Preset::Standard;
     YaziMode::KeyMatcher m_matcher;
     QTimer *m_timeout = nullptr;
+    int m_pendingTimeout = DefaultPendingTimeout;
     std::function<bool(QWidget *)> m_accepts;
     std::function<bool()> m_escapeActive;
     std::function<bool(QKeyCombination, bool)> m_pendingKeyHandler;

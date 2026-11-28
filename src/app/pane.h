@@ -246,6 +246,12 @@ public:
      * preset instead.
      */
     void reloadVimNavigationSetting();
+    /**
+     * Applies the shortcut hint settings: whether pending sequences show
+     * hints, after which delay, and how long a sequence waits for its next
+     * key.
+     */
+    void reloadShortcutHintSettings();
     /// Whether Vim-style keys apply to the pane's file view now.
     bool vimNavigationActive() const;
     /// The keys of Vim-style navigation; see VimNavigation.

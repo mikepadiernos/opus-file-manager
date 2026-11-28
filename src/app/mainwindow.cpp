@@ -97,6 +97,7 @@
 #include "settingsdialog.h"
 #include "shortcutguard.h"
 #include "shortcuthintpopup.h"
+#include "shortcutreference.h"
 #include "startup.h"
 #include "symbolicicon.h"
 #include "tabcolors.h"
@@ -577,6 +578,9 @@ MainWindow::MainWindow(QWidget *parent)
     new ShortcutGuard(this);
     // Installed after the guard, so it sees the keys the guard keeps from shortcuts.
     m_windowSequenceHints = new WindowSequenceHints(this, [this] {
+        return activePane();
+    });
+    m_shortcutReference = new ShortcutReference(this, [this] {
         return activePane();
     });
     m_desktopTray = new DesktopTray(this, actionCollection());
@@ -4293,6 +4297,12 @@ void MainWindow::setupActions()
     keyboardMap->setIcon(QIcon::fromTheme(QStringLiteral("help-keybord-shortcuts")));
     keyboardMap->setToolTip(
         i18nc("@info:tooltip", "List every action with its shortcuts, search them by name or by pressing keys, and export a printable reference"));
+    QAction *shortcutHints = actions->addAction(QStringLiteral("show_shortcut_hints"), this, [this] {
+        m_shortcutReference->toggle();
+    });
+    shortcutHints->setText(i18nc("@action", "Shortcut Hints"));
+    shortcutHints->setIcon(QIcon::fromTheme(QStringLiteral("help-keybord-shortcuts")));
+    shortcutHints->setToolTip(i18nc("@info:tooltip", "Show or hide the keys that work where the keyboard focus is, over the active pane"));
     // KDE's window creates the command bar action, under Help; it opens the
     // palette, which lists only the actions it can run where the user is.
     setCommandBarEnabled(false);
@@ -4327,6 +4337,11 @@ Pane *MainWindow::inactivePane() const
 WindowSequenceHints *MainWindow::windowSequenceHints() const
 {
     return m_windowSequenceHints;
+}
+
+ShortcutReference *MainWindow::shortcutReference() const
+{
+    return m_shortcutReference;
 }
 
 void MainWindow::setActivePane(Pane *pane)
@@ -9320,6 +9335,7 @@ void MainWindow::applySettings()
     applyPaneBackgrounds();
     m_yaziVimKeysAction->setChecked(Settings::yaziKeyPreset() == Settings::EnumYaziKeyPreset::Vim);
     m_vimNavigationAction->setChecked(Settings::vimNavigation());
+    m_windowSequenceHints->reloadSettings();
     for (Pane *pane : {m_left, m_right}) {
         pane->setInactiveDimming(Settings::dimInactivePane(), Settings::inactivePaneOpacity());
         pane->reloadTabSettings();
@@ -9329,6 +9345,7 @@ void MainWindow::applySettings()
         pane->reloadYaziPreviewSetting();
         pane->reloadYaziKeySettings();
         pane->reloadVimNavigationSetting();
+        pane->reloadShortcutHintSettings();
         pane->setFollowSymlinks(Settings::followSymlinks());
 
         FolderView *view = pane->view();
