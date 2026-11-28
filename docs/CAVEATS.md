@@ -4364,6 +4364,25 @@ The M31 keyboard shortcut settings have these limits
   reference on Plasma are unverified
   ([Plasma check](TODO.md#shortcut-hint-settings-on-plasma-235)).
   ([#235](https://github.com/mikepadiernos/plasma-opus/issues/235))
+- **🪧 Keyboard hints:** **Go › Keyboard Hints** labels only the active
+  pane's visible files and folders, its location segments and other tabs,
+  and the entries of a **Places** panel docked in the window; a floating
+  Places panel, the folder tree, the other pane, the preview panel, toolbars
+  and menus get no labels. In Yazi mode, only the current column is
+  labelled, not the parent or preview column, and the location bar's
+  segments that KDE folds into its drop-down in a narrow window aren't
+  labelled. Labels are made of the Latin home-row letters of the chosen
+  layout, so with a non-Latin keyboard layout typing a label cancels
+  instead; input methods are turned off while labels show. A file or folder
+  label can only select or open; it can't add to the selection. Any change
+  that could move a target cancels the labels, including a folder that
+  loads more items while they show. A full location segment is opened by
+  sending it <kbd>Enter</kbd>, as KDE's location bar has no public way to
+  activate one. The labels' place over the views, tabs, location bar and
+  **Places** in Plasma themes, input methods, the focus returning on Wayland
+  and Orca's announcements are unverified
+  ([Plasma check](TODO.md#keyboard-hints-on-plasma-762)).
+  ([#762](https://github.com/mikepadiernos/plasma-opus/issues/762))
 
 - **Recommendation:**
   - **Shortcut settings:** Change shortcuts in **Configure Keyboard
@@ -4467,6 +4486,17 @@ The M31 keyboard shortcut settings have these limits
     shows is free, or run it from the command palette; press
     <kbd>Escape</kbd> to close it in a file view, and open it again after
     moving the focus. For keys it doesn't list, use the keyboard map.
+  - **Keyboard hints:** Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd>,
+    or choose **Go › Keyboard Hints**, from a file view rather than a text
+    field; press <kbd>Escape</kbd> first if the location bar or the filter
+    bar has the focus. Choose your keyboard layout's home row under **Label
+    keys** on **Preferences › Keyboard › Keyboard Hints**, and switch to a
+    Latin keyboard layout before typing a label. Hold <kbd>Shift</kbd> on a
+    label's last key to open the item, or choose **Open it** there if you
+    mostly open. Wait for a large folder to finish loading before showing
+    the labels, and dock the **Places** panel to label its entries. To
+    select several items, type a label, then extend the selection with
+    <kbd>Shift</kbd> and the arrow keys.
   - Comment:
     [#771.7231940238](https://github.com/mikepadiernos/plasma-opus/issues/771#issuecomment-7231940238)
 - **Proposed improvements:**
@@ -4510,6 +4540,12 @@ The M31 keyboard shortcut settings have these limits
     reference follow the focus and be searched, turn its pages with keys in
     text fields and the terminal, and offer a free default key for it if one
     is found.
+  - Label the other pane, the folder tree, the preview panel, toolbars and
+    floating **Places** panels, and the Yazi mode parent column; let a label
+    add an item to the selection; follow the keyboard layout's own letters,
+    including non-Latin layouts, rather than a fixed list; keep the labels
+    through incremental loading by relabelling; and ask KDE for a public way
+    to activate a location bar segment.
 
 ## Embedded terminal
 
