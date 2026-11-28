@@ -37,6 +37,8 @@ add_library(opusfm_core STATIC
     cloudsyncrunner.h
     colorschemes.cpp
     colorschemes.h
+    commandpalette.cpp
+    commandpalette.h
     customcommands.cpp
     customcommands.h
     defaultfilemanager.cpp
