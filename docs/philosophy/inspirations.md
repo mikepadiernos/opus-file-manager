@@ -174,11 +174,13 @@ Lektra informs workflows rather than replacing that preview. Its command
 palette informs the [command palette](../keyboard.md#command-palette), built on
 KDE's `KCommandBar` as in Dolphin and Kate, which finds menu, toolbar and saved
 command actions by name and runs them in the active pane. Its link hints inform
-planned
-[keyboard hints](../ROADMAP.md#m31-keyboard-shortcut-settings), and its
-synchronized views and page-aware command line inform side-by-side image
-comparison in the gallery and opening documents at the previewed page in an
-external viewer, as [interaction refinements](../ROADMAP.md#m32-refinements).
+the [keyboard hints](../keyboard.md#keyboard-hints) of
+[M31](../ROADMAP.md#m31-keyboard-shortcut-settings), which label the active
+pane's visible items, location segments, tabs and places with short home-row
+key sequences to type instead of clicking. Its synchronized views and
+page-aware command line inform side-by-side image comparison in the gallery
+and opening documents at the previewed page in an external viewer, as
+[interaction refinements](../ROADMAP.md#m32-refinements).
 
 Lektra and MuPDF are licensed under the AGPL, while Plasma Opus is GPL-3.0.
 Plasma Opus therefore adapts Lektra's ideas, not its code, and launches it only
