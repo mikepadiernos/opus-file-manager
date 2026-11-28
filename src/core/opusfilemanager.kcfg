@@ -864,6 +864,81 @@
       <default></default>
     </entry>
   </group>
+  <!-- Nextcloud accounts stay in the NextcloudAccounts group; their app passwords are only kept by KDE's password server. -->
+  <group name="Nextcloud">
+    <entry name="NextcloudServerPreviews" key="ServerPreviews" type="Bool">
+      <label>Whether the preview panel shows the server's previews of Nextcloud files instead of downloading them</label>
+      <default>true</default>
+    </entry>
+    <entry name="NextcloudCheckPermissions" key="CheckPermissions" type="Bool">
+      <label>Whether the server's folder permissions are read to disable the actions they don't allow</label>
+      <default>true</default>
+    </entry>
+    <entry name="NextcloudServerMetadata" key="ServerMetadata" type="Bool">
+      <label>Whether the information panel shows the server's metadata of Nextcloud files</label>
+      <default>true</default>
+    </entry>
+    <entry name="NextcloudMetadataMaxAge" key="MetadataMaxAgeSeconds" type="Int">
+      <label>How long, in seconds, server metadata of Nextcloud files is used before it is read again</label>
+      <default>60</default>
+      <min>10</min>
+      <max>3600</max>
+    </entry>
+    <entry name="NextcloudResultLimit" key="ResultLimit" type="Int">
+      <label>The most results Search and Organize lists at once</label>
+      <default>500</default>
+      <min>50</min>
+      <max>5000</max>
+    </entry>
+    <entry name="NextcloudFavoritesAndTags" key="FavoritesAndTags" type="Bool">
+      <label>Whether the context menu of Nextcloud files offers the server's favourites and tags</label>
+      <default>true</default>
+    </entry>
+    <entry name="NextcloudShares" key="Shares" type="Bool">
+      <label>Whether Go › Nextcloud and the context menu of Nextcloud files offer Nextcloud shares</label>
+      <default>true</default>
+    </entry>
+    <entry name="NextcloudLinkExpiryDays" key="LinkExpiryDays" type="Int">
+      <label>The days after which new public links expire by default; 0 for no expiry</label>
+      <default>0</default>
+      <min>0</min>
+      <max>3650</max>
+    </entry>
+    <entry name="NextcloudDesktopClientMenu" key="DesktopClientMenu" type="Bool">
+      <label>Whether Go › Nextcloud offers the folders the Nextcloud desktop client synchronizes</label>
+      <default>true</default>
+    </entry>
+    <entry name="NextcloudDesktopStatus" key="DesktopStatus" type="Bool">
+      <label>Whether the Nextcloud desktop client is asked for the synchronization status of its folders</label>
+      <default>true</default>
+    </entry>
+    <entry name="NextcloudPhotosShowAlbums" key="PhotosShowAlbums" type="Bool">
+      <label>Whether Nextcloud Photos offers the user's own albums</label>
+      <default>true</default>
+    </entry>
+    <entry name="NextcloudPhotosShowSharedAlbums" key="PhotosShowSharedAlbums" type="Bool">
+      <label>Whether Nextcloud Photos offers the albums others share with the user</label>
+      <default>true</default>
+    </entry>
+    <entry name="NextcloudPhotosShowPlaces" key="PhotosShowPlaces" type="Bool">
+      <label>Whether Nextcloud Photos offers the places the server grouped photos by</label>
+      <default>true</default>
+    </entry>
+    <entry name="NextcloudPhotosGrouping" key="PhotosGrouping" type="Enum">
+      <label>How the Nextcloud Photos window groups photos when it opens</label>
+      <choices>
+        <choice name="LastUsed"/>
+        <choice name="NoGrouping"/>
+        <choice name="ByMonth"/>
+        <choice name="ByPlace"/>
+      </choices>
+      <default>LastUsed</default>
+    </entry>
+    <entry name="NextcloudPhotosConfirmChanges" key="PhotosConfirmChanges" type="Bool">
+      <label>Whether adding photos to or removing them from albums that aren't shared asks for confirmation first</label>
+      <default>true</default>
+    </entry>
+  </group>
   <group name="Editor">
     <entry name="EditorOpening" type="Enum">
       <choices><choice name="Panel"/><choice name="Embedded"/><choice name="Maximized"/><choice name="Window"/></choices>

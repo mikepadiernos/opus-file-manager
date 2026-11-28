@@ -26,6 +26,7 @@
 #include <QTreeWidget>
 #include <QVBoxLayout>
 
+#include <algorithm>
 #include <utility>
 
 namespace
@@ -600,6 +601,11 @@ void NextcloudSharesDialog::setSendByEmailEnabled(bool enabled)
     updateState();
 }
 
+void NextcloudSharesDialog::setDefaultLinkExpiryDays(int days)
+{
+    m_linkExpiryDays = std::max(0, days);
+}
+
 void NextcloudSharesDialog::setScope(Nextcloud::ShareScope scope)
 {
     m_scope->setCurrentIndex(std::max(0, m_scope->findData(int(scope))));
@@ -719,8 +725,15 @@ void NextcloudSharesDialog::create(Nextcloud::ShareType type)
     if (!m_itemIsFolder) {
         draft.permissions &= SharePermissions(SharePermission::Read) | SharePermission::Update | SharePermission::Share;
     }
-    if (type == ShareType::PublicLink && m_capabilities && m_capabilities->expireEnforced && m_capabilities->expireDays > 0) {
-        draft.expiration = QDate::currentDate().addDays(m_capabilities->expireDays);
+    if (type == ShareType::PublicLink) {
+        // The user's default never exceeds the longest the server allows.
+        int days = m_linkExpiryDays;
+        if (m_capabilities && m_capabilities->expireEnforced && m_capabilities->expireDays > 0) {
+            days = days > 0 ? std::min(days, m_capabilities->expireDays) : m_capabilities->expireDays;
+        }
+        if (days > 0) {
+            draft.expiration = QDate::currentDate().addDays(days);
+        }
     }
     NextcloudShares::EditorContext context;
     context.creating = true;

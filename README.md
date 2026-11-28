@@ -37,13 +37,13 @@
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. Since then, `main` has gained M15–M29: workspaces
+> released after M14. Since then, `main` has gained M15–M30: workspaces
 > (M15–M16), themes (M17–M18), branding (M19–M20), advanced search (M21–M22),
-> native tagging (M23–M24), Yazi mode (M25–M26) and desktop integrations
-> (M27–M28), each followed by a settings milestone, and Nextcloud integration
-> (M29). Features marked with a milestone badge below are on `main` but not in
-> v0.2.0. See the [roadmap](docs/ROADMAP.md#at-a-glance) for status and the
-> planned M30–M32.
+> native tagging (M23–M24), Yazi mode (M25–M26), desktop integrations
+> (M27–M28) and Nextcloud integration (M29–M30), each followed by a settings
+> milestone. Features marked with a milestone badge below are on `main` but not
+> in v0.2.0. See the [roadmap](docs/ROADMAP.md#at-a-glance) for status and the
+> planned M31–M32.
 
 ## Features
 
@@ -116,12 +116,13 @@ preview. Both behaviours can be changed in Preferences.
   applications, Markdown vaults with wiki links and tags, and optional embedded
   mpv playback.
 - **Nextcloud**
-  [![M29](https://img.shields.io/badge/M29-8957e5?style=flat-square)](docs/integrations/nextcloud.md):
+  [![M29–M30](https://img.shields.io/badge/M29%E2%80%93M30-8957e5?style=flat-square)](docs/integrations/nextcloud.md):
   sign in to Nextcloud accounts with Login Flow, browse with the server's
   permissions, see server previews and metadata, search, favourite and tag on
   the server, open Photos albums and places sorted by capture date, manage
   links and shares with confirmation, and find the desktop client's folders
-  with their sync status under **Go › Nextcloud**.
+  with their sync status under **Go › Nextcloud**, configured under
+  **Preferences › Remote and Cloud › Nextcloud**.
 - **Remote and secure access:** named SSH, SFTP, WebDAV, SMB and FTP
   connections, rclone and KDE Online Accounts, temporary LAN sharing,
   administrator mode, Plasma Vault, file encryption and password-gated

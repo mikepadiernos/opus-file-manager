@@ -14,7 +14,7 @@ record the Max File Manager behaviour that informs its parity goals.
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. M15–M29 have since been merged into `main`; M30–M32 are
+> released after M14. M15–M30 have since been merged into `main`; M31–M32 are
 > planned. See [pending tasks](TODO.md) for blocked work and branch-specific
 > handoffs.
 
@@ -24,8 +24,8 @@ Status reflects the milestones' parent issues on the
 [project board](https://github.com/users/mikepadiernos/projects/3): Merged
 groups have every feature checked and merged into `main`, Development groups
 have a milestone in progress, and Planned groups have not started. In the
-M27–M31 group, M27–M29 are merged and their Plasma checks are recorded in
-[pending tasks](TODO.md); M30–M31 are planned.
+M27–M31 group, M27–M30 are merged and their Plasma checks are recorded in
+[pending tasks](TODO.md); M31 is planned.
 
 | Milestones | Focus                                        | Status                                                                            | Jump to                         |
 | ---------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------- |
@@ -2117,13 +2117,18 @@ considered Calendar, Maps, Deck and Notes workflows.
 
 Settings for M29 Nextcloud integration, stored in KConfig without credentials.
 
-- [ ] Configure account references, supported browsing and preview choices,
+- [x] Configure account references, supported browsing and preview choices,
       asset metadata and search options, sharing controls and desktop-client
       integration. Reuse KDE Online Accounts, existing WebDAV profiles, remote
       preview policy and KDE credential facilities; explain unavailable server
-      features and retain safe defaults. [#368]
-- [ ] Show or hide Photos albums, shared albums and places, choose their
-      default grouping and whether to confirm album changes [#672]
+      features and retain safe defaults. Real-server and Plasma verification
+      is a [pending handoff](TODO.md#nextcloud-settings-on-plasma-368).
+      [#368]
+- [x] Show or hide Photos albums, shared albums and places, choose their
+      default grouping and whether to confirm album changes. Real-server
+      verification is a
+      [pending handoff](TODO.md#nextcloud-photos-settings-on-a-real-server-672).
+      [#672]
 
 ### M31: Keyboard shortcut settings
 

@@ -543,6 +543,22 @@ private Q_SLOTS:
         QTRY_VERIFY(rename->isEnabled());
         QVERIFY(remove->isEnabled());
         QVERIFY(!rename->toolTip().contains(QStringLiteral("renaming")));
+
+        // When Preferences no longer checks permissions, nothing stays disabled and the server decides.
+        Settings::setNextcloudCheckPermissions(false);
+        window.applySettings();
+        QVERIFY(!window.nextcloudPermissions(folder).has_value());
+        QVERIFY(newFolder->isEnabled());
+        view->selectUrls({folder.resolved(QUrl(QStringLiteral("Locked.txt")))});
+        QTRY_VERIFY(rename->isEnabled());
+        QVERIFY(remove->isEnabled());
+
+        // Checking them again reads them again.
+        Settings::setNextcloudCheckPermissions(true);
+        window.applySettings();
+        QTRY_VERIFY_WITH_TIMEOUT(window.nextcloudPermissions(folder).has_value(), 20000);
+        QTRY_VERIFY(!rename->isEnabled());
+        QVERIFY(!newFolder->isEnabled());
     }
 };
 

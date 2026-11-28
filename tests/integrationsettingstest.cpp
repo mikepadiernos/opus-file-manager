@@ -33,6 +33,7 @@
 #include "mediabackend.h"
 #include "mediaview.h"
 #include "mountbackend.h"
+#include "nextcloudaccountsdialog.h"
 #include "officeapps.h"
 #include "onlineaccounts.h"
 #include "operationjob.h"
@@ -3413,6 +3414,201 @@ private Q_SLOTS:
         QVERIFY(!ssh.findChild<QPushButton *>(QStringLiteral("folderSyncCompare"))->isEnabled());
     }
 
+    void nextcloudTabSetsTheIntegrationChoices()
+    {
+        const auto config = KSharedConfig::openConfig();
+        const auto restore = qScopeGuard([config] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            config->reparseConfiguration();
+        });
+
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("nextcloudIntegrationPage"));
+        auto *scroll = dialog.findChild<QWidget *>(QStringLiteral("nextcloudIntegrationScroll"));
+        QVERIFY(page && scroll && scroll->isAncestorOf(page));
+        auto *tabs = qobject_cast<QTabWidget *>(scroll->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(scroll), 4);
+        QCOMPARE(tabs->tabText(3), QStringLiteral("Sync"));
+        QCOMPARE(tabs->tabText(4), QStringLiteral("Nextcloud"));
+        QCOMPARE(tabs->tabText(5), QStringLiteral("Transfers and Cache"));
+        for (const char *group : {"nextcloudAccountsGroup",
+                                  "nextcloudBrowsingGroup",
+                                  "nextcloudMetadataGroup",
+                                  "nextcloudSharingGroup",
+                                  "nextcloudDesktopGroup",
+                                  "nextcloudPhotosGroup"}) {
+            auto *box = dialog.findChild<QGroupBox *>(QLatin1String(group));
+            QVERIFY2(box && page->isAncestorOf(box), group);
+        }
+
+        auto *serverPreviews = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_NextcloudServerPreviews"));
+        auto *permissions = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_NextcloudCheckPermissions"));
+        auto *serverMetadata = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_NextcloudServerMetadata"));
+        auto *favoritesAndTags = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_NextcloudFavoritesAndTags"));
+        auto *maxAge = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_NextcloudMetadataMaxAge"));
+        auto *resultLimit = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_NextcloudResultLimit"));
+        auto *shares = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_NextcloudShares"));
+        auto *linkExpiry = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_NextcloudLinkExpiryDays"));
+        auto *desktopMenu = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_NextcloudDesktopClientMenu"));
+        auto *desktopStatus = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_NextcloudDesktopStatus"));
+        auto *accountsStatus = dialog.findChild<QLabel *>(QStringLiteral("nextcloudAccountsStatus"));
+        auto *thumbnailsStatus = dialog.findChild<QLabel *>(QStringLiteral("nextcloudThumbnailsStatus"));
+        auto *sharingStatus = dialog.findChild<QLabel *>(QStringLiteral("nextcloudSharingStatus"));
+        auto *clientStatus = dialog.findChild<QLabel *>(QStringLiteral("nextcloudDesktopStatus"));
+        QVERIFY(serverPreviews && permissions && serverMetadata && favoritesAndTags && maxAge && resultLimit && shares && linkExpiry && desktopMenu
+                && desktopStatus && accountsStatus && thumbnailsStatus && sharingStatus && clientStatus);
+        for (QWidget *widget : std::initializer_list<QWidget *>{serverPreviews,
+                                                                permissions,
+                                                                serverMetadata,
+                                                                favoritesAndTags,
+                                                                maxAge,
+                                                                resultLimit,
+                                                                shares,
+                                                                linkExpiry,
+                                                                desktopMenu,
+                                                                desktopStatus}) {
+            QVERIFY(page->isAncestorOf(widget));
+        }
+
+        // The defaults keep what Go › Nextcloud did before these settings.
+        for (QCheckBox *box : {serverPreviews, permissions, serverMetadata, favoritesAndTags, shares, desktopMenu, desktopStatus}) {
+            QVERIFY2(box->isChecked(), qPrintable(box->objectName()));
+        }
+        QCOMPARE(maxAge->value(), 60);
+        QCOMPARE(resultLimit->value(), 500);
+        QCOMPARE(linkExpiry->value(), 0);
+        QCOMPARE(linkExpiry->text(), QStringLiteral("Never"));
+        QVERIFY2(accountsStatus->text().contains(QStringLiteral("No Nextcloud account is saved")), qPrintable(accountsStatus->text()));
+        QVERIFY2(!clientStatus->text().isEmpty(), "the desktop client's state is shown");
+
+        // Photos shows every kind and confirms album changes by default.
+        auto *photosAlbums = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_NextcloudPhotosShowAlbums"));
+        auto *photosShared = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_NextcloudPhotosShowSharedAlbums"));
+        auto *photosPlaces = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_NextcloudPhotosShowPlaces"));
+        auto *photosGrouping = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_NextcloudPhotosGrouping"));
+        auto *photosConfirm = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_NextcloudPhotosConfirmChanges"));
+        auto *photosStatus = dialog.findChild<QLabel *>(QStringLiteral("nextcloudPhotosStatus"));
+        QVERIFY(photosAlbums && photosShared && photosPlaces && photosGrouping && photosConfirm && photosStatus);
+        auto *photosGroup = dialog.findChild<QGroupBox *>(QStringLiteral("nextcloudPhotosGroup"));
+        for (QWidget *widget : std::initializer_list<QWidget *>{photosAlbums, photosShared, photosPlaces, photosGrouping, photosConfirm, photosStatus}) {
+            QVERIFY(photosGroup->isAncestorOf(widget));
+        }
+        QVERIFY(photosAlbums->isChecked() && photosShared->isChecked() && photosPlaces->isChecked() && photosConfirm->isChecked());
+        QCOMPARE(photosGrouping->count(), 4);
+        QCOMPARE(photosGrouping->currentIndex(), 0);
+        QVERIFY(photosGrouping->isEnabled() && photosConfirm->isEnabled());
+        QVERIFY(photosStatus->text().isEmpty() && photosStatus->isHidden());
+
+        // Confirmation needs albums, and grouping needs any kind.
+        photosAlbums->setChecked(false);
+        photosShared->setChecked(false);
+        QVERIFY(!photosConfirm->isEnabled() && photosGrouping->isEnabled());
+        QVERIFY2(photosStatus->text().contains(QStringLiteral("Add to Nextcloud Album")), qPrintable(photosStatus->text()));
+        QVERIFY(!photosStatus->isHidden());
+        photosPlaces->setChecked(false);
+        QVERIFY(!photosGrouping->isEnabled());
+        QVERIFY2(photosStatus->text().contains(QStringLiteral("doesn't offer Photos")), qPrintable(photosStatus->text()));
+        photosShared->setChecked(true);
+        QVERIFY(photosConfirm->isEnabled() && photosGrouping->isEnabled());
+        QVERIFY(photosStatus->isHidden());
+
+        // The status follows the shared settings of other tabs.
+        auto *online = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_OnlineAccountsEnabled"));
+        auto *remotePreviews = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowRemotePreviews"));
+        auto *sendByEmail = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SendByEmail"));
+        QVERIFY(online && remotePreviews && sendByEmail);
+        QVERIFY(!page->isAncestorOf(online) && !page->isAncestorOf(remotePreviews) && !page->isAncestorOf(sendByEmail));
+        online->setChecked(false);
+        QVERIFY2(accountsStatus->text().contains(QStringLiteral("not read")), qPrintable(accountsStatus->text()));
+        online->setChecked(true);
+        QVERIFY2(accountsStatus->text().contains(QStringLiteral("listed too")), qPrintable(accountsStatus->text()));
+        remotePreviews->setChecked(false);
+        QVERIFY2(thumbnailsStatus->text().contains(QStringLiteral("no thumbnails")), qPrintable(thumbnailsStatus->text()));
+        remotePreviews->setChecked(true);
+        QVERIFY2(thumbnailsStatus->text().contains(QStringLiteral("show thumbnails")), qPrintable(thumbnailsStatus->text()));
+        sendByEmail->setChecked(false);
+        QVERIFY2(sharingStatus->text().contains(QStringLiteral("can't be sent")), qPrintable(sharingStatus->text()));
+        sendByEmail->setChecked(true);
+        QVERIFY2(sharingStatus->text().contains(QStringLiteral("sent by email")), qPrintable(sharingStatus->text()));
+
+        // Dependent choices are disabled with what they depend on.
+        serverMetadata->setChecked(false);
+        QVERIFY(!maxAge->isEnabled());
+        shares->setChecked(false);
+        QVERIFY(!linkExpiry->isEnabled());
+        QVERIFY2(sharingStatus->text().contains(QStringLiteral("stay as they are")), qPrintable(sharingStatus->text()));
+        desktopMenu->setChecked(false);
+        QVERIFY(!desktopStatus->isEnabled());
+
+        serverPreviews->setChecked(false);
+        permissions->setChecked(false);
+        favoritesAndTags->setChecked(false);
+        desktopStatus->setChecked(false);
+        maxAge->setValue(300);
+        resultLimit->setValue(1000);
+        linkExpiry->setValue(7);
+        photosGrouping->setCurrentIndex(2);
+        photosConfirm->setChecked(false);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::nextcloudServerPreviews());
+        QVERIFY(!Settings::nextcloudCheckPermissions());
+        QVERIFY(!Settings::nextcloudServerMetadata());
+        QVERIFY(!Settings::nextcloudFavoritesAndTags());
+        QVERIFY(!Settings::nextcloudShares());
+        QVERIFY(!Settings::nextcloudDesktopClientMenu());
+        QVERIFY(!Settings::nextcloudDesktopStatus());
+        QCOMPARE(Settings::nextcloudMetadataMaxAge(), 300);
+        QCOMPARE(Settings::nextcloudResultLimit(), 1000);
+        QCOMPARE(Settings::nextcloudLinkExpiryDays(), 7);
+        QVERIFY(!Settings::nextcloudPhotosShowAlbums());
+        QVERIFY(Settings::nextcloudPhotosShowSharedAlbums());
+        QVERIFY(!Settings::nextcloudPhotosShowPlaces());
+        QCOMPARE(int(Settings::nextcloudPhotosGrouping()), int(Settings::EnumNextcloudPhotosGrouping::ByMonth));
+        QVERIFY(!Settings::nextcloudPhotosConfirmChanges());
+        config->reparseConfiguration();
+        const KConfigGroup group = config->group(QStringLiteral("Nextcloud"));
+        QCOMPARE(group.readEntry("LinkExpiryDays", 0), 7);
+        QVERIFY(!group.readEntry("Shares", true));
+
+        // Defaults restore the earlier behaviour.
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(serverMetadata->isChecked() && maxAge->isEnabled());
+        QVERIFY(shares->isChecked() && linkExpiry->isEnabled());
+        QVERIFY(desktopMenu->isChecked() && desktopStatus->isEnabled());
+        QVERIFY(photosAlbums->isChecked() && photosShared->isChecked() && photosPlaces->isChecked());
+        QVERIFY(photosConfirm->isChecked() && photosConfirm->isEnabled());
+        QCOMPARE(photosGrouping->currentIndex(), 0);
+        QVERIFY(photosStatus->isHidden());
+
+        // The buttons lead to the other tabs that Nextcloud depends on.
+        dialog.findChild<QPushButton *>(QStringLiteral("nextcloudShowOnlineAccounts"))->click();
+        auto *onlinePage = dialog.findChild<QWidget *>(QStringLiteral("onlineAccountsIntegrationPage"));
+        QCOMPARE(qobject_cast<QTabWidget *>(onlinePage->parentWidget()->parentWidget())->currentWidget(), onlinePage);
+        QVERIFY(dialog.currentPage()->widget()->isAncestorOf(onlinePage));
+        dialog.findChild<QPushButton *>(QStringLiteral("nextcloudShowPreviewSettings"))->click();
+        auto *previewsPage = dialog.findChild<QWidget *>(QStringLiteral("previewsPage"));
+        QVERIFY(previewsPage);
+        auto *previewTabs = qobject_cast<QTabWidget *>(previewsPage->parentWidget()->parentWidget());
+        QVERIFY(previewTabs);
+        QCOMPARE(previewTabs->currentWidget(), previewsPage);
+        QVERIFY(dialog.currentPage()->widget()->isAncestorOf(previewsPage));
+
+        // Accounts are managed in Go › Nextcloud's dialog, not a copy of it.
+        auto *manage = dialog.findChild<QPushButton *>(QStringLiteral("manageNextcloudAccounts"));
+        QVERIFY(manage && manage->isEnabled());
+        QVERIFY(!window.findChild<NextcloudAccountsDialog *>());
+        manage->click();
+        auto *accounts = window.findChild<NextcloudAccountsDialog *>();
+        QVERIFY(accounts);
+        QVERIFY(!dialog.isAncestorOf(accounts));
+        accounts->close();
+    }
+
     void transfersTabSetsRcloneLimitsAndTheTrayPanel()
     {
         const auto config = KSharedConfig::openConfig();
@@ -3429,9 +3625,9 @@ private Q_SLOTS:
         QVERIFY(page);
         auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
         QVERIFY(tabs);
-        QCOMPARE(tabs->indexOf(page), 4);
-        QCOMPARE(tabs->tabText(3), QStringLiteral("Sync"));
-        QCOMPARE(tabs->tabText(4), QStringLiteral("Transfers and Cache"));
+        QCOMPARE(tabs->indexOf(page), 5);
+        QCOMPARE(tabs->tabText(4), QStringLiteral("Nextcloud"));
+        QCOMPARE(tabs->tabText(5), QStringLiteral("Transfers and Cache"));
 
         auto *bandwidth = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CloudBandwidthLimitKiB"));
         auto *parallel = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CloudParallelTransfers"));
@@ -3538,12 +3734,13 @@ private Q_SLOTS:
         QVERIFY(page);
         auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
         QVERIFY(tabs);
-        QCOMPARE(tabs->count(), 6);
-        QCOMPARE(tabs->indexOf(page), 5);
+        QCOMPARE(tabs->count(), 7);
+        QCOMPARE(tabs->indexOf(page), 6);
         const QStringList order{QStringLiteral("Connections"),
                                 QStringLiteral("rclone"),
                                 QStringLiteral("Remote Drives"),
                                 QStringLiteral("Sync"),
+                                QStringLiteral("Nextcloud"),
                                 QStringLiteral("Transfers and Cache"),
                                 QStringLiteral("LAN Sharing")};
         for (int i = 0; i < order.size(); ++i) {

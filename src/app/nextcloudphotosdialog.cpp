@@ -92,6 +92,40 @@ QString collectionText(const Nextcloud::PhotoCollection &collection)
     return collection.itemCount ? i18nc("@item %1 is an album name, %2 how many photos it holds", "%1 (%2)", collection.name, *collection.itemCount)
                                 : collection.name;
 }
+
+/// Asks to confirm a change to @p album, unless @p options skip that for it.
+bool confirmChange(const NextcloudPhotos::Options &options,
+                   const NextcloudPhotos::Confirmation &confirm,
+                   QWidget *parent,
+                   const Nextcloud::PhotoCollection &album,
+                   const QString &title,
+                   const QString &text,
+                   const QString &action)
+{
+    // Everyone a shared album is shared with sees its changes, so they are always confirmed.
+    if (!options.confirmChanges && !isShared(album)) {
+        return true;
+    }
+    return confirm(parent, title, text, action);
+}
+}
+
+QList<Nextcloud::PhotoCollectionKind> NextcloudPhotos::Options::kinds() const
+{
+    QList<Nextcloud::PhotoCollectionKind> shown;
+    if (albums) {
+        shown.append(Nextcloud::PhotoCollectionKind::Albums);
+    }
+    if (sharedAlbums) {
+        shown.append(Nextcloud::PhotoCollectionKind::SharedAlbums);
+    }
+    if (places) {
+        shown.append(Nextcloud::PhotoCollectionKind::Places);
+    }
+    if (shown.isEmpty()) {
+        shown.append(Nextcloud::PhotoCollectionKind::Albums);
+    }
+    return shown;
 }
 
 QString NextcloudPhotos::removeQuestion(const Nextcloud::PhotoCollection &album, int count)
@@ -120,9 +154,13 @@ QString NextcloudPhotos::addQuestion(const Nextcloud::PhotoCollection &album, in
     return text;
 }
 
-NextcloudPhotosDialog::NextcloudPhotosDialog(const NextcloudAccounts::Account &account, Nextcloud::CredentialStore *store, QWidget *parent)
+NextcloudPhotosDialog::NextcloudPhotosDialog(const NextcloudAccounts::Account &account,
+                                             Nextcloud::CredentialStore *store,
+                                             const NextcloudPhotos::Options &options,
+                                             QWidget *parent)
     : QDialog(parent)
     , m_account(account)
+    , m_options(options)
     , m_client(new NextcloudClient(this))
     , m_confirm(askConfirmation)
     , m_prompt(askName)
@@ -150,15 +188,24 @@ NextcloudPhotosDialog::NextcloudPhotosDialog(const NextcloudAccounts::Account &a
     intro->setWordWrap(true);
 
     m_kind->setObjectName(QStringLiteral("photosKind"));
-    m_kind->addItem(SymbolicIcon::fromTheme(QStringLiteral("folder-pictures")),
-                    i18nc("@item:inlistbox", "Albums"),
-                    int(Nextcloud::PhotoCollectionKind::Albums));
-    m_kind->addItem(SymbolicIcon::fromTheme(QStringLiteral("folder-publicshare")),
-                    i18nc("@item:inlistbox", "Shared albums"),
-                    int(Nextcloud::PhotoCollectionKind::SharedAlbums));
-    m_kind->addItem(SymbolicIcon::fromTheme(QStringLiteral("mark-location")), i18nc("@item:inlistbox", "Places"), int(Nextcloud::PhotoCollectionKind::Places));
+    for (const Nextcloud::PhotoCollectionKind shown : m_options.kinds()) {
+        switch (shown) {
+        case Nextcloud::PhotoCollectionKind::Albums:
+            m_kind->addItem(SymbolicIcon::fromTheme(QStringLiteral("folder-pictures")), i18nc("@item:inlistbox", "Albums"), int(shown));
+            break;
+        case Nextcloud::PhotoCollectionKind::SharedAlbums:
+            m_kind->addItem(SymbolicIcon::fromTheme(QStringLiteral("folder-publicshare")), i18nc("@item:inlistbox", "Shared albums"), int(shown));
+            break;
+        case Nextcloud::PhotoCollectionKind::Places:
+            m_kind->addItem(SymbolicIcon::fromTheme(QStringLiteral("mark-location")), i18nc("@item:inlistbox", "Places"), int(shown));
+            break;
+        }
+    }
+    m_kind->setEnabled(m_kind->count() > 1);
     m_reload->setObjectName(QStringLiteral("photosReload"));
     m_newAlbum->setObjectName(QStringLiteral("photosNewAlbum"));
+    // A new album would be listed under Albums, which aren't shown.
+    m_newAlbum->setVisible(m_kind->findData(int(Nextcloud::PhotoCollectionKind::Albums)) >= 0);
     m_collections->setObjectName(QStringLiteral("photosCollections"));
 
     m_sort->setObjectName(QStringLiteral("photosSort"));
@@ -231,7 +278,8 @@ NextcloudPhotosDialog::NextcloudPhotosDialog(const NextcloudAccounts::Account &a
     const KConfigGroup state = stateGroup();
     m_kind->setCurrentIndex(std::max(0, m_kind->findData(state.readEntry("Kind", int(Nextcloud::PhotoCollectionKind::Albums)))));
     m_sort->setCurrentIndex(std::max(0, m_sort->findData(state.readEntry("Sort", int(Nextcloud::PhotoSort::NewestFirst)))));
-    m_group->setCurrentIndex(std::max(0, m_group->findData(state.readEntry("Grouping", int(Nextcloud::PhotoGrouping::Month)))));
+    const int grouping = m_options.grouping ? int(*m_options.grouping) : state.readEntry("Grouping", int(Nextcloud::PhotoGrouping::Month));
+    m_group->setCurrentIndex(std::max(0, m_group->findData(grouping)));
 
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     connect(m_kind, &QComboBox::currentIndexChanged, this, [this] {
@@ -495,10 +543,13 @@ void NextcloudPhotosDialog::removeSelected()
     if (!album || photos.isEmpty() || !Nextcloud::canRemovePhotos(*album) || !m_removing.isEmpty()) {
         return;
     }
-    if (!m_confirm(this,
-                   i18nc("@title:window", "Remove from Album"),
-                   NextcloudPhotos::removeQuestion(*album, photos.size()),
-                   i18nc("@action:button", "Remove from Album"))) {
+    if (!confirmChange(m_options,
+                       m_confirm,
+                       this,
+                       *album,
+                       i18nc("@title:window", "Remove from Album"),
+                       NextcloudPhotos::removeQuestion(*album, photos.size()),
+                       i18nc("@action:button", "Remove from Album"))) {
         return;
     }
     m_removeErrors.clear();
@@ -602,9 +653,11 @@ void NextcloudPhotosDialog::updateState()
 NextcloudAddToAlbumDialog::NextcloudAddToAlbumDialog(const NextcloudAccounts::Account &account,
                                                      const QList<QUrl> &files,
                                                      Nextcloud::CredentialStore *store,
+                                                     const NextcloudPhotos::Options &options,
                                                      QWidget *parent)
     : QDialog(parent)
     , m_account(account)
+    , m_options(options)
     , m_files(files)
     , m_client(new NextcloudClient(this))
     , m_confirm(askConfirmation)
@@ -634,6 +687,8 @@ NextcloudAddToAlbumDialog::NextcloudAddToAlbumDialog(const NextcloudAccounts::Ac
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Cancel, this);
     buttons->addButton(m_newAlbum, QDialogButtonBox::ActionRole);
     buttons->addButton(m_add, QDialogButtonBox::ActionRole);
+    // A new album is one of the user's own, which aren't listed. Set after addButton(), which shows the button.
+    m_newAlbum->setVisible(m_options.albums);
     auto *layout = new QVBoxLayout(this);
     layout->addWidget(intro);
     layout->addWidget(m_albums, 1);
@@ -703,7 +758,9 @@ void NextcloudAddToAlbumDialog::reload()
     m_albums->clear();
     m_requests.clear();
     for (const auto kind : {Nextcloud::PhotoCollectionKind::Albums, Nextcloud::PhotoCollectionKind::SharedAlbums}) {
-        m_requests.insert(m_client->listPhotoCollections(m_account, kind), kind);
+        if (m_options.kinds().contains(kind)) {
+            m_requests.insert(m_client->listPhotoCollections(m_account, kind), kind);
+        }
     }
     updateState();
 }
@@ -716,7 +773,7 @@ void NextcloudAddToAlbumDialog::collectionsListed(int request, const Nextcloud::
     if (!listing.error.isEmpty() && !m_listingErrors.contains(listing.error)) {
         m_listingErrors.append(listing.error);
     }
-    if (listing.kind == Nextcloud::PhotoCollectionKind::Albums) {
+    if (listing.kind == Nextcloud::PhotoCollectionKind::Albums || !m_options.albums) {
         m_photosUnavailable = listing.unavailable;
     }
     for (const Nextcloud::PhotoCollection &album : listing.collections) {
@@ -770,10 +827,13 @@ void NextcloudAddToAlbumDialog::addToChosen()
         return;
     }
     const Nextcloud::PhotoCollection album = m_albumList.at(row);
-    if (!m_confirm(this,
-                   i18nc("@title:window", "Add to Album"),
-                   NextcloudPhotos::addQuestion(album, m_files.size()),
-                   i18nc("@action:button", "Add to Album"))) {
+    if (!confirmChange(m_options,
+                       m_confirm,
+                       this,
+                       album,
+                       i18nc("@title:window", "Add to Album"),
+                       NextcloudPhotos::addQuestion(album, m_files.size()),
+                       i18nc("@action:button", "Add to Album"))) {
         return;
     }
     m_pendingAlbum = album.path;
@@ -802,7 +862,8 @@ void NextcloudAddToAlbumDialog::updateState()
     } else if (!m_listingErrors.isEmpty()) {
         m_status->setText(m_listingErrors.join(QLatin1Char(' ')));
     } else if (m_albumList.isEmpty()) {
-        m_status->setText(i18nc("@info:status", "You have no albums that accept photos. Create one with New Album."));
+        m_status->setText(m_options.albums ? i18nc("@info:status", "You have no albums that accept photos. Create one with New Album.")
+                                           : i18nc("@info:status", "No album shared with you accepts photos."));
     } else {
         m_status->clear();
     }

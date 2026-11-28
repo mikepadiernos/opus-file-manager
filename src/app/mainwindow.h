@@ -448,6 +448,8 @@ private:
     void nextcloudPermissionsFetched(const QUrl &folder, const Nextcloud::FolderPermissions &permissions, const QString &error);
     /// Disables the actions that the Nextcloud server forbids for @p selected, explaining why.
     void applyNextcloudPermissions(const KFileItemList &selected);
+    /// Applies the Nextcloud permission checks of Preferences to the folders shown.
+    void applyNextcloudSettings();
     /// The Nextcloud account that @p url belongs to, reading the accounts the first time.
     std::optional<NextcloudAccounts::Account> nextcloudAccountFor(const QUrl &url);
     /// The client for Nextcloud server requests, created when first needed.

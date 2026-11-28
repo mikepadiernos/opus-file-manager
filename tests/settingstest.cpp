@@ -1350,6 +1350,23 @@ private Q_SLOTS:
         for (const QString &entry : {QStringLiteral("McpAccess"), QStringLiteral("McpFolders"), QStringLiteral("McpAuditLog")}) {
             QCOMPARE(tabOf(entry), QStringLiteral("MCP"));
         }
+        for (const QString &entry : {QStringLiteral("NextcloudServerPreviews"),
+                                     QStringLiteral("NextcloudCheckPermissions"),
+                                     QStringLiteral("NextcloudServerMetadata"),
+                                     QStringLiteral("NextcloudMetadataMaxAge"),
+                                     QStringLiteral("NextcloudResultLimit"),
+                                     QStringLiteral("NextcloudFavoritesAndTags"),
+                                     QStringLiteral("NextcloudShares"),
+                                     QStringLiteral("NextcloudLinkExpiryDays"),
+                                     QStringLiteral("NextcloudDesktopClientMenu"),
+                                     QStringLiteral("NextcloudDesktopStatus"),
+                                     QStringLiteral("NextcloudPhotosShowAlbums"),
+                                     QStringLiteral("NextcloudPhotosShowSharedAlbums"),
+                                     QStringLiteral("NextcloudPhotosShowPlaces"),
+                                     QStringLiteral("NextcloudPhotosGrouping"),
+                                     QStringLiteral("NextcloudPhotosConfirmChanges")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Nextcloud"));
+        }
         for (const QString &entry : {QStringLiteral("PlasmaVaultMenu"), QStringLiteral("PlasmaVaultHidden"), QStringLiteral("PlasmaVaultShowState")}) {
             QCOMPARE(tabOf(entry), QStringLiteral("Encryption"));
         }

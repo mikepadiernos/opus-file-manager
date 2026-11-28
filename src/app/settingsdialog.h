@@ -428,6 +428,12 @@ private:
      */
     QWidget *createSyncIntegrationPage();
     /**
+     * The Remote and Cloud › Nextcloud tab: the Nextcloud accounts, managed as
+     * in Go › Nextcloud, and the choices of browsing, previews, metadata,
+     * search, sharing and the desktop client.
+     */
+    QWidget *createNextcloudIntegrationPage();
+    /**
      * The Remote and Cloud › Transfers and Cache tab: the limits of rclone
      * mounts and rclone sync pairs, also set in File › Cloud Activity…, and
      * whether the tray menu offers Cloud Activity….

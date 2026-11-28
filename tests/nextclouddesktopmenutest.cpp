@@ -5,6 +5,7 @@
 #include "nextclouddesktop.h"
 #include "nextcloudmenu.h"
 #include "pane.h"
+#include "settings.h"
 
 #include <KActionCollection>
 #include <KActionMenu>
@@ -16,6 +17,7 @@
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QMenu>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -249,6 +251,78 @@ private Q_SLOTS:
             problem = problem || (entry->text() == QStringLiteral("Damaged && unreadable") && !entry->isEnabled());
         }
         QVERIFY(problem);
+    }
+
+    void statusIsNotAskedWhenTurnedOff()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString root = dir.path();
+        QVERIFY(QDir().mkpath(root + QStringLiteral("/Nextcloud")));
+        const QString path = dir.filePath(QStringLiteral("nextcloud.cfg"));
+        QVERIFY(writeFile(path, configuration(root)));
+
+        NextcloudMenu::DesktopClient client;
+        client.configuration = readConfiguration(path);
+        client.installed = true;
+        client.statusEnabled = false;
+        QMenu menu;
+        NextcloudMenu::populateDesktopClient(&menu, client, {alice()}, true, this, {});
+        // Neither a pending check nor a missing client is claimed, and the folders have no state.
+        QVERIFY(!action(&menu, QStringLiteral("nextcloudDesktopStatus")));
+        QMenu *full = folderMenu(&menu, QStringLiteral("0"), QStringLiteral("1"));
+        QVERIFY(full);
+        QCOMPARE(full->title(), QStringLiteral("Nextcloud"));
+        QVERIFY2(full->menuAction()->toolTip().contains(QStringLiteral("as set in Preferences")), qPrintable(full->menuAction()->toolTip()));
+
+        // Even a stale answer of the client isn't shown.
+        client.statusChecked = true;
+        client.running = true;
+        client.statuses = {{root + QStringLiteral("/Nextcloud"), QStringLiteral("OK")}};
+        NextcloudMenu::populateDesktopClient(&menu, client, {alice()}, true, this, {});
+        QCOMPARE(folderMenu(&menu, QStringLiteral("0"), QStringLiteral("1"))->title(), QStringLiteral("Nextcloud"));
+    }
+
+    void mainWindowFollowsTheDesktopClientSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString root = dir.path();
+        QVERIFY(QDir().mkpath(root + QStringLiteral("/Nextcloud")));
+        const QString path = dir.filePath(QStringLiteral("config/Nextcloud/nextcloud.cfg"));
+        const QString socket = dir.filePath(QStringLiteral("socket"));
+        QVERIFY(writeFile(path, configuration(root)));
+        FakeClient client(socket);
+        QVERIFY(client.isListening());
+
+        MainWindow window;
+        window.setNextcloudDesktopLocations(path, socket);
+        QMenu *menu = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("nextcloud")))->menu();
+
+        // Without status checks, the client is never asked.
+        Settings::setNextcloudDesktopStatus(false);
+        Q_EMIT menu->aboutToShow();
+        QMenu *desktop = menu->findChild<QMenu *>(QStringLiteral("nextcloudDesktopClient"));
+        QVERIFY(desktop && menu->actions().contains(desktop->menuAction()));
+        QCOMPARE(folderMenu(desktop, QStringLiteral("0"), QStringLiteral("1"))->title(), QStringLiteral("Nextcloud"));
+        QTest::qWait(100);
+        QVERIFY(client.received.isEmpty());
+
+        // Turning the submenu off removes it even though the client is configured.
+        Settings::setNextcloudDesktopClientMenu(false);
+        Q_EMIT menu->aboutToShow();
+        QVERIFY(!menu->actions().contains(desktop->menuAction()));
+        QVERIFY(client.received.isEmpty());
+
+        // The defaults offer the submenu and ask the client again.
+        Settings::self()->setDefaults();
+        Q_EMIT menu->aboutToShow();
+        QVERIFY(menu->actions().contains(desktop->menuAction()));
+        QTRY_COMPARE(folderMenu(desktop, QStringLiteral("0"), QStringLiteral("1"))->title(), QStringLiteral("Nextcloud (Local, Up to date)"));
     }
 
     void mainWindowOffersTheClientOnlyWhenConfigured()

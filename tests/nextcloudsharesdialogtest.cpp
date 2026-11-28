@@ -64,10 +64,13 @@ const QByteArray receivedShare =
     "{\"id\":\"20\",\"share_type\":0,\"uid_owner\":\"bob\",\"displayname_owner\":\"Bob\",\"permissions\":1,"
     "\"can_edit\":false,\"can_delete\":true,\"path\":\"/Plans.odt\",\"item_type\":\"file\",\"share_with\":\"alice\"}";
 
-QByteArray capabilities(bool api)
+/// @p enforcedExpiryDays is the longest a public link may last, or 0 when the server doesn't limit it.
+QByteArray capabilities(bool api, int enforcedExpiryDays = 0)
 {
+    const QByteArray expiry = enforcedExpiryDays > 0 ? "{\"enabled\":true,\"enforced\":true,\"days\":" + QByteArray::number(enforcedExpiryDays) + "}"
+                                                     : QByteArray("{\"enabled\":false}");
     return ocs("{\"capabilities\":{\"files_sharing\":{\"api_enabled\":" + QByteArray(api ? "true" : "false")
-               + ",\"public\":{\"enabled\":true,\"password\":{\"enforced\":false},\"expire_date\":{\"enabled\":false},\"upload\":true},"
+               + ",\"public\":{\"enabled\":true,\"password\":{\"enforced\":false},\"expire_date\":" + expiry + ",\"upload\":true},"
                  "\"resharing\":true,\"group_sharing\":true,\"default_permissions\":31}}}");
 }
 
@@ -148,6 +151,7 @@ private:
     MemoryStore m_store;
     bool m_sharingMissing = false;
     bool m_api = true;
+    int m_enforcedExpiryDays = 0;
 
     QUrl base() const
     {
@@ -195,7 +199,7 @@ private:
                 + "\r\nConnection: close\r\n\r\n" + body;
         };
         if (request.path == "/ocs/v2.php/cloud/capabilities") {
-            return reply("200 OK", capabilities(m_api));
+            return reply("200 OK", capabilities(m_api, m_enforcedExpiryDays));
         }
         if (m_sharingMissing && request.path.startsWith(sharesRoot)) {
             return reply("404 Not Found", ocs("[]", 998, "Invalid query, please check the syntax."));
@@ -273,6 +277,7 @@ private Q_SLOTS:
         m_requests.clear();
         m_sharingMissing = false;
         m_api = true;
+        m_enforcedExpiryDays = 0;
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("NextcloudSharesDialog"));
     }
 
@@ -423,6 +428,56 @@ private Q_SLOTS:
             QVERIFY(!edit->text().contains(sharePassword));
         }
         QVERIFY(!status->text().contains(sharePassword));
+    }
+
+    void linksStartWithTheDefaultExpiry()
+    {
+        SKIP_WITHOUT_WEBDAV();
+        QList<NextcloudShares::ShareDraft> drafts;
+        const auto editor = [&drafts](QWidget *, const NextcloudShares::ShareDraft &draft, const NextcloudShares::EditorContext &) {
+            drafts.append(draft);
+            return std::optional<NextcloudShares::ShareDraft>();
+        };
+
+        // Without a default, links never expire unless the server says so.
+        auto dialog = photosDialog();
+        dialog->setShareEditor(editor);
+        auto *createLink = child<QPushButton>(*dialog, "sharesCreateLink");
+        QTRY_VERIFY(createLink->isEnabled());
+        createLink->click();
+        QCOMPARE(drafts.size(), 1);
+        QVERIFY(!drafts.last().expiration.isValid());
+
+        // The default of Preferences › Remote and Cloud › Nextcloud applies to links only.
+        dialog->setDefaultLinkExpiryDays(10);
+        createLink->click();
+        QCOMPARE(drafts.size(), 2);
+        QCOMPARE(drafts.last().expiration, QDate::currentDate().addDays(10));
+        auto *create = child<QPushButton>(*dialog, "sharesCreate");
+        QVERIFY(create->isEnabled());
+        create->click();
+        QCOMPARE(drafts.size(), 3);
+        QVERIFY(!drafts.last().expiration.isValid());
+        QTest::qWait(100);
+        QVERIFY(requests("POST").isEmpty());
+
+        // A server that enforces an earlier expiry wins, and its own default applies without one.
+        m_enforcedExpiryDays = 7;
+        auto enforced = photosDialog();
+        enforced->setShareEditor(editor);
+        QSignalSpy fetched(enforced->client(), &NextcloudClient::shareCapabilitiesFetched);
+        QTRY_COMPARE(fetched.size(), 1);
+        auto *enforcedLink = child<QPushButton>(*enforced, "sharesCreateLink");
+        QTRY_VERIFY(enforcedLink->isEnabled());
+        enforced->setDefaultLinkExpiryDays(30);
+        enforcedLink->click();
+        QCOMPARE(drafts.last().expiration, QDate::currentDate().addDays(7));
+        enforced->setDefaultLinkExpiryDays(3);
+        enforcedLink->click();
+        QCOMPARE(drafts.last().expiration, QDate::currentDate().addDays(3));
+        enforced->setDefaultLinkExpiryDays(0);
+        enforcedLink->click();
+        QCOMPARE(drafts.last().expiration, QDate::currentDate().addDays(7));
     }
 
     void broadeningAsksButNarrowingDoesNot()

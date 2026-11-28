@@ -6458,6 +6458,17 @@ void MainWindow::populateNextcloud()
     QString error;
     m_nextcloudAccounts = nextcloudAccounts(&error);
     m_nextcloudAccountsLoaded = true;
+    NextcloudMenu::AccountHandlers more;
+    if (Settings::nextcloudPhotosShowAlbums() || Settings::nextcloudPhotosShowSharedAlbums() || Settings::nextcloudPhotosShowPlaces()) {
+        more.photos = [this](const NextcloudAccounts::Account &account) {
+            showNextcloudPhotos(account);
+        };
+    }
+    if (Settings::nextcloudShares()) {
+        more.shares = [this](const NextcloudAccounts::Account &account) {
+            showNextcloudShares(account);
+        };
+    }
     NextcloudMenu::populate(
         m_nextcloudMenu,
         m_nextcloudAccounts,
@@ -6472,27 +6483,8 @@ void MainWindow::populateNextcloud()
         [this](const NextcloudAccounts::Account &account) {
             showNextcloudAssets(account);
         },
-        NextcloudMenu::AccountHandlers{[this](const NextcloudAccounts::Account &account) {
-                                           showNextcloudPhotos(account);
-                                       },
-                                       [this](const NextcloudAccounts::Account &account) {
-                                           showNextcloudShares(account);
-                                       }});
+        more);
     populateNextcloudDesktop(true);
-}
-
-namespace
-{
-/// The Nextcloud desktop client's application, by the names its packages give it.
-KService::Ptr nextcloudDesktopService()
-{
-    for (const QString &name : {QStringLiteral("com.nextcloud.desktopclient.nextcloud"), QStringLiteral("nextcloud"), QStringLiteral("Nextcloud")}) {
-        if (KService::Ptr service = KService::serviceByDesktopName(name)) {
-            return service;
-        }
-    }
-    return {};
-}
 }
 
 void MainWindow::setNextcloudDesktopLocations(const QString &configuration, const QString &socket)
@@ -6511,9 +6503,9 @@ void MainWindow::populateNextcloudDesktop(bool refresh)
     NextcloudMenu::DesktopClient client;
     client.configuration = NextcloudDesktop::readConfiguration(m_nextcloudDesktopConfiguration.isEmpty() ? NextcloudDesktop::defaultConfigurationPath()
                                                                                                          : m_nextcloudDesktopConfiguration);
-    client.installed = nextcloudDesktopService();
-    // Without the client, the submenu stays out of the way.
-    if (!client.configuration.exists && !client.installed) {
+    client.installed = NextcloudMenu::desktopClientService();
+    // Without the client, or when it is turned off in Preferences, the submenu stays out of the way.
+    if ((!client.configuration.exists && !client.installed) || !Settings::nextcloudDesktopClientMenu()) {
         if (m_nextcloudDesktopMenu) {
             m_nextcloudMenu->removeAction(m_nextcloudDesktopMenu->menuAction());
         }
@@ -6526,7 +6518,8 @@ void MainWindow::populateNextcloudDesktop(bool refresh)
         m_nextcloudDesktopMenu->menuAction()->setToolTip(
             i18nc("@info:tooltip", "Open the folders the Nextcloud desktop client synchronizes and see their status"));
     }
-    if (refresh) {
+    client.statusEnabled = Settings::nextcloudDesktopStatus();
+    if (refresh && client.statusEnabled) {
         if (!m_nextcloudDesktopQuery) {
             m_nextcloudDesktopQuery =
                 new NextcloudDesktop::StatusQuery(m_nextcloudDesktopSocket.isEmpty() ? NextcloudDesktop::defaultSocketPath() : m_nextcloudDesktopSocket, this);
@@ -6586,7 +6579,7 @@ void MainWindow::populateNextcloudDesktop(bool refresh)
 
 void MainWindow::openNextcloudDesktopClient()
 {
-    const KService::Ptr service = nextcloudDesktopService();
+    const KService::Ptr service = NextcloudMenu::desktopClientService();
     if (!service) {
         showStatusMessage(i18nc("@info:status", "The Nextcloud desktop client isn't installed."));
         return;
@@ -6665,7 +6658,7 @@ std::optional<Nextcloud::FolderPermissions> MainWindow::nextcloudPermissions(con
 void MainWindow::fetchNextcloudPermissions(Pane *pane)
 {
     const QUrl folder = pane->url();
-    if (!mayBeNextcloudFolder(folder) || pane->view()->isFlat()) {
+    if (!Settings::nextcloudCheckPermissions() || !mayBeNextcloudFolder(folder) || pane->view()->isFlat()) {
         return;
     }
     const std::optional<NextcloudAccounts::Account> account = nextcloudAccountFor(folder);
@@ -6744,8 +6737,8 @@ NextcloudClient *MainWindow::nextcloudClient()
 
 std::optional<Nextcloud::FileMetadata> MainWindow::cachedNextcloudMetadata(const KFileItem &item) const
 {
-    // Favourites and tags change without changing the file, so metadata is read again after a minute.
-    constexpr qint64 maximumAge = 60;
+    // Favourites and tags change without changing the file, so metadata is read again after a while.
+    const qint64 maximumAge = Settings::nextcloudMetadataMaxAge();
     const auto cached = m_nextcloudMetadata.constFind(nextcloudFolderKey(item.url()));
     if (cached == m_nextcloudMetadata.cend() || cached->itemModified != item.time(KFileItem::ModificationTime)
         || cached->read.secsTo(QDateTime::currentDateTimeUtc()) > maximumAge) {
@@ -6786,14 +6779,14 @@ void MainWindow::nextcloudMetadataFetched(const QUrl &url, const Nextcloud::File
             m_previewPanel->showServerPreview(previewUrl, {});
         }
     }
-    if (m_informationPanel && m_informationDock->isVisible()) {
+    if (m_informationPanel && m_informationDock->isVisible() && Settings::nextcloudServerMetadata()) {
         m_informationPanel->setServerMetadata(url, error.isEmpty() ? std::optional(metadata) : std::nullopt, error);
     }
 }
 
 bool MainWindow::requestNextcloudPreview(const KFileItem &item, const QSize &size)
 {
-    if (item.isDir() || !nextcloudAccountFor(item.url())) {
+    if (!Settings::nextcloudServerPreviews() || item.isDir() || !nextcloudAccountFor(item.url())) {
         return false;
     }
     const QString key = nextcloudFolderKey(item.url());
@@ -6831,6 +6824,11 @@ void MainWindow::updateNextcloudInformation(const KFileItem &item)
     if (item.isNull() || !m_informationDock->isVisible() || !nextcloudAccountFor(item.url())) {
         return;
     }
+    if (!Settings::nextcloudServerMetadata()) {
+        // Hides metadata shown before the setting changed.
+        m_informationPanel->setServerMetadata(item.url(), std::nullopt);
+        return;
+    }
     if (const std::optional<Nextcloud::FileMetadata> cached = cachedNextcloudMetadata(item)) {
         m_informationPanel->setServerMetadata(item.url(), cached);
         return;
@@ -6863,6 +6861,7 @@ void MainWindow::showNextcloudAssets(const NextcloudAccounts::Account &account)
     }
     auto *dialog = new NextcloudAssetsDialog(account, m_nextcloudStore.get(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setResultLimit(Settings::nextcloudResultLimit());
     connect(dialog, &NextcloudAssetsDialog::showRequested, this, [this](const QUrl &url, bool folder) {
         if (folder) {
             activePane()->setUrl(url);
@@ -6872,6 +6871,34 @@ void MainWindow::showNextcloudAssets(const NextcloudAccounts::Account &account)
     });
     connect(dialog, &NextcloudAssetsDialog::itemsChanged, this, &MainWindow::forgetNextcloudMetadata);
     dialog->show();
+}
+
+namespace
+{
+/// The Photos choices of Preferences › Remote and Cloud › Nextcloud.
+NextcloudPhotos::Options nextcloudPhotosOptions()
+{
+    NextcloudPhotos::Options options;
+    options.albums = Settings::nextcloudPhotosShowAlbums();
+    options.sharedAlbums = Settings::nextcloudPhotosShowSharedAlbums();
+    options.places = Settings::nextcloudPhotosShowPlaces();
+    switch (Settings::nextcloudPhotosGrouping()) {
+    case Settings::EnumNextcloudPhotosGrouping::NoGrouping:
+        options.grouping = Nextcloud::PhotoGrouping::None;
+        break;
+    case Settings::EnumNextcloudPhotosGrouping::ByMonth:
+        options.grouping = Nextcloud::PhotoGrouping::Month;
+        break;
+    case Settings::EnumNextcloudPhotosGrouping::ByPlace:
+        options.grouping = Nextcloud::PhotoGrouping::Place;
+        break;
+    default:
+        // The grouping last chosen in the window.
+        break;
+    }
+    options.confirmChanges = Settings::nextcloudPhotosConfirmChanges();
+    return options;
+}
 }
 
 void MainWindow::showNextcloudPhotos(const NextcloudAccounts::Account &account)
@@ -6888,7 +6915,7 @@ void MainWindow::showNextcloudPhotos(const NextcloudAccounts::Account &account)
         m_nextcloudAccounts = nextcloudAccounts();
         m_nextcloudAccountsLoaded = true;
     }
-    auto *dialog = new NextcloudPhotosDialog(account, m_nextcloudStore.get(), this);
+    auto *dialog = new NextcloudPhotosDialog(account, m_nextcloudStore.get(), nextcloudPhotosOptions(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(dialog, &NextcloudPhotosDialog::showRequested, this, [this](const QUrl &url) {
         activePane()->revealUrls(url.adjusted(QUrl::RemoveFilename), {url});
@@ -6910,6 +6937,7 @@ void MainWindow::showNextcloudShares(const NextcloudAccounts::Account &account, 
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     // Links are offered for Send by Email only when the user hasn't turned it off.
     dialog->setSendByEmailEnabled(Settings::sendByEmail());
+    dialog->setDefaultLinkExpiryDays(Settings::nextcloudLinkExpiryDays());
     connect(dialog, &NextcloudSharesDialog::showRequested, this, [this](const QUrl &url, bool folder) {
         if (folder) {
             activePane()->setUrl(url);
@@ -6929,7 +6957,7 @@ void MainWindow::addToNextcloudAlbum(const QList<QUrl> &urls)
     if (!m_nextcloudStore) {
         m_nextcloudStore = std::make_unique<Nextcloud::PasswordServerStore>(winId());
     }
-    auto *dialog = new NextcloudAddToAlbumDialog(*account, urls, m_nextcloudStore.get(), this);
+    auto *dialog = new NextcloudAddToAlbumDialog(*account, urls, m_nextcloudStore.get(), nextcloudPhotosOptions(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(dialog, &NextcloudAddToAlbumDialog::finished, this, &MainWindow::reportAddedToAlbum);
     dialog->show();
@@ -7013,23 +7041,26 @@ void MainWindow::addNextcloudItemMenu(QMenu *menu, const KFileItemList &items)
         }
     }
     NextcloudMenu::ItemHandlers handlers;
-    handlers.setFavorite = [this, urls](bool add) {
-        setNextcloudFavorite(urls, add);
-    };
-    handlers.editTags = [this, urls] {
-        showNextcloudTags(urls);
-    };
+    if (Settings::nextcloudFavoritesAndTags()) {
+        handlers.setFavorite = [this, urls](bool add) {
+            setNextcloudFavorite(urls, add);
+        };
+        handlers.editTags = [this, urls] {
+            showNextcloudTags(urls);
+        };
+    }
     handlers.organize = [this, account = *account] {
         showNextcloudAssets(account);
     };
-    if (std::none_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
-            return item.isDir();
-        })) {
+    if ((Settings::nextcloudPhotosShowAlbums() || Settings::nextcloudPhotosShowSharedAlbums())
+        && std::none_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+               return item.isDir();
+           })) {
         handlers.addToAlbum = [this, urls] {
             addToNextcloudAlbum(urls);
         };
     }
-    if (items.size() == 1 && !Nextcloud::sharePath(*account, items.first().url()).isEmpty()) {
+    if (Settings::nextcloudShares() && items.size() == 1 && !Nextcloud::sharePath(*account, items.first().url()).isEmpty()) {
         handlers.shares = [this, account = *account, url = items.first().url(), folder = items.first().isDir()] {
             showNextcloudShares(account, url, folder);
         };
@@ -7050,7 +7081,7 @@ void MainWindow::nextcloudPermissionsFetched(const QUrl &folder, const Nextcloud
         return !shown.contains(entry.key());
     });
     // Without permissions, nothing is disabled and the server reports what it refuses.
-    if (!error.isEmpty() || !shown.contains(key)) {
+    if (!error.isEmpty() || !shown.contains(key) || !Settings::nextcloudCheckPermissions()) {
         m_nextcloudPermissions.remove(key);
         updateActions();
         return;
@@ -7110,6 +7141,22 @@ void MainWindow::applyNextcloudPermissions(const KFileItemList &selected)
     restrict(m_pasteAction, denied(active, Nextcloud::Operation::Create));
     restrict(actions->action(QStringLiteral("new_menu")), denied(active, Nextcloud::Operation::Create));
     restrict(actions->action(QStringLiteral("new_folder")), denied(active, Nextcloud::Operation::CreateFolder));
+}
+
+void MainWindow::applyNextcloudSettings()
+{
+    if (!Settings::nextcloudCheckPermissions()) {
+        // Nothing stays disabled once the permissions are no longer checked.
+        m_nextcloudPermissions.clear();
+        m_nextcloudPermissionsPending.clear();
+        updateActions();
+        return;
+    }
+    for (Pane *pane : {m_left, m_right}) {
+        if (!pane->isHidden() && !m_nextcloudPermissions.contains(nextcloudFolderKey(pane->url()))) {
+            fetchNextcloudPermissions(pane);
+        }
+    }
 }
 
 void MainWindow::showRemoteConnections()
@@ -9132,6 +9179,7 @@ void MainWindow::applySettings()
     updateStatusBar();
     updateFreeSpace();
     applyTagSettings();
+    applyNextcloudSettings();
     updateInformationPanel();
 
     QAction *switchPane = actionCollection()->action(QStringLiteral("switch_pane"));

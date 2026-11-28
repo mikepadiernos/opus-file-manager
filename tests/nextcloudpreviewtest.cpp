@@ -387,6 +387,48 @@ private Q_SLOTS:
         QCOMPARE(requestCount("GET /index.php/core/preview"), 1);
         QVERIFY(!window.findChild<PreviewPanel *>()->isShowingServerPreview());
     }
+
+    void mainWindowFollowsThePreviewAndMetadataSettings()
+    {
+        if (!KProtocolInfo::isKnownProtocol(QStringLiteral("webdav"))) {
+            QSKIP("The KIO WebDAV worker isn't installed.");
+        }
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            KSharedConfig::openConfig()->deleteGroup(NextcloudAccounts::groupName());
+        });
+        QList<NextcloudAccounts::Account> accounts;
+        NextcloudAccounts::Account account;
+        account.server = base();
+        account.user = QStringLiteral("alice");
+        accounts.append(account);
+        QVERIFY(NextcloudAccounts::save(KSharedConfig::openConfig()->group(NextcloudAccounts::groupName()), accounts));
+        account = NextcloudAccounts::load(KSharedConfig::openConfig()->group(NextcloudAccounts::groupName())).value(0);
+        Settings::setNextcloudServerPreviews(false);
+        Settings::setNextcloudServerMetadata(false);
+
+        MainWindow window;
+        window.resize(1000, 700);
+        window.show();
+        window.actionCollection()->action(QStringLiteral("show_preview_panel"))->trigger();
+        window.actionCollection()->action(QStringLiteral("show_information_panel"))->trigger();
+        window.openNextcloudAccount(account, false);
+        const QUrl photo = NextcloudAccounts::filesUrl(account).resolved(QUrl(QStringLiteral("photo.png")));
+        FolderView *view = window.activePane()->view();
+        QTRY_VERIFY_WITH_TIMEOUT(!view->itemsInViewOrder().isEmpty(), 20000);
+        view->selectUrls({photo});
+
+        // The preview panel downloads the file, as in other remote folders, without asking the server for a preview.
+        QTRY_COMPARE_WITH_TIMEOUT(requestCount("GET /remote.php/dav/files/alice/photo.png"), 1, 20000);
+        QCOMPARE(requestCount("GET /index.php/core/preview"), 0);
+        QVERIFY(!window.findChild<PreviewPanel *>()->isShowingServerPreview());
+        // The information panel shows no server metadata.
+        auto *information = window.findChild<InformationPanel *>();
+        QVERIFY(information);
+        QTest::qWait(200);
+        QVERIFY(!rowShown(child<QLabel>(*information, "informationNextcloudHeading")));
+        QVERIFY(child<QLabel>(*information, "informationNextcloud_fileId")->text() != QStringLiteral("42"));
+    }
 };
 
 QTEST_MAIN(NextcloudPreviewTest)

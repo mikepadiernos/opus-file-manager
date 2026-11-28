@@ -231,6 +231,16 @@ NextcloudAssetsDialog::Mode NextcloudAssetsDialog::mode() const
     return Mode(m_mode->currentData().toInt());
 }
 
+void NextcloudAssetsDialog::setResultLimit(int limit)
+{
+    m_resultLimit = std::max(1, limit);
+}
+
+int NextcloudAssetsDialog::resultLimit() const
+{
+    return m_resultLimit;
+}
+
 NextcloudTagsDialog *NextcloudAssetsDialog::tagsDialog() const
 {
     return m_tagsDialog;
@@ -309,18 +319,18 @@ void NextcloudAssetsDialog::run()
         query.text = m_text->text().trimmed();
         query.type = Nextcloud::AssetType(m_type->currentData().toInt());
         query.favoritesOnly = m_favoritesOnly->isChecked();
-        query.limit = ResultLimit;
+        query.limit = m_resultLimit;
         m_status->setText(i18nc("@info:status", "Searching the server…"));
         m_request = m_client->search(m_account, query);
         break;
     }
     case Mode::Favorites:
         m_status->setText(i18nc("@info:status", "Listing your favourites…"));
-        m_request = m_client->listFavorites(m_account, ResultLimit);
+        m_request = m_client->listFavorites(m_account, m_resultLimit);
         break;
     case Mode::Tag:
         m_status->setText(i18nc("@info:status", "Listing the files with this tag…"));
-        m_request = m_client->listTagged(m_account, m_tag->currentData().toString(), ResultLimit);
+        m_request = m_client->listTagged(m_account, m_tag->currentData().toString(), m_resultLimit);
         break;
     }
     m_listing = true;

@@ -5,6 +5,8 @@
 #include "nextcloudaccount.h"
 #include "nextclouddesktop.h"
 
+#include <KService>
+
 #include <QHash>
 #include <QList>
 #include <QString>
@@ -25,7 +27,8 @@ using OpenHandler = std::function<void(const NextcloudAccounts::Account &account
 /// Opens the Search and Organize dialog of @p account.
 using OrganizeHandler = std::function<void(const NextcloudAccounts::Account &account)>;
 
-/// What the Nextcloud submenu of a file's context menu does.
+/// What the Nextcloud submenu of a file's context menu does. Search and
+/// Organize is always offered; the other entries only when their handler is set.
 struct ItemHandlers {
     /// Marks the items as favourites on the server, or no longer.
     std::function<void(bool favorite)> setFavorite;
@@ -73,12 +76,18 @@ void populate(QMenu *menu,
  */
 QMenu *addItemMenu(QMenu *menu, std::optional<bool> favorite, QObject *context, const ItemHandlers &handlers);
 
+/// The Nextcloud desktop client's application, by the names its packages
+/// give it, or null when it isn't installed.
+KService::Ptr desktopClientService();
+
 /// What the Desktop Client submenu knows about the Nextcloud desktop client.
 struct DesktopClient {
     /// Whether the client is installed, so that it can be opened.
     bool installed = false;
     /// The folders its configuration lists, and why it couldn't be read.
     NextcloudDesktop::Configuration configuration;
+    /// Whether the client is asked for the folders' status; when not, none is shown.
+    bool statusEnabled = true;
     /// Whether the client has been asked for the folders' status yet.
     bool statusChecked = false;
     /// Whether the client's socket answered.
