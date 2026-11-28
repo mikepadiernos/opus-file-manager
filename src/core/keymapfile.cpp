@@ -167,7 +167,9 @@ QStringList settingNames()
             QStringLiteral("TabSwitchesPanes"),
             QStringLiteral("ShortcutHints"),
             QStringLiteral("ShortcutHintDelay"),
-            QStringLiteral("KeySequenceTimeout")};
+            QStringLiteral("KeySequenceTimeout"),
+            QStringLiteral("KeyboardHintKeys"),
+            QStringLiteral("KeyboardHintItemAction")};
 }
 
 QString settingText(const QString &name)
@@ -195,6 +197,12 @@ QString settingText(const QString &name)
     }
     if (name == QLatin1String("KeySequenceTimeout")) {
         return i18nc("@item keyboard setting", "Key sequence timeout");
+    }
+    if (name == QLatin1String("KeyboardHintKeys")) {
+        return i18nc("@item keyboard setting", "Keyboard hint label keys");
+    }
+    if (name == QLatin1String("KeyboardHintItemAction")) {
+        return i18nc("@item keyboard setting", "Keyboard hint action for files and folders");
     }
     return name;
 }

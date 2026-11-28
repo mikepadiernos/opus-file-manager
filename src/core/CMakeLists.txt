@@ -103,6 +103,8 @@ add_library(opusfm_core STATIC
     mcpsettings.h
     keybindings.cpp
     keybindings.h
+    keyboardhints.cpp
+    keyboardhints.h
     keyboardmap.cpp
     keyboardmap.h
     keymapfile.cpp

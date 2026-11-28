@@ -154,6 +154,24 @@
       <min>0</min>
       <max>10000</max>
     </entry>
+    <entry name="KeyboardHintKeys" type="Enum">
+      <label>Keyboard layout whose home-row keys label the targets of keyboard hints</label>
+      <choices>
+        <choice name="Qwerty"/>
+        <choice name="Azerty"/>
+        <choice name="Dvorak"/>
+        <choice name="Colemak"/>
+      </choices>
+      <default>Qwerty</default>
+    </entry>
+    <entry name="KeyboardHintItemAction" type="Enum">
+      <label>What typing the label of a file or folder does; holding Shift on the last key does the other</label>
+      <choices>
+        <choice name="Select"/>
+        <choice name="Open"/>
+      </choices>
+      <default>Select</default>
+    </entry>
   </group>
   <group name="FolderSizes">
     <entry name="AutomaticLocalFolderSizes" key="AutomaticLocal" type="Bool"><default>false</default></entry>
