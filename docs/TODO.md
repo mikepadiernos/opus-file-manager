@@ -73,6 +73,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Keyboard map on Plasma](#keyboard-map-on-plasma-232)                                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#232]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Navigation shortcuts on Plasma](#navigation-shortcuts-on-plasma-236)                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#236]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Keymap files on Plasma](#keymap-files-on-plasma-237)                                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#237]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Command palette on Plasma](#command-palette-on-plasma-761)                                   | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#761]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1956,6 +1957,44 @@ modify ID connection.metered yes`), check that the tab reports it and that
    [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
    roadmap link.
 
+## Command palette on Plasma (#761)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#761] (Development).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, Breeze style or screen reader,
+  so <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd> from the embedded terminal
+  and with other keyboard layouts, the palette's look and the focus it gives
+  back are unverified.
+- **Confirmed state:** `src/core/commandpalette.cpp` decides which actions
+  are listed and reads the recently used actions, and `CommandPaletteBar` in
+  `src/app/commandpalettebar.cpp` collects the menu bar's, toolbars' and
+  saved commands' actions for KDE's `KCommandBar` and gives the focus back
+  when it closes. `MainWindow::showCommandPalette` in `src/app/mainwindow.cpp`
+  opens it from **Help › Command Palette…**. `commandpalettetest`,
+  `mainwindowtest`, `settingsdialogtest`, `settingstest`, `keybindingstest`
+  and `keyboardmaptest` pass in the container. See
+  [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, press
+   <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd> from each pane, a text field
+   such as the location bar and the embedded terminal, on X11 and Wayland
+   and with a layout that uses <kbd>AltGr</kbd>, such as German; check that
+   the palette opens, or note where the key is kept, and that typing in a
+   text field never opens it.
+2. Search for and run **Select All**, **Rename…** and **Copy to Other Pane**
+   with the second pane active, and check that they act on that pane and
+   that the focus returns to the widget that had it. Run a saved command and
+   check that it opens in **Scripts and Custom Commands** with its preview.
+3. Check the palette's look, the shortcuts and grey menu paths in Breeze
+   light and dark, and that the recently used actions come first after a
+   restart and are listed on **Preferences › Keyboard › Command Palette**.
+   With Orca, check that the search field and the list are read. Record any
+   differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this
+   entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#230]: https://github.com/mikepadiernos/plasma-opus/issues/230
@@ -2014,3 +2053,4 @@ modify ID connection.metered yes`), check that the tab reports it and that
 [#720]: https://github.com/mikepadiernos/plasma-opus/issues/720
 [#721]: https://github.com/mikepadiernos/plasma-opus/issues/721
 [#750]: https://github.com/mikepadiernos/plasma-opus/issues/750
+[#761]: https://github.com/mikepadiernos/plasma-opus/issues/761
