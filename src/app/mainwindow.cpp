@@ -93,6 +93,7 @@
 #include "session.h"
 #include "settings.h"
 #include "settingsdialog.h"
+#include "shortcutguard.h"
 #include "startup.h"
 #include "symbolicicon.h"
 #include "tabcolors.h"
@@ -568,6 +569,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupPanels();
     setupStatusBar();
     setupActions();
+    new ShortcutGuard(this);
     m_desktopTray = new DesktopTray(this, actionCollection());
     connect(m_desktopTray, &DesktopTray::openRequested, this, [this](const QUrl &url) {
         openUrls({url});

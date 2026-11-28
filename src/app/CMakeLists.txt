@@ -176,6 +176,8 @@ add_library(opusfm_app STATIC
     settingsdialog.h
     settingswidgets.cpp
     settingswidgets.h
+    shortcutguard.cpp
+    shortcutguard.h
     startuppresentation.cpp
     startuppresentation.h
     symbolicactionicons.cpp

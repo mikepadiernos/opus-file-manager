@@ -4,6 +4,7 @@
 
 #include "desktoptray.h"
 #include "doubleshift.h"
+#include "gallerywindow.h"
 #include "keybindings.h"
 #include "settings.h"
 
@@ -55,8 +56,9 @@ QString actionText(const QAction *action)
     return text.isEmpty() ? action->objectName() : text;
 }
 
-/// The window's actions whose shortcuts can be configured and their bindings, then the global shortcuts KDE has registered.
+/// The window's actions whose shortcuts can be configured and their bindings, the gallery's fixed keys, then the global shortcuts KDE has registered.
 struct WindowBindings {
+    /// The action of each binding, or null for the gallery's keys.
     QList<QAction *> actions;
     QList<KeyBindings::Binding> bindings;
 };
@@ -73,6 +75,10 @@ WindowBindings windowBindings(KXmlGuiWindow *window)
             found.actions.append(action);
             found.bindings.append({action->objectName(), actionText(action), action->shortcuts(), defaultShortcuts(action)});
         }
+    }
+    for (const KeyBindings::Binding &binding : GalleryWindow::keyBindings()) {
+        found.actions.append(nullptr);
+        found.bindings.append(binding);
     }
     for (QAction *action : actions) {
         if (GlobalActionNames.contains(action->objectName()) && KGlobalAccel::self()->hasShortcut(action)) {
@@ -133,7 +139,8 @@ QWidget *SettingsDialog::createKeyboardShortcutsPage()
     auto *customized = new QTreeWidget(customizedGroup);
     customized->setObjectName(QStringLiteral("keyboardCustomizedShortcuts"));
     customized->setAccessibleName(i18nc("@label accessible name", "Actions whose shortcuts differ from their defaults"));
-    customized->setHeaderLabels({i18nc("@title:column", "Action"), i18nc("@title:column", "Shortcuts"), i18nc("@title:column", "Default")});
+    customized->setHeaderLabels(
+        {i18nc("@title:column", "Action"), i18nc("@title:column", "Shortcuts"), i18nc("@title:column", "Default"), i18nc("@title:column", "Applies in")});
     customized->setRootIsDecorated(false);
     customized->setUniformRowHeights(true);
     customized->setMinimumHeight(customized->fontMetrics().height() * 8);
@@ -203,6 +210,13 @@ QWidget *SettingsDialog::createKeyboardShortcutsPage()
                                    "combination such as Ctrl+Alt+F or a sequence of up to four, such as Ctrl+K, Ctrl+C. It warns "
                                    "before taking a shortcut from another action and restores the defaults of one action or all "
                                    "of them. Shortcuts take effect as soon as they are saved there.")));
+    layout->addWidget(notice(QStringLiteral("keyboardContextsNotice"),
+                             i18nc("@info",
+                                   "Window shortcuts apply anywhere in the window, except that a text field keeps the keys used "
+                                   "for typing and editing, including Tab and Shift+Tab to move the focus, and lists and the "
+                                   "folder tree keep the arrow keys, Home, End, Page Up and Page Down. The embedded terminal "
+                                   "decides which keys it keeps. The image gallery has its own keys, which apply only in its "
+                                   "window, and global shortcuts apply everywhere.")));
     layout->addStretch();
 
     m_refreshKeyboardShortcuts = [this, window, customizedSummary, customized, conflictSummary, conflicts, reset, search, yazi, global] {
@@ -214,9 +228,13 @@ QWidget *SettingsDialog::createKeyboardShortcutsPage()
             if (binding.global) {
                 continue;
             }
-            auto *item = new QTreeWidgetItem(customized, {binding.text, shortcutsText(binding.shortcuts), shortcutsText(binding.defaults)});
+            auto *item =
+                new QTreeWidgetItem(customized,
+                                    {binding.text, shortcutsText(binding.shortcuts), shortcutsText(binding.defaults), KeyBindings::contextText(binding)});
             item->setData(0, Qt::UserRole, binding.name);
-            item->setIcon(0, found.actions.at(index)->icon());
+            if (const QAction *action = found.actions.at(index)) {
+                item->setIcon(0, action->icon());
+            }
         }
         customized->resizeColumnToContents(0);
         customized->setVisible(customized->topLevelItemCount() > 0);
@@ -331,7 +349,7 @@ void SettingsDialog::resetShortcutsToDefaults()
         return;
     }
     for (int i = 0; i < found.bindings.size(); ++i) {
-        if (!found.bindings.at(i).global) {
+        if (!found.bindings.at(i).global && found.actions.at(i)) {
             found.actions.at(i)->setShortcuts(found.bindings.at(i).defaults);
         }
     }
