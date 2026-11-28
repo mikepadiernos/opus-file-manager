@@ -148,7 +148,8 @@ preview. Both behaviours can be changed in Preferences.
   change any action's [shortcuts](docs/keyboard.md), including key sequences,
   in KDE's shortcut editor. **Preferences › Keyboard** lists the changed and
   conflicting shortcuts, resets them to the defaults and shows the search,
-  Yazi mode and global keys.
+  Yazi mode and global keys. Text fields and lists keep their typing and
+  navigation keys.
 
 ## Screenshots
 
