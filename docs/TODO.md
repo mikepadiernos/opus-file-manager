@@ -76,6 +76,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Command palette on Plasma](#command-palette-on-plasma-761)                                   | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#761]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Vim-style navigation on Plasma](#vim-style-navigation-on-plasma-228)                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#228]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Vim-style mode indicator on Plasma](#vim-style-mode-indicator-on-plasma-229)                 | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#229]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Shortcut hints on Plasma](#shortcut-hints-on-plasma-234)                                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#234]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -2071,6 +2072,49 @@ modify ID connection.metered yes`), check that the tab reports it and that
    Record any differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then
    remove this entry and its roadmap link.
 
+## Shortcut hints on Plasma (#234)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#234] (Development).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, colour scheme, animation
+  settings or screen reader, so the popup's place and look, its slide, real
+  keyboards typing window shortcut sequences and its announcements are
+  unverified.
+- **Confirmed state:** `ShortcutHints` in `src/core/shortcuthints.cpp` lists
+  and pages the continuations and infers pending window sequences in
+  `WindowSequenceTracker`. `ShortcutHintPopup` in
+  `src/app/shortcuthintpopup.cpp` shows them over the pane without taking
+  the focus; `Pane::updateShortcutHints` in `src/app/pane.cpp` shows the
+  Vim-style and Yazi mode keys, and `WindowSequenceHints` in
+  `src/app/windowsequencehints.cpp` the window shortcuts. `shortcuthintstest`,
+  `shortcuthintsuitest`, `vimnavigationuitest`, `yazimodeuitest`,
+  `keybindingstest`, `keyboardmaptest`, `settingsdialogtest` and
+  `mainwindowtest` pass in the container. See
+  [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, turn on **View ›
+   Vim-Style Navigation**, press <kbd>g</kbd> and wait: check that the popup
+   appears at the bottom of the file view in each view mode, slides in with
+   Plasma's animations on and appears in place with **Animations** reduced,
+   is readable with Breeze, Breeze Dark and a high-contrast colour scheme,
+   and leaves the focus in the view. Press <kbd>5</kbd> in a narrow pane and
+   turn its pages by scrolling.
+2. Put a pane in Yazi mode with the Yazi-style keys, press <kbd>,</kbd> and
+   check the popup over the columns. Give an action
+   <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>Ctrl</kbd>+<kbd>T</kbd> and another
+   <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>D</kbd>, <kbd>D</kbd>, then, on X11
+   and Wayland, type them with a US and a German layout, releasing
+   <kbd>Ctrl</kbd> early and late: check the listed keys, that
+   <kbd>Escape</kbd> cancels without running either, and that the embedded
+   terminal and text fields still get their keys.
+3. With Orca, check that the popup's hints are read when it appears and
+   turns a page. Record any differences in
+   [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
+   roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#228]: https://github.com/mikepadiernos/plasma-opus/issues/228
@@ -2079,6 +2123,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 [#231]: https://github.com/mikepadiernos/plasma-opus/issues/231
 [#232]: https://github.com/mikepadiernos/plasma-opus/issues/232
 [#233]: https://github.com/mikepadiernos/plasma-opus/issues/233
+[#234]: https://github.com/mikepadiernos/plasma-opus/issues/234
 [#236]: https://github.com/mikepadiernos/plasma-opus/issues/236
 [#237]: https://github.com/mikepadiernos/plasma-opus/issues/237
 [#238]: https://github.com/mikepadiernos/plasma-opus/issues/238
