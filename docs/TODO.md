@@ -77,6 +77,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Vim-style navigation on Plasma](#vim-style-navigation-on-plasma-228)                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#228]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Vim-style mode indicator on Plasma](#vim-style-mode-indicator-on-plasma-229)                 | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#229]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Shortcut hints on Plasma](#shortcut-hints-on-plasma-234)                                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#234]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Shortcut hint settings on Plasma](#shortcut-hint-settings-on-plasma-235)                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#235]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -2115,6 +2116,54 @@ modify ID connection.metered yes`), check that the tab reports it and that
    [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
    roadmap link.
 
+## Shortcut hint settings on Plasma (#235)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#235] (Development).
+- **Blocker:** The development container has only an offscreen platform with
+  synthetic key events and no Plasma session, colour scheme, global menu or
+  screen reader, so the **Hints** tab's look, real keyboards typing slowly
+  against the key sequence timeout, and **Help › Shortcut Hints** in the
+  menu bar, the hamburger menu and with Orca are unverified.
+- **Confirmed state:** `ShortcutHints`, `ShortcutHintDelay` and
+  `KeySequenceTimeout` are in the `Keyboard` group of
+  `src/core/opusfilemanager.kcfg`, and `KeymapFile` in
+  `src/core/keymapfile.cpp` imports and exports them. The tab is
+  `createKeyboardHintsPage` in `src/app/keyboardsettingspages.cpp`.
+  `Pane::reloadShortcutHintSettings` in `src/app/pane.cpp` and
+  `WindowSequenceHints::reloadSettings` in
+  `src/app/windowsequencehints.cpp` apply them, `YaziKeys::setPendingTimeout`
+  times out the Vim-style and Yazi mode keys, and `ShortcutReference` in
+  `src/app/shortcutreference.cpp` is **Help › Shortcut Hints**.
+  `keymapfiletest`, `settingsdialogtest`, `shortcuthintsuitest`,
+  `settingstest`, `mainwindowtest`, `keybindingstest`, `keyboardmaptest`,
+  `vimnavigation*` and the Yazi mode and pane tests pass in the container.
+  See [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, open
+   **Preferences › Keyboard › Hints** with Breeze, Breeze Dark and a
+   high-contrast colour scheme: check that the tab is readable, that the
+   note appears when **Show hints after** is as long as **Cancel incomplete
+   sequences after**, and that **Configure Keyboard Shortcuts…** and
+   **Keyboard Map…** open.
+2. Turn the hints off and set the timeout to 500 ms. With **View ›
+   Vim-Style Navigation** on, type <kbd>g</kbd>, wait, then <kbd>g</kbd>, and
+   check that the second <kbd>g</kbd> begins a new sequence. Give an action
+   <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>Ctrl</kbd>+<kbd>T</kbd>, and on X11 and
+   Wayland type it slowly and quickly: check that a slow
+   <kbd>Ctrl</kbd>+<kbd>T</kbd> opens a tab rather than running the action,
+   and that **Never** waits.
+3. Choose **Help › Shortcut Hints** from the menu bar and the hamburger menu
+   with the focus in a file view, the folder tree, the location bar and the
+   embedded terminal: check the title and keys, that <kbd>Page Down</kbd> and
+   <kbd>Escape</kbd> work in the file view without moving through the items,
+   and that typing in the terminal and the location bar is never taken. With
+   Orca, check that the popup is read when it opens. Record any differences
+   in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove this entry and its
+   roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#228]: https://github.com/mikepadiernos/plasma-opus/issues/228
@@ -2124,6 +2173,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 [#232]: https://github.com/mikepadiernos/plasma-opus/issues/232
 [#233]: https://github.com/mikepadiernos/plasma-opus/issues/233
 [#234]: https://github.com/mikepadiernos/plasma-opus/issues/234
+[#235]: https://github.com/mikepadiernos/plasma-opus/issues/235
 [#236]: https://github.com/mikepadiernos/plasma-opus/issues/236
 [#237]: https://github.com/mikepadiernos/plasma-opus/issues/237
 [#238]: https://github.com/mikepadiernos/plasma-opus/issues/238
