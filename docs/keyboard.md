@@ -16,7 +16,8 @@ presets and the global shortcuts, and offers extra keys for moving between
 panes, tabs and panels. It also exports your shortcuts to a keymap file and
 imports one after showing what it changes. **Help › Keyboard Map…** lists
 every action with its shortcuts, searched by name or by pressing keys, and
-exports them as a printable reference.
+exports them as a printable reference. **Help › Command Palette…** finds an
+action of the menus and toolbars, or a saved command, by name and runs it.
 
 ## Contents
 
@@ -28,6 +29,7 @@ exports them as a printable reference.
 - [Search, Yazi mode and global shortcuts](#search-yazi-mode-and-global-shortcuts)
 - [Global shortcut status](#global-shortcut-status)
 - [Keyboard map](#keyboard-map)
+- [Command palette](#command-palette)
 - [Import and export](#import-and-export)
 - [Configuration reference](#configuration-reference)
 - [Accessibility](#accessibility)
@@ -42,6 +44,8 @@ exports them as a printable reference.
 | **Keyboard › Shortcuts › Import…, Export…**  | Keymap files: export your shortcuts, preview and apply another set         |
 | **Preferences › Keyboard › Navigation**      | Pane, tab, selection, filter and panel focus actions, and their extra keys |
 | **Help › Keyboard Map…**                     | Every action and key, searched by name or keys, and a printable reference  |
+| **Help › Command Palette…**                  | Find a menu, toolbar or saved-command action by name and run it            |
+| **Preferences › Keyboard › Command Palette** | The palette's shortcut, saved commands in it and its recent actions        |
 | **Preferences › Yazi Mode › Keyboard**       | The Yazi mode key presets and the window shortcuts each one takes          |
 | **Preferences › KDE Plasma › Shortcuts**     | The global shortcut that shows or hides Plasma Opus                        |
 | **Preferences › KDE Plasma › KWin**          | The drop-down window's global shortcut                                     |
@@ -402,6 +406,71 @@ The file is replaced only once it is complete, and an error names the file
 and the reason. Names in the reference are escaped, so an action or command
 name can't add markup to it.
 
+## Command palette
+
+**Help › Command Palette…**, or <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd>,
+opens KDE's command bar at the top of the window, as **Find Action…** does in
+Dolphin and Kate. Type part of an action's name, then press <kbd>Enter</kbd>
+or click the action to run it. <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd> is
+the key Dolphin and Kate use; no other Plasma Opus action, text field or Yazi
+mode key preset uses it. Change it in Configure Keyboard Shortcuts like any
+other.
+
+The palette lists:
+
+- the actions of the menu bar's menus and their submenus, after the menu
+  path in grey, such as **File › Password Protection: Protect with
+  Password…**;
+- the actions of the window's toolbars that no menu has, after the toolbar's
+  name;
+- the saved commands, as **Saved Command:** and the command's name, unless
+  **List saved commands** is off on **Preferences › Keyboard › Command
+  Palette**;
+- KDE's **Command Bar: Clear History**, which forgets the recently used
+  actions.
+
+Each action is listed once, with its icon and its primary shortcut. Actions
+that are unavailable where you are, such as **Copy** with nothing selected,
+hidden actions and the palette itself aren't listed. Each entry of a
+submenu, including choices such as a tab bar position, is its own row. The
+panes' own toolbars and the context menus aren't searched; their actions are
+in the menus.
+
+Typing narrows the list with KDE's fuzzy matching on the menu path and name,
+so `nwfl` finds **New Folder…**, and highlights the matched letters.
+<kbd>Up</kbd>, <kbd>Down</kbd>, <kbd>Page Up</kbd> and <kbd>Page Down</kbd>
+move through the list while you type.
+
+**Where actions run.** The palette remembers the widget that had the keyboard
+focus when it opened, and the active pane. When you choose an action, the
+palette closes, the focus goes back to that widget, the pane stays active and
+then the action runs. **Select All**, **Rename…** or **Copy to Other Pane**
+act on the pane you were in, even when it is the second pane.
+<kbd>Escape</kbd>, or clicking elsewhere, closes the palette without running
+anything, and <kbd>Escape</kbd> also gives the focus back.
+
+**Recently used actions.** The last six actions run from the palette come
+first, most recent at the top, until you type; typing sorts by how well the
+names match instead. The **Recently Used** list on **Preferences › Keyboard ›
+Command Palette** shows them, and **Clear History** there forgets them.
+
+**Saved commands** open in **Scripts and Custom Commands** with their
+preview, as their own shortcuts and toolbar buttons do, and run only once you
+start them there. They're listed only where they can run: in a local folder,
+with only local items selected.
+
+The palette doesn't change shortcuts: it shows each one as it is. It doesn't
+take keys from text fields either; letters typed in a field go to the field.
+<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd> isn't a typing key, so it opens
+the palette from a field too, and the focus returns to the field afterwards.
+In the embedded terminal, the terminal decides whether it keeps the key.
+
+The **Command Palette** tab of **Preferences › Keyboard** shows the
+palette's current shortcut, the **List saved commands** setting and the
+recently used actions, with **Clear History** and **Configure Keyboard
+Shortcuts…**. The list updates when the tab is shown and when shortcuts are
+saved.
+
 ## Import and export
 
 **Import…** and **Export…** under **Import and Export** on **Preferences ›
@@ -519,6 +588,39 @@ The extra keys aren't stored: each window works them out from the current
 shortcuts whenever it starts, the shortcuts are saved or Preferences are
 applied. An action given its extra key and nothing else of your own has no
 entry in the `Shortcuts` group.
+
+### Command palette
+
+The setting on **Keyboard › Command Palette** is kept in the `Keyboard`
+group:
+
+```ini
+[Keyboard]
+CommandPaletteSavedCommands=false
+```
+
+| Entry                         | Type | Default | Effect                                              |
+| ----------------------------- | ---- | ------- | --------------------------------------------------- |
+| `CommandPaletteSavedCommands` | Bool | `true`  | Lists saved commands, which open with their preview |
+
+The palette's action has KDE's name, `open_kcommand_bar`, so a changed
+shortcut is stored under that name in the [`Shortcuts` group](#window-shortcuts)
+and in keymap files. The setting isn't one of the keymap file settings.
+
+KDE's command bar keeps the recently used actions in the `General` group of
+`~/.local/state/opus-file-managerstaterc`, the state file:
+
+```ini
+[General]
+CommandBarLastUsedActions=Select &All,&New Folder…
+```
+
+- It writes the entry when a palette closes: up to six action names as the
+  menus show them, with their accelerator markers, most recent first. An
+  action run twice is listed twice.
+- It finds the actions by name, so an action that is renamed, or shown in
+  another language, loses its place.
+- **Clear History**, on the tab or in the palette, empties the entry.
 
 ### Keymap files
 
@@ -649,6 +751,13 @@ The **Set in** column names pages of Preferences.
 - The map and its reference write keys as text, such as
   <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd>, and print as tables that a
   screen reader can read.
+- The command palette opens with the focus in its search field. The palette,
+  the field and the list of actions have accessible names, every row is the
+  action's name with its menu path and shortcut as text, and
+  <kbd>Escape</kbd> closes it and returns the focus to where it was. The
+  arrow keys move through the list without leaving the field.
+- The **Command Palette** tab's recently used actions are plain text in a
+  list with an accessible name.
 
 ## Known limitations
 
