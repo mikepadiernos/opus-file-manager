@@ -4165,8 +4165,9 @@ The M31 keyboard shortcut settings have these limits
 
 - **🎹 Shortcut settings:** **Preferences › Keyboard › Shortcuts** summarizes
   the window's shortcuts; KDE's **Configure Keyboard Shortcuts…** still edits
-  them, and the tab only lists and resets them. It needs Preferences opened
-  from a main window and sees shortcut edits once they are saved. Pressing
+  them, and the tab only lists, resets, imports and exports them. It needs
+  Preferences opened from a main window and sees shortcut edits once they
+  are saved. Pressing
   <kbd>Shift</kbd> twice, the keys of the Yazi mode presets and the gallery's
   keys aren't listed or editable there, though **Help › Keyboard Map…** lists
   them; the search panel's own keys and the pane toolbars' buttons are in
@@ -4255,6 +4256,24 @@ The M31 keyboard shortcut settings have these limits
   are unverified
   ([Plasma check](TODO.md#navigation-shortcuts-on-plasma-236)).
   ([#236](https://github.com/mikepadiernos/plasma-opus/issues/236))
+- **🧾 Keymap files:** **Import…** and **Export…** on **Preferences ›
+  Keyboard › Shortcuts** read and write only Plasma Opus keymap files, not
+  the shortcut scheme files of KDE's editor or Plasma Impresario's keymaps.
+  An export lists only the actions whose shortcuts differ from their
+  defaults, with the saved keyboard settings, and leaves out global
+  shortcuts, so importing it keeps the other customized shortcuts unless
+  **Give actions that the file doesn't list their default shortcuts** is
+  chosen. A saved command's shortcut is matched by a hash of the command's
+  name, so it is imported only where a command of the same name is saved;
+  others are listed under **Not Imported**. Imported shortcuts are saved
+  at once and can't be undone, whereas the file's keyboard settings wait for
+  **Apply** or **OK** in Preferences and are lost on **Cancel**. The preview
+  works out the extra navigation keys from the current setting; when the
+  file also changes it, the extra keys are added, only where free, or
+  removed after **Apply**, and the preview doesn't list them. The file
+  dialogs and other open windows on Plasma are unverified
+  ([Plasma check](TODO.md#keymap-files-on-plasma-237)).
+  ([#237](https://github.com/mikepadiernos/plasma-opus/issues/237))
 
 - **Recommendation:**
   - **Shortcut settings:** Change shortcuts in **Configure Keyboard
@@ -4273,9 +4292,9 @@ The M31 keyboard shortcut settings have these limits
     navigation, and press <kbd>Escape</kbd> or click a pane before using a
     plain-key shortcut from a text field.
   - **Shortcut storage:** Change window shortcuts only in **Configure
-    Keyboard Shortcuts…** or with **Reset All Shortcuts…**, keep using the
-    Default shortcut scheme, and copy `opus-file-managerrc` before
-    downgrading. Check the status under each global shortcut after
+    Keyboard Shortcuts…**, with **Reset All Shortcuts…** or by importing a
+    keymap, keep using the Default shortcut scheme, and copy
+    `opus-file-managerrc` before downgrading. Check the status under each global shortcut after
     **Apply**, and choose another key when KDE didn't accept one. Outside a
     Plasma session on Wayland, give the command `opus-file-manager` a key in
     the desktop's own shortcut settings instead; it shows the running window
@@ -4306,6 +4325,13 @@ The M31 keyboard shortcut settings have these limits
     <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> yourself; **Deselect All**
     then loses its extra key. Expand folders in the details view before
     inverting the selection if their contents should change too.
+  - **Keymap files:** Export your shortcuts before importing a keymap; to go
+    back, import that file with **Give actions that the file doesn't list
+    their default shortcuts** chosen. Read **Conflicts After Importing** and
+    **Not Imported** before **Apply**, then choose **Apply** or **OK** in
+    Preferences to keep the keyboard settings. Save commands under the same
+    names on both computers before importing their shortcuts, and set global
+    shortcuts where they are configured.
   - Comment:
     [#771.7231940238](https://github.com/mikepadiernos/plasma-opus/issues/771#issuecomment-7231940238)
 - **Proposed improvements:**
@@ -4328,6 +4354,9 @@ The M31 keyboard shortcut settings have these limits
   - Check KDE's global shortcut service and KWin for clashes before adding
     an extra navigation key, offer keys the embedded terminal passes on, and
     let each extra key be turned on or chosen per action.
+  - Read and write KDE's shortcut scheme files, include global shortcuts,
+    undo an import, show the extra navigation keys a changed setting adds in
+    the preview, and agree a shared keymap profile with Plasma Impresario.
 
 ## Embedded terminal
 
