@@ -13,9 +13,10 @@ summary around it: which shortcuts you have changed, which ones get in each
 other's way, a reset to the defaults, and the keys that the editor doesn't
 show, such as pressing <kbd>Shift</kbd> twice to search, the Yazi mode key
 presets and the global shortcuts, and offers extra keys for moving between
-panes, tabs and panels. **Help › Keyboard Map…** lists every
-action with its shortcuts, searched by name or by pressing keys, and exports
-them as a printable reference.
+panes, tabs and panels. It also exports your shortcuts to a keymap file and
+imports one after showing what it changes. **Help › Keyboard Map…** lists
+every action with its shortcuts, searched by name or by pressing keys, and
+exports them as a printable reference.
 
 ## Contents
 
@@ -27,6 +28,7 @@ them as a printable reference.
 - [Search, Yazi mode and global shortcuts](#search-yazi-mode-and-global-shortcuts)
 - [Global shortcut status](#global-shortcut-status)
 - [Keyboard map](#keyboard-map)
+- [Import and export](#import-and-export)
 - [Configuration reference](#configuration-reference)
 - [Accessibility](#accessibility)
 - [Known limitations](#known-limitations)
@@ -37,6 +39,7 @@ them as a printable reference.
 | -------------------------------------------- | -------------------------------------------------------------------------- |
 | **Settings › Configure Keyboard Shortcuts…** | KDE's editor: change, add or remove any action's shortcuts                 |
 | **Preferences › Keyboard › Shortcuts**       | Customized shortcuts, conflicts, reset to defaults, search and global keys |
+| **Keyboard › Shortcuts › Import…, Export…**  | Keymap files: export your shortcuts, preview and apply another set         |
 | **Preferences › Keyboard › Navigation**      | Pane, tab, selection, filter and panel focus actions, and their extra keys |
 | **Help › Keyboard Map…**                     | Every action and key, searched by name or keys, and a printable reference  |
 | **Preferences › Yazi Mode › Keyboard**       | The Yazi mode key presets and the window shortcuts each one takes          |
@@ -118,6 +121,8 @@ the **Keyboard** and **Yazi Mode** pages update when the shortcuts are saved.
   they are configured.
 - **Keyboard Map…** opens **Help › Keyboard Map…** (see
   [Keyboard map](#keyboard-map)).
+- **Import…** and **Export…**, under **Import and Export**, read and write
+  keymap files (see [Import and export](#import-and-export)).
 
 Preferences opened without a Plasma Opus window, as tests do, lists nothing
 and explains that a window is needed.
@@ -131,24 +136,24 @@ have no default shortcut, so they never take a key you already use. They are
 on the menus and in **Configure Keyboard Shortcuts…**, where they can be given
 any key.
 
-| Area              | Action                      | Menu | Default                                         | Extra key                                       |
-| ----------------- | --------------------------- | ---- | ----------------------------------------------- | ----------------------------------------------- |
-| Panes             | **Switch Pane**             | Go   | <kbd>Tab</kbd>                                  |                                                 |
-| Panes             | **Focus First Pane**        | Go   | None                                            | <kbd>Alt</kbd>+<kbd>1</kbd>                     |
-| Panes             | **Focus Second Pane**       | Go   | None                                            | <kbd>Alt</kbd>+<kbd>2</kbd>                     |
-| Tabs              | **Next Tab**                | Go   | <kbd>Ctrl</kbd>+<kbd>Tab</kbd>                  | <kbd>Ctrl</kbd>+<kbd>Page Down</kbd>            |
-| Tabs              | **Previous Tab**            | Go   | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd> | <kbd>Ctrl</kbd>+<kbd>Page Up</kbd>              |
-| Tabs              | **Activate Last Tab**       | Go   | None                                            |                                                 |
-| Selection         | **Select All**              | Edit | <kbd>Ctrl</kbd>+<kbd>A</kbd>                    |                                                 |
-| Selection         | **Deselect All**            | Edit | None                                            | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>   |
-| Selection         | **Invert Selection**        | Edit | None                                            | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd>   |
-| Selection         | **Selection Mode**          | Edit | None                                            |                                                 |
-| Filter            | **Filter…**                 | Edit | <kbd>Ctrl</kbd>+<kbd>F</kbd>                    |                                                 |
-| Filter            | **Clear Filter**            | Edit | None                                            |                                                 |
-| Preview Panel     | **Preview Panel**           | View | <kbd>F3</kbd>                                   |                                                 |
-| Preview Panel     | **Focus Preview Panel**     | View | None                                            | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F3</kbd>  |
-| Embedded Terminal | **Show Embedded Terminal**  | View | None                                            |                                                 |
-| Embedded Terminal | **Focus Embedded Terminal** | View | None                                            | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F4</kbd>  |
+| Area              | Action                      | Menu | Default                                         | Extra key                                      |
+| ----------------- | --------------------------- | ---- | ----------------------------------------------- | ---------------------------------------------- |
+| Panes             | **Switch Pane**             | Go   | <kbd>Tab</kbd>                                  |                                                |
+| Panes             | **Focus First Pane**        | Go   | None                                            | <kbd>Alt</kbd>+<kbd>1</kbd>                    |
+| Panes             | **Focus Second Pane**       | Go   | None                                            | <kbd>Alt</kbd>+<kbd>2</kbd>                    |
+| Tabs              | **Next Tab**                | Go   | <kbd>Ctrl</kbd>+<kbd>Tab</kbd>                  | <kbd>Ctrl</kbd>+<kbd>Page Down</kbd>           |
+| Tabs              | **Previous Tab**            | Go   | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd> | <kbd>Ctrl</kbd>+<kbd>Page Up</kbd>             |
+| Tabs              | **Activate Last Tab**       | Go   | None                                            |                                                |
+| Selection         | **Select All**              | Edit | <kbd>Ctrl</kbd>+<kbd>A</kbd>                    |                                                |
+| Selection         | **Deselect All**            | Edit | None                                            | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>  |
+| Selection         | **Invert Selection**        | Edit | None                                            | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd>  |
+| Selection         | **Selection Mode**          | Edit | None                                            |                                                |
+| Filter            | **Filter…**                 | Edit | <kbd>Ctrl</kbd>+<kbd>F</kbd>                    |                                                |
+| Filter            | **Clear Filter**            | Edit | None                                            |                                                |
+| Preview Panel     | **Preview Panel**           | View | <kbd>F3</kbd>                                   |                                                |
+| Preview Panel     | **Focus Preview Panel**     | View | None                                            | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F3</kbd> |
+| Embedded Terminal | **Show Embedded Terminal**  | View | None                                            |                                                |
+| Embedded Terminal | **Focus Embedded Terminal** | View | None                                            | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F4</kbd> |
 
 The defaults are those of a new configuration; <kbd>Tab</kbd> switches panes
 only while **Preferences › Interface › Folders and Tabs** says so.
@@ -174,13 +179,13 @@ only while **Preferences › Interface › Folders and Tabs** says so.
 The tab lists each action under its area with its current shortcuts, its
 extra key and the key's status:
 
-| Status                                                        | Meaning                                                        |
-| ------------------------------------------------------------- | -------------------------------------------------------------- |
-| Off                                                           | The extra keys are off                                         |
-| Off; “Action” uses it                                         | The extra keys are off, and another action has the key         |
-| Added                                                         | The key is one of the action's defaults and runs it            |
-| Added as a default, but this action has shortcuts of your own | Your own shortcuts for the action don't have the key           |
-| Not added: “Action” uses it                                   | Another action or a global shortcut has the key                |
+| Status                                                        | Meaning                                                |
+| ------------------------------------------------------------- | ------------------------------------------------------ |
+| Off                                                           | The extra keys are off                                 |
+| Off; “Action” uses it                                         | The extra keys are off, and another action has the key |
+| Added                                                         | The key is one of the action's defaults and runs it    |
+| Added as a default, but this action has shortcuts of your own | Your own shortcuts for the action don't have the key   |
+| Not added: “Action” uses it                                   | Another action or a global shortcut has the key        |
 
 **Add the extra navigation shortcuts that no other action uses**, off by
 default, adds each extra key as one more default shortcut of its action, so
@@ -397,6 +402,64 @@ The file is replaced only once it is complete, and an error names the file
 and the reason. Names in the reference are escaped, so an action or command
 name can't add markup to it.
 
+## Import and export
+
+**Import…** and **Export…** under **Import and Export** on **Preferences ›
+Keyboard › Shortcuts** copy your shortcuts to another computer or keep a copy
+of them, as a keymap file (see [Keymap files](#keymap-files)).
+
+**Export…** asks where to save, suggesting `plasma-opus-keymap.json` in the
+Documents folder; a file name without an extension gets `.json`. The file
+has:
+
+- each action whose shortcuts differ from its defaults, with every
+  shortcut and alternate, including actions you gave no shortcut and saved
+  commands;
+- the saved values of the keyboard settings: the extra navigation keys, the
+  Yazi mode key preset, pressing <kbd>Shift</kbd> twice to search, and
+  whether <kbd>Tab</kbd> switches panes. Changes not yet applied in
+  Preferences aren't exported.
+
+Actions that have their defaults and global shortcuts aren't included. The
+file is replaced only once it is complete, and the line below the buttons
+says what was exported, or names the file and the reason it failed.
+
+**Import…** reads a keymap file and, before changing anything, shows what it
+would do:
+
+- **Shortcuts That Change** lists each action whose shortcuts differ from
+  the file's, with its shortcuts **Now**, the **Imported** ones and where it
+  applies. Actions that already have the file's shortcuts are counted, not
+  listed.
+- **Give actions that the file doesn't list their default shortcuts**, off
+  by default, also gives every other customized action its defaults, so the
+  shortcuts become the same as where the file was exported. Otherwise only
+  the actions the file lists change.
+- **Conflicts After Importing** lists the conflicts the import adds, found as
+  the [Shortcuts tab](#the-shortcuts-tab) finds them, including keys that
+  text fields and lists keep, and says how many it resolves and how many stay.
+  An extra navigation key that an imported shortcut takes gives way, as in
+  the window.
+- **Keyboard Settings** lists each setting the file changes, with its current
+  and imported values.
+- **Not Imported** lists the actions this window doesn't have, such as a
+  saved command that isn't saved here, and anything else in the file that is
+  skipped.
+
+**Cancel** changes nothing. **Apply** gives the actions the file's shortcuts
+and saves them as **Configure Keyboard Shortcuts…** does: they take effect at
+once in every open Plasma Opus window, and the **Keyboard** and **Yazi Mode**
+pages and the keyboard map update. Conflicts don't stop an import; resolve
+them afterwards on the Shortcuts tab. The keyboard settings are shown in their
+places in Preferences without being saved: **Apply** or **OK** saves them,
+as when you change them yourself, asking first about a Yazi mode preset that
+takes window shortcuts, and **Cancel** discards them.
+
+A file that isn't a keymap this version of Plasma Opus reads is refused with
+the reason, and nothing changes. Importing never runs anything: a keymap file
+only names actions, keys and keyboard settings, and a saved command's
+shortcut still opens the command with its preview.
+
 ## Configuration reference
 
 ### Window shortcuts
@@ -423,8 +486,9 @@ search_folder=none
 - `Version` marks the format; it isn't an action.
 - Saved commands' entries are named `custom_command_preset_` followed by the
   SHA-256 hash of the command's name.
-- **Configure Keyboard Shortcuts…** and **Reset All Shortcuts…** save here,
-  and every open window takes the saved shortcuts at once. Settings backups
+- **Configure Keyboard Shortcuts…**, **Reset All Shortcuts…** and
+  **Import…** save here, and every open window takes the saved shortcuts at
+  once. Settings backups
   include the group.
 - KDE's editor itself writes the shortcuts into the window's layout file,
   `~/.local/share/kxmlgui5/opus-file-manager/opus-file-managerui.rc`, as
@@ -456,6 +520,91 @@ shortcuts whenever it starts, the shortcuts are saved or Preferences are
 applied. An action given its extra key and nothing else of your own has no
 entry in the `Shortcuts` group.
 
+### Keymap files
+
+**Import…** and **Export…** use keymap files, JSON documents in UTF-8:
+
+```json
+{
+  "format": "plasma-opus-keymap",
+  "version": 1,
+  "application": "opus-file-manager",
+  "exported": "2026-11-28T12:00:00Z",
+  "actions": {
+    "open_gallery": ["F9", "Ctrl+K, G"],
+    "search_folder": []
+  },
+  "settings": {
+    "ExtraNavigationShortcuts": true,
+    "YaziKeyPreset": "Vim"
+  }
+}
+```
+
+| Member        | Type    | Required | Meaning                                                   |
+| ------------- | ------- | -------- | --------------------------------------------------------- |
+| `format`      | String  | Yes      | Always `plasma-opus-keymap`                               |
+| `version`     | Integer | Yes      | The format version, `1`                                   |
+| `application` | String  | Yes      | Whose actions the file names: `opus-file-manager`         |
+| `exported`    | String  | No       | When the file was exported, in ISO 8601 UTC; only for you |
+| `actions`     | Object  | Yes      | Each action's shortcuts, by action name                   |
+| `settings`    | Object  | No       | Keyboard settings, by configuration entry name            |
+
+- **Actions** are named as in the [`Shortcuts` group](#window-shortcuts),
+  such as `search_folder` or `custom_command_preset_` and a hash for a saved
+  command. Each has an array of its shortcuts in Qt's portable text, the
+  primary first, then each alternate; an empty array means no shortcut. A
+  shortcut is one to four key combinations separated by a comma and a space,
+  such as `Ctrl+K, G`, each with a key other than a modifier. An action
+  that isn't listed keeps its shortcuts, unless the import is told to give it
+  its defaults.
+- **Settings** can be these, and no others:
+
+  | Entry                      | Value                   | Set in                           |
+  | -------------------------- | ----------------------- | -------------------------------- |
+  | `ExtraNavigationShortcuts` | `true` or `false`       | **Keyboard › Navigation**        |
+  | `YaziKeyPreset`            | `"Standard"` or `"Vim"` | **Yazi Mode › Keyboard**         |
+  | `DoubleShiftSearch`        | `true` or `false`       | **Tools › Search**               |
+  | `TabSwitchesPanes`         | `true` or `false`       | **Interface › Folders and Tabs** |
+
+Plasma Opus reads a file strictly and refuses all of it when:
+
+- it is larger than 256 KiB, isn't JSON, or isn't an object;
+- `format` isn't `plasma-opus-keymap`, `version` isn't a whole number from 1
+  to the newest version this Plasma Opus reads, or `application` isn't
+  `opus-file-manager`;
+- `exported` is there and isn't a string, `actions` isn't an object, or
+  `settings` is there and isn't an object;
+- it lists more than 4,096 actions, an action has more than 16 shortcuts, an
+  action name is empty, longer than 256 characters, has control characters
+  or begins or ends with a space, or its shortcuts aren't an array of
+  strings;
+- a shortcut isn't a valid key sequence as described above, or is longer
+  than 256 characters;
+- a known setting has a value of the wrong type or a choice that doesn't
+  exist.
+
+These are skipped, and **Not Imported** lists them:
+
+- members other than those above, so a later version can add some;
+- settings other than the keyboard settings above, including any other
+  Preferences entry;
+- a shortcut listed twice for one action, which is used once;
+- actions this window doesn't have.
+
+**Version policy.** Version 1 is the first. Members or settings that older
+versions can safely skip are added without a new version. A change that
+older versions would misread, such as a new meaning for an existing member,
+gets a new version; older versions then refuse the file and say that it
+needs a newer Plasma Opus, while newer versions keep reading every earlier
+version.
+
+**Other applications.** `application` names whose actions the file
+describes, so another KDE application could use the same format with its own
+name and actions. Plasma Opus refuses a keymap for another application, and
+doesn't yet share keymaps with Plasma Impresario; see
+[Share Vim mode and shortcuts](integrations/plasma-impresario.md#share-vim-mode-and-shortcuts).
+
 ### Related entries
 
 | Entry               | Group      | Type | Default    | Set in                           |
@@ -483,9 +632,14 @@ The **Set in** column names pages of Preferences.
   actions bring it back to the active pane when pressed again. The
   **Navigation** tab's list has an accessible name, and its areas are
   expandable rows.
-- Nothing on the tab takes keys: it only shows and resets shortcuts.
+- Nothing on the tab takes keys: it only shows, resets, imports and exports
+  shortcuts.
   <kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd> move between its
   controls as in the rest of Preferences.
+- The import preview opens with the focus in the list of changes; its lists
+  have accessible names, every part is plain text, and the preview changes
+  nothing until **Apply** is chosen. The result of an import or export is
+  reported in words below the buttons.
 - The keyboard map opens with the focus in **Search**, its list has an
   accessible name, and <kbd>Escape</kbd> closes it while **Find by key**
   isn't recording. Only **Find by key**
