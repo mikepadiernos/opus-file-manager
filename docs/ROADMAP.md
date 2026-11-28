@@ -2117,7 +2117,7 @@ considered Calendar, Maps, Deck and Notes workflows.
 
 Settings for M29 Nextcloud integration, stored in KConfig without credentials.
 
-- [ ] Configure account references, supported browsing and preview choices,
+- [x] Configure account references, supported browsing and preview choices,
       asset metadata and search options, sharing controls and desktop-client
       integration. Reuse KDE Online Accounts, existing WebDAV profiles, remote
       preview policy and KDE credential facilities; explain unavailable server
