@@ -154,7 +154,9 @@ preview. Both behaviours can be changed in Preferences.
   key or the session can't pass keys on. Saved commands can have shortcuts,
   and an action can have more than one alternate. **Help › Keyboard Map…**
   finds any action by name or by pressing its keys and exports a printable
-  reference.
+  reference. Actions move the focus between panes, tabs and panels and change
+  the selection or filter, with optional extra keys that never take a key
+  already in use.
 
 ## Screenshots
 
