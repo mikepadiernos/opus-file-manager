@@ -2161,7 +2161,8 @@ using KDE shortcut facilities where supported.
       [#231]
 - [ ] Show a searchable keyboard map of action names, descriptions, bindings and
       contexts. Search by action name or key combination and export a printable
-      reference. [#232]
+      reference. Plasma-session verification is a
+      [pending handoff](TODO.md#keyboard-map-on-plasma-232). [#232]
 - [ ] Provide shortcuts for pane and tab navigation, selection, filtering,
       preview and terminal focus as features become available, without
       overriding existing bindings by default [#236]
