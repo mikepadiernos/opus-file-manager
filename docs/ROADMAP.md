@@ -2163,7 +2163,7 @@ using KDE shortcut facilities where supported.
       contexts. Search by action name or key combination and export a printable
       reference. Plasma-session verification is a
       [pending handoff](TODO.md#keyboard-map-on-plasma-232). [#232]
-- [ ] Provide shortcuts for pane and tab navigation, selection, filtering,
+- [x] Provide shortcuts for pane and tab navigation, selection, filtering,
       preview and terminal focus as features become available, without
       overriding existing bindings by default. Plasma-session verification is
       a [pending handoff](TODO.md#navigation-shortcuts-on-plasma-236). [#236]
