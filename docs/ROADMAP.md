@@ -2143,7 +2143,9 @@ using KDE shortcut facilities where supported.
       conflict detection, clear feedback and reset to defaults; use KDE shortcut
       facilities where supported. Integrate advanced-search shortcuts, Yazi
       navigation and presets, and the integration global shortcut with these
-      controls without overriding existing bindings. [#230]
+      controls without overriding existing bindings. Plasma-session
+      verification is a
+      [pending handoff](TODO.md#keyboard-shortcuts-on-plasma-230). [#230]
 - [ ] Scope bindings to the applicable view, folder tree, viewer or application;
       detect conflicts between overlapping contexts and preserve typing and
       accessibility keys in input controls [#233]
