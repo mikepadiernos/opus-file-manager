@@ -12,7 +12,8 @@ Shortcuts…**, for every window action. **Preferences › Keyboard** (M31) adds
 summary around it: which shortcuts you have changed, which ones get in each
 other's way, a reset to the defaults, and the keys that the editor doesn't
 show, such as pressing <kbd>Shift</kbd> twice to search, the Yazi mode key
-presets and the global shortcuts. **Help › Keyboard Map…** lists every
+presets and the global shortcuts, and offers extra keys for moving between
+panes, tabs and panels. **Help › Keyboard Map…** lists every
 action with its shortcuts, searched by name or by pressing keys, and exports
 them as a printable reference.
 
@@ -21,6 +22,7 @@ them as a printable reference.
 - [Overview](#overview)
 - [Changing shortcuts](#changing-shortcuts)
 - [The Shortcuts tab](#the-shortcuts-tab)
+- [Navigation](#navigation)
 - [Where shortcuts apply](#where-shortcuts-apply)
 - [Search, Yazi mode and global shortcuts](#search-yazi-mode-and-global-shortcuts)
 - [Global shortcut status](#global-shortcut-status)
@@ -35,6 +37,7 @@ them as a printable reference.
 | -------------------------------------------- | -------------------------------------------------------------------------- |
 | **Settings › Configure Keyboard Shortcuts…** | KDE's editor: change, add or remove any action's shortcuts                 |
 | **Preferences › Keyboard › Shortcuts**       | Customized shortcuts, conflicts, reset to defaults, search and global keys |
+| **Preferences › Keyboard › Navigation**      | Pane, tab, selection, filter and panel focus actions, and their extra keys |
 | **Help › Keyboard Map…**                     | Every action and key, searched by name or keys, and a printable reference  |
 | **Preferences › Yazi Mode › Keyboard**       | The Yazi mode key presets and the window shortcuts each one takes          |
 | **Preferences › KDE Plasma › Shortcuts**     | The global shortcut that shows or hides Plasma Opus                        |
@@ -118,6 +121,90 @@ the **Keyboard** and **Yazi Mode** pages update when the shortcuts are saved.
 
 Preferences opened without a Plasma Opus window, as tests do, lists nothing
 and explains that a window is needed.
+
+## Navigation
+
+**Preferences › Keyboard › Navigation** gathers the actions that move between
+panes and tabs, change the selection or the filter, and move the keyboard
+focus to the preview panel or the embedded terminal. The actions added for it
+have no default shortcut, so they never take a key you already use. They are
+on the menus and in **Configure Keyboard Shortcuts…**, where they can be given
+any key.
+
+| Area              | Action                      | Menu | Default                                         | Extra key                                       |
+| ----------------- | --------------------------- | ---- | ----------------------------------------------- | ----------------------------------------------- |
+| Panes             | **Switch Pane**             | Go   | <kbd>Tab</kbd>                                  |                                                 |
+| Panes             | **Focus First Pane**        | Go   | None                                            | <kbd>Alt</kbd>+<kbd>1</kbd>                     |
+| Panes             | **Focus Second Pane**       | Go   | None                                            | <kbd>Alt</kbd>+<kbd>2</kbd>                     |
+| Tabs              | **Next Tab**                | Go   | <kbd>Ctrl</kbd>+<kbd>Tab</kbd>                  | <kbd>Ctrl</kbd>+<kbd>Page Down</kbd>            |
+| Tabs              | **Previous Tab**            | Go   | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd> | <kbd>Ctrl</kbd>+<kbd>Page Up</kbd>              |
+| Tabs              | **Activate Last Tab**       | Go   | None                                            |                                                 |
+| Selection         | **Select All**              | Edit | <kbd>Ctrl</kbd>+<kbd>A</kbd>                    |                                                 |
+| Selection         | **Deselect All**            | Edit | None                                            | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>   |
+| Selection         | **Invert Selection**        | Edit | None                                            | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd>   |
+| Selection         | **Selection Mode**          | Edit | None                                            |                                                 |
+| Filter            | **Filter…**                 | Edit | <kbd>Ctrl</kbd>+<kbd>F</kbd>                    |                                                 |
+| Filter            | **Clear Filter**            | Edit | None                                            |                                                 |
+| Preview Panel     | **Preview Panel**           | View | <kbd>F3</kbd>                                   |                                                 |
+| Preview Panel     | **Focus Preview Panel**     | View | None                                            | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F3</kbd>  |
+| Embedded Terminal | **Show Embedded Terminal**  | View | None                                            |                                                 |
+| Embedded Terminal | **Focus Embedded Terminal** | View | None                                            | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F4</kbd>  |
+
+The defaults are those of a new configuration; <kbd>Tab</kbd> switches panes
+only while **Preferences › Interface › Folders and Tabs** says so.
+
+- **Focus First Pane** and **Focus Second Pane** make the left or top pane,
+  or the right or bottom one, active and move the keyboard focus to its file
+  view, as **Switch Pane** does. A second pane in a tab or its own window is
+  brought to the front.
+- **Activate Last Tab** shows the active pane's last tab.
+- **Deselect All** clears the active pane's selection. **Invert Selection**
+  selects the items that aren't selected and deselects the others: every
+  item of the folder, and in the details view those of expanded folders.
+- **Clear Filter** shows every item of the active pane again and closes its
+  filter bar; the status bar says when the pane has no filter to clear.
+- **Focus Preview Panel** shows the preview panel and moves the keyboard
+  focus into it, so the arrow keys and <kbd>Page Up</kbd> and
+  <kbd>Page Down</kbd> scroll a preview. **Focus Embedded Terminal** shows
+  the embedded terminal, starting a session if it has none, and moves the
+  focus into it. Pressed again while the panel has the focus, either goes
+  back to the active pane. The Yazi mode preview column has its own action,
+  **Focus Preview Column**.
+
+The tab lists each action under its area with its current shortcuts, its
+extra key and the key's status:
+
+| Status                                                        | Meaning                                                        |
+| ------------------------------------------------------------- | -------------------------------------------------------------- |
+| Off                                                           | The extra keys are off                                         |
+| Off; “Action” uses it                                         | The extra keys are off, and another action has the key         |
+| Added                                                         | The key is one of the action's defaults and runs it            |
+| Added as a default, but this action has shortcuts of your own | Your own shortcuts for the action don't have the key           |
+| Not added: “Action” uses it                                   | Another action or a global shortcut has the key                |
+
+**Add the extra navigation shortcuts that no other action uses**, off by
+default, adds each extra key as one more default shortcut of its action, so
+Configure Keyboard Shortcuts shows it as a default and the keyboard map
+lists it. A key is left out while another window action, including a saved
+command or an action you gave the key, or a global shortcut that Plasma Opus
+registered has it or a sequence that begins with it. The image gallery's keys
+don't count, as the gallery is a window of its own. A key left out is added
+as soon as it is free again, and every extra key is taken away when the
+setting is turned off. Shortcuts of your own for these actions are kept either way.
+
+The extra keys are free with the default shortcuts and are taken by neither
+Yazi mode key preset. <kbd>Ctrl</kbd>+<kbd>Page Down</kbd> and
+<kbd>Ctrl</kbd>+<kbd>Page Up</kbd> are KDE's standard keys for the next and
+previous tab, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> is KDE's
+standard **Deselect** and <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F4</kbd> is
+the key Dolphin uses to focus its terminal. While you type in the embedded
+terminal, it keeps keys with fewer than two modifiers, such as
+<kbd>Alt</kbd>+<kbd>1</kbd>; <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F4</kbd>
+leaves it.
+
+**Configure Keyboard Shortcuts…** and **Keyboard Map…** below the list open
+KDE's editor and the keyboard map. The tab updates when shortcuts are saved
+and when the setting is applied.
 
 ## Where shortcuts apply
 
@@ -349,6 +436,24 @@ search_folder=none
 - Global shortcuts aren't stored here: KGlobalAccel keeps them in
   `~/.config/kglobalshortcutsrc`.
 
+### Extra navigation keys
+
+The setting on **Keyboard › Navigation** is kept in the `Keyboard` group:
+
+```ini
+[Keyboard]
+ExtraNavigationShortcuts=true
+```
+
+| Entry                      | Type | Default | Effect                                             |
+| -------------------------- | ---- | ------- | -------------------------------------------------- |
+| `ExtraNavigationShortcuts` | Bool | `false` | Adds the free extra keys of the navigation actions |
+
+The extra keys aren't stored: each window works them out from the current
+shortcuts whenever it starts, the shortcuts are saved or Preferences are
+applied. An action given its extra key and nothing else of your own has no
+entry in the `Shortcuts` group.
+
 ### Related entries
 
 | Entry               | Group      | Type | Default    | Set in                           |
@@ -371,6 +476,11 @@ The **Set in** column names pages of Preferences.
   <kbd>F10</kbd>, <kbd>Shift</kbd>+<kbd>F10</kbd>, <kbd>Menu</kbd> or
   <kbd>Tab</kbd> is reported as a conflict, because it no longer closes,
   opens menus or moves the focus.
+- The navigation actions move the keyboard focus between the panes, the
+  preview panel and the embedded terminal without a mouse, and the focus
+  actions bring it back to the active pane when pressed again. The
+  **Navigation** tab's list has an accessible name, and its areas are
+  expandable rows.
 - Nothing on the tab takes keys: it only shows and resets shortcuts.
   <kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd> move between its
   controls as in the rest of Preferences.
