@@ -154,6 +154,8 @@ add_library(opusfm_core STATIC
     imageediting.cpp
     imageediting.h
     navigationhistory.cpp
+    navigationshortcuts.cpp
+    navigationshortcuts.h
     nextcloudaccount.cpp
     nextcloudaccount.h
     nextcloudassets.cpp
