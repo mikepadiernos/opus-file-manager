@@ -190,7 +190,8 @@ command or an action you gave the key, or a global shortcut that Plasma Opus
 registered has it or a sequence that begins with it. The image gallery's keys
 don't count, as the gallery is a window of its own. A key left out is added
 as soon as it is free again, and every extra key is taken away when the
-setting is turned off. Shortcuts of your own for these actions are kept either way.
+setting is turned off. Shortcuts of your own for these actions are kept
+either way.
 
 The extra keys are free with the default shortcuts and are taken by neither
 Yazi mode key preset. <kbd>Ctrl</kbd>+<kbd>Page Down</kbd> and
