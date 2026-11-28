@@ -19,6 +19,7 @@ presets and the global shortcuts.
 - [Overview](#overview)
 - [Changing shortcuts](#changing-shortcuts)
 - [The Shortcuts tab](#the-shortcuts-tab)
+- [Where shortcuts apply](#where-shortcuts-apply)
 - [Search, Yazi mode and global shortcuts](#search-yazi-mode-and-global-shortcuts)
 - [Configuration reference](#configuration-reference)
 - [Accessibility](#accessibility)
@@ -66,7 +67,9 @@ shortcuts are saved.
 **Preferences › Keyboard › Shortcuts** has these parts:
 
 - **Customized Shortcuts** lists each action whose shortcuts differ from its
-  defaults, with its current shortcuts and its defaults. When <kbd>Tab</kbd>
+  defaults, with its current shortcuts, its defaults and where it applies
+  (**Applies in**, see [Where shortcuts apply](#where-shortcuts-apply)).
+  When <kbd>Tab</kbd>
   doesn't switch panes (**Preferences › Interface › Folders and Tabs**),
   **Switch Pane** without <kbd>Tab</kbd> isn't counted as a change.
 - **Conflicts** lists shortcuts that get in each other's way:
@@ -77,7 +80,13 @@ shortcuts are saved.
     pressed, so the longer one can't be typed, even when both belong to one
     action;
   - a global shortcut that is also a window shortcut: KDE's global shortcut
-    service takes the key first.
+    service takes the key first;
+  - a changed window shortcut that begins with a key that text fields, file
+    views or the folder tree keep for themselves, or with a key used to move
+    around without a mouse, such as <kbd>Escape</kbd> or <kbd>F10</kbd>.
+
+  Shortcuts that can't be pressed in the same place, such as a window
+  shortcut and an image gallery key, don't conflict.
 
   With the default shortcuts, the list is empty.
 
@@ -89,6 +98,65 @@ shortcuts are saved.
 
 Preferences opened without a Plasma Opus window, as tests do, lists nothing
 and explains that a window is needed.
+
+## Where shortcuts apply
+
+Each shortcut applies in one context, and only shortcuts whose contexts
+overlap can conflict:
+
+| Context              | Shortcuts                                    | Overlaps                        |
+| -------------------- | -------------------------------------------- | ------------------------------- |
+| Window               | Every action in Configure Keyboard Shortcuts | All but the image gallery       |
+| File views and lists | Keys that a pane's view or a list keeps      | Window                          |
+| Folder tree          | Keys that the folder tree keeps              | Window                          |
+| Text fields          | Keys that a text field keeps                 | Window                          |
+| Image gallery        | The gallery's own keys, in its own window    | Image gallery                   |
+| Global               | KDE's global shortcuts                       | Everything, in every app        |
+
+Window shortcuts work wherever the focus is in the window, but the focused
+widget keeps the keys it needs:
+
+- **Text fields** keep the keys used for typing and editing: letters, digits
+  and symbols with or without <kbd>Shift</kbd>, <kbd>Space</kbd>,
+  <kbd>Backspace</kbd>, <kbd>Delete</kbd>, <kbd>Insert</kbd>, the arrow keys,
+  <kbd>Home</kbd>, <kbd>End</kbd>, <kbd>Page Up</kbd>, <kbd>Page Down</kbd>,
+  <kbd>Enter</kbd>, <kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd>, and
+  <kbd>Ctrl</kbd> with <kbd>A</kbd>, <kbd>C</kbd>, <kbd>V</kbd>,
+  <kbd>X</kbd>, <kbd>Z</kbd>, <kbd>Y</kbd>, the arrows, <kbd>Home</kbd>,
+  <kbd>End</kbd>, <kbd>Backspace</kbd> or <kbd>Delete</kbd>. This covers the
+  location bar, the filter and search fields, inline rename editors, spin
+  boxes and editable combo boxes. So <kbd>Tab</kbd> moves the focus out of a
+  text field even when it switches panes elsewhere.
+- **File views, other lists and the folder tree** keep the arrow keys,
+  <kbd>Home</kbd>, <kbd>End</kbd>, <kbd>Page Up</kbd> and
+  <kbd>Page Down</kbd>, alone or with <kbd>Shift</kbd>, to move and select.
+- **Other keys** still run window shortcuts there, such as
+  <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> in a text field or
+  <kbd>F5</kbd> in a file view.
+- **Read-only text, combo boxes without a text field and the embedded
+  terminal** are left as they are; the terminal decides which keys it keeps.
+- **Dialogs and other windows**, including the image gallery, have their own
+  keys and don't run window shortcuts.
+
+The default shortcuts are chosen to fit: some, such as <kbd>Space</kbd> for
+**Open Gallery** or <kbd>Backspace</kbd> for **Up**, still run while a file
+view has the focus, and the **Conflicts** list doesn't report them. Only
+shortcuts you change are checked against the keys widgets keep.
+
+The image gallery's keys are fixed and apply only in its window:
+
+| Key                                                     | Action                   |
+| ------------------------------------------------------- | ------------------------ |
+| <kbd>Left</kbd>, <kbd>Right</kbd>                       | Previous or next image   |
+| <kbd>Home</kbd>, <kbd>End</kbd>                         | First or last image      |
+| <kbd>+</kbd>, <kbd>-</kbd>, <kbd>0</kbd>                | Zoom in, out or to fit   |
+| <kbd>Space</kbd>                                        | Start or stop slideshow  |
+| <kbd>I</kbd>                                            | Show or hide information |
+| <kbd>R</kbd>                                            | Rotate right             |
+| <kbd>F</kbd>                                            | Full screen              |
+| <kbd>Ctrl</kbd>+<kbd>C</kbd>                            | Copy image               |
+
+In right-to-left languages, <kbd>Left</kbd> and <kbd>Right</kbd> swap.
 
 ## Search, Yazi mode and global shortcuts
 
@@ -149,6 +217,12 @@ The **Set in** column names pages of Preferences.
 - The customized shortcuts and the conflicts have accessible names, and every
   button has a text label.
 - Every row of the tab is plain text that a screen reader reads as shown.
+- Window shortcuts never take <kbd>Tab</kbd> or <kbd>Shift</kbd>+<kbd>Tab</kbd>
+  from a text field, or the arrow keys from a list, so the keyboard focus can
+  always move on. Changing a shortcut to <kbd>Escape</kbd>,
+  <kbd>F10</kbd>, <kbd>Shift</kbd>+<kbd>F10</kbd>, <kbd>Menu</kbd> or
+  <kbd>Tab</kbd> is reported as a conflict, because it no longer closes,
+  opens menus or moves the focus.
 - Nothing on the tab takes keys: it only shows and resets shortcuts.
   <kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd> move between its
   controls as in the rest of Preferences.
