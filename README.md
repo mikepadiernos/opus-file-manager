@@ -149,7 +149,9 @@ preview. Both behaviours can be changed in Preferences.
   in KDE's shortcut editor. **Preferences › Keyboard** lists the changed and
   conflicting shortcuts, resets them to the defaults and shows the search,
   Yazi mode and global keys. Text fields and lists keep their typing and
-  navigation keys.
+  navigation keys. Shortcuts are stored in the configuration file and shared
+  by every window, and the global shortcuts' status says when KDE refused a
+  key or the session can't pass keys on.
 
 ## Screenshots
 
