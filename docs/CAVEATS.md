@@ -4343,6 +4343,27 @@ The M31 keyboard shortcut settings have these limits
   themes and Orca's announcements are unverified
   ([Plasma check](TODO.md#shortcut-hints-on-plasma-234)).
   ([#234](https://github.com/mikepadiernos/plasma-opus/issues/234))
+- **⏱️ Hint settings and reference:** **Preferences › Keyboard › Hints**
+  sets one delay and one key sequence timeout for every kind of sequence;
+  they can't differ between the Vim-style keys, Yazi mode and window
+  shortcuts. The timeout now also ends window shortcuts of several key
+  combinations, which Qt alone would keep waiting for: with the hints off, a
+  slow second key combination finds the sequence cancelled, and the key runs
+  on its own. Plasma Opus can time out only the window sequences it
+  infers (see Shortcut hints), and ends Qt's sequence through the same
+  function Qt exports for its tests. A delay as long as the timeout or
+  longer is allowed, with a note, and then no hints show. **Help › Shortcut
+  Hints** has no default shortcut, so it is reached from the Help menu, the
+  command palette or a key you give it. It lists the keys for where the
+  focus is when it opens and doesn't follow the focus; it leaves out the
+  keys text fields, lists, the gallery and the search panel keep and global
+  shortcuts, and works out which Vim-style or Yazi mode keys and window
+  shortcuts win from their first key only. In a file view or the folder
+  tree, the arrow keys turn its pages rather than moving through the items
+  until it closes; elsewhere only scrolling turns them. The tab and the
+  reference on Plasma are unverified
+  ([Plasma check](TODO.md#shortcut-hint-settings-on-plasma-235)).
+  ([#235](https://github.com/mikepadiernos/plasma-opus/issues/235))
 
 - **Recommendation:**
   - **Shortcut settings:** Change shortcuts in **Configure Keyboard
@@ -4438,6 +4459,14 @@ The M31 keyboard shortcut settings have these limits
     combinations without holding keys until they repeat; if the popup lists
     keys that don't fit, press <kbd>Escape</kbd> and type the shortcut again.
     For keys the popup doesn't list, use **Help › Keyboard Map…**.
+  - **Hint settings and reference:** On **Preferences › Keyboard › Hints**,
+    keep the hint delay shorter than the key sequence timeout; if you type
+    sequences slowly with the hints off, choose a longer timeout or
+    **Never**, and press <kbd>Escape</kbd> to cancel one. Give **Help ›
+    Shortcut Hints** a key that **Find by key** in **Help › Keyboard Map…**
+    shows is free, or run it from the command palette; press
+    <kbd>Escape</kbd> to close it in a file view, and open it again after
+    moving the focus. For keys it doesn't list, use the keyboard map.
   - Comment:
     [#771.7231940238](https://github.com/mikepadiernos/plasma-opus/issues/771#issuecomment-7231940238)
 - **Proposed improvements:**
@@ -4477,6 +4506,10 @@ The M31 keyboard shortcut settings have these limits
     them, let keys turn the popup's pages while one waits, list the keys
     text fields, lists, the gallery and the search panel keep, and offer the
     hints as a sliding side pane as well.
+  - Set the delay and timeout per kind of key sequence, let the shortcut
+    reference follow the focus and be searched, turn its pages with keys in
+    text fields and the terminal, and offer a free default key for it if one
+    is found.
 
 ## Embedded terminal
 
