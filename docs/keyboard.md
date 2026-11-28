@@ -508,7 +508,7 @@ preset, and **View › Vim-Style Navigation** the keys outside Yazi mode.
 | <kbd>H</kbd>, <kbd>L</kbd>                           | Go back or forward in the tab's history          |
 | <kbd>g</kbd> <kbd>h</kbd>                            | Open **Go › Home**'s folder                      |
 | <kbd>g</kbd> <kbd>t</kbd>, <kbd>g</kbd> <kbd>T</kbd> | Go to the next or previous tab of the pane       |
-| <kbd>/</kbd>                                         | Show the filter bar, as **Edit › Filter…** does  |
+| <kbd>/</kbd>, <kbd>i</kbd>                           | Enter the filter, as **Edit › Filter…** does     |
 | <kbd>\\</kbd>                                        | Clear the filter and close the filter bar        |
 
 Capital letters are typed with <kbd>Shift</kbd>, so <kbd>G</kbd> is
@@ -534,10 +534,37 @@ ranger; they also work when a window shortcut keeps
   movement in an empty folder, says why in the status bar and to screen
   readers instead of doing nothing silently.
 - **Typing elsewhere.** Other letters still find items by their first
-  characters, as without the keys. The arrow keys, <kbd>Enter</kbd>,
-  <kbd>Tab</kbd>, <kbd>Escape</kbd> and every key with
+  characters, as without the keys. In the file view, the arrow keys,
+  <kbd>Enter</kbd>, <kbd>Tab</kbd>, <kbd>Escape</kbd> and every key with
   <kbd>Ctrl</kbd> other than <kbd>Ctrl</kbd>+<kbd>D</kbd> and
   <kbd>Ctrl</kbd>+<kbd>U</kbd> work as before.
+
+**Modes.** While the keys are on, each pane shows where its keys go in a
+highlighted label at its bottom, as Vim shows its mode:
+
+| Indicator        | Where the keyboard focus is                                 | Keys                                   |
+| ---------------- | ----------------------------------------------------------- | -------------------------------------- |
+| **NORMAL**       | The file view, or outside the pane                          | Move, open and filter, as listed above |
+| **NORMAL · 5g…** | The file view, with a count or sequence begun               | Wait for the rest of the sequence      |
+| **FILTER**       | The filter bar                                              | Type the filter                        |
+| **INSERT**       | Another of the pane's text fields, such as the location bar | Type in the field                      |
+
+- <kbd>/</kbd> or <kbd>i</kbd> enters the filter: the filter bar opens, or
+  takes the focus again with its text, and the indicator shows **FILTER**.
+  Every key, including <kbd>j</kbd>, <kbd>k</kbd> and <kbd>g</kbd>, is typed
+  into the filter there.
+- <kbd>Escape</kbd> in the filter bar returns to the items and keeps the
+  filter, so the keys move through the filtered items. Press <kbd>\\</kbd> in
+  the items to clear it, or <kbd>/</kbd> to change it. <kbd>Escape</kbd> in
+  an empty filter bar closes it, and <kbd>Enter</kbd> still opens the first
+  match.
+- Typing a letter that isn't bound, with **Filter as you type** on, opens the
+  filter bar with that letter as before; the indicator then shows **FILTER**.
+- The keys of a field in **INSERT**, such as <kbd>Escape</kbd> in the
+  location bar or a rename editor, are the field's own.
+- In a pane in Yazi mode, the Yazi mode indicator shows instead, and
+  <kbd>Escape</kbd> in the filter bar clears the filter as described in
+  [Yazi mode › Filtering](yazi-mode.md#filtering).
 
 **Typing is never taken.** The keys apply only to the file view itself, so
 they never reach the filter bar, the location bar, search fields, the
@@ -558,7 +585,7 @@ The **Vim Mode** tab shows:
 
 - **Use Vim-style keys in file views**, the setting;
 - **Keys**, every command with all its keys, in a list with an accessible
-  name, and a note on counts and typing;
+  name, a note on counts and typing, and a note on the modes;
 - **Conflicts**, the window shortcuts that the plain keys take over, as
   [Yazi mode › Keyboard](yazi-mode.md#keyboard) lists them, such as
   “G runs “Move to the last item” instead of “Open Gallery””, and the
@@ -879,12 +906,20 @@ The **Set in** column names pages of Preferences.
 - The **Command Palette** tab's recently used actions are plain text in a
   list with an accessible name.
 - The Vim-style keys are off by default and add to the usual keys rather
-  than replacing them: the arrow keys, <kbd>Home</kbd>, <kbd>End</kbd>,
-  <kbd>Enter</kbd>, <kbd>Tab</kbd> and <kbd>Escape</kbd> work as before, and
-  no key is taken from text fields or the terminal. A key that can't do
+  than replacing them: in the file views, the arrow keys, <kbd>Home</kbd>,
+  <kbd>End</kbd>, <kbd>Enter</kbd>, <kbd>Tab</kbd> and <kbd>Escape</kbd> work
+  as before, and no key is taken from text fields or the terminal.
+  <kbd>Escape</kbd> always leaves the filter bar. A key that can't do
   anything says why in words, which screen readers announce. The **Vim
   Mode** tab's keys and conflicts are plain text in lists with accessible
   names.
+- Each pane's mode indicator has an accessible name that says the mode in
+  words and how to leave it, such as “Vim-style navigation, filter mode:
+  typing filters the items; press Escape to return to the items”, or the
+  keys a sequence waits after. A new mode, and keys waiting for the rest of
+  a sequence, are announced to screen readers in the pane being typed in;
+  moving between panes isn't. The indicator uses the highlight colours with
+  its mode written out, so it doesn't rely on colour.
 
 ## Known limitations
 
