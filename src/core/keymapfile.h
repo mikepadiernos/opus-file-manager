@@ -67,7 +67,7 @@ QString settingText(const QString &name);
 struct Keymap {
     /// Each action's shortcuts by name, in order; an empty list means no shortcut.
     QList<std::pair<QString, QList<QKeySequence>>> actions;
-    /// Keyboard settings by kcfg entry name, as KConfigSkeleton items hold them: a bool, or an enum's index.
+    /// Keyboard settings by kcfg entry name, as KConfigSkeleton items hold them: a bool, a whole number, or an enum's index.
     QVariantMap settings;
 
     bool operator==(const Keymap &other) const = default;

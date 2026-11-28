@@ -138,6 +138,22 @@
       <label>List saved commands in the command palette; choosing one opens its preview rather than running it</label>
       <default>true</default>
     </entry>
+    <entry name="ShortcutHints" type="Bool">
+      <label>While a key sequence waits for its next key, show a popup that lists the keys that can follow it</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShortcutHintDelay" type="Int">
+      <label>How long a key sequence waits before its shortcut hints show, in milliseconds</label>
+      <default>500</default>
+      <min>0</min>
+      <max>5000</max>
+    </entry>
+    <entry name="KeySequenceTimeout" type="Int">
+      <label>How long a partly typed key sequence waits for its next key before it is cancelled, in milliseconds; 0 waits until Escape or another key</label>
+      <default>1000</default>
+      <min>0</min>
+      <max>10000</max>
+    </entry>
   </group>
   <group name="FolderSizes">
     <entry name="AutomaticLocalFolderSizes" key="AutomaticLocal" type="Bool"><default>false</default></entry>

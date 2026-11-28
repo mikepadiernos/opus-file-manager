@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace KeymapFile
 {
@@ -91,7 +92,8 @@ const KConfigSkeletonItem *settingItem(const KCoreConfigSkeleton *settings, cons
     if (!item) {
         return nullptr;
     }
-    if (dynamic_cast<const KCoreConfigSkeleton::ItemEnum *>(item) || item->property().typeId() == QMetaType::Bool) {
+    const int type = item->property().typeId();
+    if (dynamic_cast<const KCoreConfigSkeleton::ItemEnum *>(item) || type == QMetaType::Bool || type == QMetaType::Int) {
         return item;
     }
     return nullptr;
@@ -103,6 +105,9 @@ QJsonValue encodeSetting(const KConfigSkeletonItem *item, const QVariant &value)
         const auto choices = enumItem->choices();
         const int index = value.toInt();
         return index >= 0 && index < choices.size() ? QJsonValue(choices.at(index).name) : QJsonValue();
+    }
+    if (item->property().typeId() == QMetaType::Int) {
+        return value.toInt();
     }
     return value.toBool();
 }
@@ -117,6 +122,20 @@ std::optional<QVariant> decodeSetting(const KConfigSkeletonItem *item, const QJs
             }
         }
         return std::nullopt;
+    }
+    if (item->property().typeId() == QMetaType::Int) {
+        // A whole number within the entry's range, as Preferences would let it be set.
+        if (!json.isDouble()) {
+            return std::nullopt;
+        }
+        const double number = json.toDouble();
+        const QVariant minimum = item->minValue();
+        const QVariant maximum = item->maxValue();
+        if (!std::isfinite(number) || std::trunc(number) != number || number < (minimum.isValid() ? minimum.toInt() : std::numeric_limits<int>::min())
+            || number > (maximum.isValid() ? maximum.toInt() : std::numeric_limits<int>::max())) {
+            return std::nullopt;
+        }
+        return QVariant(int(number));
     }
     if (json.isBool()) {
         return QVariant(json.toBool());
@@ -145,7 +164,10 @@ QStringList settingNames()
             QStringLiteral("YaziKeyPreset"),
             QStringLiteral("VimNavigation"),
             QStringLiteral("DoubleShiftSearch"),
-            QStringLiteral("TabSwitchesPanes")};
+            QStringLiteral("TabSwitchesPanes"),
+            QStringLiteral("ShortcutHints"),
+            QStringLiteral("ShortcutHintDelay"),
+            QStringLiteral("KeySequenceTimeout")};
 }
 
 QString settingText(const QString &name)
@@ -164,6 +186,15 @@ QString settingText(const QString &name)
     }
     if (name == QLatin1String("TabSwitchesPanes")) {
         return i18nc("@item keyboard setting", "Tab key switches between the panes");
+    }
+    if (name == QLatin1String("ShortcutHints")) {
+        return i18nc("@item keyboard setting", "Shortcut hints for pending key sequences");
+    }
+    if (name == QLatin1String("ShortcutHintDelay")) {
+        return i18nc("@item keyboard setting", "Shortcut hint delay");
+    }
+    if (name == QLatin1String("KeySequenceTimeout")) {
+        return i18nc("@item keyboard setting", "Key sequence timeout");
     }
     return name;
 }
