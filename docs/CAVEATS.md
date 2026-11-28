@@ -4310,6 +4310,20 @@ The M31 keyboard shortcut settings have these limits
   layouts and screen readers on Plasma are unverified
   ([Plasma check](TODO.md#vim-style-navigation-on-plasma-228)).
   ([#228](https://github.com/mikepadiernos/plasma-opus/issues/228))
+- **🚦 Vim-style modes:** While the Vim-style keys are on, each pane's
+  indicator shows **NORMAL**, **FILTER** or **INSERT** only for the pane's
+  own widgets: with the focus in the folder tree, another panel, the
+  embedded terminal or a dialog, it shows **NORMAL**, and **INSERT** covers
+  only the pane's text fields, such as the location bar or a rename editor.
+  The modes are fixed: there is no visual or command mode, the indicator
+  shows only the keys a sequence waits after, not the filter's text, and
+  it can't be hidden while the keys are on. <kbd>Escape</kbd> keeps the
+  filter only outside Yazi mode, and can't be set to clear it; press
+  <kbd>\\</kbd> in the items for that. Only the pane being typed in announces
+  a new mode, and moving between panes isn't announced. The indicator's look
+  in Plasma themes and Orca's announcements are unverified
+  ([Plasma check](TODO.md#vim-style-mode-indicator-on-plasma-229)).
+  ([#229](https://github.com/mikepadiernos/plasma-opus/issues/229))
 
 - **Recommendation:**
   - **Shortcut settings:** Change shortcuts in **Configure Keyboard
@@ -4390,6 +4404,13 @@ The M31 keyboard shortcut settings have these limits
     direct input while moving with the keys. For the same keys in a pane in
     Yazi mode, choose the Yazi-style keys on **Preferences › Yazi Mode ›
     Keyboard**.
+  - **Vim-style modes:** Check a pane's indicator before typing: press
+    <kbd>/</kbd> or <kbd>i</kbd> to filter, and <kbd>Escape</kbd> to return
+    to the items with the filter kept, then <kbd>\\</kbd> to clear it. When
+    the indicator shows **NORMAL** but keys don't move through the items,
+    click the file view or press <kbd>Escape</kbd> in the field that has the
+    focus. Use the filter bar or **Find by key** in the keyboard map rather
+    than the indicator to see the filter's text or a key's command.
   - Comment:
     [#771.7231940238](https://github.com/mikepadiernos/plasma-opus/issues/771#issuecomment-7231940238)
 - **Proposed improvements:**
@@ -4422,6 +4443,9 @@ The M31 keyboard shortcut settings have these limits
     tree and other lists, list them on the **Shortcuts** tab and in the
     command palette, and add visual selection and operators such as `yy`
     and `p`.
+  - Add visual and command modes, show the filter's text and the mode in the
+    window's status bar, let the indicator be hidden, and let
+    <kbd>Escape</kbd> in the filter bar be set to clear the filter.
 
 ## Embedded terminal
 
