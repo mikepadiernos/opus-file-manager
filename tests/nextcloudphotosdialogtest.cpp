@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "nextcloudphotosdialog.h"
+#include "mainwindow.h"
 #include "nextcloudaccount.h"
 #include "nextcloudmenu.h"
+#include "settings.h"
 
+#include <KActionCollection>
+#include <KActionMenu>
 #include <KConfigGroup>
 #include <KProtocolInfo>
 #include <KSharedConfig>
@@ -15,6 +19,7 @@
 #include <QListWidget>
 #include <QMenu>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTcpServer>
@@ -482,6 +487,184 @@ private Q_SLOTS:
         album.collaborators = {QStringLiteral("Bob")};
         QVERIFY(NextcloudPhotos::addQuestion(album, 2).contains(QStringLiteral("Bob")));
         QVERIFY(NextcloudPhotos::removeQuestion(album, 1).contains(QStringLiteral("not deleted")));
+    }
+
+    void optionsShowOnlyTheChosenKinds()
+    {
+        // Nothing hidden by default, and the user's albums when everything is.
+        QCOMPARE(NextcloudPhotos::Options().kinds().size(), 3);
+        NextcloudPhotos::Options none;
+        none.albums = none.sharedAlbums = none.places = false;
+        QCOMPARE(none.kinds(), QList<Nextcloud::PhotoCollectionKind>{Nextcloud::PhotoCollectionKind::Albums});
+
+        // A remembered kind that is now hidden falls back to the first one shown.
+        KSharedConfig::openStateConfig()->group(QStringLiteral("NextcloudPhotosDialog")).writeEntry("Kind", int(Nextcloud::PhotoCollectionKind::Albums));
+        NextcloudPhotos::Options options;
+        options.albums = false;
+        NextcloudPhotosDialog dialog(account(), &m_store, options);
+        auto *kind = child<QComboBox>(dialog, "photosKind");
+        QCOMPARE(kind->count(), 2);
+        QCOMPARE(kind->findData(int(Nextcloud::PhotoCollectionKind::Albums)), -1);
+        QCOMPARE(dialog.kind(), Nextcloud::PhotoCollectionKind::SharedAlbums);
+        QVERIFY(kind->isEnabled());
+        // New albums would be listed under the hidden Albums.
+        QVERIFY(child<QPushButton>(dialog, "photosNewAlbum")->isHidden());
+
+        NextcloudPhotos::Options placesOnly;
+        placesOnly.albums = placesOnly.sharedAlbums = false;
+        NextcloudPhotosDialog places(account(), &m_store, placesOnly);
+        QCOMPARE(child<QComboBox>(places, "photosKind")->count(), 1);
+        QVERIFY(!child<QComboBox>(places, "photosKind")->isEnabled());
+        QCOMPARE(places.kind(), Nextcloud::PhotoCollectionKind::Places);
+
+        NextcloudPhotosDialog all(account(), &m_store);
+        QCOMPARE(child<QComboBox>(all, "photosKind")->count(), 3);
+        QVERIFY(!child<QPushButton>(all, "photosNewAlbum")->isHidden());
+    }
+
+    void groupingStartsAsChosen()
+    {
+        auto state = KSharedConfig::openStateConfig()->group(QStringLiteral("NextcloudPhotosDialog"));
+        auto grouping = [this](const NextcloudPhotos::Options &options) {
+            NextcloudPhotosDialog dialog(account(), &m_store, options);
+            return Nextcloud::PhotoGrouping(child<QComboBox>(dialog, "photosGroup")->currentData().toInt());
+        };
+        // By default, the grouping last chosen in the window, or by month at first.
+        QCOMPARE(grouping({}), Nextcloud::PhotoGrouping::Month);
+        state.writeEntry("Grouping", int(Nextcloud::PhotoGrouping::Place));
+        QCOMPARE(grouping({}), Nextcloud::PhotoGrouping::Place);
+
+        NextcloudPhotos::Options options;
+        options.grouping = Nextcloud::PhotoGrouping::None;
+        QCOMPARE(grouping(options), Nextcloud::PhotoGrouping::None);
+        // The window's own choice is still remembered for when the option is cleared.
+        NextcloudPhotosDialog dialog(account(), &m_store, options);
+        auto *group = child<QComboBox>(dialog, "photosGroup");
+        group->setCurrentIndex(group->findData(int(Nextcloud::PhotoGrouping::Month)));
+        QCOMPARE(state.readEntry("Grouping", -1), int(Nextcloud::PhotoGrouping::Month));
+        QCOMPARE(grouping(options), Nextcloud::PhotoGrouping::None);
+    }
+
+    void unsharedAlbumChangesNeedNoConfirmationWhenTurnedOff()
+    {
+        SKIP_WITHOUT_WEBDAV();
+        NextcloudPhotos::Options options;
+        options.confirmChanges = false;
+        QStringList questions;
+        auto confirm = [&](QWidget *, const QString &, const QString &text, const QString &) {
+            questions.append(text);
+            return false;
+        };
+
+        NextcloudPhotosDialog photos(account(), &m_store, options);
+        photos.setConfirmation(confirm);
+        auto *collections = child<QListWidget>(photos, "photosCollections");
+        QTRY_COMPARE(collections->count(), 2);
+        collections->setCurrentRow(1);
+        QTRY_COMPARE(photos.shownPhotos().size(), 3);
+        auto *group = child<QComboBox>(photos, "photosGroup");
+        group->setCurrentIndex(group->findData(int(Nextcloud::PhotoGrouping::None)));
+        child<QTreeWidget>(photos, "photosList")->topLevelItem(0)->setSelected(true);
+        child<QPushButton>(photos, "photosRemove")->click();
+        QTRY_COMPARE(requests("DELETE").size(), 1);
+        QVERIFY(questions.isEmpty());
+
+        const QUrl file = fileUrl(QStringLiteral("Photos/Lake view.jpg"));
+        NextcloudAddToAlbumDialog add(account(), {file}, &m_store, options);
+        add.setConfirmation(confirm);
+        auto *albums = child<QListWidget>(add, "addToAlbumList");
+        QTRY_COMPARE(albums->count(), 3);
+        // Everyone a shared album is shared with sees the change, so it is still confirmed.
+        albums->setCurrentRow(2);
+        add.addToChosen();
+        QCOMPARE(questions.size(), 1);
+        QTest::qWait(100);
+        QVERIFY(requests("COPY").isEmpty());
+        QSignalSpy finished(&add, &NextcloudAddToAlbumDialog::finished);
+        albums->setCurrentRow(1);
+        add.addToChosen();
+        QTRY_COMPARE(finished.size(), 1);
+        QCOMPARE(questions.size(), 1);
+        QCOMPARE(requests("COPY").size(), 1);
+    }
+
+    void addToAlbumListsOnlyTheChosenKinds()
+    {
+        SKIP_WITHOUT_WEBDAV();
+        const QUrl file = fileUrl(QStringLiteral("Photos/Lake view.jpg"));
+        NextcloudPhotos::Options ownOnly;
+        ownOnly.sharedAlbums = false;
+        NextcloudAddToAlbumDialog own(account(), {file}, &m_store, ownOnly);
+        QTRY_COMPARE(child<QListWidget>(own, "addToAlbumList")->count(), 2);
+        QTest::qWait(100);
+        QCOMPARE(child<QListWidget>(own, "addToAlbumList")->count(), 2);
+        for (const Request &request : requests("PROPFIND")) {
+            QVERIFY2(!request.path.contains("sharedalbums"), request.path.constData());
+        }
+
+        NextcloudPhotos::Options sharedOnly;
+        sharedOnly.albums = false;
+        NextcloudAddToAlbumDialog shared(account(), {file}, &m_store, sharedOnly);
+        auto *albums = child<QListWidget>(shared, "addToAlbumList");
+        QTRY_COMPARE(albums->count(), 1);
+        QVERIFY(albums->item(0)->text().startsWith(QStringLiteral("Party (carol)")));
+        QVERIFY(child<QPushButton>(shared, "addToAlbumNew")->isHidden());
+    }
+
+    void mainWindowFollowsThePhotosSettings()
+    {
+        SKIP_WITHOUT_WEBDAV();
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            KSharedConfig::openConfig()->deleteGroup(NextcloudAccounts::groupName());
+        });
+        // Saving assigns a valid id, which the fixture's fixed one isn't.
+        Account unsaved = account();
+        unsaved.id.clear();
+        QList<Account> accounts{unsaved};
+        QVERIFY(NextcloudAccounts::save(KSharedConfig::openConfig()->group(NextcloudAccounts::groupName()), accounts));
+        const Account saved = NextcloudAccounts::load(KSharedConfig::openConfig()->group(NextcloudAccounts::groupName())).value(0);
+
+        MainWindow window;
+        QMenu *menu = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("nextcloud")))->menu();
+        // Actions of the account's submenu as now shown, not of submenus replaced before.
+        auto photosAction = [menu] {
+            Q_EMIT menu->aboutToShow();
+            for (QAction *action : menu->actions()) {
+                for (QAction *inner : action->menu() ? action->menu()->actions() : QList<QAction *>()) {
+                    if (inner->objectName() == QLatin1String("nextcloudPhotos")) {
+                        return inner;
+                    }
+                }
+            }
+            return static_cast<QAction *>(nullptr);
+        };
+        QVERIFY(photosAction());
+        Settings::setNextcloudPhotosShowAlbums(false);
+        Settings::setNextcloudPhotosShowSharedAlbums(false);
+        QVERIFY(photosAction());
+        // With nothing to show, the window isn't offered.
+        Settings::setNextcloudPhotosShowPlaces(false);
+        QVERIFY(!photosAction());
+
+        // The windows follow the settings.
+        Settings::self()->setDefaults();
+        Settings::setNextcloudPhotosShowAlbums(false);
+        Settings::setNextcloudPhotosGrouping(Settings::EnumNextcloudPhotosGrouping::ByPlace);
+        window.showNextcloudPhotos(saved);
+        auto *photos = window.findChild<NextcloudPhotosDialog *>();
+        QVERIFY(photos);
+        QCOMPARE(child<QComboBox>(*photos, "photosKind")->count(), 2);
+        QCOMPARE(child<QComboBox>(*photos, "photosGroup")->currentData().toInt(), int(Nextcloud::PhotoGrouping::Place));
+        photos->close();
+
+        window.addToNextcloudAlbum({fileUrl(QStringLiteral("Photos/Lake view.jpg"))});
+        auto *add = window.findChild<NextcloudAddToAlbumDialog *>();
+        QVERIFY(add);
+        QVERIFY(child<QPushButton>(*add, "addToAlbumNew")->isHidden());
+        QTRY_COMPARE(child<QListWidget>(*add, "addToAlbumList")->count(), 1);
+        add->close();
     }
 };
 

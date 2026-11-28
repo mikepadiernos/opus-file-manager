@@ -1359,7 +1359,12 @@ private Q_SLOTS:
                                      QStringLiteral("NextcloudShares"),
                                      QStringLiteral("NextcloudLinkExpiryDays"),
                                      QStringLiteral("NextcloudDesktopClientMenu"),
-                                     QStringLiteral("NextcloudDesktopStatus")}) {
+                                     QStringLiteral("NextcloudDesktopStatus"),
+                                     QStringLiteral("NextcloudPhotosShowAlbums"),
+                                     QStringLiteral("NextcloudPhotosShowSharedAlbums"),
+                                     QStringLiteral("NextcloudPhotosShowPlaces"),
+                                     QStringLiteral("NextcloudPhotosGrouping"),
+                                     QStringLiteral("NextcloudPhotosConfirmChanges")}) {
             QCOMPARE(tabOf(entry), QStringLiteral("Nextcloud"));
         }
         for (const QString &entry : {QStringLiteral("PlasmaVaultMenu"), QStringLiteral("PlasmaVaultHidden"), QStringLiteral("PlasmaVaultShowState")}) {
