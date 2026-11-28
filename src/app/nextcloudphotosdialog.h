@@ -26,6 +26,20 @@ using Confirmation = std::function<bool(QWidget *parent, const QString &title, c
 /// Asks the user for a new album's name; nullopt when they cancel. The default asks with an input dialog.
 using NamePrompt = std::function<std::optional<QString>(QWidget *parent)>;
 
+/// Choices from Preferences › Remote and Cloud › Nextcloud › Photos. The defaults keep every kind and confirmation.
+struct Options {
+    bool albums = true;
+    bool sharedAlbums = true;
+    bool places = true;
+    /// The grouping the Photos window opens with; nullopt for the one last chosen in the window.
+    std::optional<Nextcloud::PhotoGrouping> grouping;
+    /// Whether changes to albums that aren't shared are confirmed first. Changes to shared albums always are.
+    bool confirmChanges = true;
+
+    /// The kinds shown, in the order shown; the user's albums when none are.
+    QList<Nextcloud::PhotoCollectionKind> kinds() const;
+};
+
 /// The question to ask before removing @p count photos from @p album.
 QString removeQuestion(const Nextcloud::PhotoCollection &album, int count);
 /// The question to ask before adding @p count files to @p album.
@@ -44,7 +58,10 @@ class NextcloudPhotosDialog : public QDialog
 
 public:
     /// @param store where the account's app password is kept; not owned
-    NextcloudPhotosDialog(const NextcloudAccounts::Account &account, Nextcloud::CredentialStore *store, QWidget *parent = nullptr);
+    NextcloudPhotosDialog(const NextcloudAccounts::Account &account,
+                          Nextcloud::CredentialStore *store,
+                          const NextcloudPhotos::Options &options = {},
+                          QWidget *parent = nullptr);
     ~NextcloudPhotosDialog() override;
 
     NextcloudClient *client() const;
@@ -75,6 +92,7 @@ private:
     void updateState();
 
     NextcloudAccounts::Account m_account;
+    NextcloudPhotos::Options m_options;
     NextcloudClient *m_client;
     NextcloudPhotos::Confirmation m_confirm;
     NextcloudPhotos::NamePrompt m_prompt;
@@ -112,9 +130,11 @@ class NextcloudAddToAlbumDialog : public QDialog
     Q_OBJECT
 
 public:
+    /// Lists only the kinds of album that @p options show.
     NextcloudAddToAlbumDialog(const NextcloudAccounts::Account &account,
                               const QList<QUrl> &files,
                               Nextcloud::CredentialStore *store,
+                              const NextcloudPhotos::Options &options = {},
                               QWidget *parent = nullptr);
     ~NextcloudAddToAlbumDialog() override;
 
@@ -135,6 +155,7 @@ private:
     void updateState();
 
     NextcloudAccounts::Account m_account;
+    NextcloudPhotos::Options m_options;
     QList<QUrl> m_files;
     NextcloudClient *m_client;
     NextcloudPhotos::Confirmation m_confirm;

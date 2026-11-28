@@ -6459,9 +6459,11 @@ void MainWindow::populateNextcloud()
     m_nextcloudAccounts = nextcloudAccounts(&error);
     m_nextcloudAccountsLoaded = true;
     NextcloudMenu::AccountHandlers more;
-    more.photos = [this](const NextcloudAccounts::Account &account) {
-        showNextcloudPhotos(account);
-    };
+    if (Settings::nextcloudPhotosShowAlbums() || Settings::nextcloudPhotosShowSharedAlbums() || Settings::nextcloudPhotosShowPlaces()) {
+        more.photos = [this](const NextcloudAccounts::Account &account) {
+            showNextcloudPhotos(account);
+        };
+    }
     if (Settings::nextcloudShares()) {
         more.shares = [this](const NextcloudAccounts::Account &account) {
             showNextcloudShares(account);
@@ -6871,6 +6873,34 @@ void MainWindow::showNextcloudAssets(const NextcloudAccounts::Account &account)
     dialog->show();
 }
 
+namespace
+{
+/// The Photos choices of Preferences › Remote and Cloud › Nextcloud.
+NextcloudPhotos::Options nextcloudPhotosOptions()
+{
+    NextcloudPhotos::Options options;
+    options.albums = Settings::nextcloudPhotosShowAlbums();
+    options.sharedAlbums = Settings::nextcloudPhotosShowSharedAlbums();
+    options.places = Settings::nextcloudPhotosShowPlaces();
+    switch (Settings::nextcloudPhotosGrouping()) {
+    case Settings::EnumNextcloudPhotosGrouping::NoGrouping:
+        options.grouping = Nextcloud::PhotoGrouping::None;
+        break;
+    case Settings::EnumNextcloudPhotosGrouping::ByMonth:
+        options.grouping = Nextcloud::PhotoGrouping::Month;
+        break;
+    case Settings::EnumNextcloudPhotosGrouping::ByPlace:
+        options.grouping = Nextcloud::PhotoGrouping::Place;
+        break;
+    default:
+        // The grouping last chosen in the window.
+        break;
+    }
+    options.confirmChanges = Settings::nextcloudPhotosConfirmChanges();
+    return options;
+}
+}
+
 void MainWindow::showNextcloudPhotos(const NextcloudAccounts::Account &account)
 {
     const QString unavailable = RemoteProfiles::unavailableReason(RemoteProfiles::Protocol::WebDavs);
@@ -6885,7 +6915,7 @@ void MainWindow::showNextcloudPhotos(const NextcloudAccounts::Account &account)
         m_nextcloudAccounts = nextcloudAccounts();
         m_nextcloudAccountsLoaded = true;
     }
-    auto *dialog = new NextcloudPhotosDialog(account, m_nextcloudStore.get(), this);
+    auto *dialog = new NextcloudPhotosDialog(account, m_nextcloudStore.get(), nextcloudPhotosOptions(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(dialog, &NextcloudPhotosDialog::showRequested, this, [this](const QUrl &url) {
         activePane()->revealUrls(url.adjusted(QUrl::RemoveFilename), {url});
@@ -6927,7 +6957,7 @@ void MainWindow::addToNextcloudAlbum(const QList<QUrl> &urls)
     if (!m_nextcloudStore) {
         m_nextcloudStore = std::make_unique<Nextcloud::PasswordServerStore>(winId());
     }
-    auto *dialog = new NextcloudAddToAlbumDialog(*account, urls, m_nextcloudStore.get(), this);
+    auto *dialog = new NextcloudAddToAlbumDialog(*account, urls, m_nextcloudStore.get(), nextcloudPhotosOptions(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(dialog, &NextcloudAddToAlbumDialog::finished, this, &MainWindow::reportAddedToAlbum);
     dialog->show();
@@ -7022,9 +7052,10 @@ void MainWindow::addNextcloudItemMenu(QMenu *menu, const KFileItemList &items)
     handlers.organize = [this, account = *account] {
         showNextcloudAssets(account);
     };
-    if (std::none_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
-            return item.isDir();
-        })) {
+    if ((Settings::nextcloudPhotosShowAlbums() || Settings::nextcloudPhotosShowSharedAlbums())
+        && std::none_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+               return item.isDir();
+           })) {
         handlers.addToAlbum = [this, urls] {
             addToNextcloudAlbum(urls);
         };

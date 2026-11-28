@@ -3236,6 +3236,37 @@ QWidget *SettingsDialog::createNextcloudIntegrationPage()
     auto *clientStatus = statusLabel(QStringLiteral("nextcloudDesktopStatus"));
     desktopLayout->addWidget(clientStatus);
     layout->addWidget(desktopGroup);
+
+    auto *photosGroup = new QGroupBox(i18nc("@title:group", "Photos"));
+    photosGroup->setObjectName(QStringLiteral("nextcloudPhotosGroup"));
+    auto *photosLayout = new QVBoxLayout(photosGroup);
+    auto *photosAlbums = checkBox(QStringLiteral("NextcloudPhotosShowAlbums"), i18nc("@option:check", "Show your albums"));
+    auto *photosShared = checkBox(QStringLiteral("NextcloudPhotosShowSharedAlbums"), i18nc("@option:check", "Show albums shared with you"));
+    auto *photosPlaces = checkBox(QStringLiteral("NextcloudPhotosShowPlaces"), i18nc("@option:check", "Show places"));
+    photosAlbums->setToolTip(i18nc("@info:tooltip", "Listed in the Photos window and in Add to Nextcloud Album; New Album needs them"));
+    photosShared->setToolTip(i18nc("@info:tooltip", "Listed in the Photos window and, when they accept photos, in Add to Nextcloud Album"));
+    photosPlaces->setToolTip(i18nc("@info:tooltip", "The groups of photos the server made by where they were taken, listed in the Photos window"));
+    photosLayout->addWidget(photosAlbums);
+    photosLayout->addWidget(photosShared);
+    photosLayout->addWidget(photosPlaces);
+    auto *photosForm = new QFormLayout;
+    auto *photosGrouping = comboBox(QStringLiteral("NextcloudPhotosGrouping"),
+                                    {i18nc("@item:inlistbox grouping", "As last chosen in the window"),
+                                     i18nc("@item:inlistbox grouping", "No groups"),
+                                     i18nc("@item:inlistbox grouping", "Month taken"),
+                                     i18nc("@item:inlistbox grouping", "Place")});
+    photosGrouping->setToolTip(i18nc("@info:tooltip", "How the Photos window groups photos when it opens; Group by in the window changes it for a while"));
+    photosForm->addRow(i18nc("@label:listbox", "Group photos by:"), photosGrouping);
+    photosLayout->addLayout(photosForm);
+    auto *photosConfirm =
+        checkBox(QStringLiteral("NextcloudPhotosConfirmChanges"), i18nc("@option:check", "Ask before adding photos to or removing them from your albums"));
+    photosConfirm->setToolTip(i18nc("@info:tooltip",
+                                    "Changes to albums shared with others are always confirmed, because everyone the album is shared "
+                                    "with sees them. Removing a photo from an album never deletes the file."));
+    photosLayout->addWidget(photosConfirm);
+    auto *photosStatus = statusLabel(QStringLiteral("nextcloudPhotosStatus"));
+    photosLayout->addWidget(photosStatus);
+    layout->addWidget(photosGroup);
     layout->addStretch();
 
     const auto refreshAccounts = [this, accountsStatus, onlineAccounts] {
@@ -3299,6 +3330,20 @@ QWidget *SettingsDialog::createNextcloudIntegrationPage()
         }
         clientStatus->setText(text);
     };
+    const auto refreshPhotos = [photosAlbums, photosShared, photosPlaces, photosGrouping, photosConfirm, photosStatus] {
+        const bool anyAlbums = photosAlbums->isChecked() || photosShared->isChecked();
+        const bool any = anyAlbums || photosPlaces->isChecked();
+        photosGrouping->setEnabled(any);
+        photosConfirm->setEnabled(anyAlbums);
+        if (!any) {
+            photosStatus->setText(i18nc("@info", "Go › Nextcloud doesn't offer Photos, and the context menu doesn't offer Add to Nextcloud Album."));
+        } else if (!anyAlbums) {
+            photosStatus->setText(i18nc("@info", "The context menu doesn't offer Add to Nextcloud Album, as no albums are shown."));
+        } else {
+            photosStatus->clear();
+        }
+        photosStatus->setVisible(!photosStatus->text().isEmpty());
+    };
     accountsGroup->refresh = refreshAccounts;
     browsingGroup->refresh = refreshBrowsing;
     sharingGroup->refresh = refreshSharing;
@@ -3306,12 +3351,16 @@ QWidget *SettingsDialog::createNextcloudIntegrationPage()
     connect(serverMetadata, &QCheckBox::toggled, page, refreshMetadata);
     connect(shares, &QCheckBox::toggled, page, refreshSharing);
     connect(desktopMenu, &QCheckBox::toggled, desktopStatus, &QWidget::setEnabled);
+    for (QCheckBox *kind : {photosAlbums, photosShared, photosPlaces}) {
+        connect(kind, &QCheckBox::toggled, page, refreshPhotos);
+    }
     // Defaults and Reset change the widgets without user input, and other tabs change Online Accounts, previews and mail.
-    connect(this, &KConfigDialog::widgetModified, page, [refreshAccounts, refreshBrowsing, refreshMetadata, refreshSharing] {
+    connect(this, &KConfigDialog::widgetModified, page, [refreshAccounts, refreshBrowsing, refreshMetadata, refreshSharing, refreshPhotos] {
         refreshAccounts();
         refreshBrowsing();
         refreshMetadata();
         refreshSharing();
+        refreshPhotos();
     });
     connect(manage, &QPushButton::clicked, page, [this, page, refreshAccounts] {
         auto *window = qobject_cast<KXmlGuiWindow *>(parentWidget());
@@ -3342,6 +3391,7 @@ QWidget *SettingsDialog::createNextcloudIntegrationPage()
     refreshMetadata();
     refreshSharing();
     refreshDesktop();
+    refreshPhotos();
 
     auto *scroll = new QScrollArea;
     scroll->setObjectName(QStringLiteral("nextcloudIntegrationScroll"));
