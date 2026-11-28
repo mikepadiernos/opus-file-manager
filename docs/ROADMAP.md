@@ -2190,7 +2190,8 @@ using KDE shortcut facilities where supported.
       give labels accessible names and do not intercept typing in text fields
       or the embedded terminal. (Lektra) [#762]
 - [ ] Import and export shortcut bindings with conflict preview; do not execute
-      commands from imported files [#237]
+      commands from imported files. Plasma-session verification is a
+      [pending handoff](TODO.md#keymap-files-on-plasma-237). [#237]
 
 ### M32: Refinements
 
