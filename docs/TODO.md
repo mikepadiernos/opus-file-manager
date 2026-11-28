@@ -75,6 +75,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Keymap files on Plasma](#keymap-files-on-plasma-237)                                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#237]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Command palette on Plasma](#command-palette-on-plasma-761)                                   | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#761]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Vim-style navigation on Plasma](#vim-style-navigation-on-plasma-228)                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#228]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Vim-style mode indicator on Plasma](#vim-style-mode-indicator-on-plasma-229)                 | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#229]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -2035,9 +2036,45 @@ modify ID connection.metered yes`), check that the tab reports it and that
    any differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then remove
    this entry and its roadmap link.
 
+## Vim-style mode indicator on Plasma (#229)
+
+- **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
+  [#229] (Development).
+- **Blocker:** The development container has only an offscreen platform with
+  no Plasma session, colour scheme or screen reader, so the indicator's look
+  in Plasma themes and its announcements are unverified.
+- **Confirmed state:** `VimNavigation::modeText` and
+  `VimNavigation::modeAccessibleName` in `src/core/vimnavigation.cpp` name
+  the modes, and <kbd>i</kbd> enters the filter as <kbd>/</kbd> does. `Pane`
+  in `src/app/pane.cpp` shows the indicator in `vimModeBar` at the bottom of
+  each pane outside Yazi mode, updates it in `updateVimModeIndicator` and
+  announces a new mode for the pane being typed in. `FilterBar` keeps the
+  filter on <kbd>Escape</kbd> while the keys are on. `vimnavigationtest`,
+  `vimnavigationuitest`, `filtertest`, `settingsdialogtest`, `mainwindowtest`
+  and the Yazi mode and pane tests pass in the container. See
+  [Keyboard shortcuts](CAVEATS.md#keyboard-shortcuts).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, turn on **View ›
+   Vim-Style Navigation** and, with Breeze, Breeze Dark and a high-contrast
+   colour scheme, check that each pane's indicator is readable and shows
+   **NORMAL**, **NORMAL · 5g…** after <kbd>5</kbd> <kbd>g</kbd>, **FILTER**
+   after <kbd>/</kbd> or <kbd>i</kbd>, and **INSERT** in the location bar
+   and a rename editor.
+2. Press <kbd>Escape</kbd> in the filter bar and check that the filter is
+   kept and <kbd>j</kbd> moves through the filtered items, that
+   <kbd>\\</kbd> clears it, and that a pane in Yazi mode shows the Yazi mode
+   indicator instead.
+3. With Orca, check that each indicator's name can be read and that a new
+   mode and a begun sequence are announced only for the pane being typed in.
+   Record any differences in [CAVEATS](CAVEATS.md#keyboard-shortcuts), then
+   remove this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#228]: https://github.com/mikepadiernos/plasma-opus/issues/228
+[#229]: https://github.com/mikepadiernos/plasma-opus/issues/229
 [#230]: https://github.com/mikepadiernos/plasma-opus/issues/230
 [#231]: https://github.com/mikepadiernos/plasma-opus/issues/231
 [#232]: https://github.com/mikepadiernos/plasma-opus/issues/232
