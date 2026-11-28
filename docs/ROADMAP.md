@@ -2180,7 +2180,9 @@ using KDE shortcut facilities where supported.
 - [ ] Provide a native sliding or floating shortcut hint pane inspired by
       [which-key.nvim](https://github.com/folke/which-key.nvim). Show pending
       key sequences and context-appropriate continuations grouped with action
-      descriptions; support keyboard navigation and dismissal. [#234]
+      descriptions; support keyboard navigation and dismissal. Plasma-session
+      verification is a
+      [pending handoff](TODO.md#shortcut-hints-on-plasma-234). [#234]
 - [ ] Configure the hint panel's enablement and display delay, and offer an
       on-demand shortcut reference. Cancel or time out incomplete sequences
       without unexpectedly running a conflicting action. [#235]
