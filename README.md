@@ -159,7 +159,9 @@ preview. Both behaviours can be changed in Preferences.
   already in use. Shortcuts export to a keymap file, and importing one shows
   the changes and conflicts before applying them. **Help › Command Palette…**
   finds menu, toolbar and saved command actions by name and runs them in the
-  active pane, with recently used actions first.
+  active pane, with recently used actions first. Optional Vim-style keys, such
+  as `j`, `k`, `gg` and counts, move through the file views outside Yazi mode
+  without taking keys from typing.
 
 ## Screenshots
 
