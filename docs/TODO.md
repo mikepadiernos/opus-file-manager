@@ -66,19 +66,19 @@ Board statuses were last confirmed on 2026-11-27.
 | [Nextcloud desktop client on Plasma](#nextcloud-desktop-client-on-plasma-592)                 | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#592]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Nextcloud settings on Plasma](#nextcloud-settings-on-plasma-368)                             | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#368]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Nextcloud Photos settings on a real server](#nextcloud-photos-settings-on-a-real-server-672) | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#672]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Keyboard shortcuts on Plasma](#keyboard-shortcuts-on-plasma-230)                             | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#230]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
-| [Shortcut contexts on Plasma](#shortcut-contexts-on-plasma-233)                               | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#233]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
-| [Shortcut storage on Plasma](#shortcut-storage-on-plasma-238)                                 | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#238]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
-| [Alternate and command shortcuts on Plasma](#alternate-and-command-shortcuts-on-plasma-231)   | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#231]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
-| [Keyboard map on Plasma](#keyboard-map-on-plasma-232)                                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#232]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
-| [Navigation shortcuts on Plasma](#navigation-shortcuts-on-plasma-236)                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#236]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
-| [Keymap files on Plasma](#keymap-files-on-plasma-237)                                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#237]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
-| [Command palette on Plasma](#command-palette-on-plasma-761)                                   | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#761]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
-| [Vim-style navigation on Plasma](#vim-style-navigation-on-plasma-228)                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#228]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
-| [Vim-style mode indicator on Plasma](#vim-style-mode-indicator-on-plasma-229)                 | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#229]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
-| [Shortcut hints on Plasma](#shortcut-hints-on-plasma-234)                                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#234]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
-| [Shortcut hint settings on Plasma](#shortcut-hint-settings-on-plasma-235)                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#235]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
-| [Keyboard hints on Plasma](#keyboard-hints-on-plasma-762)                                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#762]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Keyboard shortcuts on Plasma](#keyboard-shortcuts-on-plasma-230)                             | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#230]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Shortcut contexts on Plasma](#shortcut-contexts-on-plasma-233)                               | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#233]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Shortcut storage on Plasma](#shortcut-storage-on-plasma-238)                                 | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#238]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Alternate and command shortcuts on Plasma](#alternate-and-command-shortcuts-on-plasma-231)   | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#231]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Keyboard map on Plasma](#keyboard-map-on-plasma-232)                                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#232]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Navigation shortcuts on Plasma](#navigation-shortcuts-on-plasma-236)                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#236]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Keymap files on Plasma](#keymap-files-on-plasma-237)                                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#237]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Command palette on Plasma](#command-palette-on-plasma-761)                                   | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#761]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Vim-style navigation on Plasma](#vim-style-navigation-on-plasma-228)                         | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#228]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Vim-style mode indicator on Plasma](#vim-style-mode-indicator-on-plasma-229)                 | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#229]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Shortcut hints on Plasma](#shortcut-hints-on-plasma-234)                                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#234]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Shortcut hint settings on Plasma](#shortcut-hint-settings-on-plasma-235)                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#235]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Keyboard hints on Plasma](#keyboard-hints-on-plasma-762)                                     | [M31](ROADMAP.md#m31-keyboard-shortcut-settings)                               | [#762]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 
 ## mpv integration (#563)
 
@@ -1720,7 +1720,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 ## Keyboard shortcuts on Plasma (#230)
 
 - **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
-  [#230] (Completed).
+  [#230] (Merged).
 - **Blocker:** The development container has no Plasma session, D-Bus session
   services or KDE global shortcut service (KGlobalAccel), and only an
   offscreen platform without real keyboard layouts. **Preferences › Keyboard
@@ -1755,7 +1755,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 ## Shortcut contexts on Plasma (#233)
 
 - **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
-  [#233] (Completed).
+  [#233] (Merged).
 - **Blocker:** The development container has only an offscreen platform with
   synthetic key events, no real keyboard layouts or input methods, and no
   Konsole session to type into. Whether text fields, lists and the folder tree
@@ -1790,7 +1790,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 ## Shortcut storage on Plasma (#238)
 
 - **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
-  [#238] (Completed).
+  [#238] (Merged).
 - **Blocker:** The development container has no Plasma session, no KDE global
   shortcut service (KGlobalAccel) and no earlier Plasma Opus installation.
   Moving the shortcuts of a real installation out of its layout file, keys
@@ -1832,7 +1832,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 ## Alternate and command shortcuts on Plasma (#231)
 
 - **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
-  [#231] (Completed).
+  [#231] (Merged).
 - **Blocker:** The development container has only an offscreen platform with
   synthetic key events and no Plasma session, so KDE's shortcut editor and
   real keyboards are unverified with saved commands and with more than two
@@ -1863,7 +1863,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 ## Keyboard map on Plasma (#232)
 
 - **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
-  [#232] (Completed).
+  [#232] (Merged).
 - **Blocker:** The development container has only an offscreen platform with
   synthetic key events and no Plasma session, printer or global shortcut
   service, so recording real keys in **Find by key**, the Help menu's layout
@@ -1895,7 +1895,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 ## Navigation shortcuts on Plasma (#236)
 
 - **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
-  [#236] (Completed).
+  [#236] (Merged).
 - **Blocker:** The development container has only an offscreen platform with
   synthetic key events and no Plasma session, KWin or global shortcut
   service, so real keys, the embedded terminal's handling of the extra keys
@@ -1929,7 +1929,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 ## Keymap files on Plasma (#237)
 
 - **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
-  [#237] (Completed).
+  [#237] (Merged).
 - **Blocker:** The development container has only an offscreen platform and
   no Plasma session or file dialog portal, so the **Import…** and
   **Export…** file dialogs, the preview's layout in Plasma's style and
@@ -1965,7 +1965,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 ## Command palette on Plasma (#761)
 
 - **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
-  [#761] (Completed).
+  [#761] (Merged).
 - **Blocker:** The development container has only an offscreen platform with
   synthetic key events and no Plasma session, Breeze style or screen reader,
   so <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd> from the embedded terminal
@@ -2003,7 +2003,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 ## Vim-style navigation on Plasma (#228)
 
 - **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
-  [#228] (Completed).
+  [#228] (Merged).
 - **Blocker:** The development container has only an offscreen platform with
   synthetic key events and no Plasma session, input method or screen reader,
   so real keyboards and layouts, input methods composing text in a file view,
@@ -2042,7 +2042,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 ## Vim-style mode indicator on Plasma (#229)
 
 - **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
-  [#229] (Completed).
+  [#229] (Merged).
 - **Blocker:** The development container has only an offscreen platform with
   no Plasma session, colour scheme or screen reader, so the indicator's look
   in Plasma themes and its announcements are unverified.
@@ -2077,7 +2077,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 ## Shortcut hints on Plasma (#234)
 
 - **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
-  [#234] (Completed).
+  [#234] (Merged).
 - **Blocker:** The development container has only an offscreen platform with
   synthetic key events and no Plasma session, colour scheme, animation
   settings or screen reader, so the popup's place and look, its slide, real
@@ -2120,7 +2120,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 ## Shortcut hint settings on Plasma (#235)
 
 - **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
-  [#235] (Completed).
+  [#235] (Merged).
 - **Blocker:** The development container has only an offscreen platform with
   synthetic key events and no Plasma session, colour scheme, global menu or
   screen reader, so the **Hints** tab's look, real keyboards typing slowly
@@ -2168,7 +2168,7 @@ modify ID connection.metered yes`), check that the tab reports it and that
 ## Keyboard hints on Plasma (#762)
 
 - **Milestone and issue:** [M31](ROADMAP.md#m31-keyboard-shortcut-settings),
-  [#762] (Completed).
+  [#762] (Merged).
 - **Blocker:** The development container has only an offscreen platform with
   synthetic key events and no Plasma session, Wayland compositor, input
   method, colour scheme or screen reader, so where the labels sit over the
